@@ -30,7 +30,7 @@ def query_wdqs(query):
 
 def query_viaf(name):
     query = 'local.personalNames all "{name}" and local.sources any "jpg"'.format(name = name)
-    data = requests.get(VIAF_ENDPOINT, params={'query': query, 'httpAccept': 'application/json'}).json()
+    data = requests.get(VIAF_ENDPOINT, params={'query': query, 'httpAccept': 'application/json', 'sortKeys': 'holdingscount'}).json()
     return data['searchRetrieveResponse']['records']
 
 
@@ -167,29 +167,26 @@ def main() -> None:
     # instance of (P31)
     # VIAF ID (P214)
     # Union List of Artist Names ID (P245)
-    # ECARTICO person ID (P2915)
 
-    # humans with an ECARTICO person ID and a Union List of Artist Names ID, 
-    #  without a VIAF ID
+    # humans with a Union List of Artist Names ID - not deprecated, without a VIAF ID
     query_template = """SELECT DISTINCT ?item ?itemLabel ?Union_List_of_Artist_Names_ID WHERE {
-        SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-        {
-            SELECT DISTINCT ?item ?Union_List_of_Artist_Names_ID WHERE {
-            ?item p:P2915 ?statement0.
-            ?statement0 ps:P2915 _:anyValueP2915.
-            ?item p:P31 ?statement1.
-            ?statement1 ps:P31 wd:Q5.
-            ?item p:P245 ?statement2.
-            ?statement2 ps:P245 _:anyValueP245.
-            ?item wdt:P245 ?Union_List_of_Artist_Names_ID.
-            MINUS {
-                ?item p:P214 ?statement3.
-                ?statement3 ps:P214 _:anyValueP214.
-            }
-            }
-            LIMIT 2
-        }
-        }"""
+                            SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                            {
+                                SELECT DISTINCT ?item ?Union_List_of_Artist_Names_ID WHERE {
+                                ?item p:P245 ?statement0.
+                                ?statement0 ps:P245 _:anyValueP245;
+                                    wikibase:rank ?rank.
+                                ?item p:P31 ?statement1.
+                                ?statement1 ps:P31 wd:Q5.
+                                FILTER(?rank != wikibase:DeprecatedRank)
+                                ?item wdt:P245 ?Union_List_of_Artist_Names_ID.
+                                MINUS {
+                                    ?item p:P214 ?statement2.
+                                    ?statement2 ps:P214 _:anyValueP214.
+                                }
+                                }
+                            }
+                        }"""
 
     for row in query_wdqs(query_template):
         qid = row.get('item', {}).get('value', '').replace(WD, '')
