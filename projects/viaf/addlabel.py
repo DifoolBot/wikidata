@@ -14,7 +14,7 @@ from collections import defaultdict
 
 # * skip and save if family first
 # * alle todo weg
-# O name script check
+# * test bnf redirect; zie dubbelen
 
 
 WD = "http://www.wikidata.org/entity/"
@@ -346,6 +346,13 @@ def do_bnf():
     bot.test = True
     bot.run()
 
+def do_gnd():
+    authsrcs = authsource.AuthoritySources()
+    bot = AddLabelBot(
+        authsrcs.get(authsource.PID_GND_ID), "de"
+    )
+    bot.test = True
+    bot.run()
 
 def do_loc():
     authsrcs = authsource.AuthoritySources()
@@ -366,7 +373,7 @@ def do_single(qid: str):
 
 
 def main() -> None:
-    do_loc()
+    do_gnd()
 
 
 #     #bot.examine('Q3920227')
@@ -378,7 +385,6 @@ def main() -> None:
 # test: Q4069848; name error
 # test: Q3825797; wrong name:
 # test: Q111419974; veuve d'
-
 
 if __name__ == "__main__":
     main()

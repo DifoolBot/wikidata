@@ -54,7 +54,7 @@ class GndPage(authdata.AuthPage):
     def run(self):
         self.process(self.query())
 
-    def get_short_desc(self):
+    def get_short_desc(self) -> str:
         return "GND"
 
     def convert_date(self, s: str) -> str:
@@ -78,17 +78,16 @@ class GndPage(authdata.AuthPage):
             # only year
             year = int(parts[0])
             return str(year)
+        elif len(parts) == 3:
+            day = int(parts[0][:-1])  # Remove the trailing period
+            month = month_mapping.get(parts[1])
+            if not month:
+                raise RuntimeError("Unrecognized month in date string: " + s)
 
-        if len(parts) != 3:
+            year = parts[2]
+            return f"{year}-{month:02d}-{day:02d}"
+        else:
             raise RuntimeError("Unrecognized date string: " + s)
-
-        day = int(parts[0][:-1])  # Remove the trailing period
-        month = month_mapping.get(parts[1])
-        if not month:
-            raise RuntimeError("Unrecognized month in date string: " + s)
-
-        year = parts[2]
-        return f"{year}-{month:02d}-{day:02d}"
 
     def process(self, data):
         if data is None:

@@ -1,9 +1,6 @@
-import xml.etree.ElementTree as ET
 import requests
-import re
-import name
+import name as nm
 import authdata
-import json
 
 BNF_ENDPOINT = "https://data.bnf.fr/sparql"
 
@@ -45,17 +42,17 @@ class BnfPage(authdata.AuthPage):
         print(f"BnF: country: {self.country}")
         # see: http://id.loc.gov/vocabulary/countries/collection_PastPresentCountriesEntries
         lst = [
-            "http://id.loc.gov/vocabulary/countries/ko",  # Korea (South)
-            "http://id.loc.gov/vocabulary/countries/ja",  # Japan
-            "http://id.loc.gov/vocabulary/countries/cc",  # China
-            "http://id.loc.gov/vocabulary/countries/vm",  # Vietnam
-            "http://id.loc.gov/vocabulary/countries/kn",  # Korea (North)
+            "ko",  # Korea (South)
+            "ja",  # Japan
+            "cc",  # China
+            "vm",  # Vietnam
+            "kn",  # Korea (North)
         ]
-        if self.country.lower() in lst:
+        if self.country.lower().replace("http://id.loc.gov/vocabulary/countries/", "") in lst:
             print("Bnf: family name FIRST based on country")
-            return name.NAME_ORDER_EASTERN
-        else:
-            return ""
+            return nm.NAME_ORDER_EASTERN
+        
+        return ""
 
     def run(self):
         query_template = """
@@ -96,6 +93,7 @@ class BnfPage(authdata.AuthPage):
                 raise RuntimeError("not a person")
             self.gender = row.get("gender", {}).get("value", "")
             self.birth_date = row.get("birth", {}).get("value", "")
+            # skip dates like 19..
             if "." in self.birth_date:
                 self.birth_date = ""
             self.death_date = row.get("death", {}).get("value", "")
@@ -103,7 +101,7 @@ class BnfPage(authdata.AuthPage):
                 self.death_date = ""
             self.country = row.get("country", {}).get("value", "")
 
-            self.name = name.Name(
+            self.name = nm.Name(
                 name_en=pref_label, given_name_en=given_name, family_name_en=family_name
             )
             self.name.name_order = self.name_order()

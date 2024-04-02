@@ -164,4 +164,5 @@ throttle.ctrl
 user-config.py
 user-password.py
 apicache-py3/
-duplicates.json
+*.json
+wiki.txt

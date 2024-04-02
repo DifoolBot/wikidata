@@ -37,7 +37,6 @@ class IdrefPage(authdata.AuthPage):
           given_name_en: {self.name.given_name_en} 
           family_name_en: {self.name.family_name_en}
           """
-        )
 
     def query(self):
         url = "https://www.idref.fr/{id}.rdf".format(id=self.id)
