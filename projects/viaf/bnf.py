@@ -5,20 +5,20 @@ import name
 import authdata
 import json
 
-BNF_ENDPOINT = 'https://data.bnf.fr/sparql'
+BNF_ENDPOINT = "https://data.bnf.fr/sparql"
 
-PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID = 'P268'
+PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID = "P268"
 # see applicable 'stated in' value
-QID_BNF_AUTHORITIES = 'Q19938912'
+QID_BNF_AUTHORITIES = "Q19938912"
 
 
 class BnfPage(authdata.AuthPage):
     def __init__(self, bnf_id: str):
-        super().__init__(bnf_id, 'fr')
-        self.country = ''
+        super().__init__(bnf_id, "fr")
+        self.country = ""
 
     def get_short_desc(self):
-        return 'BnF'
+        return "BnF"
 
     def __str__(self):
         return f"""
@@ -32,31 +32,30 @@ class BnfPage(authdata.AuthPage):
           country: {self.country}
           """
 
-    def query_wdqs(self, query: str,  retry_counter: int = 3):
-        response = requests.get(
-            BNF_ENDPOINT, params={"query": query, "format": "json"}
-        )
+    def query_wdqs(self, query: str, retry_counter: int = 3):
+        response = requests.get(BNF_ENDPOINT, params={"query": query, "format": "json"})
         payload = response.json()
 
         return payload["results"]["bindings"]
 
     def name_order(self):
         if not self.country:
-            return ''
+            return ""
 
+        print(f"BnF: country: {self.country}")
+        # see: http://id.loc.gov/vocabulary/countries/collection_PastPresentCountriesEntries
         lst = [
-            'kr',  # Zuid-Korea
-            'jp',  # Japan
-            'cn',  # China
-            'vn',  # Vietnam
-            'mo',  # Macau
-            'kp'   # Korea
+            "http://id.loc.gov/vocabulary/countries/ko",  # Korea (South)
+            "http://id.loc.gov/vocabulary/countries/ja",  # Japan
+            "http://id.loc.gov/vocabulary/countries/cc",  # China
+            "http://id.loc.gov/vocabulary/countries/vm",  # Vietnam
+            "http://id.loc.gov/vocabulary/countries/kn",  # Korea (North)
         ]
         if self.country.lower() in lst:
-            print('Bnf: family name FIRST based on country')
+            print("Bnf: family name FIRST based on country")
             return name.NAME_ORDER_EASTERN
         else:
-            return ''
+            return ""
 
     def run(self):
         query_template = """
@@ -78,8 +77,7 @@ class BnfPage(authdata.AuthPage):
                             OPTIONAL {{ ?focus foaf:familyName ?familyName }} .
                             OPTIONAL {{ ?focus foaf:givenName ?givenName }} .
                         }}"""
-        qry = query_template.format(
-            bnf_id=self.id)
+        qry = query_template.format(bnf_id=self.id)
         r = self.query_wdqs(qry)
         if r is None:
             return
@@ -88,36 +86,33 @@ class BnfPage(authdata.AuthPage):
             return
         for row in r:
             # {'type': 'uri', 'value': 'http://data.bnf.fr/16765535/ferenc_sajdik/'}
-            page = row.get('page', {}).get('value', '')
-            id = page.replace('http://data.bnf.fr/', '').split('/', 1)[0]
-            pref_label = row.get('label', {}).get('value', '')
-            family_name = row.get('familyName', {}).get('value', '')
-            given_name = row.get('givenName', {}).get('value', '')
-            type = row.get('type', {}).get('value', '')
-            if type != 'http://xmlns.com/foaf/0.1/Person':
-                raise RuntimeError('not a person')
-            self.gender = row.get('gender', {}).get('value', '')
-            self.birth_date = row.get('birth', {}).get('value', '')
-            if '.' in self.birth_date:
-                self.birth_date = ''
-            self.death_date = row.get('death', {}).get('value', '')
-            if '.' in self.death_date:
-                self.death_date = ''
-            # {'type': 'uri', 'value': 'http://id.loc.gov/vocabulary/countries/hu'}
-            self.country = row.get('country', {}).get('value', '').replace(
-                'http://id.loc.gov/vocabulary/countries/', '')
+            page = row.get("page", {}).get("value", "")
+            id = page.replace("http://data.bnf.fr/", "").split("/", 1)[0]
+            pref_label = row.get("label", {}).get("value", "")
+            family_name = row.get("familyName", {}).get("value", "")
+            given_name = row.get("givenName", {}).get("value", "")
+            type = row.get("type", {}).get("value", "")
+            if type != "http://xmlns.com/foaf/0.1/Person":
+                raise RuntimeError("not a person")
+            self.gender = row.get("gender", {}).get("value", "")
+            self.birth_date = row.get("birth", {}).get("value", "")
+            if "." in self.birth_date:
+                self.birth_date = ""
+            self.death_date = row.get("death", {}).get("value", "")
+            if "." in self.death_date:
+                self.death_date = ""
+            self.country = row.get("country", {}).get("value", "")
 
             self.name = name.Name(
-                name_en=pref_label, given_name_en=given_name, family_name_en=family_name)
+                name_en=pref_label, given_name_en=given_name, family_name_en=family_name
+            )
             self.name.name_order = self.name_order()
 
     def get_ref(self):
-        # Bnf (Q47757534)
-        # Bnf ID (P269)
         res = {
-            'id_pid': PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
-            'stated in': QID_BNF_AUTHORITIES,
-            'id': self.id
+            "id_pid": PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+            "stated in": QID_BNF_AUTHORITIES,
+            "id": self.id,
         }
 
         return res
@@ -129,7 +124,7 @@ def main() -> None:
     # empty result: 167675653
     # cb15142263s
 
-    p = BnfPage('15142263s')
+    p = BnfPage("15142263s")
     p.run()
     print(p)
 

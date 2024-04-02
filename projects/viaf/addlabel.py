@@ -10,10 +10,11 @@ import gnd
 import idref
 import bnf
 import name as nm
+from collections import defaultdict
 
 # * skip and save if family first
 # * alle todo weg
-# * name script check
+# O name script check
 
 
 WD = "http://www.wikidata.org/entity/"
@@ -28,10 +29,10 @@ REPO = SITE.data_repository()
 PID_STATED_IN = "P248"
 PID_RETRIEVED = "P813"
 PID_SEX_OR_GENDER = "P21"
-PID_DATE_OF_BIRTH = 'P569'
-PID_DATE_OF_DEATH = 'P570'
-PID_BASED_ON_HEURISTIC = 'P887'
-PID_IMPORTED_FROM_WIKIMEDIA_PROJECT = 'P143'
+PID_DATE_OF_BIRTH = "P569"
+PID_DATE_OF_DEATH = "P570"
+PID_BASED_ON_HEURISTIC = "P887"
+PID_IMPORTED_FROM_WIKIMEDIA_PROJECT = "P143"
 
 
 class AddLabelBot:
@@ -64,9 +65,9 @@ class AddLabelBot:
         return False
 
     def create_ref(self, info):
-        s_stated_in_qid = info['stated in']
-        s_id_pid = info['id_pid']
-        s_id = info['id']
+        s_stated_in_qid = info["stated in"]
+        s_id_pid = info["id_pid"]
+        s_id = info["id"]
 
         today = datetime.now(timezone.utc)
         stated_in = pwb.Claim(REPO, PID_STATED_IN)
@@ -118,7 +119,7 @@ class AddLabelBot:
             authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID: loc.LocPage,
             authsource.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID: bnf.BnfPage,
             authsource.PID_IDREF_ID: idref.IdrefPage,
-            authsource.PID_GND_ID: gnd.GndPage
+            authsource.PID_GND_ID: gnd.GndPage,
         }
 
         # Iterate through each authority ID
@@ -131,31 +132,31 @@ class AddLabelBot:
 
         collector.retrieve()
         if collector.has_redirect():
-            print('has redirect')
+            print("has redirect")
             collector.resolve_redirect()
             return
 
         if collector.has_duplicates():
-            print('has duplicate')
+            print("has duplicate")
             return
 
         test = self.test
         if collector.name_order == nm.NAME_ORDER_EASTERN:
-            print('skipping because name order is eastern')
+            print("skipping because name order is eastern")
             test = True
 
         # sex
         if not self.has_strong_source(existing_claims, PID_SEX_OR_GENDER):
             sex = collector.get_sex_info()
             if sex is not None:
-                print(f'sex qid: {sex}')
+                print(f"sex qid: {sex}")
 
                 if not test:
                     claim = None
                     skip = False
                     if PID_SEX_OR_GENDER in existing_claims:
                         for c in existing_claims[PID_SEX_OR_GENDER]:
-                            if c.getTarget().getID() == sex['qid']:
+                            if c.getTarget().getID() == sex["qid"]:
                                 if c.getRank() == "deprecated":
                                     skip = True
                                     break
@@ -165,7 +166,7 @@ class AddLabelBot:
                     if not skip:
                         if claim is None:
                             claim = pwb.Claim(REPO, PID_SEX_OR_GENDER)
-                            target = pwb.ItemPage(REPO, sex['qid'])
+                            target = pwb.ItemPage(REPO, sex["qid"])
                             claim.setTarget(target)
                             item.addClaim(claim)
 
@@ -173,12 +174,12 @@ class AddLabelBot:
 
         # birth_date
         if not self.has_strong_source(existing_claims, PID_DATE_OF_BIRTH):
-            birth_date = collector.get_date_info('birth')
+            birth_date = collector.get_date_info("birth")
             if birth_date is not None:
-                print(f'birth_date: {birth_date}')
+                print(f"birth date: {birth_date}")
 
                 if not test:
-                    date = birth_date['date']
+                    date = birth_date["date"]
                     claim = None
                     skip = False
                     if PID_DATE_OF_BIRTH in existing_claims:
@@ -200,12 +201,12 @@ class AddLabelBot:
 
         # death_date
         if not self.has_strong_source(existing_claims, PID_DATE_OF_DEATH):
-            death_date = collector.get_date_info('death')
+            death_date = collector.get_date_info("death")
             if death_date is not None:
-                print(f'death_date: {death_date}')
+                print(f"death date: {death_date}")
 
                 if not test:
-                    date = death_date['date']
+                    date = death_date["date"]
                     claim = None
                     skip = False
                     if PID_DATE_OF_DEATH in existing_claims:
@@ -228,24 +229,22 @@ class AddLabelBot:
         # names
         labels = {}
         aliases = {}
+        aliases = defaultdict(list)
         pages = []
 
-        for language in ['en', 'fr', 'de']:
+        for language in ["en", "fr", "de"]:
             if language not in item.labels:
                 names = collector.get_names(language)
                 if names:
                     is_first = True
                     for name_obj in names:
-                        name = name_obj['name']
-                        p = name_obj['pages']
-                        print(
-                            f'{language} name: {name} from {self.get_short_desc(p)}')
+                        name = name_obj["name"]
+                        p = name_obj["pages"]
+                        print(f"{language} name: {name} from {self.get_short_desc(p)}")
                         pages = pages + p
                         if is_first:
                             labels[language] = name
                         else:
-                            if language not in aliases:
-                                aliases[language] = []
                             aliases[language].append(name)
 
                         is_first = False
@@ -253,22 +252,21 @@ class AddLabelBot:
         if not test:
             data = {}
             if labels != {}:
-                data['labels'] = labels
+                data["labels"] = labels
             if aliases != {}:
-                data['aliases'] = aliases
+                data["aliases"] = aliases
             if data != {}:
-                item.editEntity(
-                    data, summary=f'from {self.get_short_desc(pages)}')
+                item.editEntity(data, summary=f"from {self.get_short_desc(pages)}")
 
     def iterate(self):
-        index = 100000
+        index = 250000
         while True:
-            print('Index = {index}'.format(index=index))
+            print("Index = {index}".format(index=index))
             if not self.iterate_index(index):
                 return
             index = index + 100000
 
-    def query_wdqs(self, query: str,  retry_counter: int = 3):
+    def query_wdqs(self, query: str, retry_counter: int = 3):
         response = requests.get(
             WDQS_ENDPOINT, params={"query": query, "format": "json"}
         )
@@ -276,17 +274,25 @@ class AddLabelBot:
             payload = response.json()
         except json.JSONDecodeError as e:
             # nothing more left to slice on WDQS
-            if response.elapsed.total_seconds() < 3 and 'RuntimeException: offset is out of range' in response.text:
+            if (
+                response.elapsed.total_seconds() < 3
+                and "RuntimeException: offset is out of range" in response.text
+            ):
                 return None
 
             # likely timed out, try again up to three times
             retry_counter -= 1
-            if retry_counter > 0 and response.elapsed.total_seconds() > 55 and 'java.util.concurrent.TimeoutException' in response.text:
+            if (
+                retry_counter > 0
+                and response.elapsed.total_seconds() > 55
+                and "java.util.concurrent.TimeoutException" in response.text
+            ):
                 time.sleep(WDQS_SLEEP_AFTER_TIMEOUT)
                 return self.query_wdqs(query, retry_counter)
 
             raise RuntimeError(
-                f'Cannot parse WDQS response as JSON; http status {response.status_code}; query time {response.elapsed.total_seconds():.2f} sec') from e
+                f"Cannot parse WDQS response as JSON; http status {response.status_code}; query time {response.elapsed.total_seconds():.2f} sec"
+            ) from e
 
         return payload["results"]["bindings"]
 
@@ -309,10 +315,11 @@ class AddLabelBot:
                         ?item rdfs:label ?itemLabel.
                         FILTER((LANG(?itemLabel)) = "{language}")
                     }})
-                    }}"""
+                    }} LIMIT 10"""
 
         qry = query_template.format(
-            pid=self.auth_src.pid, index=index, language=self.language)
+            pid=self.auth_src.pid, index=index, language=self.language
+        )
         r = self.query_wdqs(qry)
         if r is None:
             return False
@@ -331,25 +338,46 @@ class AddLabelBot:
         return True
 
 
-def main() -> None:
-
+def do_bnf():
     authsrcs = authsource.AuthoritySources()
-    bot = AddLabelBot(authsrcs.get(
-        authsource.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID), 'fr')
-    bot.test = False
+    bot = AddLabelBot(
+        authsrcs.get(authsource.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID), "fr"
+    )
+    bot.test = True
     bot.run()
 
-# def main() -> None:
 
-#     authsrcs = authsource.AuthoritySources()
-#     bot = AddLabelBot(authsrcs.get(
-#         authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID), 'en')
-#     bot.test = True
+def do_loc():
+    authsrcs = authsource.AuthoritySources()
+    bot = AddLabelBot(
+        authsrcs.get(authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID), "en"
+    )
+    bot.test = True
+    bot.run()
+
+
+def do_single(qid: str):
+    authsrcs = authsource.AuthoritySources()
+    bot = AddLabelBot(
+        authsrcs.get(authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID), "en"
+    )
+    bot.test = True
+    bot.examine(qid)
+
+
+def main() -> None:
+    do_loc()
+
+
 #     #bot.examine('Q3920227')
 #     #bot.examine('Q112080201')
 #     bot.examine('Q115781041')
+# do_single('Q4069848')
 
 # test: Q4093861; idref
+# test: Q4069848; name error
+# test: Q3825797; wrong name:
+# test: Q111419974; veuve d'
 
 
 if __name__ == "__main__":
