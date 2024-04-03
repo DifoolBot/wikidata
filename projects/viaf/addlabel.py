@@ -10,12 +10,10 @@ import gnd
 import idref
 import bnf
 import name as nm
-from collections import defaultdict
 
-# * skip and save if family first
-# * alle todo weg
-# * test bnf redirect; zie dubbelen
-
+# * resolve redirect
+# * sources bij gnd/bnf
+# * comments hieronderaan
 
 WD = "http://www.wikidata.org/entity/"
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
@@ -52,11 +50,11 @@ class AddLabelBot:
 
         return False
 
-    def has_strong_source(self, existing_claims, pid: str):
-        if pid not in existing_claims:
+    def has_strong_source(self, claims, pid: str):
+        if pid not in claims:
             return False
 
-        for claim in existing_claims[pid]:
+        for claim in claims[pid]:
             srcs = claim.getSources()
             for src in srcs:
                 if not self.is_weak_source(src):
@@ -93,6 +91,48 @@ class AddLabelBot:
             if short_desc not in descs:
                 descs.append(short_desc)
         return ", ".join(descs)
+
+    def add_date_claim(self, claims, item, pid, date_info):
+        if self.has_strong_source(claims, pid):
+            return
+
+        date = date_info["date"]
+        claim = None
+        if pid in claims:
+            for c in claims[pid]:
+                if c.getTarget().normalize() == date.normalize():
+                    if c.getRank() == "deprecated":
+                        return
+                    claim = c
+                    break
+
+        if claim is None:
+            claim = pwb.Claim(REPO, pid)
+            claim.setTarget(date)
+            item.addClaim(claim)
+
+        claim.addSources(self.create_ref(date_info))
+
+    def add_qid_claim(self, claims, item, pid, qid_info):
+        if self.has_strong_source(claims, pid):
+            return
+
+        claim = None
+        if pid in claims:
+            for c in claims[pid]:
+                if c.getTarget().getID() == qid_info["qid"]:
+                    if c.getRank() == "deprecated":
+                        return
+                    claim = c
+                    break
+
+        if claim is None:
+            claim = pwb.Claim(REPO, pid)
+            target = pwb.ItemPage(REPO, qid_info["qid"])
+            claim.setTarget(target)
+            item.addClaim(claim)
+
+        claim.addSources(self.create_ref(qid_info))
 
     def examine(self, qid: str):
         if not qid.startswith("Q"):  # ignore property pages and lexeme pages
@@ -146,90 +186,37 @@ class AddLabelBot:
             test = True
 
         # sex
-        if not self.has_strong_source(existing_claims, PID_SEX_OR_GENDER):
-            sex = collector.get_sex_info()
-            if sex is not None:
-                print(f"sex qid: {sex}")
+        sex_info = collector.get_sex_info()
+        if sex_info:
+            print(f"sex: {sex_info}")
 
-                if not test:
-                    claim = None
-                    skip = False
-                    if PID_SEX_OR_GENDER in existing_claims:
-                        for c in existing_claims[PID_SEX_OR_GENDER]:
-                            if c.getTarget().getID() == sex["qid"]:
-                                if c.getRank() == "deprecated":
-                                    skip = True
-                                    break
-                                claim = c
-                                break
+            if not test:
+                self.add_qid_claim(existing_claims, item, PID_SEX_OR_GENDER, sex_info)
 
-                    if not skip:
-                        if claim is None:
-                            claim = pwb.Claim(REPO, PID_SEX_OR_GENDER)
-                            target = pwb.ItemPage(REPO, sex["qid"])
-                            claim.setTarget(target)
-                            item.addClaim(claim)
+        # birth date
+        birth_info = collector.get_date_info("birth")
+        if birth_info:
+            print(f"birth date: {birth_info}")
 
-                        claim.addSources(self.create_ref(sex))
+            if not test:
+                self.add_date_claim(
+                    existing_claims, item, PID_DATE_OF_BIRTH, birth_info
+                )
 
-        # birth_date
-        if not self.has_strong_source(existing_claims, PID_DATE_OF_BIRTH):
-            birth_date = collector.get_date_info("birth")
-            if birth_date is not None:
-                print(f"birth date: {birth_date}")
+        # death date
+        death_info = collector.get_date_info("death")
+        if death_info:
+            print(f"death date: {death_info}")
 
-                if not test:
-                    date = birth_date["date"]
-                    claim = None
-                    skip = False
-                    if PID_DATE_OF_BIRTH in existing_claims:
-                        for c in existing_claims[PID_DATE_OF_BIRTH]:
-                            if c.getTarget().normalize() == date.normalize():
-                                if c.getRank() == "deprecated":
-                                    skip = True
-                                    break
-                                claim = c
-                                break
-
-                    if not skip:
-                        if claim is None:
-                            claim = pwb.Claim(REPO, PID_DATE_OF_BIRTH)
-                            claim.setTarget(date)
-                            item.addClaim(claim)
-
-                        claim.addSources(self.create_ref(birth_date))
-
-        # death_date
-        if not self.has_strong_source(existing_claims, PID_DATE_OF_DEATH):
-            death_date = collector.get_date_info("death")
-            if death_date is not None:
-                print(f"death date: {death_date}")
-
-                if not test:
-                    date = death_date["date"]
-                    claim = None
-                    skip = False
-                    if PID_DATE_OF_DEATH in existing_claims:
-                        for c in existing_claims[PID_DATE_OF_DEATH]:
-                            if c.getTarget().normalize() == date.normalize():
-                                if c.getRank() == "deprecated":
-                                    skip = True
-                                    break
-                                claim = c
-                                break
-
-                    if not skip:
-                        if claim is None:
-                            claim = pwb.Claim(REPO, PID_DATE_OF_DEATH)
-                            claim.setTarget(date)
-                            item.addClaim(claim)
-
-                        claim.addSources(self.create_ref(death_date))
+            if not test:
+                self.add_date_claim(
+                    existing_claims, item, PID_DATE_OF_DEATH, death_info
+                )
 
         # names
         labels = {}
         aliases = {}
-        aliases = defaultdict(list)
+        aliases = {}
         pages = []
 
         for language in ["en", "fr", "de"]:
@@ -245,7 +232,7 @@ class AddLabelBot:
                         if is_first:
                             labels[language] = name
                         else:
-                            aliases[language].append(name)
+                            aliases.setdefault(language, []).append(name)
 
                         is_first = False
 
@@ -261,7 +248,7 @@ class AddLabelBot:
     def iterate(self):
         index = 250000
         while True:
-            print("Index = {index}".format(index=index))
+            print(f"Index = {index}")
             if not self.iterate_index(index):
                 return
             index = index + 100000
@@ -346,13 +333,13 @@ def do_bnf():
     bot.test = True
     bot.run()
 
+
 def do_gnd():
     authsrcs = authsource.AuthoritySources()
-    bot = AddLabelBot(
-        authsrcs.get(authsource.PID_GND_ID), "de"
-    )
+    bot = AddLabelBot(authsrcs.get(authsource.PID_GND_ID), "de")
     bot.test = True
     bot.run()
+
 
 def do_loc():
     authsrcs = authsource.AuthoritySources()
@@ -373,7 +360,8 @@ def do_single(qid: str):
 
 
 def main() -> None:
-    do_gnd()
+    # do_loc()
+    do_single("Q96187668")
 
 
 #     #bot.examine('Q3920227')
@@ -385,6 +373,7 @@ def main() -> None:
 # test: Q4069848; name error
 # test: Q3825797; wrong name:
 # test: Q111419974; veuve d'
+# test: Q96187668; de/en geeen contains characters info
 
 if __name__ == "__main__":
     main()

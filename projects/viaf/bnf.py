@@ -18,16 +18,21 @@ class BnfPage(authdata.AuthPage):
         return "BnF"
 
     def __str__(self):
-        return f"""
-          bnf: {self.id}
-          not found: {self.not_found}
-          redirect: {self.is_redirect}
-          gender: {self.gender}
-          name: {self.name.names_en()}
-          birth_date: {self.birth_date}
-          death_date: {self.death_date}
-          country: {self.country}
-          """
+        output = f"""
+                init_id: {self.init_id}
+                bnf_id: {self.id}
+                not found: {self.not_found}
+                redirect: {self.is_redirect}"""
+        if self.name is not None:
+            output += f"""
+                gender: {self.sex}
+                name: {self.name.names_en()}
+                country: {self.country}
+                given_name_en: {self.name.given_name_en} 
+                family_name_en: {self.name.family_name_en}
+                birth_date: {self.birth_date}
+                death_date: {self.death_date}"""
+        return output
 
     def query_wdqs(self, query: str, retry_counter: int = 3):
         response = requests.get(BNF_ENDPOINT, params={"query": query, "format": "json"})
@@ -35,9 +40,9 @@ class BnfPage(authdata.AuthPage):
 
         return payload["results"]["bindings"]
 
-    def name_order(self):
+    def get_name_order(self):
         if not self.country:
-            return ""
+            return nm.NAME_ORDER_UNDETERMINED
 
         print(f"BnF: country: {self.country}")
         # see: http://id.loc.gov/vocabulary/countries/collection_PastPresentCountriesEntries
@@ -48,13 +53,22 @@ class BnfPage(authdata.AuthPage):
             "vm",  # Vietnam
             "kn",  # Korea (North)
         ]
-        if self.country.lower().replace("http://id.loc.gov/vocabulary/countries/", "") in lst:
+        if (
+            self.country.lower().replace("http://id.loc.gov/vocabulary/countries/", "")
+            in lst
+        ):
             print("Bnf: family name FIRST based on country")
             return nm.NAME_ORDER_EASTERN
-        
-        return ""
+
+        return nm.NAME_ORDER_UNDETERMINED
 
     def run(self):
+        # SELECT ?value WHERE {
+        #   { SELECT ?value WHERE { <http://data.bnf.fr/ark:/12148/cb15142263s#about> <http://www.w3.org/2002/07/owl#sameAs> ?value } }
+        #   UNION
+        #   { SELECT ?value WHERE { <http://data.bnf.fr/ark:/12148/cb15142263s> <http://isni.org/ontology#identifierValid> ?isni .
+        #                          BIND (CONCAT("http://isni.org/isni/", ?isni) AS ?value) } }
+        # }
         query_template = """
             PREFIX foaf: <http://xmlns.com/foaf/0.1/>
             PREFIX bio: <http://vocab.org/bio/0.1/>
@@ -104,7 +118,7 @@ class BnfPage(authdata.AuthPage):
             self.name = nm.Name(
                 name_en=pref_label, given_name_en=given_name, family_name_en=family_name
             )
-            self.name.name_order = self.name_order()
+            self.set_name_order(self.get_name_order())
 
     def get_ref(self):
         res = {
@@ -117,12 +131,11 @@ class BnfPage(authdata.AuthPage):
 
 
 def main() -> None:
-    # 16765535p
-    # 10211222t
-    # empty result: 167675653
-    # cb15142263s
+    # not found: 167675653
+    # birth date: 10211222t
+    # redirect: 12377888j
 
-    p = BnfPage("15142263s")
+    p = BnfPage("16765535p")
     p.run()
     print(p)
 

@@ -1,7 +1,7 @@
 import xml.etree.ElementTree as ET
 import requests
 import re
-import name
+import name as nm
 import authdata
 
 PID_IDREF_ID = "P269"
@@ -25,21 +25,26 @@ class IdrefPage(authdata.AuthPage):
         self.bnf = ""
 
     def __str__(self):
-        return f"""
-          idref: {self.id}
-          not found: {self.not_found}
-          redirect: {self.is_redirect}
-          gender: {self.sex}
-          name: {self.name.name_en()}
-          citizenship: {self.citizenship}
-          given_name: {self.name.given_name} 
-          family_name: {self.name.family_name}
-          given_name_en: {self.name.given_name_en} 
-          family_name_en: {self.name.family_name_en}
-          """
+        output = f"""
+                init_id: {self.init_id}
+                IdRef: {self.id}
+                not found: {self.not_found}
+                redirect: {self.is_redirect}"""
+        if self.name is not None:
+            output += f"""
+                gender: {self.sex}
+                name: {self.name.names_en()}
+                citizenship: {self.citizenship}
+                given_name_en: {self.name.given_name_en} 
+                family_name_en: {self.name.family_name_en}
+                given_name: {self.name.given_name} 
+                family_name: {self.name.family_name}
+                birth_date: {self.birth_date}
+                death_date: {self.death_date}"""
+        return output
 
     def query(self):
-        url = "https://www.idref.fr/{id}.rdf".format(id=self.id)
+        url = f"https://www.idref.fr/{self.id}.rdf"
         response = requests.get(url, timeout=20)
         if response.status_code == 404:
             self.not_found = True
@@ -47,11 +52,11 @@ class IdrefPage(authdata.AuthPage):
 
         return ET.fromstring(response.text)
 
-    def name_order(self):
+    def get_name_order(self):
         if not self.citizenship:
-            return ""
+            return nm.NAME_ORDER_UNDETERMINED
 
-        print(f"Idref: citizenship: {self.citizenship}")
+        print(f"IdRef: citizenship: {self.citizenship}")
         lst = [
             "1835841",  # Korea (South)
             "1861060",  # Japan
@@ -62,10 +67,10 @@ class IdrefPage(authdata.AuthPage):
         ]
         id = self.citizenship.replace("http://sws.geonames.org", "").replace("/", "")
         if id in lst:
-            print("Idref: family name FIRST based on citizenship")
-            return name.NAME_ORDER_EASTERN
+            print("IdRef: family name FIRST based on citizenship")
+            return nm.NAME_ORDER_EASTERN
         else:
-            return ""
+            return nm.NAME_ORDER_UNDETERMINED
 
     def get_short_desc(self):
         return "IdRef"
@@ -107,7 +112,7 @@ class IdrefPage(authdata.AuthPage):
             else:
                 pref_label = ""
 
-            self.name = name.Name(
+            self.name = nm.Name(
                 name_en=pref_label, given_name=given_name, family_name=family_name
             )
 
@@ -117,7 +122,7 @@ class IdrefPage(authdata.AuthPage):
                     "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
                 ]
 
-            self.name.name_order = self.name_order()
+            self.set_name_order(self.get_name_order())
 
             element = person.find("bnf:FRBNF", ns)
             if element is not None:
@@ -135,28 +140,21 @@ class IdrefPage(authdata.AuthPage):
                             self.death_date = e.text
 
     def get_ref(self):
-        # IdRef (Q47757534)
-        # IdRef ID (P269)
         res = {"id_pid": PID_IDREF_ID, "stated in": QID_IDREF, "id": self.id}
 
         return res
 
 
 def main() -> None:
-    # geen comma: 031955207
-    # p = IdrefPage('034466835')
-    # china
-    # p = IdrefPage('255065140')
-    # p = IdrefPage('24928071X')
-    # redirect
-    # p = IdrefPage('086119427')
-    # p = IdrefPage('07739481X')
-    # not found
-    # p = IdrefPage('07878249X')
-
+    # no comma: 031955207
+    # china: 255065140, 24928071X
+    # russian: 034466835 
     # wrong name: 179363697
+    # redirect: 086119427, 07739481X
+    # not found: 07878249X
+    # gender: 086119427
 
-    p = IdrefPage("179363697")
+    p = IdrefPage("086119427")
     p.run()
     print(p)
 

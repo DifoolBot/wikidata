@@ -1,4 +1,4 @@
-import name
+import name as nm
 import pywikibot as pwb
 from GlotScript import sp
 
@@ -42,12 +42,18 @@ class AuthPage:
         self.birth_date = ""
         self.death_date = ""
         self.sex = ""
+        self.name_order = nm.NAME_ORDER_UNDETERMINED
+
+    def set_name_order(self, value: str):
+        self.name_order = value
+        if self.name is not None:
+            self.name.name_order = value
 
 
 class Collector:
     def __init__(self):
         self.pages = []
-        self.name_order = ""
+        self.name_order = nm.NAME_ORDER_UNDETERMINED
 
     def retrieve(self) -> None:
         for page in self.pages:
@@ -56,24 +62,23 @@ class Collector:
         eastern_count = 0
         western_count = 0
         for page in self.pages:
-            name_order = page.name_order()
-            if name_order == name.NAME_ORDER_WESTERN:
+            name_order = page.name_order
+            if name_order == nm.NAME_ORDER_WESTERN:
                 western_count += 1
-            elif name_order == name.NAME_ORDER_EASTERN:
+            elif name_order == nm.NAME_ORDER_EASTERN:
                 eastern_count += 1
 
         if eastern_count > 0 and western_count > 0:
             raise ValueError("conflicting name order")
 
         if eastern_count > 0:
-            self.name_order = name.NAME_ORDER_EASTERN
+            self.name_order = nm.NAME_ORDER_EASTERN
         else:
             # default to western order
-            self.name_order = name.NAME_ORDER_WESTERN
+            self.name_order = nm.NAME_ORDER_WESTERN
 
         for page in self.pages:
-            if page.name is not None:
-                page.name.name_order = self.name_order
+            page.set_name_order(self.name_order)
 
     def add(self, page: AuthPage):
         self.pages.append(page)
@@ -127,11 +132,10 @@ class Collector:
         for page in self.pages:
             sex = page.sex
             if len(sex) > 0:
-                if sex not in sex_dict:
-                    sex_dict[sex] = []
-                sex_dict[sex].append(page)
+                sex_dict.setdefault(sex, []).append(page)
         # only return a result if there is only one distinct sex string
         if len(sex_dict) != 1:
+            print(f"Multiple sex strings: {sex_dict}")
             return None
         sex = next(iter(sex_dict))
         if sex == "male":
@@ -216,26 +220,26 @@ class Collector:
                 date_dict.setdefault(date_str, []).append(page)
 
         date_str = self.get_most_prec_date(date_dict)
-        if date_str is not None:
-            res = date_dict[date_str][0].get_ref()
-            y, m, d = self.split_date(date_str)
-            if m == 0:
-                precision = "year"
-            elif d == 0:
-                precision = "month"
-            else:
-                precision = "day"
-            if y < 1582:
-                # julian
-                calendarmodel = "http://www.wikidata.org/entity/Q1985786"
-            else:
-                # Gregorian
-                calendarmodel = "http://www.wikidata.org/entity/Q1985727"
-
-            date = pwb.WbTime(
-                year=y, month=m, day=d, precision=precision, calendarmodel=calendarmodel
-            )
-            res.update({"date": date})
-            return res
-        else:
+        if date_str is None:
             return None
+
+        res = date_dict[date_str][0].get_ref()
+        y, m, d = self.split_date(date_str)
+        if m == 0:
+            precision = "year"
+        elif d == 0:
+            precision = "month"
+        else:
+            precision = "day"
+        if y < 1582:
+            # Julian
+            calendarmodel = "http://www.wikidata.org/entity/Q1985786"
+        else:
+            # Gregorian
+            calendarmodel = "http://www.wikidata.org/entity/Q1985727"
+
+        date = pwb.WbTime(
+            year=y, month=m, day=d, precision=precision, calendarmodel=calendarmodel
+        )
+        res.update({"date": date})
+        return res

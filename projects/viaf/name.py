@@ -7,6 +7,7 @@ def has_numbers(input_string):
 
 NAME_ORDER_WESTERN = "family name last"
 NAME_ORDER_EASTERN = "family name first"
+NAME_ORDER_UNDETERMINED = ""
 
 
 class Name:
@@ -46,7 +47,7 @@ class Name:
                 # 'Ōishi, Yutaka, 1956-'
                 arr = name_en.split(",", 3)
                 if len(arr) == 3:
-                    print("{name} - {date_part}".format(name=name_en, date_part=arr[2]))
+                    print(f"{name_en} - {arr[2]}")
                 self.family_name_en = arr[0].strip()
                 if parentheses_text:
                     self.given_name_en = parentheses_text
@@ -59,7 +60,7 @@ class Name:
 
         self.given_name = given_name
         self.family_name = family_name
-        self.name_order = ""
+        self.name_order = NAME_ORDER_UNDETERMINED
 
     def names_en(self):
         if self.family_name_en == "":
