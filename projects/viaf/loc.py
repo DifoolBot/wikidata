@@ -20,7 +20,12 @@ MADS_USEINSTEAD = "http://www.loc.gov/mads/rdf/v1#useInstead"
 
 class LocPage(authdata.AuthPage):
     def __init__(self, loc_id: str):
-        super().__init__(loc_id, "en")
+        super().__init__(
+            pid=PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID,
+            stated_in=QID_LIBRARY_OF_CONGRESS_AUTHORITIES,
+            id=loc_id,
+            page_language="en",
+        )
         self.languages = []
         self.sources = []
 
@@ -30,7 +35,7 @@ class LocPage(authdata.AuthPage):
                 loc_id: {self.id}
                 not found: {self.not_found}
                 redirect: {self.is_redirect}"""
-        if self.name is not None:
+        if self.name:
             output += f"""
                 name: {self.name.names_en()}
                 languages: {self.languages}
@@ -89,7 +94,7 @@ class LocPage(authdata.AuthPage):
         return data
 
     def process(self, data):
-        if data is None:
+        if not data:
             return
 
         # construct the name_parts array using MADS_ELEMENTLIST
@@ -136,7 +141,7 @@ class LocPage(authdata.AuthPage):
                                     raise ValueError(f"{part} not in {pref_label}")
                                 pref_label = pref_label.replace(part, "", 1)
                         pref_label = pref_label.strip(" ,")
-                    if self.name is None:
+                    if not self.name:
                         self.name = nm.Name(name_en=pref_label)
                 if MADS_USEINSTEAD in p:
                     use_instead = p[MADS_USEINSTEAD][0]["@id"]
@@ -165,15 +170,6 @@ class LocPage(authdata.AuthPage):
 
         self.set_name_order(self.get_name_order())
 
-    def get_ref(self):
-        res = {
-            "id_pid": PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID,
-            "stated in": QID_LIBRARY_OF_CONGRESS_AUTHORITIES,
-            "id": self.id,
-        }
-
-        return res
-
 
 def main() -> None:
     # birth_date: n98025505
@@ -185,7 +181,7 @@ def main() -> None:
     # 404: no00079374
     # deprecated: no2006103855
 
-    p = LocPage("no2016151337")
+    p = LocPage("no2006103855")
     p.run()
     print(p)
 

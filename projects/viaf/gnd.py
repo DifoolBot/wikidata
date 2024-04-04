@@ -9,9 +9,13 @@ QID_INTEGRATED_AUTHORITY_FILE = "Q36578"
 
 class GndPage(authdata.AuthPage):
     def __init__(self, gnd_id: str):
-        super().__init__(gnd_id, "de")
+        super().__init__(
+            pid=PID_GND_ID,
+            stated_in=QID_INTEGRATED_AUTHORITY_FILE,
+            id=gnd_id,
+            page_language="de",
+        )
         self.countries = []
-        self.error = False
 
     def __str__(self):
         output = f"""
@@ -19,7 +23,7 @@ class GndPage(authdata.AuthPage):
                 gnd: {self.id}
                 not found: {self.not_found}
                 redirect: {self.is_redirect}"""
-        if self.name is not None:
+        if self.name:
             output += f"""
                 gender: {self.sex}
                 name: {self.name.names_en()}
@@ -124,7 +128,7 @@ class GndPage(authdata.AuthPage):
                 given_name = value
             elif attr == "@type":
                 if value != "person":
-                    self.error = True
+                    raise RuntimeError("Not a person")
             elif attr == "dateOfBirth":
                 self.birth_date = self.convert_date(value)
             elif attr == "dateOfDeath":
@@ -150,14 +154,6 @@ class GndPage(authdata.AuthPage):
         )
         self.set_name_order(self.get_name_order())
 
-    def get_ref(self):
-        res = {
-            "id_pid": PID_GND_ID,
-            "stated in": QID_INTEGRATED_AUTHORITY_FILE,
-            "id": self.id,
-        }
-        return res
-
 
 def main() -> None:
     # japanese: 1033550817
@@ -166,7 +162,7 @@ def main() -> None:
     # name with title: 1075339227
     # multiple countries: 17222246X
 
-    p = GndPage("17222246X")
+    p = GndPage("1017872723")
     p.run()
     print(p)
 

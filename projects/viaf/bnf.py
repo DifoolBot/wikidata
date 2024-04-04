@@ -1,6 +1,7 @@
 import requests
 import name as nm
 import authdata
+import re
 
 BNF_ENDPOINT = "https://data.bnf.fr/sparql"
 
@@ -11,7 +12,12 @@ QID_BNF_AUTHORITIES = "Q19938912"
 
 class BnfPage(authdata.AuthPage):
     def __init__(self, bnf_id: str):
-        super().__init__(bnf_id, "fr")
+        super().__init__(
+            pid=PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+            stated_in=QID_BNF_AUTHORITIES,
+            id=bnf_id,
+            page_language="fr",
+        )
         self.country = ""
 
     def get_short_desc(self):
@@ -23,7 +29,7 @@ class BnfPage(authdata.AuthPage):
                 bnf_id: {self.id}
                 not found: {self.not_found}
                 redirect: {self.is_redirect}"""
-        if self.name is not None:
+        if self.name:
             output += f"""
                 gender: {self.sex}
                 name: {self.name.names_en()}
@@ -34,11 +40,20 @@ class BnfPage(authdata.AuthPage):
                 death_date: {self.death_date}"""
         return output
 
-    def query_wdqs(self, query: str, retry_counter: int = 3):
+    def query_sparql(self, query: str, retry_counter: int = 3):
         response = requests.get(BNF_ENDPOINT, params={"query": query, "format": "json"})
         payload = response.json()
 
         return payload["results"]["bindings"]
+
+    def query_url(self):
+        url = f"https://catalogue.bnf.fr/ark:/12148/cb{self.id}"
+        response = requests.get(url, timeout=20)
+        if response.status_code == 404:
+            self.not_found = True
+            return None
+
+        return response.text
 
     def get_name_order(self):
         if not self.country:
@@ -75,41 +90,48 @@ class BnfPage(authdata.AuthPage):
             PREFIX rdagroup2elements: <http://rdvocab.info/ElementsGr2/>
             PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+            PREFIX bnfonto: <http://data.bnf.fr/ontology/bnf-onto/>
 
-            SELECT ?page ?label ?type ?gender ?birth ?death ?country ?familyName ?givenName
+            SELECT ?page ?label ?type ?gender ?birth ?birthYear ?death ?country ?familyName ?givenName
                         WHERE {{
                             <http://data.bnf.fr/ark:/12148/cb{bnf_id}> skos:prefLabel ?label ; foaf:focus ?focus .
                             OPTIONAL {{ ?focus foaf:page ?page }} .
                             OPTIONAL {{ ?focus rdf:type ?type }} .
                             OPTIONAL {{ ?focus foaf:gender ?gender }} .
                             OPTIONAL {{ ?focus bio:birth ?birth }} .
+                            OPTIONAL {{ ?focus bnfonto:firstYear ?birthYear }} .                           
                             OPTIONAL {{ ?focus bio:death ?death }} .
                             OPTIONAL {{ ?focus rdagroup2elements:countryAssociatedWithThePerson ?country }} .
                             OPTIONAL {{ ?focus foaf:familyName ?familyName }} .
                             OPTIONAL {{ ?focus foaf:givenName ?givenName }} .
                         }}"""
         qry = query_template.format(bnf_id=self.id)
-        r = self.query_wdqs(qry)
+        r = self.query_sparql(qry)
         if r is None:
-            return
+            raise RuntimeError('BnF: no result')
         if r == []:
-            self.not_found = True
+            self.check_redirect()
+            if not self.is_redirect:
+                self.not_found = True
             return
         for row in r:
             # {'type': 'uri', 'value': 'http://data.bnf.fr/16765535/ferenc_sajdik/'}
-            page = row.get("page", {}).get("value", "")
-            id = page.replace("http://data.bnf.fr/", "").split("/", 1)[0]
+            # page = row.get("page", {}).get("value", "")
+            # id = page.replace("http://data.bnf.fr/", "").split("/", 1)[0]
             pref_label = row.get("label", {}).get("value", "")
             family_name = row.get("familyName", {}).get("value", "")
             given_name = row.get("givenName", {}).get("value", "")
             type = row.get("type", {}).get("value", "")
             if type != "http://xmlns.com/foaf/0.1/Person":
                 raise RuntimeError("not a person")
-            self.gender = row.get("gender", {}).get("value", "")
+            self.sex = row.get("gender", {}).get("value", "")
             self.birth_date = row.get("birth", {}).get("value", "")
             # skip dates like 19..
             if "." in self.birth_date:
                 self.birth_date = ""
+            if not self.birth_date:
+                self.birth_date = row.get("birthYear", {}).get("value", "")
+
             self.death_date = row.get("death", {}).get("value", "")
             if "." in self.death_date:
                 self.death_date = ""
@@ -120,14 +142,14 @@ class BnfPage(authdata.AuthPage):
             )
             self.set_name_order(self.get_name_order())
 
-    def get_ref(self):
-        res = {
-            "id_pid": PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
-            "stated in": QID_BNF_AUTHORITIES,
-            "id": self.id,
-        }
-
-        return res
+    def check_redirect(self):
+        text = self.query_url()
+        if text:
+            regex = r"Identifiant de la notice.*?<\/span>ark:\/12148\/cb(\d{8,9}[0-9bcdfghjkmnpqrstvwxz])<\/div>"
+            matches = re.search(regex, text, re.IGNORECASE)
+            if matches:
+                self.id = matches.group(1)
+                self.is_redirect = self.id != self.init_id
 
 
 def main() -> None:
@@ -135,7 +157,7 @@ def main() -> None:
     # birth date: 10211222t
     # redirect: 12377888j
 
-    p = BnfPage("16765535p")
+    p = BnfPage("15142263s")
     p.run()
     print(p)
 

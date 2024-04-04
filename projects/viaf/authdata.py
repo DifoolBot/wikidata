@@ -32,7 +32,9 @@ def is_latin(str: str) -> bool:
 
 
 class AuthPage:
-    def __init__(self, id: str, page_language: str):
+    def __init__(self, pid, stated_in, id: str, page_language: str):
+        self.pid = pid
+        self.stated_in = stated_in
         self.init_id = id
         self.id = id
         self.not_found = False
@@ -46,8 +48,16 @@ class AuthPage:
 
     def set_name_order(self, value: str):
         self.name_order = value
-        if self.name is not None:
+        if self.name:
             self.name.name_order = value
+
+    def get_ref(self):
+        res = {
+            "id_pid": self.pid,
+            "stated in": self.stated_in,
+            "id": self.id,
+        }
+        return res
 
 
 class Collector:
@@ -69,7 +79,7 @@ class Collector:
                 eastern_count += 1
 
         if eastern_count > 0 and western_count > 0:
-            raise ValueError("conflicting name order")
+            raise RuntimeError("conflicting name order")
 
         if eastern_count > 0:
             self.name_order = nm.NAME_ORDER_EASTERN
@@ -108,7 +118,7 @@ class Collector:
         index = 0
         for page in self.pages:
             if page.page_language == page_language:
-                if page.name is not None:
+                if page.name:
                     for name in page.name.names_en():
                         if not is_latin(name):
                             continue
@@ -127,15 +137,14 @@ class Collector:
         return result_list
 
     def get_sex_info(self):
-        # create a dictionary with all sex strings listed by the pages
+        # use a dictionary to determine if there is only one distinct sex string
         sex_dict = {}
         for page in self.pages:
-            sex = page.sex
-            if len(sex) > 0:
-                sex_dict.setdefault(sex, []).append(page)
-        # only return a result if there is only one distinct sex string
+            if page.sex:
+                sex_dict.setdefault(page.sex, []).append(page)
         if len(sex_dict) != 1:
-            print(f"Multiple sex strings: {sex_dict}")
+            if len(sex_dict) > 1:
+                raise RuntimeError(f"Multiple sex strings: {sex_dict}")
             return None
         sex = next(iter(sex_dict))
         if sex == "male":
@@ -145,6 +154,7 @@ class Collector:
         elif sex == "female":
             res = sex_dict[sex][0].get_ref()
             res["qid"] = QID_FEMALE
+            return res
         else:
             raise ValueError(f"Unexpected sex: {sex}")
 
@@ -191,8 +201,17 @@ class Collector:
         best = (0, 0, 0)
         for date_str in date_dict:
             if "," in date_str:
+                # 1801-1802
                 print(f"Skipped date {date_str}")
                 return None
+            if "X" in date_str:
+                # IdRef: 19XX
+                print(f"Skipped date {date_str}")
+                continue
+            if "." in date_str:
+                # 19..
+                print(f"Skipped date {date_str}")
+                continue
             this = self.split_date(date_str)
             comparison_result = self.compare_dates(best, this)
             if comparison_result == "different":
@@ -216,11 +235,11 @@ class Collector:
 
         for page in self.pages:
             date_str = getattr(page, date_attr)
-            if len(date_str) > 0:
+            if date_str:
                 date_dict.setdefault(date_str, []).append(page)
 
         date_str = self.get_most_prec_date(date_dict)
-        if date_str is None:
+        if not date_str:
             return None
 
         res = date_dict[date_str][0].get_ref()

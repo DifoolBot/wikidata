@@ -11,9 +11,9 @@ import idref
 import bnf
 import name as nm
 
-# * resolve redirect
 # * sources bij gnd/bnf
 # * comments hieronderaan
+# * test redirect + not found voor alle pages
 
 WD = "http://www.wikidata.org/entity/"
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
@@ -31,6 +31,8 @@ PID_DATE_OF_BIRTH = "P569"
 PID_DATE_OF_DEATH = "P570"
 PID_BASED_ON_HEURISTIC = "P887"
 PID_IMPORTED_FROM_WIKIMEDIA_PROJECT = "P143"
+PID_REASON_FOR_DEPRECATED_RANK = "P2241"
+QID_WITHDRAWN_IDENTIFIER_VALUE = "Q21441764"
 
 
 class AddLabelBot:
@@ -50,11 +52,11 @@ class AddLabelBot:
 
         return False
 
-    def has_strong_source(self, claims, pid: str):
-        if pid not in claims:
+    def has_strong_source(self, pid: str):
+        if pid not in self.claims:
             return False
 
-        for claim in claims[pid]:
+        for claim in self.claims[pid]:
             srcs = claim.getSources()
             for src in srcs:
                 if not self.is_weak_source(src):
@@ -92,63 +94,116 @@ class AddLabelBot:
                 descs.append(short_desc)
         return ", ".join(descs)
 
-    def add_date_claim(self, claims, item, pid, date_info):
-        if self.has_strong_source(claims, pid):
+    def add_date_claim(self, pid, date_info):
+        if self.has_strong_source(pid):
             return
 
         date = date_info["date"]
         claim = None
-        if pid in claims:
-            for c in claims[pid]:
+        if pid in self.claims:
+            for c in self.claims[pid]:
                 if c.getTarget().normalize() == date.normalize():
                     if c.getRank() == "deprecated":
                         return
                     claim = c
                     break
 
-        if claim is None:
+        if not claim:
             claim = pwb.Claim(REPO, pid)
             claim.setTarget(date)
-            item.addClaim(claim)
+            self.item.addClaim(claim)
 
         claim.addSources(self.create_ref(date_info))
 
-    def add_qid_claim(self, claims, item, pid, qid_info):
-        if self.has_strong_source(claims, pid):
+    def add_qid_claim(self, pid, qid_info):
+        if self.has_strong_source(pid):
             return
 
         claim = None
-        if pid in claims:
-            for c in claims[pid]:
+        if pid in self.claims:
+            for c in self.claims[pid]:
                 if c.getTarget().getID() == qid_info["qid"]:
                     if c.getRank() == "deprecated":
                         return
                     claim = c
                     break
 
-        if claim is None:
+        if not claim:
             claim = pwb.Claim(REPO, pid)
             target = pwb.ItemPage(REPO, qid_info["qid"])
             claim.setTarget(target)
-            item.addClaim(claim)
+            self.item.addClaim(claim)
 
         claim.addSources(self.create_ref(qid_info))
+
+    def create_new_claim(self, pid: str, new_id: str) -> pwb.Claim:
+        for claim in self.claims[pid]:
+            if claim.getTarget() == new_id:
+                if claim.getRank() == "deprecated":
+                    print("new id is deprecated")
+                    return None
+                return claim
+
+        claim = pwb.Claim(REPO, pid)
+        claim.setTarget(new_id)
+        self.item.addClaim(claim, summary="redirect target")
+
+        return claim
+
+    def set_redirect(self, claim: pwb.Claim, pid: str, new_id: str):
+        new_claim = self.create_new_claim(pid, new_id)
+        if new_claim is None:
+            return
+
+        for source in claim.sources:
+            sources = []
+            for value_list in source.values():
+                l = []
+                for value in value_list:
+                    c = value.copy()
+                    l.append(c)
+                sources.extend(l)
+            # error same hash if the reference is same
+            new_claim.addSources(sources, summary="copy ref")
+
+        self.item.removeClaims(claim, summary="redirect")
+
+    def set_not_found(self, claim: pwb.Claim) -> None:
+        if claim.getRank() != "deprecated":
+            claim.changeRank("deprecated", summary="not found")
+        qualifier = pwb.Claim(REPO, PID_REASON_FOR_DEPRECATED_RANK)
+        target = pwb.ItemPage(REPO, QID_WITHDRAWN_IDENTIFIER_VALUE)
+        qualifier.setTarget(target)
+        claim.addQualifier(qualifier)
+
+    def resolve_redirect(self, page: authdata.AuthPage) -> None:
+        for claim in self.claims[page.pid]:
+            id = claim.getTarget()
+            if id == page.init_id:
+                if claim.getRank() == "deprecated":
+                    continue
+                if len(claim.qualifiers) >= 1:
+                    continue
+                if page.is_redirect:
+                    self.set_redirect(claim, page.id)
+                elif page.not_found:
+                    self.set_not_found(claim)
 
     def examine(self, qid: str):
         if not qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
-        item = pwb.ItemPage(REPO, qid)
+        self.item = pwb.ItemPage(REPO, qid)
 
-        if not item.exists():
+        if not self.item.exists():
             return
 
-        if item.isRedirectPage():
+        if self.item.isRedirectPage():
             return
 
-        existing_claims = item.get().get("claims")
+        self.claims = self.item.get().get("claims")
 
-        if not item.botMayEdit():
+        if not self.item.botMayEdit():
             print(f"Skipping {qid} because it cannot be edited by bots")
             return
 
@@ -164,8 +219,8 @@ class AddLabelBot:
 
         # Iterate through each authority ID
         for authority_pid, page_class in authority_mapping.items():
-            if authority_pid in existing_claims:
-                for claim in existing_claims[authority_pid]:
+            if authority_pid in self.claims:
+                for claim in self.claims[authority_pid]:
                     if claim.getRank() != "deprecated":
                         id = claim.getTarget()
                         collector.add(page_class(id))
@@ -173,7 +228,10 @@ class AddLabelBot:
         collector.retrieve()
         if collector.has_redirect():
             print("has redirect")
-            collector.resolve_redirect()
+            if not self.test:
+                for page in collector.pages:
+                    if page.is_redirect or page.not_found:
+                        self.resolve_redirect(page)
             return
 
         if collector.has_duplicates():
@@ -189,29 +247,22 @@ class AddLabelBot:
         sex_info = collector.get_sex_info()
         if sex_info:
             print(f"sex: {sex_info}")
-
             if not test:
-                self.add_qid_claim(existing_claims, item, PID_SEX_OR_GENDER, sex_info)
+                self.add_qid_claim(PID_SEX_OR_GENDER, sex_info)
 
         # birth date
         birth_info = collector.get_date_info("birth")
         if birth_info:
             print(f"birth date: {birth_info}")
-
             if not test:
-                self.add_date_claim(
-                    existing_claims, item, PID_DATE_OF_BIRTH, birth_info
-                )
+                self.add_date_claim(PID_DATE_OF_BIRTH, birth_info)
 
         # death date
         death_info = collector.get_date_info("death")
         if death_info:
             print(f"death date: {death_info}")
-
             if not test:
-                self.add_date_claim(
-                    existing_claims, item, PID_DATE_OF_DEATH, death_info
-                )
+                self.add_date_claim(PID_DATE_OF_DEATH, death_info)
 
         # names
         labels = {}
@@ -220,7 +271,7 @@ class AddLabelBot:
         pages = []
 
         for language in ["en", "fr", "de"]:
-            if language not in item.labels:
+            if language not in self.item.labels:
                 names = collector.get_names(language)
                 if names:
                     is_first = True
@@ -238,15 +289,15 @@ class AddLabelBot:
 
         if not test:
             data = {}
-            if labels != {}:
+            if labels:
                 data["labels"] = labels
-            if aliases != {}:
+            if aliases:
                 data["aliases"] = aliases
-            if data != {}:
-                item.editEntity(data, summary=f"from {self.get_short_desc(pages)}")
+            if data:
+                self.item.editEntity(data, summary=f"from {self.get_short_desc(pages)}")
 
     def iterate(self):
-        index = 250000
+        index = 450000
         while True:
             print(f"Index = {index}")
             if not self.iterate_index(index):
@@ -302,21 +353,21 @@ class AddLabelBot:
                         ?item rdfs:label ?itemLabel.
                         FILTER((LANG(?itemLabel)) = "{language}")
                     }})
-                    }} LIMIT 10"""
+                    }}"""
 
         qry = query_template.format(
             pid=self.auth_src.pid, index=index, language=self.language
         )
         r = self.query_wdqs(qry)
-        if r is None:
+        if not r:
             return False
         for row in r:
             qid = row.get("item", {}).get("value", "").replace(WD, "")
             print(qid)
             authid = row.get("authid", {}).get("value", "")
-            if len(qid) == 0:
+            if not qid:
                 continue
-            if len(authid) == 0:
+            if not authid:
                 continue
             try:
                 self.examine(qid)
@@ -350,6 +401,13 @@ def do_loc():
     bot.run()
 
 
+def do_idref():
+    authsrcs = authsource.AuthoritySources()
+    bot = AddLabelBot(authsrcs.get(authsource.PID_IDREF_ID), "fr")
+    bot.test = True
+    bot.run()
+
+
 def do_single(qid: str):
     authsrcs = authsource.AuthoritySources()
     bot = AddLabelBot(
@@ -360,12 +418,13 @@ def do_single(qid: str):
 
 
 def main() -> None:
-    # do_loc()
-    do_single("Q96187668")
+    do_idref()
+    # do_single("Q4207243")
+
+    # ukranian; julian + gregorian: Q3920227
+    # name with title: Q112080201
 
 
-#     #bot.examine('Q3920227')
-#     #bot.examine('Q112080201')
 #     bot.examine('Q115781041')
 # do_single('Q4069848')
 
@@ -373,7 +432,6 @@ def main() -> None:
 # test: Q4069848; name error
 # test: Q3825797; wrong name:
 # test: Q111419974; veuve d'
-# test: Q96187668; de/en geeen contains characters info
 
 if __name__ == "__main__":
     main()
