@@ -6,27 +6,16 @@ QID_MALE = "Q6581097"
 QID_FEMALE = "Q6581072"
 
 
-def remove_duplicates_ordered(arr):
-    seen = set()
-    result = []
-    for item in arr:
-        if item not in seen:
-            result.append(item)
-            seen.add(item)
-    return result
-
-
 def is_latin(str: str) -> bool:
     allowed = ["Latn", "Zinh", "Zyyy", "Zzzz"]
 
     res = sp(str)[2]
     if "details" in res:
         for script in res["details"]:
-            if not (script in allowed):
-                print(f"Skipped: {str} contains {script} characters")
-                return False
             if script != "Latn":
                 print(f"{str} contains {script} characters")
+            if script not in allowed:
+                return False
 
     return True
 
@@ -109,9 +98,6 @@ class Collector:
                 return True
 
         return False
-
-    def resolve_redirect(self):
-        pass
 
     def get_names(self, page_language: str):
         name_dict = {}
@@ -197,11 +183,31 @@ class Collector:
         else:
             return "use_first"
 
-    def get_most_prec_date(self, date_dict) -> str:
+    def get_most_prec_date(self, date_dict):
         best = (0, 0, 0)
-        for date_str in date_dict:
+        for date in date_dict:
+            comparison_result = self.compare_dates(best, date)
+            if comparison_result == "different":
+                return None
+            if comparison_result == "use_second":
+                best = date
+
+        if best == (0, 0, 0):
+            return None
+        else:
+            return best
+
+    def get_date_info(self, date_type: str):
+        date_dict = {}
+        date_attr = "birth_date" if date_type == "birth" else "death_date"
+
+        for page in self.pages:
+            date_str = getattr(page, date_attr)
+            if not date_str:
+                continue
+
             if "," in date_str:
-                # 1801-1802
+                # 1801, 1802
                 print(f"Skipped date {date_str}")
                 return None
             if "X" in date_str:
@@ -212,38 +218,20 @@ class Collector:
                 # 19..
                 print(f"Skipped date {date_str}")
                 continue
-            this = self.split_date(date_str)
-            comparison_result = self.compare_dates(best, this)
-            if comparison_result == "different":
-                return None
-            if comparison_result == "use_second":
-                best = this
 
-        y, m, d = best
-        if y == 0:
-            return None
-        elif m == 0:
-            return str(y)
-        elif d == 0:
-            return f"{y}-{m:02d}"
-        else:
-            return f"{y}-{m:02d}-{d:02d}"
+            date = self.split_date(date_str)
+            date_dict.setdefault(date, []).append(page)
 
-    def get_date_info(self, date_type):
-        date_dict = {}
-        date_attr = "birth_date" if date_type == "birth" else "death_date"
-
-        for page in self.pages:
-            date_str = getattr(page, date_attr)
-            if date_str:
-                date_dict.setdefault(date_str, []).append(page)
-
-        date_str = self.get_most_prec_date(date_dict)
-        if not date_str:
+        most_prec_date = self.get_most_prec_date(date_dict)
+        if not most_prec_date:
             return None
 
-        res = date_dict[date_str][0].get_ref()
-        y, m, d = self.split_date(date_str)
+        res = date_dict[most_prec_date][0].get_ref()
+        res.update({"date": self.get_WbTime(most_prec_date)})
+        return res
+
+    def get_WbTime(self, date):
+        y, m, d = date
         if m == 0:
             precision = "year"
         elif d == 0:
@@ -257,8 +245,8 @@ class Collector:
             # Gregorian
             calendarmodel = "http://www.wikidata.org/entity/Q1985727"
 
-        date = pwb.WbTime(
+        obj = pwb.WbTime(
             year=y, month=m, day=d, precision=precision, calendarmodel=calendarmodel
         )
-        res.update({"date": date})
-        return res
+
+        return obj
