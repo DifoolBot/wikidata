@@ -1,23 +1,11 @@
 import name as nm
 import pywikibot as pwb
-from GlotScript import sp
+import scriptutils
+import languagecodes as lc
+
 
 QID_MALE = "Q6581097"
 QID_FEMALE = "Q6581072"
-
-
-def is_latin(str: str) -> bool:
-    allowed = ["Latn", "Zinh", "Zyyy", "Zzzz"]
-
-    res = sp(str)[2]
-    if "details" in res:
-        for script in res["details"]:
-            if script != "Latn":
-                print(f"{str} contains {script} characters")
-            if script not in allowed:
-                return False
-
-    return True
 
 
 class AuthPage:
@@ -28,17 +16,51 @@ class AuthPage:
         self.id = id
         self.not_found = False
         self.is_redirect = False
-        self.name = None
+        self.latin_name = None
         self.page_language = page_language
         self.birth_date = ""
         self.death_date = ""
         self.sex = ""
         self.name_order = nm.NAME_ORDER_UNDETERMINED
+        self.countries = []
+        self.languages = []
+        self.sources = []
+
+    def get_name_order(self):
+        # todo : ook naar talen kijken
+        for country in self.countries:
+            if lc.is_hungarian_name_order_country(country):
+                print(f"{self.get_short_desc()}: family name FIRST (hungarian) based on country")
+                return nm.NAME_ORDER_HUNGARIAN
+
+        if self.latin_name.family_name_first() != self.latin_name.family_name_last():
+            family_name_first = 0
+            family_name_last = 0
+            for src in self.sources:
+                for name in self.latin_name.family_name_first():
+                    if name in src:
+                        family_name_first += 1
+                for name in self.latin_name.family_name_last():
+                    if name in src:
+                        family_name_last += 1
+            if family_name_first > family_name_last:
+                print(f"{self.get_short_desc()}:  family name FIRST based on sources")
+                return nm.NAME_ORDER_EASTERN
+            elif family_name_first < family_name_last:
+                print(f"{self.get_short_desc()}:  family name LAST based on sources")
+                return nm.NAME_ORDER_WESTERN
+
+        for country in self.countries:
+            if lc.is_eastern_name_order_country(country):
+                print(f"{self.get_short_desc()}:  family name FIRST based on country")
+                return nm.NAME_ORDER_EASTERN
+
+        return nm.NAME_ORDER_UNDETERMINED
 
     def set_name_order(self, value: str):
         self.name_order = value
-        if self.name:
-            self.name.name_order = value
+        if self.latin_name:
+            self.latin_name.name_order = value
 
     def get_ref(self):
         res = {
@@ -48,36 +70,70 @@ class AuthPage:
         }
         return res
 
+    def has_script(self, f) -> bool:
+        return (self.has_script_language(f)  or
+                self.has_script_country(f))
+
+    def has_script_language(self, f) -> bool:
+        for language in self.languages:
+            if language not in lc.iso639_3_dict:
+                raise RuntimeError(f"unknown iso language {language}")
+            for script in lc.iso639_3_dict[language]:
+                if f(script):
+                    return True
+        return False
+
+    def has_script_country(self, f) -> bool:
+        for country in self.countries:
+            for language in lc.official_languages_dict[country]:
+                if language not in lc.iso639_3_dict:
+                    raise RuntimeError(f"unknown iso language {language}")
+                for script in lc.iso639_3_dict[language]:
+                    if f(script):
+                        return True
+
+        return False
+
 
 class Collector:
-    def __init__(self):
+    def __init__(self, force_name_order: str = nm.NAME_ORDER_UNDETERMINED):
         self.pages = []
         self.name_order = nm.NAME_ORDER_UNDETERMINED
+        self.force_name_order = force_name_order
 
     def retrieve(self) -> None:
         for page in self.pages:
             page.run()
 
-        eastern_count = 0
-        western_count = 0
-        for page in self.pages:
-            name_order = page.name_order
-            if name_order == nm.NAME_ORDER_WESTERN:
-                western_count += 1
-            elif name_order == nm.NAME_ORDER_EASTERN:
-                eastern_count += 1
-
-        if eastern_count > 0 and western_count > 0:
-            raise RuntimeError("conflicting name order")
-
-        if eastern_count > 0:
-            self.name_order = nm.NAME_ORDER_EASTERN
+        if self.force_name_order == nm.NAME_ORDER_UNDETERMINED:
+            self.determine_name_order()
         else:
-            # default to western order
-            self.name_order = nm.NAME_ORDER_WESTERN
+            self.name_order = self.force_name_order
 
         for page in self.pages:
             page.set_name_order(self.name_order)
+
+    def determine_name_order(self):
+        name_orders = []
+        for page in self.pages:
+            name_order = page.name_order
+            if name_order not in name_orders:
+                name_orders.append(name_order)
+
+        if nm.NAME_ORDER_HUNGARIAN in name_orders:
+            return nm.NAME_ORDER_HUNGARIAN
+        
+        if nm.NAME_ORDER_UNDETERMINED in name_orders:
+          name_orders.remove(nm.NAME_ORDER_UNDETERMINED)
+
+        if len(name_orders) > 1:
+            raise RuntimeError("conflicting name order")
+
+        if len(name_orders) == 1:
+            self.name_order = name_orders[0]
+        else:
+            # default to western order
+            self.name_order = nm.NAME_ORDER_WESTERN
 
     def add(self, page: AuthPage):
         self.pages.append(page)
@@ -89,6 +145,20 @@ class Collector:
             if short_desc in seen:
                 return True
             seen.add(short_desc)
+
+        return False
+
+    def has_hebrew_script(self):
+        for page in self.pages:
+            if page.has_hebrew_script():
+                return True
+
+        return False
+
+    def has_cyrillic_script(self):
+        for page in self.pages:
+            if page.has_cyrillic_script():
+                return True
 
         return False
 
@@ -104,9 +174,9 @@ class Collector:
         index = 0
         for page in self.pages:
             if page.page_language == page_language:
-                if page.name:
-                    for name in page.name.names_en():
-                        if not is_latin(name):
+                if page.latin_name:
+                    for name in page.latin_name.names():
+                        if not scriptutils.is_latin(name):
                             continue
                         if not name in name_dict:
                             name_dict[name] = {"index": index, "pages": []}
@@ -142,22 +212,31 @@ class Collector:
             res["qid"] = QID_FEMALE
             return res
         else:
-            raise ValueError(f"Unexpected sex: {sex}")
+            raise RuntimeError(f"Unexpected sex: {sex}")
 
     def split_date(self, date_str: str):
         parts = date_str.split("-")
         if len(parts) == 1:
-            return (int(parts[0]), 0, 0)
+            if parts[0].isdigit():
+                return (int(parts[0]), 0, 0)
+            else:
+                # typos: for example idref: 059640340 has a196
+                #        1521~
+                print(f"Invalid date string: {date_str}")
+                return None
+
         elif len(parts) == 2:
             return (int(parts[0]), int(parts[1]), 0)
         elif len(parts) == 3:
             return (int(parts[0]), int(parts[1]), int(parts[2]))
         else:
-            raise ValueError(f"Invalid date string: {date_str}")
+            raise RuntimeError(f"Invalid date string: {date_str}")
 
     def compare_dates(self, date1, date2) -> str:
-        # return which date has the most precision; date1 (first) or date2 (second)
-        # if the dates are different, then return 'different'
+        """
+        Return which date has the most precision; date1 (first) or date2 (second)
+        if the dates are different, then return 'different'.
+        """
 
         y1, m1, d1 = date1
         y2, m2, d2 = date2
@@ -220,7 +299,8 @@ class Collector:
                 continue
 
             date = self.split_date(date_str)
-            date_dict.setdefault(date, []).append(page)
+            if date:
+                date_dict.setdefault(date, []).append(page)
 
         most_prec_date = self.get_most_prec_date(date_dict)
         if not most_prec_date:

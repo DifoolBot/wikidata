@@ -3,6 +3,8 @@ import requests
 import re
 import name as nm
 import authdata
+import scriptutils
+import languagecodes as lc
 
 PID_IDREF_ID = "P269"
 # see applicable 'stated in' value
@@ -25,9 +27,8 @@ class IdrefPage(authdata.AuthPage):
         super().__init__(
             pid=PID_IDREF_ID, stated_in=QID_IDREF, id=idref_id, page_language="fr"
         )
-        self.citizenship = ""
         self.bnf = ""
-        self.sources = []
+        self.variant = None
 
     def __str__(self):
         output = f"""
@@ -35,17 +36,20 @@ class IdrefPage(authdata.AuthPage):
                 IdRef: {self.id}
                 not found: {self.not_found}
                 redirect: {self.is_redirect}"""
-        if self.name:
+        if self.latin_name:
             output += f"""
                 gender: {self.sex}
-                name: {self.name.names_en()}
-                citizenship: {self.citizenship}
-                given_name_en: {self.name.given_name_en} 
-                family_name_en: {self.name.family_name_en}
-                given_name: {self.name.given_name} 
-                family_name: {self.name.family_name}
+                name: {self.latin_name.names()}
+                variant: {"None" if self.variant == None else self.variant.names()}
+                given_name: {self.latin_name.given_name} 
+                family_name: {self.latin_name.family_name}
                 birth_date: {self.birth_date}
-                death_date: {self.death_date}"""
+                death_date: {self.death_date}
+                countries: {self.countries}
+                languages: {self.languages}
+                hebrew: {self.has_hebrew_script()}
+                cyrillic: {self.has_cyrillic_script()}
+                non latin: {self.has_non_latin_script()}"""
         return output
 
     def query(self):
@@ -57,41 +61,39 @@ class IdrefPage(authdata.AuthPage):
 
         return ET.fromstring(response.text)
 
-    def get_name_order(self):
-        print(f"IdRef: citizenship: {self.citizenship}")
-        family_name_first = 0
-        family_name_last = 0
-        for src in self.sources:
-            for name in self.name.family_name_first_en():
-                if name in src:
-                    family_name_first += 1
-            for name in self.name.family_name_last_en():
-                if name in src:
-                    family_name_last += 1
-        if family_name_first > family_name_last:
-            print("IdRef: family name FIRST based on sources")
-            return nm.NAME_ORDER_EASTERN
-        elif family_name_first < family_name_last:
-            print("IdRef: family name LAST based on sources")
-            return nm.NAME_ORDER_WESTERN
+    def has_hebrew_script(self):
+        if self.variant:
+            for name in self.variant.names():
+                if scriptutils.is_hebrew(name):
+                    return True
 
-        if not self.citizenship:
-            return nm.NAME_ORDER_UNDETERMINED
+        if self.has_script(lc.is_hebrew):
+            return True
 
-        lst = [
-            "1835841",  # Korea (South)
-            "1861060",  # Japan
-            "1814991",  # China
-            "1562822",  # Vietnam
-            "1821275",  # Macau
-            "1873107",  # Korea (North)
-        ]
-        id = self.citizenship.replace("http://sws.geonames.org", "").replace("/", "")
-        if id in lst:
-            print("IdRef: family name FIRST based on citizenship")
-            return nm.NAME_ORDER_EASTERN
-        else:
-            return nm.NAME_ORDER_UNDETERMINED
+        return False
+
+    def has_cyrillic_script(self):
+        if self.variant:
+            for name in self.variant.names():
+                if scriptutils.is_cyrillic(name):
+                    return True
+
+        if self.has_script(lc.is_cyrillic):
+            return True
+
+        return False
+
+    def has_non_latin_script(self):
+        if self.variant:
+            for name in self.variant.names():
+                if not scriptutils.is_latin(name):
+                    return True
+
+        if self.has_script(lc.is_not_latin):
+            return True
+
+        return False
+
 
     def get_short_desc(self):
         return "IdRef"
@@ -136,19 +138,40 @@ class IdrefPage(authdata.AuthPage):
             pref_label = ""
 
         print(f"idref: pref {pref_label} given {given_name} family {family_name}")
-        self.name = nm.Name(
-            name_en=pref_label, given_name=given_name, family_name=family_name
-        )
+        self.latin_name = nm.Name(name=pref_label)
+        self.variant = nm.Name(given_name=given_name, family_name=family_name)
 
         element = person.find("dbpedia:citizenship", ns)
         if element is not None:
-            self.citizenship = element.attrib[
+            url = element.attrib[
                 "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
             ]
+            # <dbpedia-owl:citizenship rdf:resource=""/>
+            if url:
+                if not url.startswith("http://sws.geonames.org"):
+                    raise RuntimeError(f"IdRef: Unexpected language {url}")
+                geoname_id = url.replace("http://sws.geonames.org", "").replace("/", "")
+                if geoname_id not in lc.geonames_country_dict:
+                    raise RuntimeError(f"IdRef: Unexpected geoname {geoname_id}")
+                self.countries.append(lc.geonames_country_dict[geoname_id])
 
         element = person.find("bnf:FRBNF", ns)
         if element is not None:
             self.bnf = element.text
+
+        for language in person.iterfind("dcterms:language", ns):
+            url = language.attrib[
+                "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
+            ]
+            if url.startswith("http://lexvo.org/id/iso639-3/"):
+                iso_code = url.replace("http://lexvo.org/id/iso639-3/", "")
+            elif url.startswith("http://lexvo.org/id/iso639-5/"):
+                iso_code = url.replace("http://lexvo.org/id/iso639-5/", "")
+            else:
+                raise RuntimeError(f"IdRef: Unexpected language {url}")
+            if iso_code not in lc.iso639_3_dict:
+                raise RuntimeError(f"IdRef: Unexpected language {url}")
+            self.languages.append(iso_code)
 
         for event in person.iterfind("bio:event", ns):
             for el in event:
@@ -177,13 +200,19 @@ class IdrefPage(authdata.AuthPage):
 def main() -> None:
     # no comma: 031955207
     # china: 255065140, 24928071X
-    # russian: 034466835
+    # russian: 034466835; 114722722
     # wrong name: 179363697
-    # redirect: 086119427, 07739481X
+    # redirect: 086119427, 07739481X, 19938309X
     # not found: 07878249X
     # gender: 086119427
+    # d': 118126881
+    # enseignment: 128470119
+    # polish: 113796358
+    # USSR: 153704225
+    # taiwan: 074186329
+    # Ukranian: 187171416
 
-    p = IdrefPage("078837863")
+    p = IdrefPage("11244416x")
     p.run()
     print(p)
 

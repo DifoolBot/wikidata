@@ -1,6 +1,7 @@
 import requests
 import name as nm
 import authdata
+import languagecodes as lc
 
 PID_GND_ID = "P227"
 # see applicable 'stated in' value
@@ -15,7 +16,6 @@ class GndPage(authdata.AuthPage):
             id=gnd_id,
             page_language="de",
         )
-        self.countries = []
 
     def __str__(self):
         output = f"""
@@ -23,16 +23,31 @@ class GndPage(authdata.AuthPage):
                 gnd: {self.id}
                 not found: {self.not_found}
                 redirect: {self.is_redirect}"""
-        if self.name:
+        if self.latin_name:
             output += f"""
                 gender: {self.sex}
-                name: {self.name.names_en()}
-                country: {self.countries}
-                given_name_en: {self.name.given_name_en} 
-                family_name_en: {self.name.family_name_en}
+                name: {self.latin_name.names()}
+                given_name: {self.latin_name.given_name} 
+                family_name: {self.latin_name.family_name}
                 birth_date: {self.birth_date}
-                death_date: {self.death_date}"""
+                death_date: {self.death_date}
+                countries: {self.countries}
+                languages: {self.languages}
+                hebrew: {self.has_hebrew_script()}
+                cyrillic: {self.has_cyrillic_script()}"""
         return output
+
+    def has_hebrew_script(self):
+        if self.has_script(lc.is_hebrew):
+            return True
+
+        return False
+
+    def has_cyrillic_script(self):
+        if self.has_script(lc.is_cyrillic):
+            return True
+
+        return False
 
     def query(self):
         url = f"https://hub.culturegraph.org/entityfacts/{self.id}"
@@ -43,24 +58,6 @@ class GndPage(authdata.AuthPage):
 
         payload = response.json()
         return payload
-
-    def get_name_order(self):
-        lst = [
-            "XB-KR",  # Korea (South)
-            "XB-JP",  # Japan
-            "XB-CN",  # China
-            "XB-VN",  # Vietnam
-            "XB-MO",  # Macau
-            "XB-KP",  # Korea (North)
-        ]
-        if self.countries:
-            print(f"GND: country: {self.countries}")
-            for country in self.countries:
-                if country in lst:
-                    print("GND: family name FIRST based on country")
-                    return nm.NAME_ORDER_EASTERN
-
-        return nm.NAME_ORDER_UNDETERMINED
 
     def run(self):
         self.process(self.query())
@@ -84,25 +81,39 @@ class GndPage(authdata.AuthPage):
             "Dezember": 12,
         }
 
+        if '?' in date_str:
+            print(f'Skipped date {date_str}')
+            return ''
+        # 1320/1330
+        if '/' in date_str:
+            print(f'Skipped date {date_str}')
+            return ''
+        
         parts = date_str.split(" ")
         if len(parts) == 1:
             year_str = parts[0]
             if year_str.startswith("XX.XX."):
                 year_str = year_str[len("XX.XX.") :]
+            # 14XX
+            if 'X' in year_str:
+                print(f'Skipped date {year_str}')
+                return ''
 
             # only year
+            if not year_str.isdigit():
+                raise RuntimeError('GND: Unrecognized year string {year_str}')
             year = int(year_str)
             return str(year)
         elif len(parts) == 3:
             day = int(parts[0][:-1])  # Remove the trailing period
             month = month_mapping.get(parts[1])
             if not month:
-                raise RuntimeError(f"Unrecognized month in date string: {date_str}")
+                raise RuntimeError(f"GND: Unrecognized month in date string: {date_str}")
 
             year = parts[2]
             return f"{year}-{month:02d}-{day:02d}"
         else:
-            raise RuntimeError(f"Unrecognized date string: {date_str}")
+            raise RuntimeError(f"GND: Unrecognized date string: {date_str}")
 
     def process(self, data):
         if data is None:
@@ -128,7 +139,7 @@ class GndPage(authdata.AuthPage):
                 given_name = value
             elif attr == "@type":
                 if value != "person":
-                    raise RuntimeError("Not a person")
+                    raise RuntimeError("GND: Not a person")
             elif attr == "dateOfBirth":
                 self.birth_date = self.convert_date(value)
             elif attr == "dateOfDeath":
@@ -140,17 +151,21 @@ class GndPage(authdata.AuthPage):
                 print(f"GND: sex: {self.sex}")
             elif attr == "associatedCountry":
                 for part in value:
-                    self.countries.append(
-                        part["@id"].replace(
+                    url = part["@id"]
+                    code = url.replace(
                             "https://d-nb.info/standards/vocab/gnd/geographic-area-code#",
-                            "",
-                        )
-                    )
+                            "")
+                    if code not in lc.gnd_country_dict:
+                        raise RuntimeError(f"GND: Unknown country code {code}")
+                    country = lc.gnd_country_dict[code]
+                    if country:
+                        self.countries.append(country)
 
+        # todo ; als prefix dan nooit family name first?
         if prefix:
             family_name = (prefix + " " + family_name).strip()
-        self.name = nm.Name(
-            name_en=pref_name, given_name_en=given_name, family_name_en=family_name
+        self.latin_name = nm.Name(
+            name=pref_name, given_name=given_name, family_name=family_name
         )
         self.set_name_order(self.get_name_order())
 
@@ -161,8 +176,12 @@ def main() -> None:
     # redirect: 1017872724
     # name with title: 1075339227
     # multiple countries: 17222246X
+    # undif
+    # error: 137661495 - Arnold, ter Hoernen
+    # russian: 124071279; 118992309
+    # family name with comma:  12140286X, 1023416093, 100975704
 
-    p = GndPage("1017872723")
+    p = GndPage("1023416093")
     p.run()
     print(p)
 
