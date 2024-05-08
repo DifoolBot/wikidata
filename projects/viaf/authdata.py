@@ -9,7 +9,7 @@ QID_FEMALE = "Q6581072"
 
 
 class AuthPage:
-    def __init__(self, pid, stated_in, id: str, page_language: str):
+    def __init__(self, id: str, pid:str = '', stated_in:str = '', page_language: str = ''):
         self.pid = pid
         self.stated_in = stated_in
         self.init_id = id
@@ -21,19 +21,42 @@ class AuthPage:
         self.birth_date = ""
         self.death_date = ""
         self.sex = ""
+        self.name_orders = []
         self.name_order = nm.NAME_ORDER_UNDETERMINED
         self.countries = []
         self.languages = []
         self.sources = []
+        self.variants = []
+        self.has_prefix = False
+        self.did_run = False
 
+    def run_once(self):
+        if self.did_run: 
+            return
+        
+        self.did_run = True
+        self.run()
+                
     def get_name_order(self):
-        # todo : ook naar talen kijken
+        short = self.get_short_desc()
         for country in self.countries:
             if lc.is_hungarian_name_order_country(country):
-                print(f"{self.get_short_desc()}: family name FIRST (hungarian) based on country")
+                print(f"{short}: family name FIRST (hungarian) based on country")
+                return nm.NAME_ORDER_HUNGARIAN
+        for language in self.languages:
+            if lc.is_hungarian_name_order_language(language):
+                print(f"{short}: family name FIRST (hungarian) based on language")
                 return nm.NAME_ORDER_HUNGARIAN
 
-        if self.latin_name.family_name_first() != self.latin_name.family_name_last():
+        if self.has_prefix:
+            print(f"{short}: family name LAST based on existing prefix")
+            return nm.NAME_ORDER_WESTERN
+
+        if self.latin_name:
+            # same if given_name or family_name is empty; for example Q3160707 (Jala; pseudonym)
+            if self.latin_name.family_name_first() == self.latin_name.family_name_last():
+                return nm.NAME_ORDER_UNDETERMINED
+
             family_name_first = 0
             family_name_last = 0
             for src in self.sources:
@@ -44,18 +67,30 @@ class AuthPage:
                     if name in src:
                         family_name_last += 1
             if family_name_first > family_name_last:
-                print(f"{self.get_short_desc()}:  family name FIRST based on sources")
+                print(f"{short}:  family name FIRST based on sources")
                 return nm.NAME_ORDER_EASTERN
             elif family_name_first < family_name_last:
-                print(f"{self.get_short_desc()}:  family name LAST based on sources")
+                print(f"{short}:  family name LAST based on sources")
                 return nm.NAME_ORDER_WESTERN
 
         for country in self.countries:
             if lc.is_eastern_name_order_country(country):
-                print(f"{self.get_short_desc()}:  family name FIRST based on country")
+                print(f"{short}:  family name FIRST based on country")
+                return nm.NAME_ORDER_EASTERN
+        for language in self.languages:
+            if lc.is_eastern_name_order_language(language):
+                print(f"{short}:  family name FIRST based on language")
                 return nm.NAME_ORDER_EASTERN
 
         return nm.NAME_ORDER_UNDETERMINED
+
+    def add_country(self, country: str):
+        if country and country not in self.countries:
+            self.countries.append(country)
+
+    def add_language(self, language: str):
+        if language and language not in self.languages:
+            self.languages.append(language)
 
     def set_name_order(self, value: str):
         self.name_order = value
@@ -70,9 +105,38 @@ class AuthPage:
         }
         return res
 
+    def has_hebrew_script(self):
+        for name in self.variants:
+            if scriptutils.is_hebrew_text(name):
+                return True
+
+        if self.has_script(lc.is_hebrew_script):
+            return True
+
+        return False
+
+    def has_cyrillic_script(self):
+        for name in self.variants:
+            if scriptutils.is_cyrillic_text(name):
+                return True
+
+        if self.has_script(lc.is_cyrillic_script):
+            return True
+
+        return False
+
+    def has_non_latin_script(self):
+        for name in self.variants:
+            if not scriptutils.is_latin_text(name):
+                return True
+
+        if self.has_script(lc.is_not_latin_script):
+            return True
+
+        return False
+
     def has_script(self, f) -> bool:
-        return (self.has_script_language(f)  or
-                self.has_script_country(f))
+        return self.has_script_language(f) or self.has_script_country(f)
 
     def has_script_language(self, f) -> bool:
         for language in self.languages:
@@ -93,6 +157,16 @@ class AuthPage:
                         return True
 
         return False
+    
+    def has_language_info(self):
+        if self.countries:
+            return True
+        if self.languages:
+            return True
+        for name in self.variants:
+            if not scriptutils.is_latin_text(name):
+                return True
+        return False
 
 
 class Collector:
@@ -103,8 +177,11 @@ class Collector:
 
     def retrieve(self) -> None:
         for page in self.pages:
-            page.run()
+            page.run_once()
 
+        self.after_run()
+
+    def after_run(self):
         if self.force_name_order == nm.NAME_ORDER_UNDETERMINED:
             self.determine_name_order()
         else:
@@ -114,26 +191,52 @@ class Collector:
             page.set_name_order(self.name_order)
 
     def determine_name_order(self):
-        name_orders = []
+        # set self.name_orders and self.name_order
+        self.name_orders = []
         for page in self.pages:
             name_order = page.name_order
-            if name_order not in name_orders:
-                name_orders.append(name_order)
+            if name_order not in self.name_orders:
+                self.name_orders.append(name_order)
 
-        if nm.NAME_ORDER_HUNGARIAN in name_orders:
-            return nm.NAME_ORDER_HUNGARIAN
-        
-        if nm.NAME_ORDER_UNDETERMINED in name_orders:
-          name_orders.remove(nm.NAME_ORDER_UNDETERMINED)
+        if nm.NAME_ORDER_HUNGARIAN in self.name_orders:
+            self.name_order = nm.NAME_ORDER_HUNGARIAN
+            return
 
-        if len(name_orders) > 1:
-            raise RuntimeError("conflicting name order")
+        if nm.NAME_ORDER_UNDETERMINED in self.name_orders:
+            self.name_orders.remove(nm.NAME_ORDER_UNDETERMINED)
 
-        if len(name_orders) == 1:
-            self.name_order = name_orders[0]
+        if len(self.name_orders) > 1:
+            print("conflicting name order")
+            self.name_order = nm.NAME_ORDER_UNDETERMINED
+        elif len(self.name_orders) == 1:
+            self.name_order = self.name_orders[0]
         else:
             # default to western order
             self.name_order = nm.NAME_ORDER_WESTERN
+
+    def has_language_info(self):
+        for page in self.pages:
+            if page.has_language_info():
+                return True
+        return False
+    def can_change_labels(self):
+        # names from non Latin script? skip for now
+        if self.has_hebrew_script():
+            return False
+        if self.has_cyrillic_script():
+            return False
+        if self.has_non_latin_script():
+            return False
+
+        # skip eastern order for now
+        if self.name_order == nm.NAME_ORDER_HUNGARIAN:
+            return True
+        if nm.NAME_ORDER_EASTERN in self.name_orders:
+            return False
+        if len(self.name_orders) > 1:
+            return False
+
+        return True
 
     def add(self, page: AuthPage):
         self.pages.append(page)
@@ -162,6 +265,13 @@ class Collector:
 
         return False
 
+    def has_non_latin_script(self):
+        for page in self.pages:
+            if page.has_non_latin_script():
+                return True
+
+        return False
+
     def has_redirect(self) -> bool:
         for page in self.pages:
             if page.is_redirect or page.not_found:
@@ -176,7 +286,7 @@ class Collector:
             if page.page_language == page_language:
                 if page.latin_name:
                     for name in page.latin_name.names():
-                        if not scriptutils.is_latin(name):
+                        if not scriptutils.is_latin_text(name):
                             continue
                         if not name in name_dict:
                             name_dict[name] = {"index": index, "pages": []}

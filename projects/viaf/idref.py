@@ -21,6 +21,14 @@ ns = {
     "bibo": "http://purl.org/ontology/bibo/",
 }
 
+BIO_BIRTH = "{http://purl.org/vocab/bio/0.1/}Birth"
+BIO_DEATH = "{http://purl.org/vocab/bio/0.1/}Death"
+RDF_ABOUT = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about"
+RDF_RESOURCE = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
+URL_GEONAMES = "http://sws.geonames.org"
+URL_LEXVO_3 = "http://lexvo.org/id/iso639-3/"
+URL_LEXVO_5 = "http://lexvo.org/id/iso639-5/"
+
 
 class IdrefPage(authdata.AuthPage):
     def __init__(self, idref_id: str):
@@ -28,7 +36,6 @@ class IdrefPage(authdata.AuthPage):
             pid=PID_IDREF_ID, stated_in=QID_IDREF, id=idref_id, page_language="fr"
         )
         self.bnf = ""
-        self.variant = None
 
     def __str__(self):
         output = f"""
@@ -40,7 +47,7 @@ class IdrefPage(authdata.AuthPage):
             output += f"""
                 gender: {self.sex}
                 name: {self.latin_name.names()}
-                variant: {"None" if self.variant == None else self.variant.names()}
+                variant: {self.variants}
                 given_name: {self.latin_name.given_name} 
                 family_name: {self.latin_name.family_name}
                 birth_date: {self.birth_date}
@@ -61,40 +68,6 @@ class IdrefPage(authdata.AuthPage):
 
         return ET.fromstring(response.text)
 
-    def has_hebrew_script(self):
-        if self.variant:
-            for name in self.variant.names():
-                if scriptutils.is_hebrew(name):
-                    return True
-
-        if self.has_script(lc.is_hebrew):
-            return True
-
-        return False
-
-    def has_cyrillic_script(self):
-        if self.variant:
-            for name in self.variant.names():
-                if scriptutils.is_cyrillic(name):
-                    return True
-
-        if self.has_script(lc.is_cyrillic):
-            return True
-
-        return False
-
-    def has_non_latin_script(self):
-        if self.variant:
-            for name in self.variant.names():
-                if not scriptutils.is_latin(name):
-                    return True
-
-        if self.has_script(lc.is_not_latin):
-            return True
-
-        return False
-
-
     def get_short_desc(self):
         return "IdRef"
 
@@ -107,7 +80,7 @@ class IdrefPage(authdata.AuthPage):
         if person is None:
             raise RuntimeError("not a person")
 
-        url = person.attrib["{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about"]
+        url = person.attrib[RDF_ABOUT]
         # regex = "http?:\/\/(?:www\.)idref\.fr\/([0-9]\d*)"
         regex = "https?:\/\/(?:www\.)?idref\.fr\/(\d{8}[\dX]|)"
         matches = re.search(regex, url, re.IGNORECASE)
@@ -117,71 +90,69 @@ class IdrefPage(authdata.AuthPage):
 
         element = person.find("foaf:gender", ns)
         if element is not None:
-            self.sex = element.text
+            self.sex = element.text or ''
 
         element = person.find("foaf:familyName", ns)
         if element is not None:
-            family_name = element.text
+            family_name = element.text or ''
         else:
             family_name = ""
 
         element = person.find("foaf:givenName", ns)
         if element is not None:
-            given_name = element.text
+            given_name = element.text or ''
         else:
             given_name = ""
 
         element = person.find("skos:prefLabel", ns)
         if element is not None:
-            pref_label = element.text
+            pref_label = element.text or ''
         else:
             pref_label = ""
 
         print(f"idref: pref {pref_label} given {given_name} family {family_name}")
         self.latin_name = nm.Name(name=pref_label)
-        self.variant = nm.Name(given_name=given_name, family_name=family_name)
+        # self.variant = nm.Name(given_name=given_name, family_name=family_name)
+        if given_name or family_name:
+            self.variants.append((given_name + " " + family_name).strip())
 
         element = person.find("dbpedia:citizenship", ns)
         if element is not None:
-            url = element.attrib[
-                "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
-            ]
+            url = element.attrib[RDF_RESOURCE]
             # <dbpedia-owl:citizenship rdf:resource=""/>
             if url:
-                if not url.startswith("http://sws.geonames.org"):
-                    raise RuntimeError(f"IdRef: Unexpected language {url}")
-                geoname_id = url.replace("http://sws.geonames.org", "").replace("/", "")
+                if not url.startswith(URL_GEONAMES):
+                    raise RuntimeError(f"IdRef: Unexpected country url {url}")
+                geoname_id = url.replace(URL_GEONAMES, "").replace("/", "")
                 if geoname_id not in lc.geonames_country_dict:
                     raise RuntimeError(f"IdRef: Unexpected geoname {geoname_id}")
-                self.countries.append(lc.geonames_country_dict[geoname_id])
+                self.add_country(lc.geonames_country_dict[geoname_id])
 
         element = person.find("bnf:FRBNF", ns)
         if element is not None:
             self.bnf = element.text
 
         for language in person.iterfind("dcterms:language", ns):
-            url = language.attrib[
-                "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
-            ]
-            if url.startswith("http://lexvo.org/id/iso639-3/"):
-                iso_code = url.replace("http://lexvo.org/id/iso639-3/", "")
-            elif url.startswith("http://lexvo.org/id/iso639-5/"):
-                iso_code = url.replace("http://lexvo.org/id/iso639-5/", "")
+            url = language.attrib[RDF_RESOURCE]
+            if url.startswith(URL_LEXVO_3):
+                iso_code = url.replace(URL_LEXVO_3, "")
+            elif url.startswith(URL_LEXVO_5):
+                iso_code = url.replace(URL_LEXVO_5, "")
             else:
-                raise RuntimeError(f"IdRef: Unexpected language {url}")
+                raise RuntimeError(f"IdRef: Unexpected language url {url}")
             if iso_code not in lc.iso639_3_dict:
                 raise RuntimeError(f"IdRef: Unexpected language {url}")
-            self.languages.append(iso_code)
+            self.add_language(iso_code)
 
         for event in person.iterfind("bio:event", ns):
             for el in event:
-                if el.tag == "{http://purl.org/vocab/bio/0.1/}Birth":
+                if el.tag == BIO_BIRTH:
                     e = el.find("bio:date", ns)
                     if e is None:
                         e = el.find("dcterms:date", ns)
                     if e is not None:
                         self.birth_date = e.text
-                elif el.tag == "{http://purl.org/vocab/bio/0.1/}Death":
+                elif el.tag == BIO_DEATH:
                     e = el.find("bio:date", ns)
                     if e is None:
                         e = el.find("dcterms:date", ns)

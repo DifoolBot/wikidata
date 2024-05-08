@@ -9,21 +9,23 @@ import loc
 import gnd
 import idref
 import bnf
+import wikidata as wd
 import name as nm
+import os.path
 
-# todo: sources bij gnd/bnf
-# todo: comments below
+# todo: sources bij gnd
 # todo: test redirect + not found voor alle pages
 # todo: redirect more simple
 # todo: spatie weg bij bv. japanse naam
-# todo: language bij bnf
-# todo: prefix; -> family name last
-
+# todo: catch runtime-error; print prefix; save error
 
 
 WD = "http://www.wikidata.org/entity/"
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 WDQS_SLEEP_AFTER_TIMEOUT = 30  # sec
+
+ERRORS_FILE = "al_errors.json"
+IGNORES_FILE = "al_ignores.json"
 
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
@@ -45,14 +47,27 @@ class AddLabelBot:
     def __init__(self, auth_src: authsource.AuthoritySource, language: str):
         self.auth_src = auth_src
         self.language = language
-        self.test = False
+        self.test = True
         self.fix_redirect = True
         self.force_name_order = nm.NAME_ORDER_UNDETERMINED
+        self.max_change = 0
+        self.label_changed_count = 0
+        self.changed_count = 0
+        self.checked_count = 0
+        self.errors = self.load_errors()
+        self.ignores = self.load_ignores()
 
     def run(self):
         self.iterate()
 
     def examine(self, qid: str):
+        if qid in self.errors:
+            print(f"{qid}: skipped, in error list")
+            return
+        if qid in self.ignores:
+            print(f"{qid}: skipped, in ignore list")
+            return
+
         if not qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
@@ -69,6 +84,8 @@ class AddLabelBot:
         if not self.item.botMayEdit():
             print(f"Skipping {qid} because it cannot be edited by bots")
             return
+
+        self.checked_count = self.checked_count + 1
 
         collector = authdata.Collector(force_name_order=self.force_name_order)
 
@@ -100,37 +117,45 @@ class AddLabelBot:
         if collector.has_duplicates():
             print("has duplicate")
             return
-        
+
+        if not collector.has_language_info():
+            collector.add(wd.WikidataPage(qid))
+            collector.retrieve()
+
         for page in collector.pages:
             print(page)
 
-
-        time.sleep(15)
-        test = self.test
-        if collector.name_order == nm.NAME_ORDER_EASTERN:
-            print("skipping because name order is eastern")
-            test = True
+        something_changed = False
 
         # sex
         sex_info = collector.get_sex_info()
         if sex_info:
-            print(f"sex: {sex_info}")
-            if not test:
-                self.add_qid_claim(PID_SEX_OR_GENDER, sex_info)
+            do_add = not self.has_strong_source(PID_SEX_OR_GENDER)
+            print(f"sex: add: {do_add} {sex_info}")
+            if do_add:
+                something_changed = True
+                if not self.test:
+                    self.add_qid_claim(PID_SEX_OR_GENDER, sex_info)
 
         # birth date
         birth_info = collector.get_date_info("birth")
         if birth_info:
-            print(f"birth date: {birth_info}")
-            if not test:
-                self.add_date_claim(PID_DATE_OF_BIRTH, birth_info)
+            do_add = not self.has_strong_source(PID_DATE_OF_BIRTH)
+            print(f"birth date: add: {do_add} {birth_info}")
+            if do_add:
+                something_changed = True
+                if not self.test:
+                    self.add_date_claim(PID_DATE_OF_BIRTH, birth_info)
 
         # death date
         death_info = collector.get_date_info("death")
         if death_info:
-            print(f"death date: {death_info}")
-            if not test:
-                self.add_date_claim(PID_DATE_OF_DEATH, death_info)
+            do_add = not self.has_strong_source(PID_DATE_OF_DEATH)
+            print(f"death date: add: {do_add} {death_info}")
+            if do_add:
+                something_changed = True
+                if not self.test:
+                    self.add_date_claim(PID_DATE_OF_DEATH, death_info)
 
         # names
         labels = {}
@@ -140,42 +165,57 @@ class AddLabelBot:
 
         # skip de:
         for language in ["en", "fr", "de"]:
-            # for language in ["en", "fr"]:
-            if language not in self.item.labels:
-                names = collector.get_names(language)
-                if names:
-                    is_first = True
-                    for name_obj in names:
-                        name = name_obj["name"]
-                        pages = name_obj["pages"]
-                        print(
-                            f"{language} name: {name} from {self.get_short_desc(pages)}"
-                        )
-                        all_pages = all_pages + pages
-                        if is_first:
-                            labels[language] = name
-                        else:
-                            aliases.setdefault(language, []).append(name)
+            if language in self.item.labels:
+                continue
+            names = collector.get_names(language)
+            if not names:
+                continue
 
-                        is_first = False
+            is_first = True
+            for name_obj in names:
+                name = name_obj["name"]
+                pages = name_obj["pages"]
+                print(f"{language} name: {name} from {self.get_short_desc(pages)}")
+                all_pages = all_pages + pages
+                if is_first:
+                    labels[language] = name
+                else:
+                    aliases.setdefault(language, []).append(name)
 
-        if (
-            not collector.has_hebrew_script()
-            and not collector.has_cyrillic_script()
-            and not test
-        ):
+                is_first = False
+
+        print(f"can_change_labels: {collector.can_change_labels()}")
+        print(f"has_language_info: {collector.has_language_info()}")
+        page_summary = self.get_locale_desc(collector.pages)
+        summary = f"from {self.get_short_desc(all_pages)}; country/language is {page_summary}"
+        print(summary)
+        if collector.can_change_labels():
             data = {}
             if labels:
                 data["labels"] = labels
             if aliases:
                 data["aliases"] = aliases
             if data:
-                self.item.editEntity(
-                    data, summary=f"from {self.get_short_desc(all_pages)}"
-                )
+                something_changed = True
+                self.label_changed_count = self.label_changed_count + 1
+                if not self.test:
+                    summary
+                    self.item.editEntity(data, summary=summary)
+
+        if something_changed:
+            self.changed_count = self.changed_count + 1
+            print(
+                f"checked: {self.checked_count} changed: {self.changed_count} labels: {self.label_changed_count}"
+            )
+        else:
+            print("nothing changed")
+
+        time.sleep(5)
+        print("---")
+        time.sleep(10)
 
     def iterate(self):
-        index = 000000
+        index = 100000
         while True:
             print(f"Index = {index}")
             if not self.iterate_index(index):
@@ -219,8 +259,11 @@ class AddLabelBot:
                 continue
             try:
                 self.examine(qid)
+                if self.max_change > 0 and self.changed_count >= self.max_change:
+                    return False
             except RuntimeError as e:
                 print(f"Runtime error: {e}")
+                self.add_error(qid, e.__repr__())
         return True
 
     def query_wdqs(self, query: str, retry_counter: int = 3):
@@ -345,6 +388,26 @@ class AddLabelBot:
                 descs.append(short_desc)
         return ", ".join(descs)
 
+    def get_locale_desc(self, pages):
+        countries = []
+        languages = []
+        for page in pages:
+            for country in page.countries:
+                if country not in countries:
+                    countries.append(country)
+            for language in page.languages:
+                if language not in languages:
+                    languages.append(language)
+        country_str = ", ".join(countries)
+        language_str = ", ".join(languages)
+        locale_list = []
+        if country_str:
+            locale_list.append(country_str)
+        if language_str:
+            locale_list.append(language_str)
+        res = " - ".join(locale_list) or "NONE"
+        return res
+
     def resolve_redirect_notfound(self, page: authdata.AuthPage) -> None:
         for claim in self.claims[page.pid]:
             id = claim.getTarget()
@@ -396,6 +459,38 @@ class AddLabelBot:
 
         return None
 
+    def add_error(self, qid, msg):
+        print(msg)
+        if qid not in self.errors:
+            self.errors[qid] = []
+        self.errors[qid].append(
+            {
+                "msg": msg,
+            }
+        )
+
+        self.save_errors(self.errors)
+
+    def load_errors(self):
+        if os.path.exists(ERRORS_FILE):
+            with open(ERRORS_FILE, "r") as infile:
+                errors = json.load(infile)
+        else:
+            errors = {}
+        return errors
+
+    def save_errors(self, errors):
+        with open(ERRORS_FILE, "w") as outfile:
+            json.dump(errors, outfile)
+
+    def load_ignores(self):
+        if os.path.exists(IGNORES_FILE):
+            with open(IGNORES_FILE, "r") as infile:
+                ignores = json.load(infile)
+        else:
+            ignores = {}
+        return ignores
+
 
 def do_bnf():
     authsrcs = authsource.AuthoritySources()
@@ -403,6 +498,7 @@ def do_bnf():
         authsrcs.get(authsource.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID), "fr"
     )
     bot.test = True
+    bot.max_change = 15
     bot.run()
 
 
@@ -410,6 +506,7 @@ def do_gnd():
     authsrcs = authsource.AuthoritySources()
     bot = AddLabelBot(authsrcs.get(authsource.PID_GND_ID), "de")
     bot.test = True
+    bot.max_change = 15
     bot.run()
 
 
@@ -419,6 +516,7 @@ def do_loc():
         authsrcs.get(authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID), "en"
     )
     bot.test = True
+    bot.max_change = 15
     bot.run()
 
 
@@ -426,6 +524,7 @@ def do_idref():
     authsrcs = authsource.AuthoritySources()
     bot = AddLabelBot(authsrcs.get(authsource.PID_IDREF_ID), "fr")
     bot.test = True
+    bot.max_change = 15
     bot.run()
 
 
@@ -439,16 +538,24 @@ def do_single(qid: str):
 
 
 def main() -> None:
+    do_bnf()
+    do_gnd()
+    do_loc()
     do_idref()
-    #do_single("Q24701281")
+    #do_single("Q4054512")
 
     # ukranian; julian + gregorian: Q3920227
+    # greek: Q61060745; . in native name 
     # name with title: Q112080201
     # redirect: Q4263564
     # invalid chars in name: Q6070246
-    # conflicting name order: Q3141116 
+    # conflicting name order: Q3141116
     # veuve d': Q111419974
     # hungary: Q24680637; Q24701318; Q24701281; Q25466541; Q25466606; Q1004670
+    # no family name: Q3160707 (pseudonym)
+    # double space: Q18646095
+    # no language info: Q4526465; Q112415186; Q112437251
+
 
 if __name__ == "__main__":
     main()

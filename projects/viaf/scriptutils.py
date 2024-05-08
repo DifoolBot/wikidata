@@ -23,13 +23,13 @@ def is_script(str: str, allowed_scripts: list) -> bool:
                 return False
     return True
 
-def is_hebrew(str: str) -> bool:
+def is_hebrew_text(str: str) -> bool:
     return is_script(str, allowed_hebrew_scripts)
 
-def is_latin(str: str) -> bool:
+def is_latin_text(str: str) -> bool:
     return is_script(str, allowed_latin_scripts)
 
-def is_cyrillic(str: str) -> bool:
+def is_cyrillic_text(str: str) -> bool:
     return is_script(str, allowed_cyrillic_scripts)
 
 def check(name: str):

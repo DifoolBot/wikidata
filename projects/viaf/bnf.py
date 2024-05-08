@@ -3,8 +3,10 @@ import name as nm
 import authdata
 import re
 import languagecodes as lc
+import time
 
 BNF_ENDPOINT = "https://data.bnf.fr/sparql"
+BNF_SLEEP_AFTER_ERROR = 1 * 60 # 10 * 60
 
 PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID = "P268"
 # see applicable 'stated in' value
@@ -60,13 +62,20 @@ class BnfPage(authdata.AuthPage):
                 countries: {self.countries}
                 languages: {self.languages}
                 hebrew: {self.has_hebrew_script()}
-                cyrillic: {self.has_cyrillic_script()}"""
+                cyrillic: {self.has_cyrillic_script()}
+                non latin: {self.has_non_latin_script()}"""
         return output
 
     def query_sparql(self, query: str, retry_counter: int = 3):
-        response = requests.get(BNF_ENDPOINT, params={"query": query, "format": "json"})
+        try:
+            response = requests.get(BNF_ENDPOINT, params={"query": query, "format": "json"})
+        except requests.exceptions.ConnectionError as e:
+            print('*** ConnectionError ***')
+            print('Error: {error}'.format(error=e))
+            time.sleep(BNF_SLEEP_AFTER_ERROR)
+            raise RuntimeError("BNF Connection error")
+        
         payload = response.json()
-
         return payload["results"]["bindings"]
 
     def query_url(self):
@@ -77,18 +86,6 @@ class BnfPage(authdata.AuthPage):
             return None
 
         return response.text
-
-    def has_hebrew_script(self):
-        if self.has_script(lc.is_hebrew):
-            return True
-
-        return False
-
-    def has_cyrillic_script(self):
-        if self.has_script(lc.is_cyrillic):
-            return True
-
-        return False
 
     # https://data.bnf.fr/sparql/
 
@@ -131,7 +128,6 @@ class BnfPage(authdata.AuthPage):
                 row.get("xx", {}).get("value", ""),
                 row.get("yy", {}).get("value", ""),
             )
-            print(f"{col1} {col2} {col3} {col4}")
 
             if col1 == SKOS_PREFLABEL:
                 pref_label = col2
@@ -156,29 +152,27 @@ class BnfPage(authdata.AuthPage):
                 elif col3 == ELEMENTSGR2_LANGUAGE:
                     iso639_2 = col4.replace(URL_LOC_ISO639_2, "")
                     lang = lc.get_iso639_3(iso639_2)
-                    self.languages.append(lang)
+                    self.add_language(lang)
                 elif col3 == FOAF_FAMILYNAME:
                     family_name = col4
                 elif col3 == FOAF_GIVENNAME:
                     given_name = col4
                 elif col3 == ELEMENTSGR2_COUNTRY:
                     country = col4
-                    if country:
-                        if country.startswith(URL_LOC_COUNTRIES):
-                            code = country.replace(URL_LOC_COUNTRIES, "")
-                            if code not in lc.loc_country_dict:
-                                raise RuntimeError(f"BnF: Unknown loc country {code}")
-                            country3 = lc.loc_country_dict[code]
-                        elif country.startswith(URL_BNF_COUNTRIES):
-                            code = country.replace(URL_BNF_COUNTRIES, "")
-                            if code not in lc.bnf_country_dict:
-                                raise RuntimeError(f"BnF: Unknown bnf country {code}")
-                            country3 = lc.bnf_country_dict[code]
-                        else:
-                            raise RuntimeError(
-                                f"BnF: Unrecognized country url {country}"
-                            )
-                        self.countries.append(country3)
+                    if not country:
+                        continue
+                    if country.startswith(URL_LOC_COUNTRIES):
+                        code = country.replace(URL_LOC_COUNTRIES, "")
+                        if code not in lc.loc_country_dict:
+                            raise RuntimeError(f"BnF: Unknown loc country {code}")
+                        self.add_country(lc.loc_country_dict[code])
+                    elif country.startswith(URL_BNF_COUNTRIES):
+                        code = country.replace(URL_BNF_COUNTRIES, "")
+                        if code not in lc.bnf_country_dict:
+                            raise RuntimeError(f"BnF: Unknown bnf country {code}")
+                        self.add_country(lc.bnf_country_dict[code])
+                    else:
+                        raise RuntimeError(f"BnF: Unrecognized country url {country}")
 
         if not self.birth_date and birth_year:
             self.birth_date = birth_year
@@ -254,15 +248,16 @@ class BnfPage(authdata.AuthPage):
                     if code not in lc.loc_country_dict:
                         raise RuntimeError(f"BnF: Unknown loc country {code}")
                     country3 = lc.loc_country_dict[code]
+                    self.add_country(country3)
                 elif country.startswith(URL_BNF_COUNTRIES):
                     code = country.replace(URL_BNF_COUNTRIES, "")
                     if code not in lc.bnf_country_dict:
                         raise RuntimeError(f"BnF: Unknown bnf country {code}")
                     country3 = lc.bnf_country_dict[code]
+                    self.add_country(country3)
                 else:
                     raise RuntimeError(f"BnF: Unrecognized country url {country}")
 
-                self.countries.append(country3)
 
             self.latin_name = nm.Name(
                 name=pref_label, given_name=given_name, family_name=family_name
@@ -288,7 +283,7 @@ def main() -> None:
     # Hebrew: 11909578b
     # ota: 11244416x
 
-    p = BnfPage("10211222t")
+    p = BnfPage("11909578b")
     p.run()
     print(p)
 

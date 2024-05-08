@@ -24,6 +24,9 @@ WRITING_SYSTEM_TRADITIONAL_CHINESE_CHARACTERS = "traditional Chinese characters"
 WRITING_SYSTEM_ARMENIAN_ALPHABET = "Armenian alphabet"
 WRITING_SYSTEM_BURMESE = "Burmese"
 WRITING_SYSTEM_GEORGIAN_SCRIPTS = "Georgian scripts"
+WRITING_SYSTEM_OTTOMAN_TURKISH_ALPHABET = "Ottoman Turkish alphabet"
+WRITING_SYSTEM_TIBETAN_ALPHABET = "Tibetan alphabet"
+WRITING_SYSTEM_TIBETAN_SCRIPT = "Tibetan script"
 
 hebrew_list = [WRITING_SYSTEM_HEBREW_ALPHABET]
 cyrillic_list = [
@@ -56,6 +59,9 @@ not_latin_list = (
         WRITING_SYSTEM_ARMENIAN_ALPHABET,
         WRITING_SYSTEM_BURMESE,
         WRITING_SYSTEM_GEORGIAN_SCRIPTS,
+        WRITING_SYSTEM_OTTOMAN_TURKISH_ALPHABET,
+        WRITING_SYSTEM_TIBETAN_ALPHABET,
+        WRITING_SYSTEM_TIBETAN_SCRIPT,
     ]
     + cyrillic_list
     + hebrew_list
@@ -63,18 +69,18 @@ not_latin_list = (
 
 hungarian_name_order_countries_list = ["HUN"]
 # China, Japan, Korea, and Vietnam
-eastern_name_order_countries_list = ["CHI", "JPN", "PRK", "KOR", "VNM", "MAC"]
+eastern_name_order_countries_list = ["CHN", "JPN", "PRK", "KOR", "VNM", "MAC"]
 
 
-def is_hebrew(script: str) -> bool:
+def is_hebrew_script(script: str) -> bool:
     return script in hebrew_list
 
 
-def is_cyrillic(script: str) -> bool:
+def is_cyrillic_script(script: str) -> bool:
     return script in cyrillic_list
 
 
-def is_not_latin(script: str) -> bool:
+def is_not_latin_script(script: str) -> bool:
     return script in not_latin_list
 
 
@@ -82,17 +88,39 @@ def is_hungarian_name_order_country(country: str) -> bool:
     return country in hungarian_name_order_countries_list
 
 
+def is_hungarian_name_order_language(language: str) -> bool:
+    for country in hungarian_name_order_countries_list:
+        if language in official_languages_dict[country]:
+            return True
+    return False
+
+
 def is_eastern_name_order_country(country: str) -> bool:
     return country in eastern_name_order_countries_list
 
 
+def is_eastern_name_order_language(language: str) -> bool:
+    for country in eastern_name_order_countries_list:
+        if language in official_languages_dict[country]:
+            return True
+    return False
+
+
 loc_locale_dict = {
+    "Boston (Mass.)": "USA",
+    "Italy": "ITA",
+    "Melbourne (Vic.)": "AUS",
+    "Palawan (Philippines : Province)": "PHL",
+    "Romania": "ROU",
+    "Selinus, Extinct city": "",
     "Africa": "",
+    "Azerbaijan": "AZE",
     "Belarus": "BLR",
     "Birmingham (Ala.)": "USA",
     "Cambridge, Mass.": "USA",
     "Canada": "CAN",
     "China": "CHN",
+    "Colombia": "COL",
     "Côte d'Ivoire": "CIV",
     "Denmark": "DNK",
     "Egypt": "EGY",
@@ -100,24 +128,35 @@ loc_locale_dict = {
     "Georgia (Republic)": "GEO",
     "Germany": "DEU",
     "Great Britain": "GBR",
+    "Greece": "GRC",
+    "India": "IND",
     "Ireland": "IRL",
     "Israel": "ISR",
     "Japan": "JPN",
     "Jordan": "JOR",
     "Korea": "KOR",
+    "Latvia": "LVA",
+    "Malaysia": "MYS",
     "Monaco": "MCO",
     "Moscow, Russia": "RUS",
+    "Poland": "POL",
     "Russia (Federation)": "RUS",
     "Russia": "RUS",
     "San Francisco Bay Area (Calif.)": "USA",
+    "Scotland": "GBR",
     "Slovakia": "SVK",
+    "Slovenia": "SVN",
     "Soviet Union": "SUN",
     "Sweden": "SWE",
+    "U.S.": "USA",
     "Ukraine": "UKR",
     "United States": "USA",
     "Vietnam (Republic)": "VNM",
     "West Bank": "ISR",
-    "Colombia": "COL",
+    "Hungary": "HUN",
+    "Singapore": "SGP",
+    "Cambridge (Mass.)": "USA",
+    "Tucson (Ariz.)": "USA",
 }
 
 
@@ -135,42 +174,6 @@ def get_loc_locale_country(locale: str) -> str:
 
     return loc_locale_dict[locale]
 
-
-# https://id.loc.gov/vocabulary/languages.html
-# https://id.loc.gov/vocabulary/languages/x
-
-# todo ; vergelijk met iso2 -> iso3
-loc_lang_dict = {
-    "ara": "ara",
-    "bul": "bul",  # Bulgarian
-    "chi": "zho",  ## Chinese 
-    "cze": "ces",  # Czech
-    "dut": "nld",  ##
-    "eng": "eng",
-    "est": "est",  # Estonian
-    "fre": "fra",  ##
-    "ger": "deu",  ##
-    "gre": "grk",  ## Greek, Modern (1453- )
-    "guj": "guj",
-    "heb": "heb",  # Hebrew
-    "hin": "hin",  # Hindi
-    "hun": "hun",
-    "ita": "ita",
-    "jpn": "jpn",
-    "kaz": "kaz",
-    "kor": "kor",  # Korean
-    "lat": "lat",
-    "lav": "lav",  # Latvian
-    "lit": "lit",
-    "pol": "pol",
-    "rus": "rus",
-    "slo": "slk",  ## Slovak
-    "spa": "spa",
-    "srp": "srp",
-    "swe": "swe",
-    "ukr": "ukr",
-    "rum": "ron",  ## Romanian
-}
 
 # https://d-nb.info/standards/vocab/gnd/geographic-area-code.html
 gnd_country_dict = {
@@ -214,14 +217,20 @@ gnd_country_dict = {
     "XA-UA": "UKR",
     "XB-AM": "ARM",
     "XB-AZ": "AZE",
+    "XB-CN-54": "CN-XZ",  # Tibet (China)
     "XB-CN": "CHN",
     "XB-IL": "ISR",
     "XB-IN": "IND",
+    "XB-JO": "JOR",  # Jordan
     "XB-JP": "JPN",
+    "XB-KR": "KOR",  # Korea (South)
     "XB-LB": "LBN",
+    "XB-SY": "SYR",  # Syria
+    "XB-TH": "THA",  # Thailand
     "XB-TR": "TUR",
     "XB-TW": "TWN",
     "XB-UZ": "UZB",
+    "XB-VN": "VNM",  # Vietnam
     "XC-DZ": "DZA",
     "XC-EG": "EGY",
     "XC-MA": "MAR",
@@ -235,8 +244,10 @@ gnd_country_dict = {
     "XD-CL": "CHL",
     "XD-CO": "COL",
     "XD-CU": "CUB",
+    "XD-DO": "DOM",  # Dominican Republic
     "XD-HT": "HTI",
     "XD-MX": "MEX",
+    "XD-PE": "PER",  # Peru
     "XD-US": "USA",
     "XD-UY": "URY",
     "XD-VE": "VEN",
@@ -245,7 +256,9 @@ gnd_country_dict = {
     "XX": "SAU",  # Arab Countries
     "XY": "ISR",  # Jews
     "ZZ": "",  # Country unknown
-    "XD-DO": "DOM",  # Dominican Republic
+    "XB-IQ": "IRQ",  # Iraq
+    "XA-FI": "FIN",  # Finland
+    "XA-EE": "EST",  # Estonia
 }
 
 # select distinct ?country2 ?country_iso ?itemLabel WHERE {
@@ -492,6 +505,9 @@ bnf_country_dict = {
     "xnhh": "NED",  # Belgique et Pays-Bas avant 1830
     "xdhh": "DEU",  # Allemagne avant 1945
     "yucs": "YUG",  # Yougoslavie (1918-2006)
+    "ps": "PS",  # Autorité palestinienne
+    "sy": "SYR",  # Syrie
+    "hk": "HK",  # Hong Kong
 }
 
 
@@ -527,6 +543,9 @@ bnf_country_dict = {
 #      }
 # } order by ?iso2
 
+# https://id.loc.gov/vocabulary/languages.html
+# https://id.loc.gov/vocabulary/languages/x
+
 iso639_2_dict = {
     "alb": "sqi",  # Albanian
     "arm": "hye",  # Armenian
@@ -555,7 +574,7 @@ iso639_2_dict = {
 
 def get_iso639_3(iso639_2: str) -> str:
     if iso639_2 in iso639_2_dict:
-        return iso639_2_dict[iso639_2] 
+        return iso639_2_dict[iso639_2]
     else:
         return iso639_2
 
@@ -572,6 +591,7 @@ iso639_3_dict = {
     "tay": [WRITING_SYSTEM_LATIN_SCRIPT],  # Atayal
     "asf": [],  # Auslan
     "en-AU": [WRITING_SYSTEM_LATIN_SCRIPT, "English alphabet"],  # Australian English
+    "en-HK": [WRITING_SYSTEM_LATIN_SCRIPT, "English alphabet"],  # Hong Kong English
     "aym": [WRITING_SYSTEM_LATIN_SCRIPT],  # Aymara
     "aze": [
         WRITING_SYSTEM_ARABIC_ALPHABET,
@@ -628,7 +648,7 @@ iso639_3_dict = {
     "dyu": [WRITING_SYSTEM_LATIN_SCRIPT],  # Dioula
     "dogo1299": [],  # Dogon
     "nld": [WRITING_SYSTEM_LATIN_SCRIPT],  # Dutch
-    "dzo": ["Tibetan alphabet"],  # Dzongkha
+    "dzo": [WRITING_SYSTEM_TIBETAN_ALPHABET],  # Dzongkha
     "eng": [WRITING_SYSTEM_LATIN_SCRIPT, "English orthography"],  # English
     "est": [WRITING_SYSTEM_LATIN_SCRIPT],  # Estonian
     "fao": [WRITING_SYSTEM_LATIN_SCRIPT],  # Faroese
@@ -846,12 +866,23 @@ iso639_3_dict = {
     "guj": ["Gujarati script"],  # Gujarati language
     "mul": [],  # multiple languages
     "und": [],  # undetermined
-    "bod": ["Tibetan script"],  # Lhasa Tibetan
+    "bod": [WRITING_SYSTEM_TIBETAN_SCRIPT],  # Lhasa Tibetan
     "fiu": [],  # iso639-5/fiu
     "yid": [WRITING_SYSTEM_HEBREW_ALPHABET, "Yiddish orthography"],  # Yiddish
     "ira": [WRITING_SYSTEM_PERSIAN_ALPHABET],  # The Iranian languages
-    # todo
-    "ota": [],  # Ottoman Turkish
+    "ota": [WRITING_SYSTEM_OTTOMAN_TURKISH_ALPHABET],  # Ottoman Turkish
+    "wen": [WRITING_SYSTEM_LATIN_SCRIPT],  # Sorbian languages
+    "sah": [
+        WRITING_SYSTEM_CYRILLIC_SCRIPT
+    ],  # Sakha, or Yakut; Cyrillic (formerly Latin and Cyrillic-based)
+    "tel": ["Telugu script"],  # Telugu language
+    "orv-olr": [
+        WRITING_SYSTEM_CYRILLIC_SCRIPT,
+        "Belarusian Arabic alphabet",
+        "Latin script",
+    ],  # Ruthian
+    "ang": ["Runic"],  # anglo-saxon (ca.450-1100)
+    "pra": [],  # Prakrit
 }
 
 # SELECT ?country_iso (GROUP_CONCAT(DISTINCT ?c; SEPARATOR = '@') AS ?lan) ?itemLabel WHERE {
@@ -877,6 +908,7 @@ iso639_3_dict = {
 # } group by ?country_iso ?itemLabel order by ?itemLabel
 
 official_languages_dict = {
+    "ABW": ["nld", "pap"],  # Aruba
     "AFG": [
         "prs",
         "nuri",
@@ -888,115 +920,128 @@ official_languages_dict = {
         "pash1270",
         "pus",
     ],  # Afghanistan
-    "ALB": ["sqi"],  # Albania
-    "DZA": ["ara", "Standard Algerian Berber"],  # Algeria
-    "AND": ["cat"],  # Andorra
     "AGO": ["por"],  # Angola
-    "ATG": ["eng"],  # Antigua and Barbuda
+    "ALB": ["sqi"],  # Albania
+    "AND": ["cat"],  # Andorra
+    "ARE": ["eng", "ara"],  # United Arab Emirates
     "ARG": ["spa"],  # Argentina
     "ARM": ["hye"],  # Armenia
-    "ABW": ["nld", "pap"],  # Aruba
+    "ATG": ["eng"],  # Antigua and Barbuda
     "AUS": ["en-AU"],  # Australia
     "AUT": ["deu"],  # Austria
     "AZE": ["aze"],  # Azerbaijan
-    "BHR": ["ara"],  # Bahrain
-    "BGD": ["ben"],  # Bangladesh
-    "BRB": ["bjs", "eng"],  # Barbados
-    "BLR": ["rus", "bel"],  # Belarus
-    "BEL": ["nld", "fra", "deu"],  # Belgium
-    "BLZ": ["eng"],  # Belize
-    "BEN": ["fra"],  # Benin
-    "BTN": ["dzo"],  # Bhutan
-    "BOL": ["spa", "que", "aym", "grn"],  # Bolivia
-    "BIH": ["hrv", "bos", "srp"],  # Bosnia and Herzegovina
-    "BWA": ["eng"],  # Botswana
-    "BRA": ["por"],  # Brazil
-    "BRN": ["eng", "msa"],  # Brunei
-    "BGR": ["bul"],  # Bulgaria
-    "BFA": ["dyu", "bib", "mos"],  # Burkina Faso
     "BDI": ["eng", "fra", "run"],  # Burundi
-    "KHM": ["khm"],  # Cambodia
-    "CMR": ["eng", "fra"],  # Cameroon
-    "CAN": ["eng", "fra"],  # Canada
-    "CPV": ["por", "kea"],  # Cape Verde
+    "BEL": ["nld", "fra", "deu"],  # Belgium
+    "BEN": ["fra"],  # Benin
+    "BFA": ["dyu", "bib", "mos"],  # Burkina Faso
+    "BGD": ["ben"],  # Bangladesh
+    "BGR": ["bul"],  # Bulgaria
+    "BHR": ["ara"],  # Bahrain
+    "BHS": ["eng"],  # The Bahamas
+    "BIH": ["hrv", "bos", "srp"],  # Bosnia and Herzegovina
+    "BLR": ["rus", "bel"],  # Belarus
+    "BLZ": ["eng"],  # Belize
+    "BOL": ["spa", "que", "aym", "grn"],  # Bolivia
+    "BRA": ["por"],  # Brazil
+    "BRB": ["bjs", "eng"],  # Barbados
+    "BRN": ["eng", "msa"],  # Brunei
+    "BTN": ["dzo"],  # Bhutan
+    "BWA": ["eng"],  # Botswana
     "CAF": ["fra", "sag"],  # Central African Republic
-    "TCD": ["ara", "fra"],  # Chad
+    "CAN": ["eng", "fra"],  # Canada
+    "CHE": ["ita", "roh", "fra", "deu"],  # Switzerland
     "CHL": ["spa"],  # Chile
+    "CHN": ["zho", "huyu", "languages of China"],  # People's Republic of China
+    "CIV": ["fra"],  # Ivory Coast
+    "CMR": ["eng", "fra"],  # Cameroon
+    "CN-XZ": ["bod", "huyu", "zho"],
+    "COD": ["fra"],  # Democratic Republic of the Congo
+    "COG": ["fra"],  # Republic of the Congo
+    "COK": ["eng", "rar"],  # Cook Islands
     "COL": ["spa"],  # Colombia
     "COM": ["ara", "fra", "como1260"],  # Comoros
-    "COK": ["eng", "rar"],  # Cook Islands
+    "CPV": ["por", "kea"],  # Cape Verde
     "CRI": ["spa"],  # Costa Rica
-    "HRV": ["hrv"],  # Croatia
+    "CSK": ["slk", "ces"],  # Czechoslovakia
     "CUB": ["spa"],  # Cuba
     "CUW": ["eng", "nld", "pap"],  # Curaçao
     "CYP": ["tur", "grk", "ell"],  # Cyprus
     "CZE": ["ces"],  # Czech Republic
-    "CSK": ["slk", "ces"],  # Czechoslovakia
-    "COD": ["fra"],  # Democratic Republic of the Congo
-    "DNK": ["dan"],  # Denmark
+    "DEU": ["deu"],  # Germany
     "DJI": ["ara", "fra"],  # Djibouti
     "DMA": ["eng"],  # Dominica
+    "DNK": ["dan"],  # Denmark
     "DOM": ["spa"],  # Dominican Republic
-    "TLS": ["por", "tet"],  # East Timor
+    "DZA": ["ara", "Standard Algerian Berber"],  # Algeria
     "ECU": ["colo1257", "jiv", "spa"],  # Ecuador
     "EGY": ["ara"],  # Egypt
-    "SLV": ["spa"],  # El Salvador
-    "GNQ": ["spa", "por", "fra"],  # Equatorial Guinea
     "ERI": ["eng", "ara", "tir"],  # Eritrea
+    "ESP": ["spa"],  # Spain
     "EST": ["est"],  # Estonia
-    "SWZ": ["eng", "ssw"],  # Eswatini
     "ETH": ["amh"],  # Ethiopia
-    "FRO": ["dan", "fao"],  # Faroe Islands
-    "YUG": ["srp"],  # Federal Republic of Yugoslavia
-    "FSM": ["eng"],  # Federated States of Micronesia
-    "FJI": ["eng", "fij", "hif"],  # Fiji
     "FIN": ["fin", "swe"],  # Finland
+    "FJI": ["eng", "fij", "hif"],  # Fiji
     "FRA": ["fra"],  # France
+    "FRO": ["dan", "fao"],  # Faroe Islands
+    "FSM": ["eng"],  # Federated States of Micronesia
     "GAB": ["fra"],  # Gabon
+    "GBR": ["eng"],  # United Kingdom
     "GEO": ["abk", "kat"],  # Georgia
-    "DEU": ["deu"],  # Germany
     "GHA": ["eng"],  # Ghana
     "GIB": ["eng"],  # Gibraltar
-    "GRC": ["grk", "ell-dim", "ell"],  # Greece
-    "GRL": ["kal"],  # Greenland
-    "GRD": ["gcl", "eng"],  # Grenada
-    "GTM": ["spa"],  # Guatemala
     "GIN": ["fra"],  # Guinea
+    "GMB": ["eng"],  # The Gambia
     "GNB": ["por"],  # Guinea-Bissau
+    "GNQ": ["spa", "por", "fra"],  # Equatorial Guinea
+    "GRC": ["grk", "ell-dim", "ell"],  # Greece
+    "GRD": ["gcl", "eng"],  # Grenada
+    "GRL": ["kal"],  # Greenland
+    "GTM": ["spa"],  # Guatemala
     "GUY": ["eng"],  # Guyana
-    "HTI": ["fra", "hat"],  # Haiti
     "HND": ["spa"],  # Honduras
+    "HRV": ["hrv"],  # Croatia
+    "HTI": ["fra", "hat"],  # Haiti
     "HUN": ["hun"],  # Hungary
-    "ISL": ["isl"],  # Iceland
-    "IND": ["eng", "hin"],  # India
+    "HVO": ["fra"],  # Republic of Upper Volta
     "IDN": ["ind"],  # Indonesia
+    "IND": ["eng", "hin"],  # India
+    "IRL": ["eng", "gle"],  # Republic of Ireland
     "IRN": ["fas"],  # Iran
     "IRQ": ["ara", "kur"],  # Iraq
+    "ISL": ["isl"],  # Iceland
     "ISR": ["heb"],  # Israel
     "ITA": ["ita"],  # Italy
-    "CIV": ["fra"],  # Ivory Coast
     "JAM": ["eng"],  # Jamaica
-    "JPN": ["jpn"],  # Japan
     "JOR": ["ara"],  # Jordan
+    "JPN": ["jpn"],  # Japan
     "KAZ": ["rus", "kaz"],  # Kazakhstan
     "KEN": ["eng", "swa"],  # Kenya
-    "NLD": ["nld"],  # Kingdom of the Netherlands
-    "KIR": ["eng", "gil"],  # Kiribati
-    "KWT": ["ara"],  # Kuwait
     "KGZ": ["rus", "kir"],  # Kyrgyzstan
+    "KHM": ["khm"],  # Cambodia
+    "KIR": ["eng", "gil"],  # Kiribati
+    "KNA": ["eng"],  # Saint Kitts and Nevis
+    "KOR": ["kor"],  # South Korea
+    "KWT": ["ara"],  # Kuwait
     "LAO": ["lao"],  # Laos
-    "LVA": ["lav", "lvs"],  # Latvia
     "LBN": ["ara"],  # Lebanon
-    "LSO": ["eng", "sot"],  # Lesotho
     "LBR": ["eng"],  # Liberia
     "LBY": ["ara"],  # Libya
+    "LCA": ["eng"],  # Saint Lucia
     "LIE": ["deu"],  # Liechtenstein
+    "LKA": ["tam", "sin"],  # Sri Lanka
+    "LSO": ["eng", "sot"],  # Lesotho
     "LTU": ["lit"],  # Lithuania
     "LUX": ["ltz", "fra", "deu"],  # Luxembourg
+    "LVA": ["lav", "lvs"],  # Latvia
+    "MAC": ["zho", "por"],
+    "MAR": ["zgh", "ara"],  # Morocco
+    "MCO": ["fra"],  # Monaco
+    "MDA": ["ron"],  # Moldova
     "MDG": ["mlg", "fra"],  # Madagascar
-    "MWI": ["eng", "nya"],  # Malawi
-    "MYS": ["msa"],  # Malaysia
     "MDV": ["div"],  # Maldives
+    "MEX": ["spa", "yua", "nah", "languages of Mexico"],  # Mexico
+    "MHL": ["eng", "mah"],  # Marshall Islands
+    "MKD": ["sqi", "mkd"],  # North Macedonia
     "MLI": [
         "dogo1299",
         "son",
@@ -1013,92 +1058,78 @@ official_languages_dict = {
         "kao",
     ],  # Mali
     "MLT": ["eng", "mlt"],  # Malta
-    "MHL": ["eng", "mah"],  # Marshall Islands
+    "MMR": ["mya"],  # Myanmar
+    "MNE": ["cnr"],  # Montenegro
+    "MNG": ["mon"],  # Mongolia
+    "MNP": ["eng", "cal", "cha"],  # Northern Mariana Islands
+    "MOZ": ["por"],  # Mozambique
     "MRT": ["ara"],  # Mauritania
     "MUS": ["eng", "fra"],  # Mauritius
-    "MEX": ["spa", "yua", "nah", "languages of Mexico"],  # Mexico
-    "MDA": ["ron"],  # Moldova
-    "MCO": ["fra"],  # Monaco
-    "MNG": ["mon"],  # Mongolia
-    "MNE": ["cnr"],  # Montenegro
-    "MAR": ["zgh", "ara"],  # Morocco
-    "MOZ": ["por"],  # Mozambique
-    "MMR": ["mya"],  # Myanmar
+    "MWI": ["eng", "nya"],  # Malawi
+    "MYS": ["msa"],  # Malaysia
     "NAM": ["eng"],  # Namibia
-    "NRU": ["eng", "nau"],  # Nauru
-    "NPL": ["nep"],  # Nepal
-    "NLD": ["nld"],  # Netherlands
-    "NZL": ["eng", "mri"],  # New Zealand
-    "NIC": ["spa"],  # Nicaragua
     "NER": ["fra"],  # Niger
     "NGA": ["eng"],  # Nigeria
+    "NIC": ["spa"],  # Nicaragua
     "NIU": ["eng", "niu"],  # Niue
-    "PRK": ["kor", "ko-KP"],  # North Korea
-    "MKD": ["sqi", "mkd"],  # North Macedonia
-    "MNP": ["eng", "cal", "cha"],  # Northern Mariana Islands
+    "NLD": ["nld"],  # Kingdom of the Netherlands
+    "NLD": ["nld"],  # Netherlands
     "NOR": ["nor", "nob", "nno", "smi"],  # Norway
+    "NPL": ["nep"],  # Nepal
+    "NRU": ["eng", "nau"],  # Nauru
+    "NZL": ["eng", "mri"],  # New Zealand
     "OMN": ["ara"],  # Oman
     "PAK": ["urd", "eng"],  # Pakistan
-    "PLW": ["eng", "jpn", "pau"],  # Palau
     "PAN": ["spa"],  # Panama
-    "PNG": ["eng", "hmo", "tpi"],  # Papua New Guinea
-    "PRY": ["spa", "grn"],  # Paraguay
-    "CHN": ["zho", "huyu", "languages of China"],  # People's Republic of China
     "PER": ["spa", "que", "aym"],  # Peru
     "PHL": ["eng", "fil"],  # Philippines
+    "PLW": ["eng", "jpn", "pau"],  # Palau
+    "PNG": ["eng", "hmo", "tpi"],  # Papua New Guinea
     "POL": ["pol"],  # Poland
+    "PRK": ["kor", "ko-KP"],  # North Korea
     "PRT": ["por", "mwl"],  # Portugal
+    "PRY": ["spa", "grn"],  # Paraguay
+    "PS": ["ara", "heb", "eng"],
+    "PSE": ["ara"],  # State of Palestine
+    "Q172107": ["pol", "orv-olr", "lat"],  # Polish–Lithuanian Commonwealth (Q172107)
     "QAT": ["ara"],  # Qatar
-    "IRL": ["eng", "gle"],  # Republic of Ireland
-    "HVO": ["fra"],  # Republic of Upper Volta
-    "COG": ["fra"],  # Republic of the Congo
     "ROU": ["ron"],  # Romania
     "RUS": ["rus"],  # Russia
-    "SUN": ["rus"],  # Soviet Union (1922-1991)
     "RWA": ["eng", "swa", "fra", "kin"],  # Rwanda
-    "KNA": ["eng"],  # Saint Kitts and Nevis
-    "LCA": ["eng"],  # Saint Lucia
-    "VCT": ["eng"],  # Saint Vincent and the Grenadines
-    "WSM": ["eng", "smo"],  # Samoa
-    "SMR": ["ita"],  # San Marino
     "SAU": ["ara"],  # Saudi Arabia
-    "SEN": ["fra", "bala1300", "pbp", "wol"],  # Senegal
-    "SRB": ["srp"],  # Serbia
     "SCG": ["srp"],  # Serbia and Montenegro
-    "SYC": ["eng", "fra", "crs"],  # Seychelles
-    "SLE": ["eng", "kri"],  # Sierra Leone
+    "SDN": ["eng", "ara"],  # Sudan
+    "SEN": ["fra", "bala1300", "pbp", "wol"],  # Senegal
     "SGP": ["eng", "tam", "msa", "huyu"],  # Singapore
-    "SXM": ["eng", "nld"],  # Sint Maarten
+    "SLB": ["eng"],  # Solomon Islands
+    "SLE": ["eng", "kri"],  # Sierra Leone
+    "SLV": ["spa"],  # El Salvador
+    "SMR": ["ita"],  # San Marino
+    "SOM": ["som", "ara"],  # Somalia
+    "SRB": ["srp"],  # Serbia
+    "SSD": ["eng", "ara"],  # South Sudan
+    "STP": ["por"],  # São Tomé and Príncipe
+    "SUN": ["rus"],  # Soviet Union
+    "SUN": ["rus"],  # Soviet Union (1922-1991)
+    "SUR": ["nld"],  # Suriname
     "SVK": ["slk"],  # Slovakia
     "SVN": ["slv"],  # Slovenia
-    "YUG": ["mkd", "slv", "hbs"],  # Socialist Federal Republic of Yugoslavia
-    "SLB": ["eng"],  # Solomon Islands
-    "SOM": ["som", "ara"],  # Somalia
-    "ZAF": [
-        "eng",
-        "zul",
-        "xho",
-        "ven",
-        "afr",
-        "nso",
-        "ssw",
-        "sot",
-        "tsn",
-        "tso",
-        "nbl",
-    ],  # South Africa
-    "KOR": ["kor"],  # South Korea
-    "SSD": ["eng", "ara"],  # South Sudan
-    "SUN": ["rus"],  # Soviet Union
-    "ESP": ["spa"],  # Spain
-    "LKA": ["tam", "sin"],  # Sri Lanka
-    "PSE": ["ara"],  # State of Palestine
-    "SDN": ["eng", "ara"],  # Sudan
-    "SUR": ["nld"],  # Suriname
     "SWE": ["swe"],  # Sweden
-    "CHE": ["ita", "roh", "fra", "deu"],  # Switzerland
+    "SWZ": ["eng", "ssw"],  # Eswatini
+    "SXM": ["eng", "nld"],  # Sint Maarten
+    "SYC": ["eng", "fra", "crs"],  # Seychelles
     "SYR": ["ara"],  # Syria
-    "STP": ["por"],  # São Tomé and Príncipe
+    "TCD": ["ara", "fra"],  # Chad
+    "TGO": ["fra"],  # Togo
+    "THA": ["tha"],  # Thailand
+    "TJK": ["rus", "tgk"],  # Tajikistan
+    "TKM": ["tuk"],  # Turkmenistan
+    "TLS": ["por", "tet"],  # East Timor
+    "TON": ["eng", "ton"],  # Tonga
+    "TTO": ["eng"],  # Trinidad and Tobago
+    "TUN": ["ara"],  # Tunisia
+    "TUR": ["tur"],  # Turkey
+    "TUV": ["eng", "tvl"],  # Tuvalu
     "TWN": [
         "pwn",
         "szy",
@@ -1122,30 +1153,40 @@ official_languages_dict = {
         "dru",
         "qtik",
     ],  # Taiwan
-    "TJK": ["rus", "tgk"],  # Tajikistan
     "TZA": ["eng", "swa"],  # Tanzania
-    "THA": ["tha"],  # Thailand
-    "BHS": ["eng"],  # The Bahamas
-    "GMB": ["eng"],  # The Gambia
-    "TGO": ["fra"],  # Togo
-    "TON": ["eng", "ton"],  # Tonga
-    "TTO": ["eng"],  # Trinidad and Tobago
-    "TUN": ["ara"],  # Tunisia
-    "TUR": ["tur"],  # Turkey
-    "TKM": ["tuk"],  # Turkmenistan
-    "TUV": ["eng", "tvl"],  # Tuvalu
     "UGA": ["eng", "swa"],  # Uganda
     "UKR": ["ukr"],  # Ukraine
-    "ARE": ["eng", "ara"],  # United Arab Emirates
-    "GBR": ["eng"],  # United Kingdom
-    "USA": ["eng"],  # United States of America
     "URY": ["spa"],  # Uruguay
+    "USA": ["eng"],  # United States of America
     "UZB": ["uzb"],  # Uzbekistan
-    "VUT": ["eng", "fra", "bis"],  # Vanuatu
     "VAT": ["lat", "ita", "fra"],  # Vatican City
+    "VCT": ["eng"],  # Saint Vincent and the Grenadines
     "VEN": ["spa"],  # Venezuela
     "VNM": ["vie"],  # Vietnam
+    "VUT": ["eng", "fra", "bis"],  # Vanuatu
+    "WSM": ["eng", "smo"],  # Samoa
     "YEM": ["ara"],  # Yemen
+    "YUG": ["mkd", "slv", "hbs", "srp"],
+    # # todo : double
+    # "YUG": [
+    #     "mkd",
+    #     "slv",
+    #     "hbs",
+    # ],  # Socialist Federal Republic of Yugoslavia 1945 to 1992
+    # "YUG": ["srp"],  # Federal Republic of Yugoslavia 1992–2003
+    "ZAF": [
+        "eng",
+        "zul",
+        "xho",
+        "ven",
+        "afr",
+        "nso",
+        "ssw",
+        "sot",
+        "tsn",
+        "tso",
+        "nbl",
+    ],  # South Africa
     "ZMB": ["eng"],  # Zambia
     "ZWE": [
         "bwg",
@@ -1164,7 +1205,7 @@ official_languages_dict = {
         "sot",
         "khi",
     ],  # Zimbabwe
-    "MAC": ["zho", "por"],
+    "HK": ["zho", "en-HK"],
 }
 
 # SELECT DISTINCT ?item ?itemLabel ?geo ?iso WHERE {
@@ -1393,4 +1434,70 @@ geonames_country_dict = {
     "878675": "ZWE",  # Zimbabwe
     # added
     "1821275": "MAC",  # macau-special-administrative-region
+}
+
+# todo: omzetten naar lijst
+qid_country = {
+    "Q142": "FRA",  # France (Q142)
+    "Q15180": "SUN",  # Soviet Union (Q15180)
+    "Q159": "RUS",  # Russia (Q159)
+    "Q170072": "NLD",  # Dutch Republic (Q170072)
+    "Q172107": "Q172107",  # Polish–Lithuanian Commonwealth (Q172107)
+    "Q212": "UKR",  # Ukraine (Q212)
+    "Q215": "SVN",  # Slovenia (Q215)
+    "Q218": "ROU",  # Romania (Q218)
+    "Q28": "HUN",  # Hungary (Q28)
+    "Q28513": "HUN",  # Austria-Hungary (Q28513)
+    "Q29": "ESP",  # Spain (Q29)
+    "Q30": "USA",  # United States of America (Q30)
+    "Q34266": "RUS",  # Russian Empire (Q34266)
+    "Q801": "ISR",  # Israel (Q801)
+    "Q83286": "YUG",  # Socialist Federal Republic of Yugoslavia (Q83286)
+    "Q36": "POL",  # Poland (Q36)
+    # todo ; country + languages
+    "Q191077": "",  # Kingdom of Yugoslavia (Q191077) 1929–1945
+    "Q211": "LVA",  # Latvia (Q211)
+    "Q403": "SRB",  # Serbia (Q403)
+    "Q155": "BRA",  # Brazil (Q155)
+    "Q822": "LBN",  # Lebanon (Q822)
+    "Q174193": "GBR",  # United Kingdom of Great Britain and Ireland (Q174193)
+    "Q40": "AUT",  # Austria (Q40)
+    "Q756617": "DNK",  # Kingdom of Denmark (Q756617)
+}
+qid_language = {
+    "Q1321": "spa",  # Spanish (Q1321)
+    "Q150": "fra",  # French (Q150)
+    "Q1860": "eng",  # English (Q1860)
+    "Q6654": "hrv",  # Croatian (Q6654)
+    "Q7411": "nld",  # Dutch (Q7411)
+    "Q7737": "rus",  # Russian (Q7737)
+    "Q809": "pol",  # Polish (Q809)
+    "Q9056": "ces",  # Czech (Q9056)
+    "Q9058": "slk",  # Slovak (Q9058)
+    "Q9063": "slv",  # Slovene (Q9063)
+    "Q9255": "kir",  # Kyrgyz (Q9255)
+    "Q9299": "srp",  # Serbian (Q9299)
+}
+
+wikidata_language = {
+    "ky": "kir",
+    "fr": "fra",
+    "nl": "nld",
+}
+
+# https://en.wikipedia.org/wiki/List_of_Wikipedias
+# todo: talen gebruiken
+wikidata_sitelink = {
+    "cswiki": "CZE",
+    "svwiki": "SWE",
+    "trwiki": "TUR",
+    "azwiki": "AZE",
+    "bewiki": "BLR",
+    "huwiki": "HUN",
+    "jawiki": "JPN",
+    "kywiki": "KGZ",
+    "lvwiki": "LVA",
+    "plwiki": "POL",
+    "ruwiki": "RUS",
+    "ukwiki": "UKR",
 }

@@ -26,6 +26,8 @@ SKOS_ALTLABEL = "http://www.w3.org/2008/05/skos-xl#altLabel"
 SKOS_LABEL = "http://www.w3.org/2008/05/skos-xl#Label"
 SKOS_LITERALFORM = "http://www.w3.org/2008/05/skos-xl#literalForm"
 SKOS_PREFLABEL = "http://www.w3.org/2004/02/skos/core#prefLabel"
+URL_LOC_NAMES = "http://id.loc.gov/authorities/names/"
+URL_LOC_LANGUAGES = "http://id.loc.gov/vocabulary/languages/"
 
 
 class LocPage(authdata.AuthPage):
@@ -36,7 +38,6 @@ class LocPage(authdata.AuthPage):
             id=loc_id,
             page_language="en",
         )
-        self.variants = []
 
     def __str__(self):
         output = f"""
@@ -55,7 +56,8 @@ class LocPage(authdata.AuthPage):
                 countries: {self.countries}
                 languages: {self.languages}
                 hebrew: {self.has_hebrew_script()}
-                cyrillic: {self.has_cyrillic_script()}"""
+                cyrillic: {self.has_cyrillic_script()}
+                non latin: {self.has_non_latin_script()}"""
         return output
 
     def query(self):
@@ -67,30 +69,6 @@ class LocPage(authdata.AuthPage):
 
         payload = response.json()
         return payload
-
-    def has_hebrew_script(self):
-        # todo ; check language "heb"
-        for variant in self.variants:
-            if scriptutils.is_hebrew(variant):
-                return True
-
-        if self.has_script(lc.is_hebrew):
-            return True
-
-        # if 'Israel' in self.countries:
-        #     return True
-
-        return False
-
-    def has_cyrillic_script(self):
-        for variant in self.variants:
-            if scriptutils.is_cyrillic(variant):
-                return True
-
-        if self.has_script(lc.is_cyrillic):
-            return True
-
-        return False
 
     def run(self):
         self.process(self.load())
@@ -126,11 +104,13 @@ class LocPage(authdata.AuthPage):
         return variant
 
     def extract_fullname(self, data_dict, element_list, name):
-        # construct the name_parts array using MADS_ELEMENTLIST
-        # the name_parts are all the parts in the pref_label
-        # for example: pref_label = "Xu, Feng, 1980-"
-        # part 1, type: FullNameElement, value: "Xu, Feng,"
-        # part 2, type: DateNameElement, value: "1980-"
+        """
+        construct the name_parts array using MADS_ELEMENTLIST
+        the name_parts are all the parts in the pref_label
+        for example: pref_label = "Xu, Feng, 1980-"
+        part 1, type: FullNameElement, value: "Xu, Feng,"
+        part 2, type: DateNameElement, value: "1980-"
+        """
         for name_part in self.get_name_parts(data_dict, element_list):
             if name_part["type"] != MADS_FULLNAMEELEMENT:
                 part = name_part["value"]
@@ -147,7 +127,7 @@ class LocPage(authdata.AuthPage):
         # transform the list into a dictionary with @id as key
         data_dict = {p["@id"]: p for p in data}
 
-        url = "http://id.loc.gov/authorities/names/" + self.init_id
+        url = URL_LOC_NAMES + self.init_id
         if url in data_dict:
             p = data_dict[url]
             if SKOS_PREFLABEL in p:
@@ -164,9 +144,7 @@ class LocPage(authdata.AuthPage):
                     self.variants.append(variant)
             if MADS_USEINSTEAD in p:
                 use_instead = p[MADS_USEINSTEAD][0]["@id"]
-                self.id = use_instead.replace(
-                    "http://id.loc.gov/authorities/names/", ""
-                )
+                self.id = use_instead.replace(URL_LOC_NAMES, "")
                 self.is_redirect = self.id != self.init_id
 
         url = "http://id.loc.gov/rwo/agents/" + self.init_id
@@ -182,17 +160,13 @@ class LocPage(authdata.AuthPage):
                     pp = data_dict[id]
                     loc_locale = pp[RDF_LABEL][0]["@value"]
                     country = lc.get_loc_locale_country(loc_locale)
-                    if country:
-                        self.countries.append(country)
+                    self.add_country(country)
             if MADS_ASSOCIATEDLANGUAGE in p:
                 for id_obj in p[MADS_ASSOCIATEDLANGUAGE]:
                     id = id_obj["@id"]
-                    loc_lang = id.replace("http://id.loc.gov/vocabulary/languages/", "")
-                    if loc_lang not in lc.loc_lang_dict:
-                        raise RuntimeError(f"Loc: Unknown language: {loc_lang}")
-                    lang = lc.loc_lang_dict[loc_lang]
-                    if lang:
-                        self.languages.append(lang)
+                    loc_lang = id.replace(URL_LOC_LANGUAGES, "")
+                    lang = lc.get_iso639_3(loc_lang)
+                    self.add_language(lang)
 
         for p in data:
             if MADS_SOURCE in p["@type"]:
@@ -222,10 +196,12 @@ def main() -> None:
     # lang/short name: n2002066224; no2014117435; n81116002
     # 404: no00079374
     # deprecated: no2006103855
+    # double space: no2002014027
 
     # check script: nr2004033376
+    # todo: test no2011112751; hungarian
 
-    p = LocPage("n80156239")
+    p = LocPage("no2002014027")
     p.run()
     print(p)
 
