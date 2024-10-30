@@ -4,76 +4,11 @@ import os.path
 import re
 import requests
 import logging
+import constants as wd
 
 WD = "http://www.wikidata.org/entity/"
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 READ_TIMEOUT = 60  # sec
-
-PID_REFERENCE_URL = "P854"
-PID_RETRIEVED = "P813"
-PID_STATED_IN = "P248"
-PID_ARCHIVE_URL = "P1065"
-PID_ARCHIVE_DATE = "P2960"
-
-PID_AKL_ONLINE_ARTIST_ID = "P4432"
-PID_ARTNET_ARTIST_ID = "P3782"
-PID_BENEZIT_ID = "P2843"
-PID_BHCL_UUID = "P9037"
-PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID = "P268"
-PID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE_ID = "P6234"
-PID_BRITISH_MUSEUM_PERSON_OR_INSTITUTION_ID = "P1711"
-PID_CERL_THESAURUS_ID = "P1871"
-PID_CLARA_ID = "P1615"
-PID_CONOR_SI_ID = "P1280"
-PID_DEUTSCHE_BIOGRAPHIE_GND_ID = "P7902"
-PID_DIGITALE_BIBLIOTHEEK_VOOR_DE_NEDERLANDSE_LETTEREN_AUTHOR_ID = "P723"
-PID_FIND_A_GRAVE_MEMORIAL_ID = "P535"
-PID_GND_ID = "P227"
-PID_HATHITRUST_ID = "P1844"
-PID_HDS_ID = "P902"
-PID_IDREF_ID = "P269"
-PID_INTERNET_ARCHIVE_ID = "P724"
-PID_INVALUABLE_COM_PERSON_ID = "P4927"
-PID_ISNI = "P213"
-PID_LIBRARY_OF_CONGRESS_CONTROL_NUMBER_LCCN_BIBLIOGRAPHIC = "P1144"
-PID_LIBRIS_URI = "P5587"
-PID_MUSEUM_OF_MODERN_ART_ARTIST_ID = "P2174"
-PID_NATIONAL_GALLERY_OF_ART_ARTIST_ID = "P2252"
-PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID = "P1006"
-PID_NL_CR_AUT_ID = "P691"
-PID_NLA_TROVE_PEOPLE_ID = "P1315"
-PID_NUKAT_ID = "P1207"
-PID_OCLC_CONTROL_NUMBER = "P243"
-PID_OPEN_LIBRARY_ID = "P648"
-PID_PLWABN_ID = "P7293"
-PID_RISM_ID = "P5504"
-PID_RKDARTISTS_ID = "P650"
-PID_SFMOMA_ARTIST_ID = "P4936"
-PID_TRECCANI_ID = "P3365"
-PID_UNION_LIST_OF_ARTIST_NAMES_ID = "P245"
-PID_VIAF_ID = "P214"
-PID_X_POST_ID = "P5933"
-PID_X_USERNAME = "P2002"
-
-QID_ARTNET = "Q266566"
-QID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE = "Q2728291"
-QID_BNF_AUTHORITIES = "Q19938912"
-QID_BRITISH_MUSEUM_PERSON_INSTITUTION_THESAURUS = "Q18785969"
-QID_CLARA = "Q18558540"
-QID_CZECH_NATIONAL_AUTHORITY_DATABASE = "Q13550863"
-QID_DIGITAL_LIBRARY = "Q212805"
-QID_DUTCH_NATIONAL_THESAURUS_FOR_AUTHOR_NAMES = "Q104787839"
-QID_INVALUABLE = "Q50813730"
-QID_KB_NATIONAL_LIBRARY_OF_THE_NETHERLANDS = "Q1526131"
-QID_NATIONAL_LIBRARY_OF_SWEDEN = "Q953058"
-QID_NETHERLANDS_INSTITUTE_FOR_ART_HISTORY = "Q758610"
-QID_NUKAT = "Q11789729"
-QID_OPEN_LIBRARY = "Q1201876"
-QID_RKDARTISTS = "Q17299517"
-QID_SAN_FRANCISCO_MUSEUM_OF_MODERN_ART_ONLINE_COLLECTION = "Q84575091"
-QID_SUDOC = "Q2597810"
-QID_TROVE = "Q18609226"
-QID_UNION_LIST_OF_ARTIST_NAMES = "Q2494649"
 
 
 TOOLFORGE_PATTERN = "^https?:\\/\\/wikidata-externalid-url\\.toolforge\\.org\\/\\?p=([0-9]+)&url_prefix=(.*)&id=(.*)$"
@@ -275,17 +210,17 @@ class StatedIn:
         """
 
         # remove 'stated in' values that can be ignored for specific PIDs
-        if pid == PID_RKDARTISTS_ID:
-            stated_in_set.remove(QID_NETHERLANDS_INSTITUTE_FOR_ART_HISTORY)
-        if pid == PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID:
-            stated_in_set.remove(QID_DUTCH_NATIONAL_THESAURUS_FOR_AUTHOR_NAMES)
-            stated_in_set.remove(QID_KB_NATIONAL_LIBRARY_OF_THE_NETHERLANDS)
-        if pid == PID_DIGITALE_BIBLIOTHEEK_VOOR_DE_NEDERLANDSE_LETTEREN_AUTHOR_ID:
-            stated_in_set.remove(QID_DIGITAL_LIBRARY)
-        if pid == PID_IDREF_ID:
-            stated_in_set.remove(QID_SUDOC)
-        if pid == PID_LIBRIS_URI:
-            stated_in_set.remove(QID_NATIONAL_LIBRARY_OF_SWEDEN)
+        if pid == wd.PID_RKDARTISTS_ID:
+            stated_in_set.remove(wd.QID_NETHERLANDS_INSTITUTE_FOR_ART_HISTORY)
+        if pid == wd.PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID:
+            stated_in_set.remove(wd.QID_DUTCH_NATIONAL_THESAURUS_FOR_AUTHOR_NAMES)
+            stated_in_set.remove(wd.QID_KB_NATIONAL_LIBRARY_OF_THE_NETHERLANDS)
+        if pid == wd.PID_DIGITALE_BIBLIOTHEEK_VOOR_DE_NEDERLANDSE_LETTEREN_AUTHOR_ID:
+            stated_in_set.remove(wd.QID_DIGITAL_LIBRARY)
+        if pid == wd.PID_IDREF_ID:
+            stated_in_set.remove(wd.QID_SUDOC)
+        if pid == wd.PID_LIBRIS_URI:
+            stated_in_set.remove(wd.QID_NATIONAL_LIBRARY_OF_SWEDEN)
 
         applicable_stated_in = self.get_stated_in_from_pid(pid)
         if applicable_stated_in:
@@ -309,11 +244,11 @@ class StatedIn:
             or None if no match is found.
         """
 
-        if PID_REFERENCE_URL not in source:
+        if wd.PID_REFERENCE_URL not in source:
             return None
-        if len(source[PID_REFERENCE_URL]) > 1:
+        if len(source[wd.PID_REFERENCE_URL]) > 1:
             return None
-        url = source[PID_REFERENCE_URL][0].getTarget()
+        url = source[wd.PID_REFERENCE_URL][0].getTarget()
 
         stated_in_set = self.get_stated_in_from_source(source)
 
@@ -322,9 +257,7 @@ class StatedIn:
             # the source has multiple "stated in" values, check if we can ignore it, or raise an error
             pid, stated_in, external_id = id
             if not self.is_single_stated_in(pid, stated_in_set):
-                raise RuntimeError(
-                    f"id {id} has multiple stated in {stated_in_set}"
-                )
+                raise RuntimeError(f"id {id} has multiple stated in {stated_in_set}")
         return id
 
     def get_pid_from_source(self, source) -> str | None:
@@ -346,18 +279,18 @@ class StatedIn:
         if len(pids) == 1:
             return next(iter(pids))
         # handle common combinations
-        if pids == {PID_NL_CR_AUT_ID, PID_BHCL_UUID}:
-            return PID_BHCL_UUID
-        if pids == {PID_X_POST_ID, PID_X_USERNAME}:
-            return PID_X_POST_ID
+        if pids == {wd.PID_NL_CR_AUT_ID, wd.PID_BHCL_UUID}:
+            return wd.PID_BHCL_UUID
+        if pids == {wd.PID_X_POST_ID, wd.PID_X_USERNAME}:
+            return wd.PID_X_POST_ID
         if not (
             pids
             - {
-                PID_OCLC_CONTROL_NUMBER,
-                PID_INTERNET_ARCHIVE_ID,
-                PID_LIBRARY_OF_CONGRESS_CONTROL_NUMBER_LCCN_BIBLIOGRAPHIC,
-                PID_HATHITRUST_ID,
-                PID_OPEN_LIBRARY_ID,
+                wd.PID_OCLC_CONTROL_NUMBER,
+                wd.PID_INTERNET_ARCHIVE_ID,
+                wd.PID_LIBRARY_OF_CONGRESS_CONTROL_NUMBER_LCCN_BIBLIOGRAPHIC,
+                wd.PID_HATHITRUST_ID,
+                wd.PID_OPEN_LIBRARY_ID,
             }
         ):
             return "BOOK"
@@ -366,10 +299,10 @@ class StatedIn:
 
     def get_stated_in_from_source(self, source):
         """Returns a set with all 'stated in' values from a given source"""
-        if PID_STATED_IN not in source:
+        if wd.PID_STATED_IN not in source:
             return None
         stated_in = set()
-        for claim in source[PID_STATED_IN]:
+        for claim in source[wd.PID_STATED_IN]:
             qid = claim.getTarget().getID()
             stated_in.add(qid)
         return stated_in
@@ -408,12 +341,12 @@ class StatedIn:
         return pid, stated_in, external_id
 
     def get_keep_url(self, pid: str, source) -> bool:
-        if PID_REFERENCE_URL not in source:
+        if wd.PID_REFERENCE_URL not in source:
             return True
-        if len(source[PID_REFERENCE_URL]) > 1:
+        if len(source[wd.PID_REFERENCE_URL]) > 1:
             raise RuntimeError("get_keep_url: multiple reference URLs")
 
-        url = source[PID_REFERENCE_URL][0].getTarget()
+        url = source[wd.PID_REFERENCE_URL][0].getTarget()
         found_list = self.extract_ids_from_url(url, search_pid=pid)
         if not found_list and pid:
             found_list = self.extract_ids_from_url(url)
@@ -466,7 +399,7 @@ class StatedIn:
         if compiled_format_re:
             match = compiled_format_re.match(external_id)
             if not match:
-                if pid == PID_TRECCANI_ID:
+                if pid == wd.PID_TRECCANI_ID:
                     return False
                 raise RuntimeError(
                     f"{pid}: found id {external_id} does not match format re"
@@ -539,12 +472,12 @@ class StatedIn:
             json.dump(list, outfile)
 
     def ignore(self, pid: str, expr: str) -> bool:
-        if pid == PID_GND_ID:
+        if pid == wd.PID_GND_ID:
             if "deutsche-biographie" in expr:
                 logger.warning(f"Ignored: {pid} {expr}")
                 return True
             logger.warning(f"Accepted: {pid} {expr}")
-        if pid == PID_DEUTSCHE_BIOGRAPHIE_GND_ID:
+        if pid == wd.PID_DEUTSCHE_BIOGRAPHIE_GND_ID:
             if "deutsche-biographie" not in expr:
                 logger.warning(f"Ignored: {pid} {expr}")
                 return True
@@ -587,7 +520,7 @@ class StatedIn:
         self.stated_in = {}
         for row in query_wdqs(qry):
             pid = row.get("item", {}).get("value", "").replace(WD, "")
-            if not pid.startswith("P"):
+            if not wd.PID_startswith("P"):
                 continue
             if pid in ignore_pids:
                 logger.warning(f"Ignored {pid}, it has multiple stated in")
@@ -640,147 +573,147 @@ class StatedIn:
     def get_custom_list(self):
         return [
             {
-                "pid": PID_RKDARTISTS_ID,
+                "pid": wd.PID_RKDARTISTS_ID,
                 "expr": "rkd\\.nl\\/explore\\/artists\\/(\\d+)",
             },
             {
-                "pid": PID_RKDARTISTS_ID,
+                "pid": wd.PID_RKDARTISTS_ID,
                 "expr": "(?:explore\\.)?rkd\\.nl\\/(?:en|nl)\\/explore\\/artists\\/(\\d+)",
             },
             {
-                "pid": PID_RKDARTISTS_ID,
+                "pid": wd.PID_RKDARTISTS_ID,
                 "expr": "research\\.rkd\\.nl\\/nl\\/detail\\/https:\\/\\/data\\.rkd\\.nl\\/artists\\/([1-9]\\d{0,5})",
             },
             {
-                "pid": PID_VIAF_ID,
+                "pid": wd.PID_VIAF_ID,
                 "expr": r"viaf\.org\/viaf\/([1-9]\d(?:\d{0,7}|\d{17,20}))(?:\/(?:viaf\.html|#[\pLa-zA-Z0-9~˜.%,_(:)-]*))",
             },
             {
-                "pid": PID_CERL_THESAURUS_ID,
+                "pid": wd.PID_CERL_THESAURUS_ID,
                 "expr": "thesaurus\\.cerl\\.org\\/record\\/(c(?:af|nc|ni|nl|np)0\\d{7})",
             },
             {
-                "pid": PID_UNION_LIST_OF_ARTIST_NAMES_ID,
+                "pid": wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID,
                 "expr": "vocab\\.getty\\.edu\\/page\\/ulan\\/(\\d+)",
             },
             {
-                "pid": PID_UNION_LIST_OF_ARTIST_NAMES_ID,
+                "pid": wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID,
                 "expr": "getty\\.edu\\/vow\\/ULANFullDisplay\\?find=(500\\d\{6\})&role=&nation=&prev_page=1&subjectid=\\1",
             },
             {
-                "pid": PID_UNION_LIST_OF_ARTIST_NAMES_ID,
+                "pid": wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID,
                 # "expr": r"getty\.edu\/vow\/ULANFullDisplay\?find=(500\d{6})&role=&nation=&prev_page=1&subjectid=\1",
                 "expr": r"getty\.edu\/vow\/ULANFullDisplay\?find=(500\d{6})&role=&nation=&prev_page=1&subjectid=\1",
             },
             {
-                "pid": PID_OPEN_LIBRARY_ID,
+                "pid": wd.PID_OPEN_LIBRARY_ID,
                 "expr": "openlibrary\\.org\\/works\\/(OL[1-9]\\d+A)",
             },
             {
-                "pid": PID_OPEN_LIBRARY_ID,
+                "pid": wd.PID_OPEN_LIBRARY_ID,
                 "expr": "openlibrary\\.org\\/authors\\/(OL[1-9]\\d+A)\\/[a-zA-Z_]+",
                 "keep_url": True,
             },
             {
-                "pid": PID_INVALUABLE_COM_PERSON_ID,
+                "pid": wd.PID_INVALUABLE_COM_PERSON_ID,
                 "expr": "invaluable\\.com\\/features\\/viewArtist\\.cfm\\?artistRef=([\\w]+)",
             },
             {
-                "pid": PID_CLARA_ID,
+                "pid": wd.PID_CLARA_ID,
                 "expr": "clara\\.nmwa\\.org\\/index\\.php\\?g=entity_detail&entity_id=([\\d]*)",
             },
             {
-                "pid": PID_NL_CR_AUT_ID,
+                "pid": wd.PID_NL_CR_AUT_ID,
                 "expr": "aleph\\.nkp\\.cz\\/F\\/\\?func=find-c&local_base=aut&ccl_term=ica=([a-z]{2,4}[0-9]{2,14})&CON_LNG=ENG",
             },
             {
-                "pid": PID_NLA_TROVE_PEOPLE_ID,
+                "pid": wd.PID_NLA_TROVE_PEOPLE_ID,
                 "expr": "trove\\.nla\\.gov\\.au\\/people\\/([\\d]*)\\?q&c=people",
             },
             {
-                "pid": PID_RISM_ID,
+                "pid": wd.PID_RISM_ID,
                 "expr": "opac\\.rism\\.info\\/search\\?id=pe(\\d*)",
                 "repl": "people/\\1",
             },
             {
-                "pid": PID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE_ID,
-                "stated_in": QID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE,
+                "pid": wd.PID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE_ID,
+                "stated_in": wd.QID_BIOGRAPHIE_NATIONALE_DE_BELGIQUE,
                 "expr": "academieroyale\\.be\\/fr\\/la-biographie-nationale-personnalites-detail\\/personnalites\\/([a-z-]*)\\/Vrai\\/",
             },
             {
-                "pid": PID_AKL_ONLINE_ARTIST_ID,
+                "pid": wd.PID_AKL_ONLINE_ARTIST_ID,
                 "expr": "degruyter\\.com\\/view\\/AKL\\/_(\\d*)",
             },
             {
-                "pid": PID_PLWABN_ID,
+                "pid": wd.PID_PLWABN_ID,
                 "expr": "mak\\.bn\\.org\\.pl\\/cgi-bin\\/KHW\\/makwww\\.exe\\?[A-Z0-9&=]*&WI=(\\d*)",
             },
             {
-                "pid": PID_ARTNET_ARTIST_ID,
-                "stated_in": QID_ARTNET,
+                "pid": wd.PID_ARTNET_ARTIST_ID,
+                "stated_in": wd.QID_ARTNET,
                 "expr": "artnet\\.com\\/artists\\/([a-zçéšäáàèëöóòüùúïí`ñoôâêîûł0-9-]*)\\/?",
             },
             {
-                "pid": PID_ARTNET_ARTIST_ID,
-                "stated_in": QID_ARTNET,
+                "pid": wd.PID_ARTNET_ARTIST_ID,
+                "stated_in": wd.QID_ARTNET,
                 "expr": "artnet\\.com\\/artists\\/([\\p{L}-]*)\\/?",
             },
             {
-                "pid": PID_BENEZIT_ID,
+                "pid": wd.PID_BENEZIT_ID,
                 "expr": "oxfordartonline\\.com\\/benezit\\/view\\/10\\.1093\\/benz\\/9780199773787\\.001\\.0001\\/acref-9780199773787-e-(\\d*)",
                 "repl": "B\\1",
             },
             {
-                "pid": PID_BENEZIT_ID,
+                "pid": wd.PID_BENEZIT_ID,
                 "expr": "oxfordindex\\.oup\\.com\\/view\\/10\\.1093\\/benz\\/9780199773787\\.article\\.(B\\d*)",
             },
             {
-                "pid": PID_MUSEUM_OF_MODERN_ART_ARTIST_ID,
+                "pid": wd.PID_MUSEUM_OF_MODERN_ART_ARTIST_ID,
                 "expr": "moma\\.org\\/+collection\\/artists\\/(\\d+)",
             },
             {
-                "pid": PID_SFMOMA_ARTIST_ID,
-                "stated_in": QID_SAN_FRANCISCO_MUSEUM_OF_MODERN_ART_ONLINE_COLLECTION,
+                "pid": wd.PID_SFMOMA_ARTIST_ID,
+                "stated_in": wd.QID_SAN_FRANCISCO_MUSEUM_OF_MODERN_ART_ONLINE_COLLECTION,
                 "expr": "sfmoma\\.org\\/artist\\/([a-zA-Z0-9_-]*)\\/?",
             },
             {
-                "pid": PID_GND_ID,
+                "pid": wd.PID_GND_ID,
                 "expr": "portal\\.dnb\\.de\\/opac\\.htm\\?method=simpleSearch&cqlMode=true&query=nid=(\\d+)",
             },
             {
-                "pid": PID_GND_ID,
+                "pid": wd.PID_GND_ID,
                 "expr": r"portal\.dnb\.de\/opac\.htm\?method=simpleSearch&cqlMode=true&query=nid=(1[0123]?\d{7}[0-9X]|[47]\d{6}-\d|[1-9]\d{0,7}-[0-9X]|3\d{7}[0-9X])",
             },
             {
-                "pid": PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
-                "stated_in": QID_BNF_AUTHORITIES,
+                "pid": wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+                "stated_in": wd.QID_BNF_AUTHORITIES,
                 "expr": "(?:data|catalogue)\\.bnf\\.fr\\/ark:\\/12148\\/cb(\\d{8,9}[0-9bcdfghjkmnpqrstvwxz])",
             },
             {
-                "pid": PID_BRITISH_MUSEUM_PERSON_OR_INSTITUTION_ID,
-                "stated_in": QID_BRITISH_MUSEUM_PERSON_INSTITUTION_THESAURUS,
+                "pid": wd.PID_BRITISH_MUSEUM_PERSON_OR_INSTITUTION_ID,
+                "stated_in": wd.QID_BRITISH_MUSEUM_PERSON_INSTITUTION_THESAURUS,
                 "expr": "collection\\.britishmuseum\\.org\\/resource\\/\\?uri=http:\\/\\/collection\\.britishmuseum\\.org\\/id\\/person-institution\\/([1-9][0-9]{0,5})",
             },
             {
-                "pid": PID_NATIONAL_GALLERY_OF_ART_ARTIST_ID,
+                "pid": wd.PID_NATIONAL_GALLERY_OF_ART_ARTIST_ID,
                 "expr": "nga\\.gov\\/collection\\/artist-info\\.([1-9]\\d*)\\.html",
             },
             {
-                "pid": PID_CONOR_SI_ID,
+                "pid": wd.PID_CONOR_SI_ID,
                 "expr": "plus\\.cobiss\\.si\\/opac7\\/conor\\/([1-9]\\d{0,8})",
             },
             {
-                "pid": PID_FIND_A_GRAVE_MEMORIAL_ID,
+                "pid": wd.PID_FIND_A_GRAVE_MEMORIAL_ID,
                 "expr": "(?:[a-z-]*\.)?findagrave\.com\/memorial\/([1-9]\d*)\/(?:[a-zçéšäáàèëöóòüùúïí`ñoôâêîûł_-]+)",
                 "keep_url": True,
             },
             {
-                "pid": PID_ISNI,
+                "pid": wd.PID_ISNI,
                 "expr": "isni\\.org(?:\\/isni)?\\/(\\d{4})\\+?(\\d{4})\\+?(\\d{4})\\+?(\\d{3}[\\dX])",
                 "repl": "\\1\\2\\3\\4",
             },
             {
-                "pid": PID_HDS_ID,
+                "pid": wd.PID_HDS_ID,
                 "expr": "hls-dhs-dss\\.ch\\/textes\\/d\\/D(\\d{5})\\.php",
                 "repl": "0\\1",
             },

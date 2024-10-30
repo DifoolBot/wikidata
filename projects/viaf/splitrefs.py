@@ -1,9 +1,15 @@
 from collections import OrderedDict
 import pywikibot as pwb
 from pywikibot import pagegenerators
+
 import requests
 import re
-import statedin
+import logging
+
+from statedin import StatedIn
+from reporting import Reporting
+import constants as wd
+import references as ref
 
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
@@ -14,35 +20,19 @@ WD = "http://www.wikidata.org/entity/"
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 READ_TIMEOUT = 60  # sec
 
-PID_REFERENCE_URL = "P854"
-PID_RETRIEVED = "P813"
-PID_STATED_IN = "P248"
-PID_ARCHIVE_URL = "P1065"
-PID_ARCHIVE_DATE = "P2960"
-PID_SUBJECT_NAMED_AS = "P1810"
-PID_TITLE = "P1476"
 
+logger = logging.getLogger("splitrefs")
 
-PID_UNION_LIST_OF_ARTIST_NAMES_ID = "P245"
-QID_UNION_LIST_OF_ARTIST_NAMES = "Q2494649"
+# deze weg
+STA_IN = StatedIn()
 
-STATED_IN_FILE = "stated_in.json"
-
-# https://www.wikidata.org/w/index.php?title=Q17267242&diff=prev&oldid=2194531410 puinhoop
-# https://www.wikidata.org/w/index.php?title=Q87186864&diff=next&oldid=2195010750 same domain; split
-# https://www.wikidata.org/w/index.php?title=Q105973291&diff=next&oldid=2195247889 country of citizinship
-# Q63069711 vergelijkbare nalopen; zoeken op URL?
+ARCHIVE_URLS = ["web.archive.org", "archive.is", "wayback.archive-it.org"]
 
 
 def is_archive_url(url: str) -> bool:
-    if "web.archive.org" in url.lower():
-        return True
-    if "archive.is" in url.lower():
-        return True
-    if "wayback.archive-it.org" in url.lower():
-        return True
-
-    return False
+    if not url:
+        return False
+    return any(archive in url.lower() for archive in ARCHIVE_URLS)
 
 
 def get_qry_count(query: str) -> int:
@@ -65,159 +55,405 @@ def get_qry_count(query: str) -> int:
     return None
 
 
-def get_count(pid: str):
+def get_count(pid: str, url: str):
     count = 0
     index = 0
-    limit = 300_000
+    limit = 1_000_000
     while True:
-        template = """SELECT (COUNT(DISTINCT ?item) AS ?count) WHERE {{
+        # url = idref.fr
+        # pid = P269
+        template = """SELECT (count(distinct ?item) as ?count) WHERE {{
                     SERVICE bd:slice {{
-                        ?item p:{pid} ?statement.
+                        ?ref pr:P854 ?url.
                         bd:serviceParam bd:slice.offset {index} . # Start at item number (not to be confused with QID)
                         bd:serviceParam bd:slice.limit {limit}  . # List this many items
                     }}
+                    ?item ?prop ?statement.
                     ?statement prov:wasDerivedFrom ?ref.
-                    ?ref pr:P854 ?some_ref, ?some_ref2.
-                    FILTER(?some_ref != ?some_ref2)
-                    FILTER(NOT EXISTS {{ ?ref pr:P248 ?s. }})
+                    FILTER(CONTAINS(LCASE(STR(?url)), "{url}"))
+                    FILTER(NOT EXISTS {{ ?ref pr:{pid} ?s. }})
+                    FILTER(?prop != p:{pid})
                     }}
+
                     """
-        query = template.format(index=index, limit=limit, pid=pid)
+        query = template.format(index=index, limit=limit, pid=pid, url=url)
         sub_count = get_qry_count(query)
         if sub_count == None:
             break
         count = count + sub_count
-        print(f"{index}: {sub_count}; total = {count}")
+        logger.info(f"{index}: {sub_count}; total = {count}")
         index = index + limit
 
     return count
 
 
-class SplitRefBot:
-    def __init__(self, stated_in_list: statedin.StatedIn, generator: str):
-        self.stated_in_list = stated_in_list
-        self.generator = pagegenerators.PreloadingEntityGenerator(generator)
-        self.split_getty = False
+class ClaimContext:
+    def __init__(self, prop, claim) -> None:
+        self.prop = prop
+        self.claim = claim
+        self.sources = claim.sources
+        self.minor_change = False
+        self.major_change = False
 
-    def run(self):
-        for item in self.generator:
-            self.item = item
-            self.examine_item()
+    def get_is_changed(self):
+        return self.minor_change or self.major_change
 
-    def examine_item(self):
-        if not self.item.exists():
+
+class UnknownURLStrategy:
+    def unknown_url(self, qid: str, url: str) -> None:
+        pass
+
+
+class ChangeSourceStrategy:
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        self.item = item
+        self.test = test
+        self.qid = self.item.title()
+        self.unknown_url_strategy = unknown_url_strategy
+        self.changed_pids = []
+
+    def change_sources(self, context: ClaimContext) -> None:
+        pass
+
+    def get_changed_pids(self):
+        return self.changed_pids
+
+    # Function to format properties
+    def format_properties(self, summary_list, ids, action: str, template: str):
+        if len(ids) > 0:
+            ids = [template.format(id=id) for id in ids]
+            summary_list.append(f"{action} " + ", ".join(ids))
+
+    def get_summary(self, summary_list):
+        pass
+
+    def unknown_url(self, url: str):
+        if self.unknown_url_strategy:
+            self.unknown_url_strategy.unknown_url(self.qid, url)
+
+
+class RemoveEnglishWikipedia(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            changed, new_src = self.remove_english_wikipedia(src)
+            if changed:
+                context.minor_change = True
+                self.something_done = True
+                if new_src:
+                    new_sources.append(new_src)
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+        context.sources = new_sources
+
+    def remove_english_wikipedia(self, src):
+        changed = False
+        new_source = OrderedDict()
+        for prop in src:
+            new_list = []
+            for claim in src[prop]:
+                if claim and claim.type == "wikibase-item":
+                    qid = claim.getTarget().getID()
+                    if (
+                        qid == wd.QID_ENGLISHWIKIPEDIA
+                        or qid == wd.QID_GERMANWIKIPEDIA
+                        or qid == wd.QID_WEBSITE
+                        or qid == wd.QID_BIRTH_CERTIFICATE
+                        or qid == wd.QID_DEATH_CERTIFICATE
+                        or qid == wd.QID_MARRIAGECERTIFICATE
+                        or qid == wd.QID_DOCUMENT
+                        or qid == wd.QID_REPORT
+                    ):
+                        # skip
+                        changed = True
+                        continue
+                new_list.append(claim)
+
+            if new_list != []:
+                new_source[prop] = new_list
+
+        return changed, new_source
+
+    def get_summary(self, summary_list):
+        if self.something_done:
+            summary = "removed [[Q328]]"
+            summary_list.append(summary)
+        return summary_list
+
+
+class Treccani(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.pids = set()
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        claim_changed = False
+        for src in context.sources:
+            if wd.PID_TRECCANI_ID in src:
+                if len(src[wd.PID_TRECCANI_ID]) != 1:
+                    raise RuntimeError(
+                        f"Treccani: nr of ids = {len(src[wd.PID_TRECCANI_ID])}"
+                    )
+                treccani_id = src[wd.PID_TRECCANI_ID][0].getTarget()
+                if "(" not in treccani_id:
+                    # nothing changed, add original source
+                    new_sources.append(src)
+                    continue
+                normalized_treccani_id = treccani_id.replace("(", "_(").replace(
+                    "__(", "_("
+                )
+                normalized_treccani_id = normalized_treccani_id.rstrip("/")
+
+                url = "https://www.treccani.it/enciclopedia/" + normalized_treccani_id
+                found_list = STA_IN.extract_ids_from_url(url)
+                found = None
+                for item in found_list:
+                    pid, __, id = item
+                    if "(" in id:
+                        continue
+                    if found:
+                        raise RuntimeError(
+                            f"Treccani: multiple found: {pid} - {found[0]}: {url}"
+                        )
+                    found = item
+                if not found:
+                    raise RuntimeError(f"Treccani: no id found for {url}")
+
+                pid, stated_in, id, keep_url = found
+                if pid == context.prop:
+                    # external id reference; change to url
+                    new_src = self.change_external_id_ref(src, found, treccani_id)
+                    new_sources.append(new_src)
+                else:
+                    # normal reference; change stated in
+                    new_src = self.change_ref(src, found, treccani_id)
+                    new_sources.append(new_src)
+
+                claim_changed = True
+                context.major_change = True
+                continue
+
+            # nothing changed, add original source
+            new_sources.append(src)
+
+        if claim_changed:
+            context.sources = new_sources
+
+    def change_external_id_ref(self, src, t, treccani_id):
+        self.external_id_ref_changed = True
+        pid, stated_in, id = t
+        url = "https://www.treccani.it/enciclopedia/" + treccani_id
+
+        if wd.PID_REFERENCE_URL in src:
+            raise RuntimeError("Unexpeced reference URL")
+        new_source = OrderedDict()
+        for prop in src:
+            if prop == wd.PID_STATED_IN:
+                if len(src[prop]) != 1:
+                    raise RuntimeError("length != 1")
+                act_stated_in = src[prop][0].getTarget().getID()
+                if act_stated_in != stated_in:
+                    continue
+            elif prop == wd.PID_TRECCANI_ID:
+                if len(src[prop]) != 1:
+                    raise RuntimeError("length != 1")
+                act_id = src[prop][0].getTarget()
+                if act_id != treccani_id:
+                    raise RuntimeError("diff id")
+
+                ref_url_claim = pwb.Claim(REPO, wd.PID_REFERENCE_URL)
+                ref_url_claim.isReference = True
+                ref_url_claim.setTarget(url)
+                ref_url_claim.on_item = self.item
+                new_source[wd.PID_REFERENCE_URL] = [ref_url_claim]
+
+                self.pids.add(wd.PID_REFERENCE_URL)
+                continue
+
+            new_source[prop] = src[prop]
+        return new_source
+
+    def change_ref(self, src, t, treccani_id):
+        self.ref_changed = True
+        pid, stated_in, id = t
+        new_source = OrderedDict()
+        for prop in src:
+            if prop == wd.PID_STATED_IN:
+                if len(src[prop]) != 1:
+                    raise RuntimeError("length != 1")
+                # act_stated_in = src[prop][0].getTarget().getID()
+                # if act_stated_in == stated_in:
+                #    continue
+                stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN)
+                stated_in_claim.isReference = True
+                stated_in_claim.setTarget(pwb.ItemPage(REPO, stated_in))
+                stated_in_claim.on_item = self.item
+                new_source[wd.PID_STATED_IN] = [stated_in_claim]
+                continue
+            elif prop == wd.PID_TRECCANI_ID:
+                if len(src[prop]) != 1:
+                    raise RuntimeError("length != 1")
+                act_id = src[prop][0].getTarget()
+                if act_id != treccani_id:
+                    raise RuntimeError("diff id")
+
+                pid_claim = pwb.Claim(REPO, pid)
+                pid_claim.isReference = True
+                pid_claim.setTarget(id)
+                pid_claim.on_item = self.item
+                new_source[pid] = [pid_claim]
+
+                self.pids.add(pid)
+                continue
+            elif prop == pid:
+                raise RuntimeError("unexpected prop pid")
+            new_source[prop] = src[prop]
+        return new_source
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list,
+            self.pids,
+            f"changed [[Property:{wd.PID_TRECCANI_ID}]] into",
+            "[[Property:{id}]]",
+        )
+
+        return summary_list
+
+
+class SplitSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.has_archive = False
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+        if context.prop not in [
+            wd.PID_SEX_OR_GENDER,
+            wd.PID_DATE_OF_BIRTH,
+            wd.PID_DATE_OF_DEATH,
+            wd.PID_PID_ISNI,
+            wd.PID_OCCUPATION,
+        ]:
             return
 
-        if self.item.isRedirectPage():
-            return
+        new_sources = []
+        claim_changed = False
+        for src in context.sources:
+            if self.can_split_source(src):
+                source_changed, source_list = self.split_source(src)
+                if source_changed:
+                    self.something_done = self.something_done
+                    claim_changed = True
+                    new_sources.extend(source_list)
+                    continue
 
-        claims = self.item.get().get("claims")
+            # nothing changed, add original source
+            new_sources.append(src)
 
-        if not self.item.botMayEdit():
-            raise RuntimeError(
-                f"Skipping {self.item.title()} because it cannot be edited by bots"
-            )
-
-        for prop in ["P21", "P569", "P570", "P213", "P106"]:
-            if prop in claims:
-                for claim in claims[prop]:
-                    new_sources = []
-                    self.has_archive = False
-                    claim_changed = False
-                    for s in claim.sources:
-                        if self.can_split_source(s):
-                            source_changed, source_list = self.split_source(s)
-                            claim_changed = claim_changed or source_changed
-                            new_sources.extend(source_list)
-                        else:
-                            new_sources.append(s)
-                    if claim_changed:
-                        claim.sources = new_sources
-                        if self.has_archive:
-                            summary = "split reference with multiple reference urls + archive url"
-                        else:
-                            summary = "split reference with multiple reference urls"
-                        self.save_claim(claim, summary)
-
-    def get_single_claim(self, src, pid: str):
-        if pid not in src:
-            return None
-
-        if len(src[pid]) > 1:
-            return None
-
-        return src[pid][0]
+        if claim_changed:
+            context.sources = new_sources
 
     def can_split_source(self, src) -> bool:
-        if PID_REFERENCE_URL not in src:
+        if wd.PID_REFERENCE_URL not in src:
             return False
 
-        count = len(src[PID_REFERENCE_URL])
+        count = len(src[wd.PID_REFERENCE_URL])
         if count <= 1:
             return False
 
         for prop in src:
-            if self.split_getty and prop == PID_UNION_LIST_OF_ARTIST_NAMES_ID:
+            if self.split_getty and prop == wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID:
                 continue
-            if self.split_getty and prop == PID_STATED_IN:
+            if self.split_getty and prop == wd.PID_STATED_IN:
                 if len(src[prop]) != 1:
                     return False
                 qid = src[prop][0].getTarget().getID()
-                if qid == QID_UNION_LIST_OF_ARTIST_NAMES:
+                if qid == wd.QID_UNION_LIST_OF_ARTIST_NAMES:
                     continue
                 else:
                     return False
 
             if prop not in (
-                PID_REFERENCE_URL,
-                PID_RETRIEVED,
-                PID_ARCHIVE_DATE,
-                PID_ARCHIVE_URL,
+                wd.PID_REFERENCE_URL,
+                wd.PID_RETRIEVED,
+                wd.PID_ARCHIVE_DATE,
+                wd.PID_ARCHIVE_URL,
             ):
-                if PID_REFERENCE_URL in src and len(src[PID_REFERENCE_URL]) > 1:
-                    print(f"{self.item.title()}: multiple Reference url, with {prop}")
+                if wd.PID_REFERENCE_URL in src and len(src[wd.PID_REFERENCE_URL]) > 1:
+                    logger.warning(
+                        f"{self.item.title()}: multiple Reference url, with {prop}"
+                    )
                 return False
 
-        # do not accept multiple PID_ARCHIVE_URL
-        if PID_ARCHIVE_URL in src and len(src[PID_ARCHIVE_URL]) > 1:
-            print(f"{self.item.title()}: multiple Archive URL")
+        # do not accept multiple pidc.PID_ARCHIVE_URL
+        if wd.PID_ARCHIVE_URL in src and len(src[wd.PID_ARCHIVE_URL]) > 1:
+            logger.warning(f"{self.item.title()}: multiple Archive URL")
             return False
 
-        # do not accept multiple PID_ARCHIVE_DATE
-        if PID_ARCHIVE_DATE in src and len(src[PID_ARCHIVE_DATE]) > 1:
-            print(f"{self.item.title()}: multiple Archive date")
+        # do not accept multiple pidc.PID_ARCHIVE_DATE
+        if wd.PID_ARCHIVE_DATE in src and len(src[wd.PID_ARCHIVE_DATE]) > 1:
+            logger.warning(f"{self.item.title()}: multiple Archive date")
             return False
 
-        # do not accept multiple PID_RETRIEVED
-        if PID_RETRIEVED in src and len(src[PID_RETRIEVED]) > 1:
-            print(f"{self.item.title()}: multiple Retrieved")
+        # do not accept multiple pidc.PID_RETRIEVED
+        if wd.PID_RETRIEVED in src and len(src[wd.PID_RETRIEVED]) > 1:
+            logger.warning(f"{self.item.title()}: multiple Retrieved")
             return False
 
-        if PID_ARCHIVE_URL in src or PID_ARCHIVE_DATE in src:
+        if wd.PID_ARCHIVE_URL in src or wd.PID_ARCHIVE_DATE in src:
             self.has_archive = True
 
-        if PID_ARCHIVE_URL in src:
-            archive_url = src[PID_ARCHIVE_URL][0].getTarget()
+        if wd.PID_ARCHIVE_URL in src:
+            archive_url = src[wd.PID_ARCHIVE_URL][0].getTarget()
             found = False
-            for value in src[PID_REFERENCE_URL]:
+            for value in src[wd.PID_REFERENCE_URL]:
                 url = value.getTarget()
                 if url in archive_url:
                     found = True
                     break
             if not found:
-                print(f"{self.item.title()}: unrecognized archive url: {archive_url}")
+                logger.warning(
+                    f"{self.item.title()}: unrecognized archive url: {archive_url}"
+                )
                 return False
 
         domains = set()
-        for value in src[PID_REFERENCE_URL]:
+        for value in src[wd.PID_REFERENCE_URL]:
             url = value.getTarget()
             if is_archive_url(url):
-                print(f"{self.item.title()}: found achive url {url}")
+                logger.warning(f"{self.item.title()}: found archive url {url}")
                 return False
 
-            stated_in_qid = self.stated_in_list.get_stated_in_from_url(url)
+            stated_in_qid = STA_IN.get_stated_in_from_url(url)
             if not stated_in_qid:
-                # prevent splitting reference urls with the same domain but different langage, for example:
+                # prevent splitting reference urls with the same domain but different language, for example:
                 # https://www.zaowouki.org/en/the-artist/biography/
                 # https://www.zaowouki.org/fr/artiste/biographie/
                 match = re.search(r"^https?:\/\/([a-z0-9._-]*)\/", url, re.IGNORECASE)
@@ -241,22 +477,13 @@ class SplitRefBot:
                         and domain != "nl.go.kr"
                     ):
                         if domain in domains:
-                            print(
+                            logger.warning(
                                 f"{self.item.title()}: found duplicate domain {domain}"
                             )
                             return False
                         domains.add(domain)
 
         return True
-
-    def save_claim(self, claim, summary: str):
-        if not claim.on_item:
-            claim.on_item = self.item
-        try:
-            REPO.save_claim(claim, summary=summary)
-        except:
-            print(self.item.title())
-            pass
 
     def split_source(self, src):
         """
@@ -266,55 +493,55 @@ class SplitRefBot:
             tuple: A tuple containing a boolean flag indicating if any changes were made (changed) and a list of sources.
         """
         sources = []
-        retrieved_claim = self.get_single_claim(src, PID_RETRIEVED)
-        archive_date_claim = self.get_single_claim(src, PID_ARCHIVE_DATE)
-        archive_url_claim = self.get_single_claim(src, PID_ARCHIVE_URL)
+        retrieved_claim = self.get_single_claim(src, wd.PID_RETRIEVED)
+        archive_date_claim = self.get_single_claim(src, wd.PID_ARCHIVE_DATE)
+        archive_url_claim = self.get_single_claim(src, wd.PID_ARCHIVE_URL)
         if archive_url_claim:
             archive_url = archive_url_claim.getTarget()
         else:
             archive_url = None
-        changed = len(src[PID_REFERENCE_URL]) > 1
-        for value in src[PID_REFERENCE_URL]:
+        changed = len(src[wd.PID_REFERENCE_URL]) > 1
+        for value in src[wd.PID_REFERENCE_URL]:
             source = OrderedDict()
 
             url = value.getTarget()
-            stated_in_qid = self.stated_in_list.get_stated_in_from_url(url)
+            stated_in_qid = STA_IN.get_stated_in_from_url(url)
             if stated_in_qid:
-                stated_in = pwb.Claim(REPO, PID_STATED_IN)
-                stated_in.isReference = True
-                stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
-                stated_in.on_item = self.item
-                source[PID_STATED_IN] = [stated_in]
+                stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN)
+                stated_in_claim.isReference = True
+                stated_in_claim.setTarget(pwb.ItemPage(REPO, stated_in_qid))
+                stated_in_claim.on_item = self.item
+                source[wd.PID_STATED_IN] = [stated_in_claim]
                 changed = True
 
-            ref = pwb.Claim(REPO, PID_REFERENCE_URL)
+            ref = pwb.Claim(REPO, wd.PID_REFERENCE_URL)
             ref.isReference = True
             ref.setTarget(url)
             ref.on_item = self.item
-            source[PID_REFERENCE_URL] = [ref]
+            source[wd.PID_REFERENCE_URL] = [ref]
 
             if retrieved_claim is not None:
-                retr = pwb.Claim(REPO, PID_RETRIEVED)
+                retr = pwb.Claim(REPO, wd.PID_RETRIEVED)
                 retr.isReference = True
                 dt = retrieved_claim.getTarget()
                 retr.setTarget(dt)
                 retr.on_item = self.item
-                source[PID_RETRIEVED] = [retr]
+                source[wd.PID_RETRIEVED] = [retr]
 
             if archive_url and url in archive_url:
-                arch_url = pwb.Claim(REPO, PID_ARCHIVE_URL)
+                arch_url = pwb.Claim(REPO, wd.PID_ARCHIVE_URL)
                 arch_url.isReference = True
                 arch_url.setTarget(archive_url)
                 arch_url.on_item = self.item
-                source[PID_ARCHIVE_URL] = [arch_url]
+                source[wd.PID_ARCHIVE_URL] = [arch_url]
 
                 if archive_date_claim is not None:
-                    arch_date = pwb.Claim(REPO, PID_ARCHIVE_DATE)
+                    arch_date = pwb.Claim(REPO, wd.PID_ARCHIVE_DATE)
                     arch_date.isReference = True
                     dt = archive_date_claim.getTarget()
                     arch_date.setTarget(dt)
                     arch_date.on_item = self.item
-                    source[PID_ARCHIVE_DATE] = [arch_date]
+                    source[wd.PID_ARCHIVE_DATE] = [arch_date]
 
                 archive_url = None
 
@@ -322,292 +549,833 @@ class SplitRefBot:
 
         return changed, sources
 
+    def get_summary(self, summary_list):
+        if self.something_done:
+            if self.has_archive:
+                summary = "split reference with multiple [[Property:P854]] and [[Property:P1065]] "
+            else:
+                summary = "split reference with multiple [[Property:P854]]"
+            summary_list.append(summary)
 
-class AddIDBot:
-    def __init__(self, stated_in_list: statedin.StatedIn, generator):
-        self.stated_in_list = stated_in_list
-        self.generator = pagegenerators.PreloadingEntityGenerator(generator)
-        self.item = None
-        self.test = True
-        self.summary_list = []
+        return summary_list
 
-    def examine(self, qid: str):
-        if not qid.startswith("Q"):  # ignore property pages and lexeme pages
-            return
 
-        self.item = pwb.ItemPage(REPO, qid)
+# removes redundant reference URLs from sources
+class RemoveReferenceUrl(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        # the total number of reference URLs that are removed from a page
+        self.removed_count = 0
 
-        self.examine_item()
-
-    def run(self):
-        for item in self.generator:
-            self.item = item
-            self.examine_item()
-
-    def examine_item(self):
-        if not self.item.exists():
-            return
-
-        if self.item.isRedirectPage():
-            return
-
-        claims = self.item.get().get("claims")
-
-        if not self.item.botMayEdit():
-            raise RuntimeError(
-                f"Skipping {self.item.title()} because it cannot be edited by bots"
-            )
-
-        print(f"item = {self.item.title()}")
-        for prop in claims:
-            for claim in claims[prop]:
-                if not claim.sources:
-                    continue
-
-                self.summary_list = []
-                sources = claim.sources
-                claim_changed, new_sources = self.change_sources(prop, claim, sources)
-
-                if claim_changed:
-                    summary = ", ".join(self.summary_list)
-                    claim.sources = new_sources
-                    if not self.test:
-                        self.save_claim(claim, summary)
-
-    def change_sources(self, prop, claim, sources):
-        added, sources = self.add_id_sources(prop, claim, sources)
-        archived, sources = self.set_archive_url_sources(prop, claim, sources)
-        merged, sources = self.merge_sources(prop, claim, sources)
-        return added or archived or merged, sources
-
-    def add_id_sources(self, prop, claim, sources):
+    def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
-        claim_changed = False
-        self.changes = set()
-        for src in sources:
-            new_src = self.add_id(src, prop)
+        for src in context.sources:
+            new_src = self.remove_redundant_reference_url(src, context.prop)
             if new_src:
-                claim_changed = True
+                self.removed_count = self.removed_count + 1
+                context.minor_change = True
                 new_sources.append(new_src)
             else:
                 # nothing changed, add original source
                 new_sources.append(src)
 
-        if claim_changed:
-            change_list = list(self.changes)
-            self.summary_list.append("changed reference url into " + ", ".join(change_list))
+        context.sources = new_sources
 
-        return claim_changed, new_sources
-
-    def set_archive_url_sources(self, prop, claim, sources):
-        new_sources = []
-        claim_changed = False
-        for src in sources:
-            new_src = self.set_archive_url(src)
-            if new_src:
-                claim_changed = True
-                new_sources.append(new_src)
-            else:
-                # nothing changed, add original source
-                new_sources.append(src)
-
-        if claim_changed:
-            self.summary_list.append("changed reference url into archive url")
-
-        return claim_changed, new_sources
-
-    def merge_sources(self, prop, claim, sources):
-        if len(sources) <= 1:
-            return False, sources
-
-        new_sources = []
-        claim_changed = False
-        # Dictionary to store unique source identifiers
-        mergeable = {}
-        error_dict = {}
-        self.changes = set()
-        for src in sources:
-            src_id = self.stated_in_list.get_id_from_source(src)
-            if src_id:
-                error = self.can_merge(src, src_id[0])
-                if error:
-                    # collect the errors, we only show the errors if we have duplicate src ids
-                    error_dict.setdefault(src_id, []).append(error)
-                elif src_id in mergeable: 
-                    # If the source identifier already exists, merge the sources
-                    index = mergeable[src_id]
-                    new_sources[index] = self.merge(src_id, new_sources[index], src)
-                    claim_changed = True
-                    continue
-                else:
-                    # Otherwise, add the source identifier to the mergeable dictionary
-                    mergeable[src_id] = len(new_sources)
-
-            # Add the source, unless the source was merged above
-            new_sources.append(src)
-
-        if claim_changed:
-            change_list = list(self.changes)
-            self.summary_list.append("merged " + ", ".join(change_list))
-
-        # show the errors for duplicate src ids
-        for src_id in error_dict:
-            if len(error_dict[src_id]) > 1:
-                for error in error_dict[src_id]:
-                    print(f"{prop} - {src_id[0]} {src_id[2]}: {error}")
-
-        return claim_changed, new_sources
-
-    def get_newest_date(self, pid: str, src):
-        latest = None
-        if pid in src:
-            for value in src[pid]:
-                d = value.getTarget()
-                if d and not latest:
-                    latest = d
-                elif d and latest and (latest.normalize() < d.normalize()):
-                    latest = d
-        return latest
-
-    def get_old_new_src(self, src1, src2):
-        d1 = self.get_newest_date(PID_RETRIEVED, src1)
-        d2 = self.get_newest_date(PID_RETRIEVED, src2)
-        if d1 and d2:
-            is_src1_oldest = d1.normalize() <= d2.normalize()
-        else:
-            is_src1_oldest = not d1
-        if is_src1_oldest:
-            return src1, src2
-        else:
-            return src2, src1
-
-    def set_pid(self, pid: str, t, new_source):
-        oldest_src, newest_src = t
-        if pid in newest_src:
-            new_source[pid] = newest_src[pid]
-        elif pid in oldest_src:
-            new_source[pid] = oldest_src[pid]
-
-    def can_merge(self, src, pid: str):
-        # Don't merge sources with multiple reference URLs;
-        # these sources should probably be cleaned up first
-        if PID_REFERENCE_URL in src:
-            if len(src[PID_REFERENCE_URL]) > 1:
-                return "source contains multiple reference urls"
-
-        for prop in src:
-            # Don't merge if the source contains other properties than these
-            if prop not in [
-                PID_STATED_IN,
-                PID_REFERENCE_URL,
-                PID_RETRIEVED,
-                PID_SUBJECT_NAMED_AS,
-                PID_TITLE,
-                pid,
-            ]:
-                    
-                return f"Source cannot be merged because it contains prop {prop}"
-
-        return None
-
-    def merge(self, src_id, src1, src2):
-        pid, stated_in_qid, id = src_id
-
-        new_source = OrderedDict()
-
-        if stated_in_qid:
-            stated_in = pwb.Claim(REPO, PID_STATED_IN)
-            stated_in.isReference = True
-            stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
-            stated_in.on_item = self.item
-            new_source[PID_STATED_IN] = [stated_in]
-
-        if pid and id:
-            self.changes.add(pid)
-            pid_claim = pwb.Claim(REPO, pid)
-            pid_claim.isReference = True
-            pid_claim.setTarget(id)
-            pid_claim.on_item = self.item
-            new_source[pid] = [pid_claim]
-
-        # remove reference urls;
-        # skip stated in, retrieved and pid; these are already done above
-        props = []
-        for prop in src1:
-            if prop not in props:
-                props.append(prop)
-        for prop in src2:
-            if prop not in props:
-                props.append(prop)
-        skip = set([PID_STATED_IN, PID_REFERENCE_URL, PID_RETRIEVED, pid])
-
-        props = [x for x in props if x not in skip]
-
-        t = self.get_old_new_src(src1, src2)
-        for prop in props:
-            self.set_pid(prop, t, new_source)
-        self.set_pid(PID_RETRIEVED, t, new_source)
-
-        return new_source
-
-    def add_id(self, src, skip_prop: str):
-        if PID_REFERENCE_URL not in src:
+    def remove_redundant_reference_url(self, src, skip_prop: str):
+        if wd.PID_REFERENCE_URL not in src:
             return None
 
-        count = len(src[PID_REFERENCE_URL])
+        count = len(src[wd.PID_REFERENCE_URL])
         if count > 1:
             return None
 
-        for prop in src:
-            if self.stated_in_list.is_id_pid(prop):
+        # seen in Q18638122
+        if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in src:
+            # todo ; log
+            return None
+        if wd.PID_WIKIMEDIA_IMPORT_URL in src:
+            # todo ; log
+            return None
+
+        try:
+            pid = STA_IN.get_pid_from_source(src)
+            if not pid or not pid.startswith("P"):
+                # BOOK
                 return None
 
-        ref = src[PID_REFERENCE_URL][0]
-        url = ref.getTarget()
-        res = self.stated_in_list.get_id_from_url(url)
-        if res is None:
-            print(f"unknown url {url}")
+            if pid == skip_prop:
+                return None
+        except RuntimeError as e:
+            # multiple pids
             return None
 
-        pid, stated_in_qid, id = res
-        if pid == skip_prop:
+        keep_url = STA_IN.get_keep_url(pid, src)
+        if keep_url:
             return None
 
-        # if self.test:
-        #    print(f"{skip_prop} url: {url} => {pid} {id}")
+        if self.test:
+            logger.info(
+                f"Removed {skip_prop} - {pid} - {STA_IN.get_id_from_source(src)}"
+            )
 
         new_source = OrderedDict()
 
-        if stated_in_qid:
-            stated_in = pwb.Claim(REPO, PID_STATED_IN)
-            stated_in.isReference = True
-            stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
-            stated_in.on_item = self.item
-            new_source[PID_STATED_IN] = [stated_in]
-
-        if pid and id:
-            self.changes.add(pid)
-            pid_claim = pwb.Claim(REPO, pid)
-            pid_claim.isReference = True
-            pid_claim.setTarget(id)
-            pid_claim.on_item = self.item
-            new_source[pid] = [pid_claim]
-
         for prop in src:
-            if prop == PID_STATED_IN:
-                continue
-            if prop == PID_REFERENCE_URL:
+            if prop == wd.PID_REFERENCE_URL:
                 continue
             new_source[prop] = src[prop]
 
         return new_source
 
+    def get_summary(self, summary_list):
+        if self.removed_count > 0:
+            summary_list.append(
+                f"removed [[Property:{wd.PID_REFERENCE_URL}]] ({self.removed_count}x)"
+            )
+        return summary_list
+
+
+class RemoveWeakSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.pids_removed = set()
+
+    def change_sources(self, context: ClaimContext) -> None:
+        # only execute this if something major was already changed
+        if not context.major_change:
+            return
+
+        new_sources = []
+        for src in context.sources:
+            pid = self.get_weak_source_pid(src)
+            if pid:
+                self.pids_removed.add(pid)
+                context.major_change = True
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
+    def get_weak_source_pid(self, source):
+        if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in source:
+            return wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT
+        elif wd.PID_WIKIMEDIA_IMPORT_URL in source:
+            return wd.PID_WIKIMEDIA_IMPORT_URL
+        else:
+            return None
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list, self.pids_removed, "removed", "[[Property:{id}]]"
+        )
+        return summary_list
+
+
+class RemoveRetrievedSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+
+        EXCLUDED_CLAIM_IDS = [
+            wd.PID_APPLIES_TO_JURISDICTION,
+            wd.PID_BASED_ON,
+            wd.PID_BUSINESS_DIVISION,
+            wd.PID_CATALOG_CODE,
+            wd.PID_CATALOG,
+            wd.PID_CHARTED_IN,
+            wd.PID_COLLECTION,
+            wd.PID_COPYRIGHT_HOLDER,
+            wd.PID_COPYRIGHT_REPRESENTATIVE,
+            wd.PID_COPYRIGHT_STATUS_AS_A_CREATOR,
+            wd.PID_CURATOR,
+            wd.PID_DERIVATIVE_WORK,
+            wd.PID_DESCRIBED_AT_URL,
+            wd.PID_DESCRIBED_BY_SOURCE,
+            wd.PID_DIFFERENT_FROM,
+            wd.PID_DISTRIBUTED_BY,
+            wd.PID_EDITION_OR_TRANSLATION_OF,
+            wd.PID_FOLLOWED_BY,
+            wd.PID_FOLLOWS,
+            wd.PID_FOUNDED_BY,
+            wd.PID_HAS_CHARACTERISTIC,  # complex; skip
+            wd.PID_HAS_EDITION_OR_TRANSLATION,
+            wd.PID_HAS_PARTS,
+            wd.PID_HAS_SUBSIDIARY,
+            wd.PID_HEADQUARTERS_LOCATION,  # moment in time?
+            wd.PID_INDUSTRY,
+            wd.PID_INVENTORY_NUMBER,
+            wd.PID_LEGAL_FORM,
+            wd.PID_LOCATED_IN_THE_ADMINISTRATIVE_TERRITORIAL_ENTITY,
+            wd.PID_MEMBER_OF,
+            wd.PID_ON_FOCUS_LIST_OF_WIKIMEDIA_PROJECT,
+            wd.PID_OPERATOR,
+            wd.PID_ORAL_HISTORY_AT,
+            wd.PID_PARENT_ORGANIZATION,
+            wd.PID_PART_OF_THE_SERIES,
+            wd.PID_PART_OF,
+            wd.PID_PUBLISHED_IN,  # not sure; skip
+            wd.PID_RECORDING_OR_PERFORMANCE_OF,
+            wd.PID_RELATED_CATEGORY,
+            wd.PID_RELEASE_OF,
+            wd.PID_REPLACED_BY,
+            wd.PID_REPLACES,
+            wd.PID_SAID_TO_BE_THE_SAME_AS,
+            wd.PID_TRANSLATOR,
+            wd.PID_WORK_LOCATION,  # moment in time?
+            wd.PID_RESIDENCE,
+            wd.PID_ARCHIVES_AT,
+            wd.PID_OWNED_BY,
+            wd.PID_TRADING_NAME,
+            wd.PID_OPERATING_AREA,
+            wd.PID_PUBLISHER,
+            wd.PID_CONTRIBUTOR_TO_THE_CREATIVE_WORK_OR_SUBJECT,
+            wd.PID_EMPLOYER,
+            wd.PID_COMPOSER,
+            wd.PID_EDUCATED_AT,
+            wd.PID_OWNER_OF,
+            wd.PID_HAS_WORKS_IN_THE_COLLECTION,
+            wd.PID_DIRECTOR,
+            wd.PID_LOCATION_OF_FORMATION,
+            wd.PID_CREATOR,
+            wd.PID_MODIFIED_VERSION_OF,
+            wd.PID_COMMONS_CATEGORY,
+            wd.PID_ADAPTED_BY,
+            wd.PID_LYRICIST,
+            wd.PID_PARTNER_IN_BUSINESS_OR_SPORT,
+            wd.PID_AFFILIATION,
+            wd.PID_MUSICAL_CONDUCTOR,
+            wd.PID_ORIGINAL_LANGUAGE_OF_FILM_OR_TV_SHOW,
+            wd.PID_DEDICATED_TO,
+            wd.PID_COVER_ART_BY,
+            wd.PID_NATIVE_LABEL,
+            wd.PID_MUSIC_VIDEO,
+            wd.PID_SOCIAL_MEDIA_FOLLOWERS,
+            wd.PID_ACADEMIC_DEGREE,
+            wd.PID_INSTRUMENT,
+            wd.PID_NUMBER_OF_REPRESENTATIONS,
+            wd.PID_DIRECTOR_MANAGER,
+            wd.PID_REISSUE_OF,
+            wd.PID_LOCATION_OF_FIRST_PERFORMANCE,
+            wd.PID_HASHTAG,
+            wd.PID_TOPICS_MAIN_CATEGORY,
+            wd.PID_FIELD_OF_WORK,
+            wd.PID_DESIGNED_BY,
+            wd.PID_TRANSLATION_OF,
+            wd.PID_HAS_LIST,
+            wd.PID_LIST_OF_WORKS,
+            wd.PID_CONFERRED_BY,
+            wd.PID_DONATED_BY,
+            wd.PID_DOCUMENTATION_FILES_AT,
+            wd.PID_PRODUCT_OR_MATERIAL_PRODUCED_OR_SERVICE_PROVIDED,
+            wd.PID_STUDENT_OF,
+            wd.PID_FLOORS_ABOVE_GROUND,
+            wd.PID_NUMBER_OF_EPISODES,
+            wd.PID_EMPLOYEES,
+            wd.PID_ITEM_OPERATED,
+            wd.PID_REPRESENTS,
+            wd.PID_FACET_OF,
+            wd.PID_FILMOGRAPHY,
+            wd.PID_OFFICEHOLDER,
+            wd.PID_PARTICIPANT_IN,
+            wd.PID_NOMINATED_FOR,
+            wd.PID_AFFILIATION,
+            wd.PID_HERITAGE_DESIGNATION,
+            wd.PID_MOTTO_TEXT,
+            wd.PID_ARCHITECTURAL_STYLE,
+            wd.PID_CAST_MEMBER,
+            wd.PID_PLAINTIFF,
+            wd.PID_STRUCTURE_REPLACED_BY,
+            wd.PID_FREQUENCY,
+            wd.PID_USES,
+            wd.PID_OFFICE_HELD_BY_HEAD_OF_THE_ORGANIZATION,
+            wd.PID_NUMBER_OF_SEASONS,
+            wd.PID_NARRATOR,
+            wd.PID_PLACE_OF_DETENTION,
+            wd.PID_INTERESTED_IN,
+            wd.PID_HAS_PARTS_OF_THE_CLASS,
+            wd.PID_PRODUCTION_COMPANY,
+            wd.PID_PRODUCED_BY,
+            wd.PID_PUBLICATION_INTERVAL,
+            wd.PID_IS_A_LIST_OF,
+            wd.PID_HAS_USE,
+            wd.PID_NUMBER_OF_SUBSCRIBERS,
+            wd.PID_ORIGINAL_FILM_FORMAT,
+            wd.PID_MEMBERS_HAVE_OCCUPATION,
+            wd.PID_SOUNDTRACK_RELEASE,
+            wd.PID_MILITARY_OR_POLICE_RANK,
+            wd.PID_CATEGORY_FOR_EMPLOYEES_OF_THE_ORGANIZATION,
+            wd.PID_CONTAINS,
+            wd.PID_ORIGINAL_BROADCASTER,
+            wd.PID_SHARES_BORDER_WITH,
+            wd.PID_CHAIRPERSON,
+            wd.PID_MEMBER_OF_SPORTS_TEAM,
+            wd.PID_ACCREDITED_BY,
+            wd.PID_TIME_OF_DISCOVERY_OR_INVENTION,
+            wd.PID_MAJORITY_OPINION_BY,
+            wd.PID_EXHIBITION_HISTORY,
+            wd.PID_QUOTES_WORK,
+            wd.PID_ADVERTISES,
+            wd.PID_HAS_WRITTEN_FOR,
+            wd.PID_PARTICIPANT,
+            wd.PID_SERVICE_ENTRY,
+            wd.PID_AUTHORITY,
+            wd.PID_CONNECTING_LINE,
+            wd.PID_LIBRETTIST,
+            wd.PID_PRINTED_BY,
+            wd.PID_COMMISSIONED_BY,
+            wd.PID_FILMING_LOCATION,
+            wd.PID_MAIN_REGULATORY_TEXT,
+            wd.PID_ARTIST_FILES_AT,
+            wd.PID_LEGAL_CITATION_OF_THIS_TEXT,
+            wd.PID_NUMBER_OF_LIKES,
+            wd.PID_NUMBER_OF_ELEVATORS,
+            wd.PID_ADJACENT_STATION,
+            wd.PID_OCCUPANT,
+            wd.PID_NUMBER_OF_VIEWERSLISTENERS,
+            wd.PID_INFLUENCED_BY,
+            wd.PID_SOUNDEX,
+            wd.PID_STUDENT,
+            wd.PID_MAINTAINED_BY,
+            wd.PID_COMMONS_CREATOR_PAGE,
+            wd.PID_JUDGE,
+            wd.PID_CHIEF_EXECUTIVE_OFFICER,
+            wd.PID_STOCK_EXCHANGE,
+        ]
+
+        NO_QUAL_CLAIM_IDS = [
+            wd.PID_OCCUPATION,
+            wd.PID_POSITION_HELD,
+        ]
+        REMOVABLE_CLAIM_IDS = [
+            wd.PID_ANNOUNCEMENT_DATE,
+            wd.PID_AUTHOR_NAME_STRING,
+            wd.PID_AUTHOR,
+            wd.PID_AWARD_RECEIVED,
+            wd.PID_BIRTH_NAME,
+            wd.PID_CALL_SIGN,
+            wd.PID_CAUSE_OF_DEATH,
+            wd.PID_CHILD,
+            wd.PID_COLOR,
+            wd.PID_CONFLICT,
+            wd.PID_CONVICTED_OF,
+            wd.PID_COPYRIGHT_STATUS,
+            wd.PID_COUNTRY_OF_CITIZENSHIP,
+            wd.PID_COUNTRY_OF_ORIGIN,
+            wd.PID_COUNTRY,
+            wd.PID_DATE_OF_BIRTH,
+            wd.PID_DATE_OF_DEATH,
+            wd.PID_DATE_OF_FIRST_PERFORMANCE,
+            wd.PID_DATE_OF_OFFICIAL_CLOSURE,
+            wd.PID_DATE_OF_OFFICIAL_OPENING,
+            wd.PID_DISCOGRAPHY,
+            wd.PID_DISSOLVED_ABOLISHED_OR_DEMOLISHED_DATE,  # date
+            wd.PID_DISTRIBUTION_FORMAT,
+            wd.PID_DURATION,
+            wd.PID_EDITION_NUMBER,
+            wd.PID_EDITOR,
+            wd.PID_END_TIME,  # date
+            wd.PID_ETHNIC_GROUP,
+            wd.PID_EXHIBITED_CREATOR,
+            wd.PID_EYE_COLOR,
+            wd.PID_EYE_COLOR,
+            wd.PID_FABRICATION_METHOD,
+            wd.PID_FAMILY_NAME,
+            wd.PID_FAMILY,
+            wd.PID_FATHER,
+            wd.PID_FIRST_LINE,
+            wd.PID_FLORUIT,
+            wd.PID_FORM_OF_CREATIVE_WORK,
+            wd.PID_GENRE,
+            wd.PID_GIVEN_NAME,
+            wd.PID_HAIR_COLOR,
+            wd.PID_HAS_MELODY,
+            wd.PID_HEIGHT,
+            wd.PID_HONORIFIC_PREFIX,
+            wd.PID_HONORIFIC_SUFFIX,
+            wd.PID_INCEPTION,
+            wd.PID_INSPIRED_BY,
+            wd.PID_INSTANCE_OF,
+            wd.PID_ISSUE,
+            wd.PID_KILLED_BY,
+            wd.PID_LANGUAGE_OF_WORK_OR_NAME,
+            wd.PID_LANGUAGES_SPOKEN_WRITTEN_OR_SIGNED,
+            wd.PID_LAST_LINE,
+            wd.PID_LAST_UPDATE,
+            wd.PID_LENGTH,
+            wd.PID_LOCATED_ON_STREET,
+            wd.PID_LOCATION_OF_CREATION,
+            wd.PID_LOCATION,
+            wd.PID_MADE_FROM_MATERIAL,
+            wd.PID_MAIN_SUBJECT,
+            wd.PID_MANNER_OF_DEATH,
+            wd.PID_MANUFACTURER,
+            wd.PID_MARRIED_NAME,
+            wd.PID_MASS,
+            wd.PID_MEDICAL_CONDITION,
+            wd.PID_MEMBER_OF_POLITICAL_PARTY,
+            wd.PID_MOTHER,
+            wd.PID_NAME_IN_NATIVE_LANGUAGE,
+            wd.PID_NAME,
+            wd.PID_NAMED_AFTER,
+            wd.PID_NATIVE_LANGUAGE,
+            wd.PID_NICKNAME,
+            wd.PID_NOBLE_TITLE,
+            wd.PID_NOTABLE_WORK,
+            wd.PID_NUMBER_OF_CHILDREN,
+            wd.PID_NUMBER_OF_PAGES,
+            wd.PID_NUMBER_OF_PARTS_OF_THIS_WORK,
+            wd.PID_OFFICIAL_NAME,
+            wd.PID_PAGES,
+            wd.PID_PERFORMER,
+            wd.PID_PHONE_NUMBER,
+            wd.PID_PHONE_NUMBER,
+            wd.PID_PLACE_OF_BIRTH,
+            wd.PID_PLACE_OF_BURIAL,
+            wd.PID_PLACE_OF_DEATH,
+            wd.PID_PLACE_OF_PUBLICATION,
+            wd.PID_POINT_IN_TIME,
+            wd.PID_POLITICAL_IDEOLOGY,
+            wd.PID_POSTAL_CODE,
+            wd.PID_PRODUCER,
+            wd.PID_PRODUCT_OR_MATERIAL_PRODUCED_OR_SERVICE_PROVIDED,
+            wd.PID_PRODUCTION_DATE,  # date
+            wd.PID_PSEUDONYM,
+            wd.PID_PUBLICATION_DATE,
+            wd.PID_RECORD_LABEL,
+            wd.PID_RECORDED_AT_STUDIO_OR_VENUE,
+            wd.PID_RECORDING_DATE,
+            wd.PID_RELATIVE,
+            wd.PID_RELIGION_OR_WORLDVIEW,
+            wd.PID_RELIGIOUS_NAME,
+            wd.PID_SCANDINAVIAN_MIDDLE_FAMILY_NAME,
+            wd.PID_SECOND_FAMILY_NAME_IN_SPANISH_NAME,
+            wd.PID_SEX_OR_GENDER,
+            wd.PID_SHORT_NAME,
+            wd.PID_SIBLING,
+            wd.PID_SIGNIFICANT_EVENT,
+            wd.PID_SIGNIFICANT_EVENT,
+            wd.PID_SOCIAL_CLASSIFICATION,
+            wd.PID_SPOUSE,
+            wd.PID_START_TIME,
+            wd.PID_STREET_ADDRESS,
+            wd.PID_SUBCLASS_OF,
+            wd.PID_SUBTITLE,
+            wd.PID_TIME_OF_EARLIEST_WRITTEN_RECORD,
+            wd.PID_TITLE,
+            wd.PID_TRACKLIST,
+            wd.PID_UNMARRIED_PARTNER,
+            wd.PID_VOICE_TYPE,
+            wd.PID_VOLUME,
+            wd.PID_WIDTH,
+            wd.PID_WORK_PERIOD_END,
+            wd.PID_WORK_PERIOD_START,
+            wd.PID_WRITING_LANGUAGE,
+            wd.PID_PENALTY,
+            wd.PID_THICKNESS,
+            wd.PID_HEIGHT_OF_LETTERS,
+        ]
+
+        # Check if claim.id is in the excluded list
+        if context.claim.id in EXCLUDED_CLAIM_IDS:
+            return
+
+        # Ensure there is exactly one source
+        if len(context.sources) != 1:
+            return
+
+        src = context.sources[0]
+
+        # Check if pidc.PID_RETRIEVED is in the source
+        if wd.PID_RETRIEVED not in src:
+            return
+
+        # Ensure pidc.PID_RETRIEVED is the only property in the source
+        if any(prop != wd.PID_RETRIEVED for prop in src):
+            return
+
+        # Acceptable claim types
+        if context.claim.type in ["external-id", "url"]:
+            return
+
+        # Skip specific claim types
+        if context.claim.type not in [
+            "monolingualtext",
+            "wikibase-item",
+            "string",
+            "time",
+            "quantity",
+        ]:
+            return
+
+        # Remove if claim.id is in the removable list
+        if context.claim.id in REMOVABLE_CLAIM_IDS:
+            self.something_done = True
+            ref.check_retrieved_year(src)
+            context.minor_change = True
+            context.sources = []
+            return
+
+        if context.claim.id in NO_QUAL_CLAIM_IDS:
+            if context.claim.qualifiers and len(context.claim.qualifiers) > 0:
+                return
+            else:
+                self.something_done = True
+                ref.check_retrieved_year(src)
+                context.minor_change = True
+                context.sources = []
+                return
+
+        raise RuntimeError(
+            f"remove_retrieved_sources: {context.claim.id} - {context.prop}"
+        )
+
+    def get_summary(self, summary_list):
+        if self.something_done:
+            summary_list.append("removed [[Property:P813]]")
+        return summary_list
+
+
+class MergeRetrieved(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.did_merge_retrieved = False
+        self.did_remove_retrieved = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+
+        if len(context.sources) <= 1:
+            return
+
+        ref = ref.References(context.claim, context.sources)
+        ref.remove_single_retrieved()
+        if ref.did_merge or ref.did_remove:
+            context.minor_change = True
+            if ref.did_merge:
+                self.did_merge_retrieved = True
+            if ref.did_remove:
+                self.did_remove_retrieved = True
+            context.sources = ref.sources
+
+        if "R" in ref.get_tokens():
+            if context.claim.type not in ["external-id", "url"]:
+                raise RuntimeError(
+                    f"merge_retrieved: {context.claim.id} - {context.prop} - {ref.get_tokens()}"
+                )
+
+    def get_summary(self, summary_list):
+        if self.did_merge_retrieved:
+            summary_list.append("merged [[Property:P813]]")
+        if self.did_remove_retrieved:
+            summary_list.append("removed [[Property:P813]]")
+        return summary_list
+
+
+class SplitStatedinSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            if self.has_only_stated_in(src):
+                context.minor_change = True
+                self.something_done = True
+                for stated_in in src[wd.PID_STATED_IN]:
+                    new_source = OrderedDict()
+                    new_source[wd.PID_STATED_IN] = [stated_in]
+                    new_sources.append(new_source)
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
+    def has_only_stated_in(self, src) -> bool:
+        if wd.PID_STATED_IN not in src:
+            return False
+        if len(src[wd.PID_STATED_IN]) <= 1:
+            return False
+        for prop in src:
+            if prop != wd.PID_STATED_IN:
+                return False
+        return True
+
+    def get_summary(self, summary_list):
+        if self.something_done:
+            summary_list.append(f"split [[Property:{wd.PID_STATED_IN}]]")
+        return summary_list
+
+
+class AddIDSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.pids_addid = set()
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            new_src = self.add_id(src, context.prop)
+            if new_src:
+                context.major_change = True
+                new_sources.append(new_src)
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
+    def add_id(self, src, skip_prop: str):
+        if wd.PID_REFERENCE_URL not in src:
+            return None
+
+        count = len(src[wd.PID_REFERENCE_URL])
+        if count > 1:
+            return None
+
+        # seen in Q18638122
+        if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in src:
+            # todo ; log
+            return None
+        if wd.PID_WIKIMEDIA_IMPORT_URL in src:
+            # todo ; log
+            return None
+
+        for prop in src:
+            # could be wrong pid, but we'll ignore that for now
+            # for example: X username, X post ID
+            if STA_IN.is_id_pid(prop):
+                return None
+
+        ref = src[wd.PID_REFERENCE_URL][0]
+        url = ref.getTarget()
+        triple = STA_IN.get_id_from_reference_url(src)
+        if triple is None:
+            logger.info(f"unknown url {url}")
+            self.unknown_url(url)
+            return None
+
+        pid, stated_in_qid, id = triple
+        if pid == skip_prop:
+            return None
+
+        keep_url = STA_IN.get_keep_url(pid, src)
+
+        if self.test:
+            logger.info(f"{skip_prop} url: {url} => {pid} {id}")
+
+        new_source = OrderedDict()
+
+        if stated_in_qid:
+            stated_in = pwb.Claim(REPO, wd.PID_STATED_IN)
+            stated_in.isReference = True
+            stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
+            stated_in.on_item = self.item
+            new_source[wd.PID_STATED_IN] = [stated_in]
+
+        if pid and id:
+            self.pids_addid.add(pid)
+            self.changed_pids.append(pid)
+            pid_claim = pwb.Claim(REPO, pid)
+            pid_claim.isReference = True
+            pid_claim.setTarget(id)
+            pid_claim.on_item = self.item
+            new_source[pid] = [pid_claim]
+
+        for prop in src:
+            if prop == wd.PID_STATED_IN:
+                continue
+            if not keep_url and (prop == wd.PID_REFERENCE_URL):
+                continue
+            new_source[prop] = src[prop]
+
+        return new_source
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list,
+            self.pids_addid,
+            f"changed [[Property:{wd.PID_REFERENCE_URL}]] into",
+            "[[Property:{id}]]",
+        )
+        return summary_list
+
+
+class MultipleStatedIn(ChangeSourceStrategy):
+    TYPE_OF_REFERENCE_IDS = [
+        wd.QID_OFFICIAL_WEBSITE,
+        wd.QID_CURRICULUM_VITAE,
+        wd.QID_BIRTH_REGISTRY,
+        wd.QID_BIRTH_CERTIFICATE,
+        wd.QID_DEATH_REGISTRY,
+        wd.QID_DEATH_CERTIFICATE,
+        wd.QID_OBITUARY,
+        wd.QID_DEATH_NOTICE,
+        wd.QID_OFFICIAL_MEMBER_PAGE,
+        wd.QID_PRESS_RELEASE,
+        wd.QID_FUNERAL_SERMON,
+    ]
+
+    QIDS = {
+        wd.QID_INTEGRATED_AUTHORITY_FILE: wd.PID_GND_ID,
+        wd.QID_GERMAN_NATIONAL_LIBRARY: wd.PID_GND_ID,
+        wd.QID_BNF_AUTHORITIES: wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+        wd.QID_GENERAL_CATALOG_OF_BNF: wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+        wd.QID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE: wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+        wd.QID_CERL_THESAURUS: wd.PID_CERL_THESAURUS_ID,
+        wd.QID_CONSORTIUM_OF_EUROPEAN_RESEARCH_LIBRARIES: wd.PID_CERL_THESAURUS_ID,
+        wd.QID_NETHERLANDS_INSTITUTE_FOR_ART_HISTORY: wd.PID_RKDARTISTS_ID,
+    }
+
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            new_src = self.remove_multiple_stated_in(src)
+            if new_src:
+                context.minor_change = True
+                self.something_done = True
+                new_sources.append(new_src)
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
+    def get_stated_in_qids(self, src):
+        stated_in_qids = []
+        type_of_reference_qids = []
+
+        for claim in src:
+            qid = claim.getTarget().getID()
+            if qid in self.TYPE_OF_REFERENCE_IDS:
+                if qid not in type_of_reference_qids:
+                    type_of_reference_qids.append(qid)
+            elif qid in self.QIDS:
+                pid = self.QIDS[qid]
+                qid = STA_IN.get_stated_in_from_pid(pid)
+                if qid not in stated_in_qids:
+                    stated_in_qids.append(qid)
+            elif qid not in stated_in_qids:
+                stated_in_qids.append(qid)
+
+        return stated_in_qids, type_of_reference_qids
+
+    def remove_multiple_stated_in(self, src):
+        if wd.PID_STATED_IN not in src:
+            return None
+        if len(src[wd.PID_STATED_IN]) <= 1:
+            return None
+
+        stated_in_qids, type_of_reference_qids = self.get_stated_in_qids(
+            src[wd.PID_STATED_IN]
+        )
+        if (len(type_of_reference_qids) == 0) and (
+            len(stated_in_qids) == len(src[wd.PID_STATED_IN])
+        ):
+            # nothing changed
+            return None
+
+        new_source = OrderedDict()
+        for prop in src:
+            if prop == wd.PID_STATED_IN:
+                for qid in stated_in_qids:
+                    claim = pwb.Claim(REPO, wd.PID_STATED_IN)
+                    claim.isReference = True
+                    claim.setTarget(pwb.ItemPage(REPO, qid))
+                    claim.on_item = self.item
+
+                    new_source.setdefault(wd.PID_STATED_IN, []).append(claim)
+                for qid in type_of_reference_qids:
+                    claim = pwb.Claim(REPO, wd.PID_TYPE_OF_REFERENCE)
+                    claim.isReference = True
+                    claim.setTarget(pwb.ItemPage(REPO, qid))
+                    claim.on_item = self.item
+
+                    new_source.setdefault(wd.PID_TYPE_OF_REFERENCE, []).append(claim)
+            else:
+                for value in src[prop]:
+                    new_source.setdefault(prop, []).append(value)
+
+        return new_source
+
+    def get_summary(self, summary_list):
+        if self.something_done:
+            summary_list.append(f"changed [[Property:{wd.PID_STATED_IN}]]")
+        return summary_list
+
+
+class SetArchiveUrlSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.something_done = False
+
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            new_src = self.set_archive_url(src)
+            if new_src:
+                context.minor_change = True
+                self.something_done = True
+                new_sources.append(new_src)
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
     def set_archive_url(self, src):
-        if PID_REFERENCE_URL not in src:
+        if wd.PID_REFERENCE_URL not in src:
             return None
 
         has_archive_url = False
-        for value in src[PID_REFERENCE_URL]:
+        for value in src[wd.PID_REFERENCE_URL]:
             url = value.getTarget()
             if is_archive_url(url):
                 has_archive_url = True
@@ -618,19 +1386,19 @@ class AddIDBot:
 
         new_source = OrderedDict()
         for prop in src:
-            if prop == PID_REFERENCE_URL:
+            if prop == wd.PID_REFERENCE_URL:
                 for value in src[prop]:
                     url = value.getTarget()
                     if is_archive_url(url):
-                        arch_url = pwb.Claim(REPO, PID_ARCHIVE_URL)
+                        arch_url = pwb.Claim(REPO, wd.PID_ARCHIVE_URL)
                         arch_url.isReference = True
                         arch_url.setTarget(url)
                         arch_url.on_item = self.item
 
-                        new_source.setdefault(PID_ARCHIVE_URL, []).append(arch_url)
+                        new_source.setdefault(wd.PID_ARCHIVE_URL, []).append(arch_url)
                     else:
                         new_source.setdefault(prop, []).append(value)
-            elif prop == PID_ARCHIVE_URL:
+            elif prop == wd.PID_ARCHIVE_URL:
                 for value in src[prop]:
                     new_source.setdefault(prop, []).append(value)
             else:
@@ -638,160 +1406,506 @@ class AddIDBot:
 
         return new_source
 
-    def save_claim(self, claim, summary: str):
+    def get_summary(self, summary_list):
+        if self.something_done:
+            summary_list.append(
+                f"changed [[Property:{wd.PID_REFERENCE_URL}]] into [[Property:{wd.PID_ARCHIVE_URL}]]"
+            )
+        return summary_list
+
+
+class BaseMergeSources(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.pids_merged = set()
+        self.qids_merged = set()
+
+    def merge(self, src_id, src1, src2):
+        pid, stated_in_qid, id = src_id
+        keep_url = STA_IN.get_keep_url(pid, src1) or STA_IN.get_keep_url(pid, src2)
+
+        new_source = OrderedDict()
+
+        if stated_in_qid:
+            stated_in = pwb.Claim(REPO, wd.PID_STATED_IN)
+            stated_in.isReference = True
+            stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
+            stated_in.on_item = self.item
+            new_source[wd.PID_STATED_IN] = [stated_in]
+
+        if pid and id:
+            self.pids_merged.add(pid)
+            pid_claim = pwb.Claim(REPO, pid)
+            pid_claim.isReference = True
+            pid_claim.setTarget(id)
+            pid_claim.on_item = self.item
+            new_source[pid] = [pid_claim]
+        elif stated_in_qid:
+            self.qids_merged.add(stated_in_qid)
+
+        # remove reference urls;
+        # skip stated in, retrieved and pid; these are already done above
+        props = []
+        for prop in src1:
+            if prop not in props:
+                props.append(prop)
+        for prop in src2:
+            if prop not in props:
+                props.append(prop)
+        skip = set([wd.PID_STATED_IN, wd.PID_RETRIEVED, wd.PID_PUBLICATION_DATE, pid])
+        if not keep_url:
+            skip.add(wd.PID_REFERENCE_URL)
+
+        props = [x for x in props if x not in skip]
+
+        t = ref.get_old_new_src(src1, src2)
+        for prop in props:
+            # use the value of the newest, or the oldest (if the newest doesn't have the prop);
+            # if prop is title/subject named as, then only newest
+            ref.set_pid(
+                prop,
+                t,
+                new_source,
+                use_only_newest_list=[
+                    wd.PID_SUBJECT_NAMED_AS,
+                    wd.PID_OBJECT_NAMED_AS,
+                    wd.PID_TITLE,
+                ],
+            )
+
+        ref.set_pid(wd.PID_PUBLICATION_DATE, t, new_source, [])
+        ref.set_pid(wd.PID_RETRIEVED, t, new_source, [])
+
+        return new_source
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list, self.pids_merged, "merged", "[[Property:{id}]]"
+        )
+        self.format_properties(
+            summary_list,
+            self.qids_merged,
+            f"merged [[Property:{wd.PID_STATED_IN}]] ",
+            "[[{id}]]",
+        )
+        return summary_list
+
+
+class MergeStatedIn(ChangeSourceStrategy):
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.qids_merged = set()
+
+    def change_sources(self, context: ClaimContext) -> None:
+
+        if len(context.sources) <= 1:
+            return
+
+        new_sources = []
+        # Dictionary to store unique source identifiers
+        mergeable = {}
+        for src in context.sources:
+            stated_in = self.get_statedin(src)
+            if stated_in:
+                if self.is_single_statedin(src):
+                    if stated_in in mergeable:
+                        # If the source identifier already exists, merge the sources
+                        index = mergeable[stated_in]
+                        new_sources[index] = ref.get_merge(new_sources[index], src)
+                        context.minor_change = True
+                        self.qids_merged.add(stated_in)
+                        continue
+                    else:
+                        # Otherwise, add the source identifier to the mergeable dictionary
+                        mergeable[stated_in] = len(new_sources)
+                elif stated_in in mergeable:
+                    # If the source identifier already exists, merge the sources if the first was a single stated in
+                    index = mergeable[stated_in]
+                    if self.is_single_statedin(new_sources[index]):
+                        new_sources[index] = ref.get_merge(new_sources[index], src)
+                        context.minor_change = True
+                        self.qids_merged.add(stated_in)
+                        continue
+                else:
+                    # Otherwise, add the source identifier to the mergeable dictionary
+                    mergeable[stated_in] = len(new_sources)
+
+            # Add the source, unless the source was merged above
+            new_sources.append(src)
+
+        context.sources = new_sources
+
+    def get_statedin(self, src) -> str:
+        if wd.PID_STATED_IN not in src:
+            return None
+        if len(src[wd.PID_STATED_IN]) > 1:
+            return None
+        claim = src[wd.PID_STATED_IN][0]
+        stated_in_qid = claim.getTarget().getID()
+        return stated_in_qid
+
+    def is_single_statedin(self, src) -> bool:
+        if wd.PID_STATED_IN not in src:
+            return False
+        if len(src[wd.PID_STATED_IN]) > 1:
+            return False
+
+        for prop in src:
+            if prop != wd.PID_STATED_IN and prop != wd.PID_RETRIEVED:
+                return False
+
+        return True
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list,
+            self.qids_merged,
+            f"merged [[Property:{wd.PID_STATED_IN}]] ",
+            "[[{id}]]",
+        )
+        return summary_list
+
+
+class RemoveSources(ChangeSourceStrategy):
+    def change_sources(self, context: ClaimContext) -> None:
+        new_sources = []
+        for src in context.sources:
+            pid = self.get_always_remove_source_pid(src)
+            if pid:
+                self.pids_removed.add(pid)
+                context.minor_change = True
+            else:
+                # nothing changed, add original source
+                new_sources.append(src)
+
+        context.sources = new_sources
+
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+        super().__init__(item, test, unknown_url_strategy)
+        self.pids_removed = set()
+
+    def get_always_remove_source_pid(self, source):
+        if wd.PID_WORLDCAT_IDENTITIES_ID_SUPERSEDED in source:
+            return wd.PID_WORLDCAT_IDENTITIES_ID_SUPERSEDED
+        else:
+            return None
+
+    def get_summary(self, summary_list):
+        self.format_properties(
+            summary_list, self.pids_removed, "removed", "[[Property:{id}]]"
+        )
+        return summary_list
+
+
+class MergeSources(BaseMergeSources):
+
+    def change_sources(self, context: ClaimContext) -> None:
+        if len(context.sources) <= 1:
+            return
+
+        new_sources = []
+        # Dictionary to store unique source identifiers
+        mergeable = {}
+        error_dict = {}
+        count_dict = {}
+        for src in context.sources:
+            src_id = STA_IN.get_id_from_source(src)
+            if src_id and not self.never_merge(src):
+                count_dict[src_id] = count_dict.get(src_id, 0) + 1
+                error = self.can_merge(src, src_id)
+                if error:
+                    # collect the errors, we only show the errors if we have duplicate src ids
+                    error_dict.setdefault(src_id, []).append(error)
+                elif src_id in mergeable:
+                    # If the source identifier already exists, merge the sources
+                    index = mergeable[src_id]
+                    new_sources[index] = self.merge(src_id, new_sources[index], src)
+                    context.major_change = True
+                    continue
+                else:
+                    # Otherwise, add the source identifier to the mergeable dictionary
+                    mergeable[src_id] = len(new_sources)
+
+            # Add the source, unless the source was merged above
+            new_sources.append(src)
+
+        # show the errors for duplicate src ids
+        error_list = []
+        for src_id in error_dict:
+            if count_dict[src_id] > 1:
+                for error in error_dict[src_id]:
+                    msg = f"{context.prop} - {src_id[0]} {src_id[2]}: {error}"
+                    logger.warning(msg)
+                    error_list.append(msg)
+
+        if error_list != []:
+            # make unique
+            error_list = list(dict.fromkeys(error_list))
+            error_msg = ", ".join(error_list)
+
+            raise RuntimeError(f"Error while merging: {error_msg}")
+
+        context.sources = new_sources
+
+    def never_merge(self, src) -> bool:
+        if wd.PID_BASED_ON_HEURISTIC in src:
+            return True
+        # change stated_in to inferred_from
+        # if pidc.PID_INFERRED_FROM in src:
+        #     return True
+        if wd.PID_PAGES in src:
+            return True
+        if wd.PID_SECTION_VERSE_PARAGRAPH_OR_CLAUSE in src:
+            return True
+        # Q98536289
+        if wd.PID_QUOTATION in src:
+            return True
+
+        return False
+
+    def can_merge(self, src, src_id_triple):
+        src_pid, src_stated_in, src_id = src_id_triple
+
+        ref_urls = src.get(wd.PID_REFERENCE_URL, [])
+        if len(ref_urls) > 1:
+            # Don't merge sources with multiple reference URLs;
+            # these sources should probably be cleaned up first
+            return "Source contains multiple reference urls"
+
+        if len(ref_urls) == 1:
+            refurl_id_triple = STA_IN.get_id_from_reference_url(src)
+            url = ref_urls[0].getTarget()
+
+            # the reference url must return the same id as the id in the source because we
+            # remove the reference url during the merge
+            # For example, the next code will give an error:
+            #    * if the reference url is an old unrecognized url -> manually add new regular expression to PID page
+            #    * if the reference url is wrong -> manually correct url
+            #    * if the reference url contains more info than the id alone; for example the page of a book
+
+            if not refurl_id_triple:
+                return f"Can not determine ID from reference URL: {src_id_triple} {url}"
+
+            refurl_pid, __, refurl_id = refurl_id_triple
+
+            if refurl_pid != src_pid:
+                return f"Different PID from reference URL: {src_id_triple} {url}"
+
+            if refurl_id != src_id:
+                return f"Different ID from reference URL: {src_id_triple} {url}"
+
+        for prop in src:
+            # Don't merge if the source contains other properties than these
+            if prop not in [
+                wd.PID_STATED_IN,
+                wd.PID_REFERENCE_URL,
+                wd.PID_RETRIEVED,
+                wd.PID_SUBJECT_NAMED_AS,
+                wd.PID_OBJECT_NAMED_AS,
+                wd.PID_PUBLICATION_DATE,
+                wd.PID_LAST_UPDATE,
+                wd.PID_PUBLISHER,
+                wd.PID_LANGUAGE_OF_WORK_OR_NAME,
+                wd.PID_TITLE,
+                wd.PID_ARCHIVE_URL,
+                wd.PID_ARCHIVE_DATE,
+                wd.PID_PUBLISHED_IN,
+                src_pid,
+            ]:
+
+                return f"Source cannot be merged because it contains prop {prop}"
+
+        return None
+
+
+class AllChangeSourceStrategy(ChangeSourceStrategy):
+
+    def __init__(
+        self,
+        item,
+        test: bool,
+        unknown_url_strategy: UnknownURLStrategy,
+        remove_english: bool = False,
+    ):
+        super().__init__(item, test, unknown_url_strategy)
+
+        self.strategies = []
+        if remove_english:
+            self.strategies = self.strategies + [
+                RemoveEnglishWikipedia(item, test, unknown_url_strategy),
+            ]
+        self.strategies = self.strategies + [
+            MultipleStatedIn(item, test, unknown_url_strategy),
+            RemoveRetrievedSources(item, test, unknown_url_strategy),
+            MergeRetrieved(item, test, unknown_url_strategy),
+            SplitStatedinSources(item, test, unknown_url_strategy),
+            AddIDSources(item, test, unknown_url_strategy),
+            SetArchiveUrlSources(item, test, unknown_url_strategy),
+            MergeStatedIn(item, test, unknown_url_strategy),
+            MergeSources(item, test, unknown_url_strategy),
+            RemoveSources(item, test, unknown_url_strategy),
+            RemoveWeakSources(item, test, unknown_url_strategy),
+            RemoveReferenceUrl(item, test, unknown_url_strategy),
+        ]
+
+    def get_changed_pids(self):
+        res = []
+        for strategy in self.strategies:
+            res.extend(strategy.get_changed_pids())
+        return res
+
+    def change_sources(self, context: ClaimContext) -> None:
+        for strategy in self.strategies:
+            strategy.change_sources(context)
+
+    def get_summary(self, summary_list):
+        for strategy in self.strategies:
+            summary_list = strategy.get_summary(summary_list)
+
+        return summary_list
+
+
+class ReportingUnknownURLStrategy(UnknownURLStrategy):
+    def __init__(self, report: Reporting):
+        self.report = report
+
+    def unknown_url(self, qid: str, url: str) -> None:
+        self.report.add_unknown_url(qid, url)
+
+
+class ChangeSourcesBot:
+    def __init__(self, generator, report: Reporting = None):
+        self.generator = pagegenerators.PreloadingEntityGenerator(generator)
+        self.item = None
+        self.test = True
+        self.report = report
+        self.done_count = 0
+        self.ignore_done_errors = False
+        self.skip_scholarly_article = True
+        self.remove_english = False
+
+    def examine(self, qid: str):
+        if not qid.startswith("Q"):  # ignore property pages and lexeme pages
+            return
+
+        if not self.test and not self.ignore_done_errors:
+            if qid != wd.QID_WIKIDATASANDBOX3:
+                if self.report.has_error(qid):
+                    logger.info(f"{qid}: skipped, in error list")
+                    return
+
+                if self.report.has_done(qid):
+                    logger.info(f"{qid}: skipped, in done list")
+                    return
+
+        self.item = pwb.ItemPage(REPO, qid)
+
+        self.examine_item()
+
+    def run(self):
+        for item in self.generator:
+            self.item = item
+            self.examine_item()
+            # time.sleep(30)
+
+    def examine_item(self):
+        qid = self.item.title()
+        if not self.test and not self.ignore_done_errors:
+            if qid != wd.QID_WIKIDATASANDBOX3:
+                if self.report.has_error(qid):
+                    logger.info(f"{qid}: skipped, in error list")
+                    return
+
+                if self.report.has_done(qid):
+                    logger.info(f"{qid}: skipped, in done list")
+                    return
+
+        if not self.item.exists():
+            return
+
+        if self.item.isRedirectPage():
+            return
+
+        claims = self.item.get().get("claims")
+
+        if not self.item.botMayEdit():
+            raise RuntimeError(f"Skipping {qid} because it cannot be edited by bots")
+
+        # skip scholarly article
+        if self.skip_scholarly_article:
+            if wd.PID_INSTANCE_OF in claims:
+                for claim in claims[wd.PID_INSTANCE_OF]:
+                    target = claim.getTarget()
+                    if target and target.getID() == wd.QID_SCHOLARLYARTICLE:
+                        logger.error(f"{qid}: scholarly article")
+                        self.report.add_error(qid, "scholarly article")
+                        return
+
+        logger.info(f"item = {qid} done = {self.done_count}")
+        self.report.clear_unknown_urls(qid)
+
+        strategy = AllChangeSourceStrategy(
+            self.item,
+            self.test,
+            ReportingUnknownURLStrategy(self.report),
+            remove_english=self.remove_english,
+        )
+        self.data = {}
+        something_done = False
+
+        try:
+            for prop in claims:
+                for claim in claims[prop]:
+                    if not claim.sources:
+                        continue
+
+                    context = ClaimContext(prop, claim)
+                    strategy.change_sources(context)
+
+                    if context.get_is_changed():
+                        claim.sources = context.sources
+                        self.save_claim(claim)
+                        something_done = True
+
+            if something_done:
+                summary_list = list(dict.fromkeys(strategy.get_summary([])))
+                summary = ", ".join(summary_list)
+                if summary == "":
+                    raise RuntimeError("Empty summary")
+                # summary = summary + ', test edit for [[Wikidata:Requests_for_permissions/Bot/DifoolBot_6]]'
+
+                if self.test:
+                    logger.info(summary)
+                else:
+                    self.item.editEntity(data=self.data, summary=summary)
+
+            if not self.test:
+                self.report.add_done(qid)
+                self.report.add_pid_done(strategy.get_changed_pids())
+            self.done_count = self.done_count + 1
+        except RuntimeError as e:
+            logger.error(f"{qid}: Runtime error: {e}")
+            self.report.add_error(qid, e.__repr__())
+
+    def save_claim(self, claim):
         if not claim.on_item:
             claim.on_item = self.item
-        REPO.save_claim(claim, summary=summary)
-
-
-def split_slice(stated_in_list, prop, offset, limit):
-    template = """SELECT DISTINCT ?item WHERE {{
-            SERVICE bd:slice {{
-                ?item p:{prop} ?statement.
-                bd:serviceParam bd:slice.offset {offset} ;
-                bd:slice.limit {limit} .
-            }}
-            ?statement prov:wasDerivedFrom ?ref.
-            ?ref pr:P854 ?some_ref, ?some_ref2.
-            FILTER(?some_ref != ?some_ref2)
-            FILTER(NOT EXISTS {{ ?ref pr:P248 ?s. }})
-            }}
-            """
-    query = template.format(prop=prop, offset=offset, limit=limit)
-
-    generator = pagegenerators.PreloadingEntityGenerator(
-        pagegenerators.WikidataSPARQLPageGenerator(query, site=REPO)
-    )
-
-    splitBot = SplitRefBot(stated_in_list, generator)
-    splitBot.run()
-
-
-def split(prop: str):
-    stated_in_list = statedin.StatedIn()
-
-    index = 0
-    limit = 150_000
-    while True:
-        print(f"Index = {index}")
-        split_slice(stated_in_list, prop, index, limit)
-
-        index = index + limit
-
-
-def split_getty():
-    query = """SELECT distinct ?item WHERE {
-        ?item ?some_prop ?statement.
-        ?statement prov:wasDerivedFrom ?ref.
-        ?ref pr:P248 wd:Q2494649.
-        ?ref pr:P854 ?some_ref, ?some_ref2.
-        ?ref pr:P245 ?some_id.
-        FILTER(?some_ref != ?some_ref2)
-        }"""
-
-    stated_in_list = statedin.StatedIn()
-
-    generator = pagegenerators.PreloadingEntityGenerator(
-        pagegenerators.WikidataSPARQLPageGenerator(query, site=REPO)
-    )
-
-    splitBot = SplitRefBot(stated_in_list, generator)
-    splitBot.split_getty = True
-    splitBot.run()
-
-
-def iter_P269():
-    query = """SELECT DISTINCT ?item ?prop ?statement ?url WHERE {
-            ?item ?prop ?statement.
-            ?statement prov:wasDerivedFrom ?ref.
-            ?ref pr:P854 ?url.
-            FILTER(CONTAINS(LCASE(STR(?url)), "idref.fr"))
-            FILTER(NOT EXISTS { ?ref pr:P269 ?s. })
-            FILTER(?prop != p:P269)
-            }
-            LIMIT 50"""
-
-    query = """SELECT DISTINCT ?item ?prop ?statement ?url WHERE {
-            ?item ?prop ?statement.
-            ?statement prov:wasDerivedFrom ?ref.
-            ?ref pr:P854 ?url.
-            FILTER(CONTAINS(LCASE(STR(?url)), "rkd.nl"))
-            FILTER(NOT EXISTS { ?ref pr:P650 ?s. })
-            FILTER(?prop != p:P650)
-            }
-            LIMIT 250"""
-
-    query = """SELECT DISTINCT ?item ?prop ?statement ?url WHERE {
-            SERVICE bd:slice {
-                ?ref pr:P854 ?url.
-                bd:serviceParam bd:slice.offset 2000000;
-                bd:slice.limit 1000000 .
-            }
-            ?item ?prop ?statement.
-            ?statement prov:wasDerivedFrom ?ref.
-            FILTER(CONTAINS(LCASE(STR(?url)), "musicalics"))
-            FILTER(NOT EXISTS { ?ref pr:P6925 ?s. })
-            FILTER(?prop != p:P6925)
-            }"""
-
-    query = """SELECT distinct ?item ?statement  WHERE {
-            ?item ?some_prop ?statement.
-            ?statement prov:wasDerivedFrom ?ref1, ?ref2.
-            ?ref1 pr:P248 wd:Q17299517.
-            ?ref2 pr:P248 wd:Q17299517.
-            FILTER(?ref1 != ?ref2)
-            } LIMIT 100"""
-
-    stated_in_list = statedin.StatedIn()
-
-    generator = pagegenerators.PreloadingEntityGenerator(
-        pagegenerators.WikidataSPARQLPageGenerator(query, site=REPO)
-    )
-
-    addBot = AddIDBot(stated_in_list, generator)
-    addBot.run()
-
-
-def add_id(qid: str, test: bool = True):
-    stated_in_list = statedin.StatedIn()
-    addIDBot = AddIDBot(stated_in_list, None)
-    addIDBot.test = test
-    addIDBot.examine(qid)
-
-
-def zandbak():
-    add_id("Q15397819", test=False)
-
-
-def main() -> None:
-    # zandbak()
-    add_id("Q62127980", test = True)
-
-    #iter_P269()
-    # split("P106")
-    # ["P21", "P569", "P570", "P213", "P106"]:
-    # get_count("P569")
-    # splitBot = SplitRefBot(stated_in_list, None)
-    # splitBot.item = pwb.ItemPage(REPO, "Q100076969")
-    # splitBot.examine_item()
-
-    # unknown url http://www.artnet.com/artists/katsushika-hokusai/
-    # unknown url https://opac.sbn.it/risultati-ricerca-avanzata?item:5032:BID=BVEV002335
-    # unknown url https://openlibrary.org/authors/OL7598341A/Nick_Cave
-    # unknown url http://www.moma.org/collection/artists/34
-    # unknown url https://frankfurter-personenlexikon.de/node/498
-    # unknown url https://www.deutsche-biographie.de/gnd121651363.html#ndbcontent
-    # unknown url https://www.fine-arts-museum.be/nl/de-collectie/artist/claus-hugo-1
-    # unknown url https://rkd.nl/en/explore/images/122771
-    # unknown url https://www.musik-sammler.de/artist/luciano-pavarotti-gianni-morandi
-    # unknown url https://www.tekstowo.pl/wykonawca,luciano_pavarotti.html
-    # unknown url https://www.naxos.com/person/17308.htm
-    # unknown url https://opac.sbn.it/opacsbn/opac/iccu/scheda_authority.jsp?bid=IT\ICCU\CUBV\103982
-    # unknown url https://www.digitalarchivioricordi.com/it/people/display/9961
-
-    # Q99234328; Q124344625; Q108634101; Q118118614
-    # merge: Q86376351; Q62523359; Q63165263; Q97573321; Q62127980
-
-
-if __name__ == "__main__":
-    main()
+        if "claims" not in self.data:
+            self.data["claims"] = []
+        # REPO.save_claim(claim, summary=summary)
+        self.data["claims"].append(claim.toJSON())
