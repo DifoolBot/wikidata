@@ -9,7 +9,9 @@ import logging
 from statedin import StatedIn
 from reporting import Reporting
 import constants as wd
-import references as ref
+import references
+
+from typing import List, Dict, Set
 
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
@@ -23,8 +25,6 @@ READ_TIMEOUT = 60  # sec
 
 logger = logging.getLogger("splitrefs")
 
-# deze weg
-STA_IN = StatedIn()
 
 ARCHIVE_URLS = ["web.archive.org", "archive.is", "wayback.archive-it.org"]
 
@@ -87,6 +87,35 @@ def get_count(pid: str, url: str):
     return count
 
 
+class UnknownURLStrategy:
+    def unknown_url(self, qid: str, url: str) -> None:
+        pass
+
+
+class ItemContext:
+    """
+    Attributes:
+        item (ItemPage): The current item being processed.
+        test (bool): A flag to indicate test mode.
+        qid (str): The QID of the current item.
+        unknown_url_strategy (UnknownURLStrategy): Strategy to handle unknown URLs.
+    """
+
+    def __init__(
+        self,
+        item,
+        test: bool,
+        stated_in: StatedIn,
+        unknown_url_strategy: UnknownURLStrategy,
+    ) -> None:
+
+        self.item = item
+        self.qid = self.item.title()
+        self.test = test
+        self.stated_in = stated_in
+        self.unknown_url_strategy = unknown_url_strategy
+
+
 class ClaimContext:
     def __init__(self, prop, claim) -> None:
         self.prop = prop
@@ -99,25 +128,27 @@ class ClaimContext:
         return self.minor_change or self.major_change
 
 
-class UnknownURLStrategy:
-    def unknown_url(self, qid: str, url: str) -> None:
-        pass
-
-
 class ChangeSourceStrategy:
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        self.item = item
-        self.test = test
-        self.qid = self.item.title()
-        self.unknown_url_strategy = unknown_url_strategy
+    """
+    A strategy class to change sources of claims in Wikidata items.
+
+    Attributes:
+        changed_pids (list): List of PIDs where the reference URL is changed to an external id. This is used for reporting.
+        something_done (bool): Wikidata item is changed by this strategy
+    """
+
+    def __init__(self, item_context: ItemContext) -> None:
+        self.item_context = item_context
         self.changed_pids = []
+        self.something_done = False
 
     def change_sources(self, context: ClaimContext) -> None:
+        """
+        Placeholder function to change sources of a claim.
+
+        Args:
+            context (ClaimContext): The context of the claim to change sources for.
+        """
         pass
 
     def get_changed_pids(self):
@@ -129,31 +160,43 @@ class ChangeSourceStrategy:
             ids = [template.format(id=id) for id in ids]
             summary_list.append(f"{action} " + ", ".join(ids))
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
+        """
+        Appends a summary to the list if changes were made.
+
+        This function checks if any changes were made and, if so, appends a
+        summary of those changes to the provided summary list.
+
+        Args:
+            summary_list (List[str]): The list to append the summary to.
+
+        Returns:
+            List[str]: The updated list of summaries.
+        """
         pass
 
+    def claim_changed(self, context: ClaimContext, major_change: bool = False) -> None:
+        if major_change:
+            context.major_change = True
+        else:
+            context.minor_change = True
+        self.something_done = True
+
     def unknown_url(self, url: str):
-        if self.unknown_url_strategy:
-            self.unknown_url_strategy.unknown_url(self.qid, url)
+        if self.item_context.unknown_url_strategy:
+            self.item_context.unknown_url_strategy.unknown_url(
+                self.item_context.qid, url
+            )
 
 
 class RemoveEnglishWikipedia(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.something_done = False
 
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
             changed, new_src = self.remove_english_wikipedia(src)
             if changed:
-                context.minor_change = True
-                self.something_done = True
+                self.claim_changed(context)
                 if new_src:
                     new_sources.append(new_src)
             else:
@@ -161,7 +204,7 @@ class RemoveEnglishWikipedia(ChangeSourceStrategy):
                 new_sources.append(src)
         context.sources = new_sources
 
-    def remove_english_wikipedia(self, src):
+    def remove_english_wikipedia(self, src: Dict):
         changed = False
         new_source = OrderedDict()
         for prop in src:
@@ -189,21 +232,16 @@ class RemoveEnglishWikipedia(ChangeSourceStrategy):
 
         return changed, new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
-            summary = "removed [[Q328]]"
+            summary = f"removed [[{wd.QID_ENGLISHWIKIPEDIA}]]"
             summary_list.append(summary)
         return summary_list
 
 
 class Treccani(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.pids = set()
 
     def change_sources(self, context: ClaimContext) -> None:
@@ -226,7 +264,7 @@ class Treccani(ChangeSourceStrategy):
                 normalized_treccani_id = normalized_treccani_id.rstrip("/")
 
                 url = "https://www.treccani.it/enciclopedia/" + normalized_treccani_id
-                found_list = STA_IN.extract_ids_from_url(url)
+                found_list = self.item_context.stated_in.extract_ids_from_url(url)
                 found = None
                 for item in found_list:
                     pid, __, id = item
@@ -251,7 +289,7 @@ class Treccani(ChangeSourceStrategy):
                     new_sources.append(new_src)
 
                 claim_changed = True
-                context.major_change = True
+                self.claim_changed(context, major_change=True)
                 continue
 
             # nothing changed, add original source
@@ -331,7 +369,7 @@ class Treccani(ChangeSourceStrategy):
             new_source[prop] = src[prop]
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         self.format_properties(
             summary_list,
             self.pids,
@@ -343,22 +381,16 @@ class Treccani(ChangeSourceStrategy):
 
 
 class SplitSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.has_archive = False
-        self.something_done = False
 
     def change_sources(self, context: ClaimContext) -> None:
         if context.prop not in [
             wd.PID_SEX_OR_GENDER,
             wd.PID_DATE_OF_BIRTH,
             wd.PID_DATE_OF_DEATH,
-            wd.PID_PID_ISNI,
+            wd.PID_ISNI,
             wd.PID_OCCUPATION,
         ]:
             return
@@ -380,7 +412,7 @@ class SplitSources(ChangeSourceStrategy):
         if claim_changed:
             context.sources = new_sources
 
-    def can_split_source(self, src) -> bool:
+    def can_split_source(self, src: Dict) -> bool:
         if wd.PID_REFERENCE_URL not in src:
             return False
 
@@ -407,25 +439,20 @@ class SplitSources(ChangeSourceStrategy):
                 wd.PID_ARCHIVE_URL,
             ):
                 if wd.PID_REFERENCE_URL in src and len(src[wd.PID_REFERENCE_URL]) > 1:
-                    logger.warning(
-                        f"{self.item.title()}: multiple Reference url, with {prop}"
-                    )
+                    raise RuntimeError(f"Multiple Reference url, with {prop}")
                 return False
 
-        # do not accept multiple pidc.PID_ARCHIVE_URL
+        # do not accept multiple PID_ARCHIVE_URL
         if wd.PID_ARCHIVE_URL in src and len(src[wd.PID_ARCHIVE_URL]) > 1:
-            logger.warning(f"{self.item.title()}: multiple Archive URL")
-            return False
+            raise RuntimeError("Multiple Archive URL")
 
-        # do not accept multiple pidc.PID_ARCHIVE_DATE
+        # do not accept multiple PID_ARCHIVE_DATE
         if wd.PID_ARCHIVE_DATE in src and len(src[wd.PID_ARCHIVE_DATE]) > 1:
-            logger.warning(f"{self.item.title()}: multiple Archive date")
-            return False
+            raise RuntimeError("Multiple Archive date")
 
-        # do not accept multiple pidc.PID_RETRIEVED
+        # do not accept multiple PID_RETRIEVED
         if wd.PID_RETRIEVED in src and len(src[wd.PID_RETRIEVED]) > 1:
-            logger.warning(f"{self.item.title()}: multiple Retrieved")
-            return False
+            raise RuntimeError("Multiple Retrieved")
 
         if wd.PID_ARCHIVE_URL in src or wd.PID_ARCHIVE_DATE in src:
             self.has_archive = True
@@ -439,19 +466,15 @@ class SplitSources(ChangeSourceStrategy):
                     found = True
                     break
             if not found:
-                logger.warning(
-                    f"{self.item.title()}: unrecognized archive url: {archive_url}"
-                )
-                return False
+                raise RuntimeError(f"Unrecognized archive url: {archive_url}")
 
         domains = set()
         for value in src[wd.PID_REFERENCE_URL]:
             url = value.getTarget()
             if is_archive_url(url):
-                logger.warning(f"{self.item.title()}: found archive url {url}")
-                return False
+                raise RuntimeError(f"Found archive url {url}")
 
-            stated_in_qid = STA_IN.get_stated_in_from_url(url)
+            stated_in_qid = self.item_context.stated_in.get_stated_in_from_url(url)
             if not stated_in_qid:
                 # prevent splitting reference urls with the same domain but different language, for example:
                 # https://www.zaowouki.org/en/the-artist/biography/
@@ -477,15 +500,12 @@ class SplitSources(ChangeSourceStrategy):
                         and domain != "nl.go.kr"
                     ):
                         if domain in domains:
-                            logger.warning(
-                                f"{self.item.title()}: found duplicate domain {domain}"
-                            )
-                            return False
+                            raise RuntimeError(f"Found duplicate domain {domain}")
                         domains.add(domain)
 
         return True
 
-    def split_source(self, src):
+    def split_source(self, src: Dict):
         """
         Splits source with multiple reference urls into multiple sources with one reference url.
 
@@ -505,7 +525,7 @@ class SplitSources(ChangeSourceStrategy):
             source = OrderedDict()
 
             url = value.getTarget()
-            stated_in_qid = STA_IN.get_stated_in_from_url(url)
+            stated_in_qid = self.item_context.stated_in.get_stated_in_from_url(url)
             if stated_in_qid:
                 stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN)
                 stated_in_claim.isReference = True
@@ -549,27 +569,29 @@ class SplitSources(ChangeSourceStrategy):
 
         return changed, sources
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
             if self.has_archive:
-                summary = "split reference with multiple [[Property:P854]] and [[Property:P1065]] "
+                summary = f"split reference with multiple [[Property:{wd.PID_REFERENCE_URL}]] and [[Property:{wd.PID_ARCHIVE_URL}]] "
             else:
-                summary = "split reference with multiple [[Property:P854]]"
+                summary = (
+                    f"split reference with multiple [[Property:{wd.PID_REFERENCE_URL}]]"
+                )
             summary_list.append(summary)
 
         return summary_list
 
 
-# removes redundant reference URLs from sources
-class RemoveReferenceUrl(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        # the total number of reference URLs that are removed from a page
+class RemoveReferenceURL(ChangeSourceStrategy):
+    """
+    A strategy class to remove redundant reference URLs from sources in Wikidata items.
+
+    Attributes:
+        removed_count (int): The total number of reference URLs that are removed from a page.
+    """
+
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.removed_count = 0
 
     def change_sources(self, context: ClaimContext) -> None:
@@ -577,16 +599,17 @@ class RemoveReferenceUrl(ChangeSourceStrategy):
         for src in context.sources:
             new_src = self.remove_redundant_reference_url(src, context.prop)
             if new_src:
-                self.removed_count = self.removed_count + 1
-                context.minor_change = True
+                self.removed_count += 1
                 new_sources.append(new_src)
+
+                self.claim_changed(context)
             else:
                 # nothing changed, add original source
                 new_sources.append(src)
 
         context.sources = new_sources
 
-    def remove_redundant_reference_url(self, src, skip_prop: str):
+    def remove_redundant_reference_url(self, src: Dict, skip_prop: str) -> Dict | None:
         if wd.PID_REFERENCE_URL not in src:
             return None
 
@@ -603,7 +626,7 @@ class RemoveReferenceUrl(ChangeSourceStrategy):
             return None
 
         try:
-            pid = STA_IN.get_pid_from_source(src)
+            pid = self.item_context.stated_in.get_pid_from_source(src)
             if not pid or not pid.startswith("P"):
                 # BOOK
                 return None
@@ -614,13 +637,13 @@ class RemoveReferenceUrl(ChangeSourceStrategy):
             # multiple pids
             return None
 
-        keep_url = STA_IN.get_keep_url(pid, src)
+        keep_url = self.item_context.stated_in.get_keep_url(pid, src)
         if keep_url:
             return None
 
-        if self.test:
+        if self.item_context.test:
             logger.info(
-                f"Removed {skip_prop} - {pid} - {STA_IN.get_id_from_source(src)}"
+                f"Removed {skip_prop} - {pid} - {self.item_context.stated_in.get_id_from_source(src)}"
             )
 
         new_source = OrderedDict()
@@ -632,7 +655,7 @@ class RemoveReferenceUrl(ChangeSourceStrategy):
 
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.removed_count > 0:
             summary_list.append(
                 f"removed [[Property:{wd.PID_REFERENCE_URL}]] ({self.removed_count}x)"
@@ -641,13 +664,8 @@ class RemoveReferenceUrl(ChangeSourceStrategy):
 
 
 class RemoveWeakSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.pids_removed = set()
 
     def change_sources(self, context: ClaimContext) -> None:
@@ -660,14 +678,14 @@ class RemoveWeakSources(ChangeSourceStrategy):
             pid = self.get_weak_source_pid(src)
             if pid:
                 self.pids_removed.add(pid)
-                context.major_change = True
+                self.claim_changed(context, major_change=True)
             else:
                 # nothing changed, add original source
                 new_sources.append(src)
 
         context.sources = new_sources
 
-    def get_weak_source_pid(self, source):
+    def get_weak_source_pid(self, source: Dict) -> str | None:
         if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in source:
             return wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT
         elif wd.PID_WIKIMEDIA_IMPORT_URL in source:
@@ -675,7 +693,7 @@ class RemoveWeakSources(ChangeSourceStrategy):
         else:
             return None
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         self.format_properties(
             summary_list, self.pids_removed, "removed", "[[Property:{id}]]"
         )
@@ -683,14 +701,6 @@ class RemoveWeakSources(ChangeSourceStrategy):
 
 
 class RemoveRetrievedSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.something_done = False
 
     def change_sources(self, context: ClaimContext) -> None:
 
@@ -1003,11 +1013,11 @@ class RemoveRetrievedSources(ChangeSourceStrategy):
 
         src = context.sources[0]
 
-        # Check if pidc.PID_RETRIEVED is in the source
+        # Check if PID_RETRIEVED is in the source
         if wd.PID_RETRIEVED not in src:
             return
 
-        # Ensure pidc.PID_RETRIEVED is the only property in the source
+        # Ensure PID_RETRIEVED is the only property in the source
         if any(prop != wd.PID_RETRIEVED for prop in src):
             return
 
@@ -1027,9 +1037,9 @@ class RemoveRetrievedSources(ChangeSourceStrategy):
 
         # Remove if claim.id is in the removable list
         if context.claim.id in REMOVABLE_CLAIM_IDS:
-            self.something_done = True
-            ref.check_retrieved_year(src)
-            context.minor_change = True
+
+            references.check_retrieved_year(src)
+            self.claim_changed(context)
             context.sources = []
             return
 
@@ -1037,9 +1047,9 @@ class RemoveRetrievedSources(ChangeSourceStrategy):
             if context.claim.qualifiers and len(context.claim.qualifiers) > 0:
                 return
             else:
-                self.something_done = True
-                ref.check_retrieved_year(src)
-                context.minor_change = True
+
+                references.check_retrieved_year(src)
+                self.claim_changed(context)
                 context.sources = []
                 return
 
@@ -1047,20 +1057,15 @@ class RemoveRetrievedSources(ChangeSourceStrategy):
             f"remove_retrieved_sources: {context.claim.id} - {context.prop}"
         )
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
-            summary_list.append("removed [[Property:P813]]")
+            summary_list.append(f"removed [[Property:{wd.PID_RETRIEVED}]]")
         return summary_list
 
 
 class MergeRetrieved(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.did_merge_retrieved = False
         self.did_remove_retrieved = False
 
@@ -1069,10 +1074,10 @@ class MergeRetrieved(ChangeSourceStrategy):
         if len(context.sources) <= 1:
             return
 
-        ref = ref.References(context.claim, context.sources)
+        ref = references.References(context.claim, context.sources)
         ref.remove_single_retrieved()
         if ref.did_merge or ref.did_remove:
-            context.minor_change = True
+            self.claim_changed(context)
             if ref.did_merge:
                 self.did_merge_retrieved = True
             if ref.did_remove:
@@ -1085,41 +1090,34 @@ class MergeRetrieved(ChangeSourceStrategy):
                     f"merge_retrieved: {context.claim.id} - {context.prop} - {ref.get_tokens()}"
                 )
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.did_merge_retrieved:
-            summary_list.append("merged [[Property:P813]]")
+            summary_list.append(f"merged [[Property:{wd.PID_RETRIEVED}]]")
         if self.did_remove_retrieved:
-            summary_list.append("removed [[Property:P813]]")
+            summary_list.append(f"removed [[Property:{wd.PID_RETRIEVED}]]")
         return summary_list
 
 
-class SplitStatedinSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.something_done = False
+class SplitStatedInSources(ChangeSourceStrategy):
 
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
             if self.has_only_stated_in(src):
-                context.minor_change = True
-                self.something_done = True
+
                 for stated_in in src[wd.PID_STATED_IN]:
                     new_source = OrderedDict()
                     new_source[wd.PID_STATED_IN] = [stated_in]
                     new_sources.append(new_source)
+
+                self.claim_changed(context)
             else:
                 # nothing changed, add original source
                 new_sources.append(src)
 
         context.sources = new_sources
 
-    def has_only_stated_in(self, src) -> bool:
+    def has_only_stated_in(self, src: Dict) -> bool:
         if wd.PID_STATED_IN not in src:
             return False
         if len(src[wd.PID_STATED_IN]) <= 1:
@@ -1129,28 +1127,23 @@ class SplitStatedinSources(ChangeSourceStrategy):
                 return False
         return True
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
             summary_list.append(f"split [[Property:{wd.PID_STATED_IN}]]")
         return summary_list
 
 
-class AddIDSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+class AddExternalID(ChangeSourceStrategy):
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.pids_addid = set()
 
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
-            new_src = self.add_id(src, context.prop)
+            new_src = self.add_external_id(src, context.prop)
             if new_src:
-                context.major_change = True
+                self.claim_changed(context, major_change=True)
                 new_sources.append(new_src)
             else:
                 # nothing changed, add original source
@@ -1158,7 +1151,18 @@ class AddIDSources(ChangeSourceStrategy):
 
         context.sources = new_sources
 
-    def add_id(self, src, skip_prop: str):
+    def add_external_id(self, src: Dict, skip_prop: str) -> Dict | None:
+        """
+        Adds an external ID to a source if applicable.
+
+        Args:
+            src (Dict): The source to add the external ID to.
+            skip_prop (str): The property to skip during addition.
+
+        Returns:
+            Dict: The new source with the added external ID, or None if no changes were made.
+        """
+
         if wd.PID_REFERENCE_URL not in src:
             return None
 
@@ -1177,34 +1181,34 @@ class AddIDSources(ChangeSourceStrategy):
         for prop in src:
             # could be wrong pid, but we'll ignore that for now
             # for example: X username, X post ID
-            if STA_IN.is_id_pid(prop):
+            if self.item_context.stated_in.is_id_pid(prop):
                 return None
 
         ref = src[wd.PID_REFERENCE_URL][0]
         url = ref.getTarget()
-        triple = STA_IN.get_id_from_reference_url(src)
-        if triple is None:
+        tuple = self.item_context.stated_in.get_id_from_reference_url(src)
+        if tuple is None:
             logger.info(f"unknown url {url}")
             self.unknown_url(url)
             return None
 
-        pid, stated_in_qid, id = triple
+        pid, stated_in, id = tuple
         if pid == skip_prop:
             return None
 
-        keep_url = STA_IN.get_keep_url(pid, src)
+        keep_url = self.item_context.stated_in.get_keep_url(pid, src)
 
         if self.test:
             logger.info(f"{skip_prop} url: {url} => {pid} {id}")
 
         new_source = OrderedDict()
 
-        if stated_in_qid:
-            stated_in = pwb.Claim(REPO, wd.PID_STATED_IN)
-            stated_in.isReference = True
-            stated_in.setTarget(pwb.ItemPage(REPO, stated_in_qid))
-            stated_in.on_item = self.item
-            new_source[wd.PID_STATED_IN] = [stated_in]
+        if stated_in:
+            stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN)
+            stated_in_claim.isReference = True
+            stated_in_claim.setTarget(pwb.ItemPage(REPO, stated_in))
+            stated_in_claim.on_item = self.item
+            new_source[wd.PID_STATED_IN] = [stated_in_claim]
 
         if pid and id:
             self.pids_addid.add(pid)
@@ -1224,7 +1228,7 @@ class AddIDSources(ChangeSourceStrategy):
 
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         self.format_properties(
             summary_list,
             self.pids_addid,
@@ -1235,6 +1239,13 @@ class AddIDSources(ChangeSourceStrategy):
 
 
 class MultipleStatedIn(ChangeSourceStrategy):
+    """
+    A strategy class to handle cases where multiple 'stated in' values are present in sources of Wikidata items.
+
+    Attributes:
+        TYPE_OF_REFERENCE_IDS (List[str]): A list of QIDs that are considered types of references.
+        QIDS (Dict[str, str]): A dictionary mapping QIDs to their corresponding PIDs.
+    """
     TYPE_OF_REFERENCE_IDS = [
         wd.QID_OFFICIAL_WEBSITE,
         wd.QID_CURRICULUM_VITAE,
@@ -1260,22 +1271,13 @@ class MultipleStatedIn(ChangeSourceStrategy):
         wd.QID_NETHERLANDS_INSTITUTE_FOR_ART_HISTORY: wd.PID_RKDARTISTS_ID,
     }
 
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.something_done = False
-
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
             new_src = self.remove_multiple_stated_in(src)
             if new_src:
-                context.minor_change = True
-                self.something_done = True
+                self.claim_changed(context)
+
                 new_sources.append(new_src)
             else:
                 # nothing changed, add original source
@@ -1283,7 +1285,7 @@ class MultipleStatedIn(ChangeSourceStrategy):
 
         context.sources = new_sources
 
-    def get_stated_in_qids(self, src):
+    def get_stated_in_qids(self, src: Dict) -> tuple[List[str], List[str]]:
         stated_in_qids = []
         type_of_reference_qids = []
 
@@ -1294,7 +1296,7 @@ class MultipleStatedIn(ChangeSourceStrategy):
                     type_of_reference_qids.append(qid)
             elif qid in self.QIDS:
                 pid = self.QIDS[qid]
-                qid = STA_IN.get_stated_in_from_pid(pid)
+                qid = self.item_context.stated_in.get_stated_in_from_pid(pid)
                 if qid not in stated_in_qids:
                     stated_in_qids.append(qid)
             elif qid not in stated_in_qids:
@@ -1302,7 +1304,7 @@ class MultipleStatedIn(ChangeSourceStrategy):
 
         return stated_in_qids, type_of_reference_qids
 
-    def remove_multiple_stated_in(self, src):
+    def remove_multiple_stated_in(self, src: Dict) -> Dict | None:
         if wd.PID_STATED_IN not in src:
             return None
         if len(src[wd.PID_STATED_IN]) <= 1:
@@ -1340,29 +1342,21 @@ class MultipleStatedIn(ChangeSourceStrategy):
 
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
             summary_list.append(f"changed [[Property:{wd.PID_STATED_IN}]]")
         return summary_list
 
 
-class SetArchiveUrlSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.something_done = False
+class SetArchiveURLSources(ChangeSourceStrategy):
 
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
             new_src = self.set_archive_url(src)
             if new_src:
-                context.minor_change = True
-                self.something_done = True
+                self.claim_changed(context)
+
                 new_sources.append(new_src)
             else:
                 # nothing changed, add original source
@@ -1370,7 +1364,7 @@ class SetArchiveUrlSources(ChangeSourceStrategy):
 
         context.sources = new_sources
 
-    def set_archive_url(self, src):
+    def set_archive_url(self, src: Dict):
         if wd.PID_REFERENCE_URL not in src:
             return None
 
@@ -1406,7 +1400,7 @@ class SetArchiveUrlSources(ChangeSourceStrategy):
 
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         if self.something_done:
             summary_list.append(
                 f"changed [[Property:{wd.PID_REFERENCE_URL}]] into [[Property:{wd.PID_ARCHIVE_URL}]]"
@@ -1415,19 +1409,16 @@ class SetArchiveUrlSources(ChangeSourceStrategy):
 
 
 class BaseMergeSources(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.pids_merged = set()
         self.qids_merged = set()
 
     def merge(self, src_id, src1, src2):
         pid, stated_in_qid, id = src_id
-        keep_url = STA_IN.get_keep_url(pid, src1) or STA_IN.get_keep_url(pid, src2)
+        keep_url = self.item_context.stated_in.get_keep_url(
+            pid, src1
+        ) or self.item_context.stated_in.get_keep_url(pid, src2)
 
         new_source = OrderedDict()
 
@@ -1463,11 +1454,11 @@ class BaseMergeSources(ChangeSourceStrategy):
 
         props = [x for x in props if x not in skip]
 
-        t = ref.get_old_new_src(src1, src2)
+        t = references.get_old_new_src(src1, src2)
         for prop in props:
             # use the value of the newest, or the oldest (if the newest doesn't have the prop);
             # if prop is title/subject named as, then only newest
-            ref.set_pid(
+            references.set_pid(
                 prop,
                 t,
                 new_source,
@@ -1478,12 +1469,12 @@ class BaseMergeSources(ChangeSourceStrategy):
                 ],
             )
 
-        ref.set_pid(wd.PID_PUBLICATION_DATE, t, new_source, [])
-        ref.set_pid(wd.PID_RETRIEVED, t, new_source, [])
+        references.set_pid(wd.PID_PUBLICATION_DATE, t, new_source, [])
+        references.set_pid(wd.PID_RETRIEVED, t, new_source, [])
 
         return new_source
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         self.format_properties(
             summary_list, self.pids_merged, "merged", "[[Property:{id}]]"
         )
@@ -1497,13 +1488,8 @@ class BaseMergeSources(ChangeSourceStrategy):
 
 
 class MergeStatedIn(ChangeSourceStrategy):
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
         self.qids_merged = set()
 
     def change_sources(self, context: ClaimContext) -> None:
@@ -1521,8 +1507,10 @@ class MergeStatedIn(ChangeSourceStrategy):
                     if stated_in in mergeable:
                         # If the source identifier already exists, merge the sources
                         index = mergeable[stated_in]
-                        new_sources[index] = ref.get_merge(new_sources[index], src)
-                        context.minor_change = True
+                        new_sources[index] = references.get_merge(
+                            new_sources[index], src
+                        )
+                        self.claim_changed(context)
                         self.qids_merged.add(stated_in)
                         continue
                     else:
@@ -1532,8 +1520,10 @@ class MergeStatedIn(ChangeSourceStrategy):
                     # If the source identifier already exists, merge the sources if the first was a single stated in
                     index = mergeable[stated_in]
                     if self.is_single_statedin(new_sources[index]):
-                        new_sources[index] = ref.get_merge(new_sources[index], src)
-                        context.minor_change = True
+                        new_sources[index] = references.get_merge(
+                            new_sources[index], src
+                        )
+                        self.claim_changed(context)
                         self.qids_merged.add(stated_in)
                         continue
                 else:
@@ -1545,7 +1535,7 @@ class MergeStatedIn(ChangeSourceStrategy):
 
         context.sources = new_sources
 
-    def get_statedin(self, src) -> str:
+    def get_statedin(self, src: Dict) -> str | None:
         if wd.PID_STATED_IN not in src:
             return None
         if len(src[wd.PID_STATED_IN]) > 1:
@@ -1554,7 +1544,7 @@ class MergeStatedIn(ChangeSourceStrategy):
         stated_in_qid = claim.getTarget().getID()
         return stated_in_qid
 
-    def is_single_statedin(self, src) -> bool:
+    def is_single_statedin(self, src: Dict) -> bool:
         if wd.PID_STATED_IN not in src:
             return False
         if len(src[wd.PID_STATED_IN]) > 1:
@@ -1566,7 +1556,7 @@ class MergeStatedIn(ChangeSourceStrategy):
 
         return True
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list):
         self.format_properties(
             summary_list,
             self.qids_merged,
@@ -1577,27 +1567,22 @@ class MergeStatedIn(ChangeSourceStrategy):
 
 
 class RemoveSources(ChangeSourceStrategy):
+    def __init__(self, item_context: ItemContext) -> None:
+        super().__init__(item_context)
+        self.pids_removed = set()
+
     def change_sources(self, context: ClaimContext) -> None:
         new_sources = []
         for src in context.sources:
             pid = self.get_always_remove_source_pid(src)
             if pid:
                 self.pids_removed.add(pid)
-                context.minor_change = True
+                self.claim_changed(context)
             else:
                 # nothing changed, add original source
                 new_sources.append(src)
 
         context.sources = new_sources
-
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-    ) -> None:
-        super().__init__(item, test, unknown_url_strategy)
-        self.pids_removed = set()
 
     def get_always_remove_source_pid(self, source):
         if wd.PID_WORLDCAT_IDENTITIES_ID_SUPERSEDED in source:
@@ -1605,7 +1590,7 @@ class RemoveSources(ChangeSourceStrategy):
         else:
             return None
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list):
         self.format_properties(
             summary_list, self.pids_removed, "removed", "[[Property:{id}]]"
         )
@@ -1624,7 +1609,7 @@ class MergeSources(BaseMergeSources):
         error_dict = {}
         count_dict = {}
         for src in context.sources:
-            src_id = STA_IN.get_id_from_source(src)
+            src_id = self.item_context.stated_in.get_id_from_source(src)
             if src_id and not self.never_merge(src):
                 count_dict[src_id] = count_dict.get(src_id, 0) + 1
                 error = self.can_merge(src, src_id)
@@ -1635,7 +1620,7 @@ class MergeSources(BaseMergeSources):
                     # If the source identifier already exists, merge the sources
                     index = mergeable[src_id]
                     new_sources[index] = self.merge(src_id, new_sources[index], src)
-                    context.major_change = True
+                    self.claim_changed(context, major_change=True)
                     continue
                 else:
                     # Otherwise, add the source identifier to the mergeable dictionary
@@ -1662,11 +1647,11 @@ class MergeSources(BaseMergeSources):
 
         context.sources = new_sources
 
-    def never_merge(self, src) -> bool:
+    def never_merge(self, src: Dict) -> bool:
         if wd.PID_BASED_ON_HEURISTIC in src:
             return True
         # change stated_in to inferred_from
-        # if pidc.PID_INFERRED_FROM in src:
+        # if PID_INFERRED_FROM in src:
         #     return True
         if wd.PID_PAGES in src:
             return True
@@ -1678,7 +1663,7 @@ class MergeSources(BaseMergeSources):
 
         return False
 
-    def can_merge(self, src, src_id_triple):
+    def can_merge(self, src: Dict, src_id_triple):
         src_pid, src_stated_in, src_id = src_id_triple
 
         ref_urls = src.get(wd.PID_REFERENCE_URL, [])
@@ -1688,7 +1673,9 @@ class MergeSources(BaseMergeSources):
             return "Source contains multiple reference urls"
 
         if len(ref_urls) == 1:
-            refurl_id_triple = STA_IN.get_id_from_reference_url(src)
+            refurl_id_triple = self.item_context.stated_in.get_id_from_reference_url(
+                src
+            )
             url = ref_urls[0].getTarget()
 
             # the reference url must return the same id as the id in the source because we
@@ -1734,33 +1721,33 @@ class MergeSources(BaseMergeSources):
 
 
 class AllChangeSourceStrategy(ChangeSourceStrategy):
+    """
+    A strategy class that aggregates multiple strategies to change sources of claims in Wikidata items.
 
-    def __init__(
-        self,
-        item,
-        test: bool,
-        unknown_url_strategy: UnknownURLStrategy,
-        remove_english: bool = False,
-    ):
-        super().__init__(item, test, unknown_url_strategy)
+    Attributes:
+        strategies (List[ChangeSourceStrategy]): A list of source change strategies.
+    """
 
-        self.strategies = []
+    def __init__(self, item_context: ItemContext, remove_english: bool = False) -> None:
+        super().__init__(item_context)
+
+        self.strategies: List[ChangeSourceStrategy] = []
         if remove_english:
-            self.strategies = self.strategies + [
-                RemoveEnglishWikipedia(item, test, unknown_url_strategy),
+            self.strategies += [
+                RemoveEnglishWikipedia(item_context),
             ]
-        self.strategies = self.strategies + [
-            MultipleStatedIn(item, test, unknown_url_strategy),
-            RemoveRetrievedSources(item, test, unknown_url_strategy),
-            MergeRetrieved(item, test, unknown_url_strategy),
-            SplitStatedinSources(item, test, unknown_url_strategy),
-            AddIDSources(item, test, unknown_url_strategy),
-            SetArchiveUrlSources(item, test, unknown_url_strategy),
-            MergeStatedIn(item, test, unknown_url_strategy),
-            MergeSources(item, test, unknown_url_strategy),
-            RemoveSources(item, test, unknown_url_strategy),
-            RemoveWeakSources(item, test, unknown_url_strategy),
-            RemoveReferenceUrl(item, test, unknown_url_strategy),
+        self.strategies += [
+            MultipleStatedIn(item_context),
+            RemoveRetrievedSources(item_context),
+            MergeRetrieved(item_context),
+            SplitStatedInSources(item_context),
+            AddExternalID(item_context),
+            SetArchiveURLSources(item_context),
+            MergeStatedIn(item_context),
+            MergeSources(item_context),
+            RemoveSources(item_context),
+            RemoveWeakSources(item_context),
+            RemoveReferenceURL(item_context),
         ]
 
     def get_changed_pids(self):
@@ -1773,9 +1760,9 @@ class AllChangeSourceStrategy(ChangeSourceStrategy):
         for strategy in self.strategies:
             strategy.change_sources(context)
 
-    def get_summary(self, summary_list):
+    def append_summary(self, summary_list: List[str]) -> List[str]:
         for strategy in self.strategies:
-            summary_list = strategy.get_summary(summary_list)
+            summary_list = strategy.append_summary(summary_list)
 
         return summary_list
 
@@ -1789,21 +1776,51 @@ class ReportingUnknownURLStrategy(UnknownURLStrategy):
 
 
 class ChangeSourcesBot:
-    def __init__(self, generator, report: Reporting = None):
+    """
+    A bot to change sources of claims in Wikidata items.
+
+    Attributes:
+        generator (generator): The generator to iterate over items.
+        report (Reporting): The reporting instance to handle logging and reporting.
+        item (ItemPage): The current item being processed.
+        test (bool): A flag to indicate test mode.
+        done_count (int): The count of processed items.
+        skip_done_errors (bool): A flag to skip items in the done or error list
+        skip_scholarly_article (bool): A flag to skip scholarly articles.
+        remove_english (bool): A flag to remove English Wikipedia sources.
+    """
+
+    def __init__(
+        self,
+        generator,
+        stated_in: StatedIn = None,
+        report: Reporting = None,
+        test: bool = True,
+        skip_done_errors: bool = True,
+        skip_scholarly_article: bool = True,
+        remove_english: bool = False,
+    ):
         self.generator = pagegenerators.PreloadingEntityGenerator(generator)
         self.item = None
-        self.test = True
+        self.stated_in = stated_in
         self.report = report
+        self.test = test
         self.done_count = 0
-        self.ignore_done_errors = False
-        self.skip_scholarly_article = True
-        self.remove_english = False
+        self.skip_done_errors = skip_done_errors
+        self.skip_scholarly_article = skip_scholarly_article
+        self.remove_english = remove_english
 
     def examine(self, qid: str):
+        """
+        Examines a single item by its QID.
+
+        Args:
+            qid (str): The QID of the item to examine.
+        """
         if not qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
-        if not self.test and not self.ignore_done_errors:
+        if not self.test and self.skip_done_errors:
             if qid != wd.QID_WIKIDATASANDBOX3:
                 if self.report.has_error(qid):
                     logger.info(f"{qid}: skipped, in error list")
@@ -1818,14 +1835,16 @@ class ChangeSourcesBot:
         self.examine_item()
 
     def run(self):
+        """
+        Runs the bot on all items from the generator.
+        """
         for item in self.generator:
             self.item = item
             self.examine_item()
-            # time.sleep(30)
 
     def examine_item(self):
         qid = self.item.title()
-        if not self.test and not self.ignore_done_errors:
+        if not self.test and self.skip_done_errors:
             if qid != wd.QID_WIKIDATASANDBOX3:
                 if self.report.has_error(qid):
                     logger.info(f"{qid}: skipped, in error list")
@@ -1859,10 +1878,14 @@ class ChangeSourcesBot:
         logger.info(f"item = {qid} done = {self.done_count}")
         self.report.clear_unknown_urls(qid)
 
-        strategy = AllChangeSourceStrategy(
+        item_context = ItemContext(
             self.item,
             self.test,
+            self.stated_in,
             ReportingUnknownURLStrategy(self.report),
+        )
+        strategy = AllChangeSourceStrategy(
+            item_context,
             remove_english=self.remove_english,
         )
         self.data = {}
@@ -1883,7 +1906,7 @@ class ChangeSourcesBot:
                         something_done = True
 
             if something_done:
-                summary_list = list(dict.fromkeys(strategy.get_summary([])))
+                summary_list = list(dict.fromkeys(strategy.append_summary([])))
                 summary = ", ".join(summary_list)
                 if summary == "":
                     raise RuntimeError("Empty summary")
