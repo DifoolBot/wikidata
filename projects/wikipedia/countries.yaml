@@ -1,0 +1,965 @@
+# https://en.wikipedia.org/wiki/List_of_adoption_dates_of_the_Gregorian_calendar_by_country
+Q36:
+    code: POL
+    description: Poland
+    # 1582	4 Oct	15 Oct
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+Q183:
+    code: DEU
+    description: Germany
+    # Gregorian calendar transitions in Germany:
+    # Aachen: 1582 31 Dec -> 11 Jan (1583)
+    # Protestant parts	1700	18 Feb	-> 1 Mar
+    last_julian_date:
+        year: 1700
+        month: 2
+        day: 18
+    first_gregorian_date:
+        year: 1583
+        month: 1
+        day: 11
+Q28:
+    code: HUN
+    description: Hungary
+    # 1587	21 Oct	1 Nov
+    last_julian_date:
+        year: 1587
+        month: 10
+        day: 21
+    first_gregorian_date:
+        year: 1587
+        month: 11
+        day: 1
+Q38:
+    code: ITA
+    description: Italy
+    # 1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q159:
+    code: RUS
+    description: Russia
+    # Gregorian calendar transitions in Russia:
+    # 1918	31 Jan	14 Feb
+    last_julian_date:
+        year: 1918
+        month: 1
+        day: 31
+    first_gregorian_date:
+        year: 1918
+        month: 2
+        day: 14
+Q45:
+    code: PRT
+    description: Portugal
+    # Gregorian calendar transitions in Portugal:
+    # 1582	4 Oct	15 Oct	
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+Q184:
+    code: BLR
+    description: Belarus
+    # 	Grand Duchy of Lithuania	1585	21 Dec	1 Jan (1586)
+    #   Soviet Russia	1918	31 Jan	14 Feb
+    first_gregorian_date:
+        year: 1586
+        month: 1
+        day: 1
+    last_julian_date:
+        year: 1918
+        month: 1
+        day: 31    
+
+Q881:
+    code: VNM
+    description: Vietnam
+    # https://en.wikipedia.org/wiki/Vietnamese_calendar
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1954
+        month: 1
+        day: 1
+
+Q41:
+    code: GRC
+    description: Greece
+    # 1923	15 Feb	1 Mar	
+    last_julian_date:
+        year: 1923
+        month: 2
+        day: 15
+    first_gregorian_date:
+        year: 1923
+        month: 3
+        day: 1
+
+Q142:
+    code: FRA
+    description: France
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+
+Q30:
+    code: USA
+    description: United States
+    # French colonial empire and Spanish Empire	1582	9 Dec	20 Dec
+    # British Empire	1752	2 Sept	14 Sept
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 20    
+
+Q17:
+    code: JPN
+    description: Japan
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1873
+        month: 1
+        day: 1
+Q214:
+    code: SVK
+    description: Slovakia
+    # same Hungary (Kingdom of Hungary)
+    # 1587	21 Oct	1 Nov
+    last_julian_date:
+        year: 1587
+        month: 10
+        day: 21
+    first_gregorian_date:
+        year: 1587
+        month: 11
+        day: 1
+Q145:
+    code: GBR
+    description: United Kingdom
+    # Gregorian calendar transitions in the UK:
+    # 1752	2 Sept	14 Sept
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+Q212:
+    code: UKR
+    description: Ukraine
+    # 1918	15 Feb	1 Mar
+    last_julian_date:
+        year: 1918
+        month: 2
+        day: 15
+    first_gregorian_date:
+        year: 1918
+        month: 3
+        day: 1
+Q668:
+    code: IND
+    description: India
+    no_julian_calendar: true  
+    # same UK
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+
+Q225:
+    code: BIH
+    description: Bosnia and Herzegovina
+    # Yugoslavia	1919	14 Jan	28 Jan
+    last_julian_date:
+        year: 1919
+        month: 1
+        day: 14
+    first_gregorian_date:
+        year: 1919
+        month: 1
+        day: 28
+Q213:
+    code: CZE
+    description: Czech Republic
+    # Bohemia	1584	6 Jan	17 Jan
+    # Moravia	1584	15 Oct	26 Oct
+    last_julian_date:
+        year: 1584
+        month: 10
+        day: 15
+    first_gregorian_date:
+        year: 1584
+        month: 1
+        day: 17
+
+Q408:
+    code: AUS
+    description: Australia
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+
+Q29:
+    code: ESP
+    description: Spain
+    # 1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q40:
+    code: AUT
+    description: Austria
+    # Salzburg	1583	10 Feb	21 Feb
+    # Carinthia	1583	14 Dec	25 Dec	
+    last_julian_date:
+        year: 1583
+        month: 12
+        day: 14
+    first_gregorian_date:
+        year: 1583
+        month: 2
+        day: 21
+Q219:
+    code: BGR
+    description: Bulgaria
+    # 1916	31 Mar	14 Apr
+    last_julian_date:
+        year: 1916
+        month: 3
+        day: 31
+    first_gregorian_date:
+        year: 1916
+        month: 4
+        day: 14
+Q16:
+    code: CAN
+    description: Canada
+    # 1582	9 Dec	20 Dec
+    # 1752	2 Sep	14 Sep
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 20
+
+Q258:
+    code: ZAF
+    description: South Africa
+    # British Empire	1752	2 Sept	14 Sept
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+Q224:
+    code: HRV
+    description: Croatia
+    # Yugoslavia	1919	14 Jan	28 Jan
+    last_julian_date:
+        year: 1919
+        month: 1
+        day: 14
+    first_gregorian_date:
+        year: 1919
+        month: 1
+        day: 28
+Q298:
+    code: CHL
+    description: Chile
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q736:
+    code: ECU
+    description: Ecuador
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q34:
+    code: SWE
+    description: Sweden
+    # Swedish Empire	1700	28 Feb	1 Mar
+    # Sweden	1753	17 Feb	1 Mar
+    last_julian_date:
+        year: 1753
+        month: 2
+        day: 17
+    first_gregorian_date:
+        year: 1700
+        month: 3
+        day: 1
+Q786:
+    code: DOM
+    description: Dominican Republic
+    # spanish empire
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q31:
+    code: BEL
+    description: Belgium
+    # Flanders	1582	14 Dec	25 Dec
+    # Liège	1583	10 Feb	21 Feb	
+    last_julian_date:
+        year: 1583
+        month: 2
+        day: 10
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 25
+Q347:
+    code: LIE
+    description: Liechtenstein
+    use: AUT
+
+Q265:
+    code: UZB
+    description: Uzbekistan
+    # 1918	15 Feb	1 Mar
+    last_julian_date:
+        year: 1918
+        month: 2
+        day: 15
+    first_gregorian_date:
+        year: 1918
+        month: 3
+        day: 1
+Q20:
+    code: NOR
+    description: Norway
+    # Denmark-Norway	1700	18 Feb	1 Mar	
+    last_julian_date:
+        year: 1700
+        month: 2
+        day: 18
+    first_gregorian_date:
+        year: 1700
+        month: 3
+        day: 1
+Q16957:
+    code: DDR
+    description: German Democratic Republic
+    use: GER
+Q55:
+    code: NLD
+    description: Netherlands
+    # Gregorian calendar transitions in the Netherlands:
+    # Zeeland: 14 December 1582 (Julian) -> 25 December 1582 (Gregorian)
+    # Drenthe: 30 April 1701 (Julian) -> 12 May 1701 (Gregorian)
+    last_julian_date:
+        year: 1701
+        month: 4
+        day: 30
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 25
+Q174193:
+    description: United Kingdom of Great Britain and Ireland
+    use: GBR
+Q218:
+    code: ROU
+    description: Romania
+    # Transylvania	1590	14 Dec	25 Dec
+    # Romania	1919	31 Mar	14 Apr
+    first_gregorian_date:
+        year: 1590
+        month: 12
+        day: 25
+    last_julian_date:
+        year: 1919
+        month: 3
+        day: 31
+Q730:
+    code: SUR
+    description: Suriname
+    # British Empire	1752	2 Sept	14 Sept
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+Q262:
+    code: DZA
+    description: Algeria
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1870
+Q96:
+    code: MEX
+    description: Mexico
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q39:
+    code: CHE
+    description: Switzerland
+    # Roman Catholic Diocese of Basel	1583	20 Oct	31 Oct
+    # Appenzell Ausserrhoden	        1798	13 Dec	25 Dec
+    last_julian_date:
+        year: 1798
+        month: 12
+        day: 13
+    first_gregorian_date:
+        year: 1583
+        month: 10
+        day: 31
+Q419:
+    code: PER
+    description: Peru
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q33:
+    code: FIN
+    description: Finland
+    # Gregorian calendar transitions in Finland:
+    # 1700	28 Feb	1 Mar
+    # 1753	17 Feb	1 Mar
+    last_julian_date:
+        year: 1753
+        month: 2
+        day: 17
+    first_gregorian_date:
+        year: 1700
+        month: 3
+        day: 1
+Q739:
+    code: COL
+    description: Colombia
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q717:
+    code: VEN
+    description: Venezuela
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q244:
+    code: BRB
+    description: Barbados
+    # British Empire	1752	2 Sept	14 Sept
+    first_gregorian_date:
+        year: 1752
+        month: 9
+        day: 14
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+Q155:
+    code: BRA
+    description: Brazil
+    # portugal
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+Q35:
+    code: DNK
+    description: Denmark
+    # Denmark-Norway	1700	18 Feb	1 Mar
+    last_julian_date:
+        year: 1700
+        month: 2
+        day: 18
+    first_gregorian_date:
+        year: 1700
+        month: 3
+        day: 1
+Q148499:
+    description: Margraviate of Brandenburg
+    # Margraviate of Brandenburg	1700	18 Feb	1 Mar
+    last_julian_date:
+        year: 1700
+        month: 2
+        day: 18
+    first_gregorian_date:
+        year: 1700
+        month: 3
+        day: 1
+Q414:
+    code: ARG
+    description: Argentina
+    # spanish empire
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q928:
+    code: PHL
+    description: Philippines
+    first_gregorian_date:
+        year: 1844
+Q965:
+    code: BFA
+    description: Burkina Faso
+    # French rule
+    # 1895
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1895
+Q1039:
+    code: STP
+    description: São Tomé and Príncipe
+    # portugese
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+
+Q238:
+    code: SMR
+    description: San Marino
+    # papal states
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+Q148:
+    code: CHN
+    description: People's Republic of China
+    no_julian_calendar: true  
+    first_gregorian_date:
+        year: 1912
+        month: 1
+        day: 1
+Q15180:
+    code: SUN
+    description: Soviet Union
+    # 1918	31 Jan	14 Feb
+    last_julian_date:
+        year: 1918
+        month: 1
+        day: 31
+    first_gregorian_date:
+        year: 1918
+        month: 2
+        day: 14
+Q902:
+    code: BGD
+    description: Bangladesh
+    no_julian_calendar: true  
+Q792:
+    code: SLV
+    description: El Salvador
+    # spanish empire
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+Q756617:
+    description: Kingdom of Denmark
+    use: DNK
+Q711:
+    code: MNG
+    description: Mongolia
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1911
+Q805:
+    code: YEM
+    description: Yemen
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1875
+Q172107:
+    description: Polish–Lithuanian Commonwealth
+    use: POL
+Q70972:
+    description: Kingdom of France
+    use: FRA
+Q179876:
+    description: Kingdom of England
+    use: GBR
+Q1649871:
+    description: Kingdom of Poland
+    use: POL
+Q230:
+    code: GEO
+    description: Georgia
+    # 1918	17 Apr	1 May
+    first_gregorian_date:
+        year: 1918
+        month: 5
+        day: 1
+    last_julian_date:
+        year: 1918
+        month: 4
+        day: 17   
+Q843:
+    code: PAK
+    description: Pakistan
+    no_julian_calendar: True
+
+Q399:
+    code: ARM
+    description: Armenia
+    # 1918	17 Apr	1 May	
+    first_gregorian_date:
+        year: 1918
+        month: 5
+        day: 1
+    last_julian_date:
+        year: 1918
+        month: 4
+        day: 17   
+
+Q38872:
+    description: Prussia
+    # 22 August 1610 (Julian) was followed by 2 September 1610
+    first_gregorian_date:
+        year: 1610
+        month: 9
+        day: 2
+    last_julian_date:
+        year: 1610
+        month: 8
+        day: 22   
+
+Q191:
+    code: EST
+    description: Estonia
+    # 1918	15 Feb	1 Mar
+    first_gregorian_date:
+        year: 1918
+        month: 3
+        day: 1
+    last_julian_date:
+        year: 1918
+        month: 2
+        day: 15   
+
+Q32:
+    code: LUX
+    description: Luxembourg
+    # Duchy of Luxemburg	1582	20 Dec	31 Dec	
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 31
+    last_julian_date:
+        year: 1582
+        month: 12
+        day: 20   
+
+Q205662:
+    description: Tokugawa shogunate
+    no_julian_calendar: True
+
+Q28179:
+    description: Joseon
+    no_julian_calendar: True
+
+Q215:
+    code: SVN
+    description: Slovenia
+    # Duchy of Carniola	1583	4 Oct	15 Oct
+    # Duchy of Styria	1583	11 Dec	22 Dec
+    first_gregorian_date:
+        year: 1583
+        month: 10
+        day: 15
+    last_julian_date:
+        year: 1583
+        month: 12
+        day: 11   
+
+
+Q28025:
+    description: Ryukyu Kingdom
+    no_julian_calendar: True
+
+Q161885:
+    description: Kingdom of Great Britain
+    use: GBR
+
+Q45670:
+    description: Kingdom of Portugal
+    use: PRT
+
+Q34266:
+    description: Russian Empire
+    use: RUS
+
+Q801:
+    code: ISR
+    description: Israel
+    no_julian_calendar: true
+
+Q33946:
+    code: CSK
+    description: Czechoslovakia
+    # Bohemia	1584	6 Jan	17 Jan			
+    # Moravia	1584	15 Oct	26 Oct	
+    # Silesia	1584	6 Jan	17 Jan
+    first_gregorian_date:
+        year: 1584
+        month: 1
+        day: 17
+    last_julian_date:
+        year: 1584
+        month: 10
+        day: 15
+Q924:
+    code: TZA
+    description: Tanzania
+    no_julian_calendar: true
+
+Q129286:
+    description: British Raj
+    use: IND
+
+Q884:
+    code: KOR
+    description: South Korea
+    # Joseon	1895	16 "11th month"	1 Jan (1896)
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1896
+        month: 1
+        day: 1
+
+Q188712:
+    description: Empire of Japan
+    use: JPN
+
+Q29999:
+    description: Kingdom of the Netherlands
+    use: NLD
+
+Q1000:
+    code: GAB
+    description: Gabon
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1885
+
+Q227:
+    code: AZE
+    description: Azerbaijan
+    # 1918	17 Apr	1 May	
+    first_gregorian_date:
+        year: 1918
+        month: 5
+        day: 1
+    last_julian_date:
+        year: 1918
+        month: 4
+        day: 17
+
+Q43:
+    code: TUR
+    description: Turkey
+    # Ottoman Empire	1917	15 Feb	1 Mar
+    first_gregorian_date:
+        year: 1917
+        month: 3
+        day: 1
+    last_julian_date:
+        year: 1917
+        month: 2
+        day: 15
+
+Q13426199:
+    description: Republic of China
+    use: CHN
+
+Q1775277:
+    description: Dominion of India
+    use: IND
+
+Q211:
+    code: LVA
+    description: Latvia
+    # Courland	1915	11 May	25 May	
+    # Livland	1915	22 Aug	5 Sept
+    first_gregorian_date:
+        year: 1915
+        month: 5
+        day: 25
+    last_julian_date:
+        year: 1915
+        month: 8
+        day: 22
+Q221:
+    code: MKD
+    description: North Macedonia
+    # Yugoslavia	1919	14 Jan	28 Jan
+    first_gregorian_date:
+        year: 1919
+        month: 1
+        day: 28
+    last_julian_date:
+        year: 1919
+        month: 1
+        day: 14
+Q1033:
+    code: NGA
+    description: Nigeria
+    # 1752 - British Empire
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1752
+
+Q219060:
+    code: PSE
+    description: State of Palestine
+    no_julian_calendar: true
+
+Q49683:
+    code: 
+    description: Grand Duchy of Lithuania
+    # Grand Duchy of Lithuania	1585	21 Dec	1 Jan (1586)
+    first_gregorian_date:
+        year: 1586
+        month: 1
+        day: 1
+    last_julian_date:
+        year: 1585
+        month: 12
+        day: 21
+
+Q266923:
+    description: Kingdom of Mysore
+    use: IND
+
+Q822:
+    code: LBN
+    description: Lebanon
+    no_julian_calendar: true
+    first_gregorian_date:
+        year: 1920
+
+Q241:
+    code: CUB
+    description: Cuba
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15
+
+Q790:
+    code: HTI
+    description: Haiti
+    # France	1582	9 Dec	20 Dec
+    last_julian_date:
+        year: 1582
+        month: 12
+        day: 9
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 20    

@@ -1,0 +1,1580 @@
+pl:
+  language: polish
+  fallback_countrycode: POL
+  templates:
+    - name: Szlachcic infobox
+      name_variants:
+        - duchowny infobox
+        - żołnierz infobox
+        - harcerz infobox
+        - naukowiec infobox
+        - polityk infobox
+        - brydżysta infobox
+        - władca infobox
+      param_names:
+        data urodzenia: birth date
+        data śmierci: death date
+      dayfirst: true
+      url: https://pl.wikipedia.org/wiki/Szablon:Szlachcic_infobox
+  month_map:
+    "stycznia": "January"
+    "lutego": "February"
+    "marca": "March"
+    "kwietnia": "April"
+    "maja": "May"
+    "czerwca": "June"
+    "lipca": "July"
+    "sierpnia": "August"
+    "września": "September"
+    "października": "October"
+    "listopada": "November"
+    "grudnia": "December"
+uk:
+  language: ukrainian
+  fallback_countrycode: UKR
+  templates:
+    - name: особа #person
+      name_variants:
+        - спортсмен # athlete
+        - науковець # scientist
+        - Архієрей # archbishop
+        - художник # artist
+        - картка:лідер # Card:Leader
+      param_names:
+        дата народження: birth date
+        дата_народження: birth date
+        дата смерті: death date
+      dayfirst: true
+      urls: 
+        - https://uk.wikipedia.org/wiki/Шаблон:особа
+        - https://uk.wikipedia.org/wiki/Шаблон:Картка:Лідер
+    - name: Дн
+      url: https://uk.wikipedia.org/wiki/Шаблон:Дн
+      name_variants:
+        - Дата народження
+      typ: birth
+      param_names:
+        "1": day_gregorian
+        "2": month_gregorian
+        "3": year_gregorian
+        "4": day_julian
+        "5": month_julian
+        "6": year_julian
+    - name: ДС
+      name_variants:
+        - Дата смерті
+      url: https://uk.wikipedia.org/wiki/Шаблон:ДС
+      typ: death
+      param_names:
+        "1": day_gregorian
+        "2": month_gregorian
+        "3": year_gregorian
+        "4": day_julian
+        "5": month_julian
+        "6": year_julian
+  month_map:
+    "січня": "January"
+    "лютого": "February"
+    "березня": "March"
+    "квітня": "April"
+    "травня": "May"
+    "червня": "June"
+    "липня": "July"
+    "серпня": "August"
+    "вересня": "September"
+    "жовтня": "October"
+    "листопада": "November"
+    "грудня": "December"
+de:
+  language: german
+  fallback_countrycode: DEU
+  templates:
+    - name: Personendaten
+      param_names:
+        GEBURTSDATUM: birth date
+        STERBEDATUM: death date
+      dayfirst: true
+  month_map:
+    "Januar": "January"
+    "Februar": "February"
+    "März": "March"
+    "April": "April"
+    "Mai": "May"
+    "Juni": "June"
+    "Juli": "July"
+    "August": "August"
+    "September": "September"
+    "Oktober": "October"
+    "November": "November"
+    "Dezember": "December"
+ro:
+  language: romanian
+  month_map:
+    "ianuarie": "January"
+    "februarie": "February"
+    "martie": "March"
+    "aprilie": "April"
+    "mai": "May"
+    "iunie": "June"
+    "iulie": "July"
+    "august": "August"
+    "septembrie": "September"
+    "octombrie": "October"
+    "noiembrie": "November"
+    "decembrie": "December"
+sl:
+  language: slovenian
+  fallback_countrycode: SVN
+  month_map:
+    "januar": "January"
+    "februar": "February"
+    "marec": "March"
+    "april": "April"
+    "maj": "May"
+    "junij": "June"
+    "julij": "July"
+    "avgust": "August"
+    "september": "September"
+    "oktober": "October"
+    "november": "November"
+    "december": "December"
+tr:
+  language: turkish
+  fallback_countrycode: TUR
+  month_map:
+    "Ocak": "January"
+    "Şubat": "February"
+    "Mart": "March"
+    "Nisan": "April"
+    "Mayıs": "May"
+    "Haziran": "June"
+    "Temmuz": "July"
+    "Ağustos": "August"
+    "Eylül": "September"
+    "Ekim": "October"
+    "Kasım": "November"
+    "Aralık": "December"
+vi:
+  language: vietnamese
+  fallback_countrycode: VNM
+  ignore_templates:
+    - name: số năm theo năm và ngày
+      comment: Calculates years between two dates
+  templates:
+    - name: infobox officeholder
+      name_variants:
+        - Thông tin viên chức
+      param_names:
+        birth date: birth date
+        death date: death date 
+      dayfirst: true
+      url: https://vi.wikipedia.org/wiki/Bản_mẫu:Infobox_officeholder  
+    - name: viên chức
+      name_variants:
+        - Thông tin viên chức
+        - Thông tin nhân vật hoàng gia
+      param_names:
+        ngày sinh: birth date
+        ngày mất: death date
+        sinh: birth date 
+        birth_date: birth date
+        date of birth: birth date
+        mất: death date 
+        death_date: death date 
+        date of death: death date
+      dayfirst: true
+      urls: 
+        - https://vi.wikipedia.org/wiki/Bản_mẫu:viên_chức  
+        - https://vi.wikipedia.org/wiki/Bản_mẫu:Thông_tin_nhân_vật_hoàng_gia  
+    - name: Ngày sinh
+      url: https://vi.wikipedia.org/wiki/Bản_mẫu:Ngày_sinh
+      name_variants:
+        - Ngày sinh và tuổi
+        - birth date and age
+      param_names:
+        "1": birth year
+        "2": birth month
+        "3": birth day
+    - name: ngày mất và tuổi
+      url: https://vi.wikipedia.org/wiki/Bản_mẫu:ngày_mất_và_tuổi
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+  month_map:
+    "tháng 1": "January"
+    "tháng 2": "February"
+    "tháng 3": "March"
+    "tháng 4": "April"
+    "tháng 5": "May"
+    "tháng 6": "June"
+    "tháng 7": "July"
+    "tháng 8": "August"
+    "tháng 9": "September"
+    "tháng 10": "October"
+    "tháng 11": "November"
+    "tháng 12": "December"
+hy:
+  language: armenian
+  fallback_countrycode: ARM
+  month_map:
+    "հունվար": "January"
+    "փետրվար": "February"
+    "մարտ": "March"
+    "ապրիլ": "April"
+    "մայիս": "May"
+    "հունիս": "June"
+    "հուլիս": "July"
+    "օգոստոս": "August"
+    "սեպտեմբեր": "September"
+    "հոկտեմբեր": "October"
+    "նոյեմբեր": "November"
+    "դեկտեմբեր": "December"
+ka:
+  language: georgian
+  month_map:
+    "იანვარი": "January"
+    "თებერვალი": "February"
+    "მარტი": "March"
+    "აპრილი": "April"
+    "მაისი": "May"
+    "ივნისი": "June"
+    "ივლისი": "July"
+    "აგვისტო": "August"
+    "სექტემბერი": "September"
+    "ოქტომბერი": "October"
+    "ნოემბერი": "November"
+    "დეკემბერი": "December"
+mk:
+  language: macedonian
+  date_templates:
+    - name: Роден # Born
+      name_variants:
+        - роден на
+      param_names:
+        "1": birth day
+        "2": birth month
+        "3": birth year
+      url: https://mk.wikipedia.org/wiki/template:роден_на
+    - name: починал # Deceased
+      name_variants:
+        - починал на
+      param_names:
+        "1": death day
+        "2": death month
+        "3": death year
+      url: https://mk.wikipedia.org/wiki/template:починал
+  month_map:
+    "јануари": "January"
+    "февруари": "February"
+    "март": "March"
+    "април": "April"
+    "мај": "May"
+    "јуни": "June"
+    "јули": "July"
+    "август": "August"
+    "септември": "September"
+    "октомври": "October"
+    "ноември": "November"
+    "декември": "December"
+ba:
+  language: bashkir
+  month_map:
+    "ғинуар": "January"
+    "февраль": "February"
+    "март": "March"
+    "апрель": "April"
+    "май": "May"
+    "июнь": "June"
+    "июль": "July"
+    "август": "August"
+    "сентябрь": "September"
+    "октябрь": "October"
+    "ноябрь": "November"
+    "декабрь": "December"
+eo:
+  language: esperanto
+  month_map:
+    "januaro": "January"
+    "februaro": "February"
+    "marto": "March"
+    "aprilo": "April"
+    "majo": "May"
+    "junio": "June"
+    "julio": "July"
+    "aŭgusto": "August"
+    "septembro": "September"
+    "oktobro": "October"
+    "novembro": "November"
+    "decembro": "December"
+he:
+  language: hebrew
+  month_map:
+    "ינואר": "January"
+    "פברואר": "February"
+    "מרץ": "March"
+    "אפריל": "April"
+    "מאי": "May"
+    "יוני": "June"
+    "יולי": "July"
+    "אוגוסט": "August"
+    "ספטמבר": "September"
+    "אוקטובר": "October"
+    "נובמבר": "November"
+    "דצמבר": "December"
+en:
+  language: english
+  fallback_countrycode: GBR
+  ignore_templates:
+    - name: Hugman
+    - name: nowrap
+  templates:
+    - name: infobox person
+      name_variants:
+        - infobox afl biography
+        - infobox architect
+        - infobox artist
+        - infobox canadianmp
+        - infobox christian leader
+        - infobox cricketer
+        - infobox criminal
+        - infobox football biography
+        - infobox military person
+        - infobox nascar driver
+        - infobox netball biography
+        - infobox nfl biography
+        - infobox officeholder
+        - infobox professional wrestler
+        - infobox rugby league biography
+        - infobox scientist
+        - infobox sportsperson
+        - infobox writer
+        - infobox royalty
+        - infobox saint
+        - infobox adult biography
+        - infobox noble
+        - infobox field hockey player
+      urls: 
+        - https://en.wikipedia.org/wiki/Template:infobox_person
+        - https://en.wikipedia.org/wiki/Template:infobox_royalty
+      param_names:
+        birth_date: birth date
+        death_date: death date
+    - name: Birth date
+      name_variants:
+        - birth date and age
+      typ: birth
+      url: https://en.wikipedia.org/wiki/Template:Birth_date
+      param_names:
+        "1": year
+        "2": month
+        "3": day
+    - name: Death date and age
+      name_variants:
+        - dda
+      url: https://en.wikipedia.org/wiki/Template:Death_date_and_age
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+pt:
+  language: portuguese
+  fallback_countrycode: PRT
+  ignore_templates:
+    - name: nowrap
+    - name: nf
+      comment: for birth and death year category
+  date_templates:
+    - name: dtlink
+      param_names:
+        "1": day 
+        "2": month
+        "3": year     
+      url: https://pt.wikipedia.org/wiki/Predefinição:dtlink
+  templates:
+    - name: Info/Biografia
+      name_variants:
+        - info/esporte/atleta
+        - Info/Prelado da Igreja Católica
+        - info/biografia/wikidata
+        - info/nobre
+      urls:
+        - https://pt.wikipedia.org/wiki/Predefinição:info/esporte/atleta
+        - https://pt.wikipedia.org/wiki/Predefinição:Info/Prelado_da_Igreja_Católica
+        - https://pt.wikipedia.org/wiki/Predefinição:Info/Biografia/Wikidata
+        - https://pt.wikipedia.org/wiki/Predefinição:Info/nobre
+      param_names:
+        nascimento data: birth date
+        data de nascimento: birth date
+        morte data: death date
+      dayfirst: true
+      url: https://pt.wikipedia.org/wiki/Predefinição:Info/Biografia
+    - name: dni
+      name_variants:
+        - nascimento    # deprecated
+        - dnibr         # deprecated
+      param_names:
+        "1": birth day 
+        "2": birth month
+        "3": birth year     
+      url: https://pt.wikipedia.org/wiki/Template:Dni
+    - name: morte
+      param_names:
+        "1": death day 
+        "2": death month
+        "3": death year     
+        "4": birth day 
+        "5": birth month
+        "6": birth year     
+      url: https://pt.wikipedia.org/wiki/Template:Morte
+  month_map:
+    "janeiro": "January"
+    "fevereiro": "February"
+    "março": "March"
+    "abril": "April"
+    "maio": "May"
+    "junho": "June"
+    "julho": "July"
+    "agosto": "August"
+    "setembro": "September"
+    "outubro": "October"
+    "novembro": "November"
+    "dezembro": "December"
+nl:
+  language: dutch
+  fallback_countrycode: NLD
+  templates:
+    - name: infobox politicus nederland
+      name_variants:
+        - infobox artiest klassieke muziek
+        - infobox artiest
+        - infobox politicus
+        - infobox seriemoordenaar
+        - infobox wielrenner
+        - infobox voetballer
+        - infobox architect
+        - Infobox militair persoon
+        - infobox dynastie
+        - infobox persoon
+      param_names:
+        geboren: birth date
+        overleden: death date
+        geboortedatum : birth date
+        sterfdatum: death date
+        overlijddatum: death date
+        gbdat : birth date
+        sterfdat: death date
+      dayfirst: true
+  month_map:
+    "januari": "January"
+    "februari": "February"
+    "maart": "March"
+    "april": "April"
+    "mei": "May"
+    "juni": "June"
+    "juli": "July"
+    "augustus": "August"
+    "september": "September"
+    "oktober": "October"
+    "november": "November"
+    "december": "December"
+fr:
+  language: french
+  fallback_countrycode: FRA
+  date_templates:
+    - name: date-
+      url: https://fr.wikipedia.org/wiki/Modèle:Date-
+      name_variants:
+        - date
+      param_names:
+        "1": day or full date
+        "2": month
+        "3": year
+        julien: julian
+      booleans:
+        yes: "oui"
+        no: "non"
+  templates:
+    - name: Infobox Personnalité militaire
+      name_variants:
+        - Infobox biography2
+        - infobox biographie
+        - infobox biographie2
+        - Infobox Écrivain
+        - infobox aristocrate
+        - infobox politicien
+        - infobox prélat catholique
+        - infobox rôle monarchique
+        - infobox personnalité politique
+      param_names:
+        date de naissance: birth date
+        date mort au combat: death date
+        date de décès: death date
+      dayfirst: true
+      urls: 
+        - https://fr.wikipedia.org/wiki/Modèle:Infobox_Personnalité_militaire
+        - https://fr.wikipedia.org/wiki/Modèle:Infobox_Aristocrate
+        - https://fr.wikipedia.org/wiki/Modèle:Infobox_Rôle_monarchique
+    - name: date de naissance
+      url: https://fr.wikipedia.org/wiki/Modèle:Date_de_naissance
+      typ: birth
+      name_variants:
+        - date de naissance-
+      param_names:
+        "1": day or full date
+        "2": month
+        "3": year
+        julien: julian
+      booleans:
+        yes: "oui"
+        no: "non"
+    - name: date de décès
+      name_variants:
+        - date de décès-
+        - date de mort
+        - date de mort-
+      url: https://fr.wikipedia.org/wiki/Modèle:Date_de_décès
+      typ: death
+      param_names:
+        "1": day or full date
+        "2": month
+        "3": year
+        julien: julian
+      booleans:
+        yes: "oui"
+        no: "non"
+  month_map:
+    "janvier": "January"
+    "février": "February"
+    "mars": "March"
+    "avril": "April"
+    "mai": "May"
+    "juin": "June"
+    "juillet": "July"
+    "août": "August"
+    "septembre": "September"
+    "octobre": "October"
+    "novembre": "November"
+    "décembre": "December"
+it:
+  language: italian
+  fallback_countrycode: ITA
+  templates:
+    - name: Bio
+      param_names: 
+        GiornoMeseNascita: birth day and month
+        AnnoNascita: birth year
+        GiornoMeseMorte: death day and month
+        AnnoMorte: death year
+      dayfirst: true
+    - name: cardinale
+      name_variants:
+        - vescovo    # bishop
+        - aristocratico
+      param_names:
+        nato: birth date
+        deceduto: death date
+        data di nascita: birth date
+        data di morte: death date
+      dayfirst: true
+      urls:
+        - https://it.wikipedia.org/wiki/Template:cardinale
+        - https://it.wikipedia.org/wiki/Template:vescovo
+        - https://it.wikipedia.org/wiki/Template:aristocratico
+    - name: Calcola età3
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+      url: https://it.wikipedia.org/wiki/Template:Calcola_età3
+  month_map:
+    "gennaio": "January"
+    "febbraio": "February"
+    "marzo": "March"
+    "aprile": "April"
+    "maggio": "May"
+    "giugno": "June"
+    "luglio": "July"
+    "agosto": "August"
+    "settembre": "September"
+    "ottobre": "October"
+    "novembre": "November"
+    "dicembre": "December"
+es:
+  language: spanish
+  fallback_countrycode: ESP
+  ignore_templates:
+    - name: Edad
+      comment: Age, can be used for other then birth/death dates
+  date_templates:
+    - name: fecha
+      name_variants:
+        - fecha de inicio
+      url: https://es.wikipedia.org/wiki/Plantilla:fecha
+      param_names:
+        "1": day
+        "2": month
+        "3": year
+  templates:
+    - name: Birth date
+      name_variants:
+        - Fecha de nacimiento
+      typ: birth
+      param_names:
+        "1": day
+        "2": month
+        "3": year
+    - name: Fecha de muerte
+      typ: death
+      param_names:
+        "1": day
+        "2": month
+        "3": year
+    - name: Ficha de persona
+      name_variants:
+        - ficha de político
+        - ficha de autoridad
+        - ficha de escritor
+        - ficha de deportista
+        - ficha de noble
+        - ficha de obispo
+        - Ficha de líder cristiano
+      param_names: 
+        fecha de nacimiento: birth date
+        fecha de fallecimiento: death date
+        fecha nacimiento: birth date
+        fecha fallecimiento: death date
+        nacimiento: birth date
+        fallecimiento: death date
+      dayfirst: true
+      urls: 
+        - https://es.wikipedia.org/wiki/Plantilla:Ficha_de_persona
+        - https://es.wikipedia.org/wiki/Plantilla:ficha_de_noble
+        - https://es.wikipedia.org/wiki/Plantilla:ficha_de_obispo
+  month_map:
+    "enero": "January"
+    "febrero": "February"
+    "marzo": "March"
+    "abril": "April"
+    "mayo": "May"
+    "junio": "June"
+    "julio": "July"
+    "agosto": "August"
+    "septiembre": "September"
+    "octubre": "October"
+    "noviembre": "November"
+    "diciembre": "December"
+arz:
+  language: egyptian_arabic
+  month_map:
+    "يناير": "January"
+    "فبراير": "February"
+    "مارس": "March"
+    "ابريل": "April"
+    "مايو": "May"
+    "يونيو": "June"
+    "يوليو": "July"
+    "اغسطس": "August"
+    "سبتمبر": "September"
+    "اكتوبر": "October"
+    "نوفمبر": "November"
+    "ديسمبر": "December"
+sv:
+  language: swedish
+  fallback_countrycode: SWE
+  ignore_templates:
+    - name: ålder
+      comment: Age, can be used for other then birth/death dates
+  templates:
+    - name: faktaruta militärperson
+      name_variants:
+        - faktamall biografi
+        - adlig
+        - biskop
+        - infobox person
+      urls: 
+        - https://sv.wikipedia.org/wiki/Mall:faktaruta_militärperson
+        - https://sv.wikipedia.org/wiki/Mall:adlig
+        - https://sv.wikipedia.org/wiki/Mall:infobox_person
+      param_names:
+        födelsedatum: birth date
+        född: birth date
+        dödsdatum: death date
+        död: death date
+      dayfirst: true
+    - name: Död datum och ålder
+      url: https://sv.wikipedia.org/wiki/Mall:Död_datum_och_ålder
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+  month_map:
+    "januari": "January"
+    "februari": "February"
+    "mars": "March"
+    "april": "April"
+    "maj": "May"
+    "juni": "June"
+    "juli": "July"
+    "augusti": "August"
+    "september": "September"
+    "oktober": "October"
+    "november": "November"
+    "december": "December"
+cs:
+  language: czech
+  fallback_countrycode: CZE
+  month_map:
+    "leden": "January"
+    "únor": "February"
+    "březen": "March"
+    "duben": "April"
+    "květen": "May"
+    "červen": "June"
+    "červenec": "July"
+    "srpen": "August"
+    "září": "September"
+    "říjen": "October"
+    "listopad": "November"
+    "prosinec": "December"
+et:
+  language: estonian
+  fallback_countrycode: EST
+  month_map:
+    "jaanuar": "January"
+    "veebruar": "February"
+    "märts": "March"
+    "aprill": "April"
+    "mai": "May"
+    "juuni": "June"
+    "juuli": "July"
+    "august": "August"
+    "september": "September"
+    "oktoober": "October"
+    "november": "November"
+    "detsember": "December"
+nb:
+  language: norwegian
+  fallback_countrycode: NOR
+  month_map:
+    "januar": "January"
+    "februar": "February"
+    "mars": "March"
+    "april": "April"
+    "mai": "May"
+    "juni": "June"
+    "juli": "July"
+    "august": "August"
+    "september": "September"
+    "oktober": "October"
+    "november": "November"
+    "desember": "December"
+ar:
+  language: arabic
+  month_map:
+    "يناير": "January"
+    "فبراير": "February"
+    "مارس": "March"
+    "أبريل": "April"
+    "مايو": "May"
+    "يونيو": "June"
+    "يوليو": "July"
+    "أغسطس": "August"
+    "سبتمبر": "September"
+    "أكتوبر": "October"
+    "نوفمبر": "November"
+    "ديسمبر": "December"
+hu:
+  language: hungarian
+  fallback_countrycode: HUN
+  templates:
+    - name: Életkor-élő
+      typ: birth
+      param_names:
+        "1": year
+        "év": year
+        "születési év": year
+        "2": month
+        "hónap": month
+        "születési hónap": month
+        "3": day
+        "nap": day
+        "születési nap": day
+    - name: Személy infobox
+      name_variants:
+        - püspök infobox
+        - egyházi személy infobox
+      urls: 
+        - https://hu.wikipedia.org/wiki/Sablon:Személy_infobox
+        - https://hu.wikipedia.org/wiki/Sablon:Egyházi_személy_infobox
+      param_names:
+        születési dátum: birth date
+        halál dátuma: death date
+        # uralkodás_vége: end of reign
+      dayfirst: false
+    - name: életkor-holt
+      typ: birth
+      param_names:
+        "1": year
+        "2": month
+        "3": day
+    - name: életkor-holt
+      typ: death
+      param_names:
+        "4": year
+        "5": month
+        "6": day
+  month_map:
+    "január": "January"
+    "február": "February"
+    "március": "March"
+    "április": "April"
+    "május": "May"
+    "június": "June"
+    "július": "July"
+    "augusztus": "August"
+    "szeptember": "September"
+    "október": "October"
+    "november": "November"
+    "december": "December"
+ja:
+  language: japanese
+  fallback_countrycode: JPN
+  year_postfix: 年
+  month_postfix: W
+  day_postfix: 日 
+  templates:
+    - name: actoractress
+      name_variants:
+        - infobox 人物
+        - infobox 作家
+        - infobox 学者
+        - infobox 経済学者
+        - 基礎情報 アナウンサー
+        - 官僚
+        - 政治家
+        - boxing statsbox
+        - infobox プロレスラー
+      urls:
+        - https://ja.wikipedia.org/wiki/Template:infobox_人物
+        - https://ja.wikipedia.org/wiki/Template:infobox_作家
+        - https://ja.wikipedia.org/wiki/Template:infobox_学者
+        - https://ja.wikipedia.org/wiki/Template:infobox_経済学者
+        - https://ja.wikipedia.org/wiki/Template:基礎情報_アナウンサー
+        - https://ja.wikipedia.org/wiki/Template:官僚
+        - https://ja.wikipedia.org/wiki/Template:政治家
+        - https://ja.wikipedia.org/wiki/Template:boxing_statsbox
+        - https://ja.wikipedia.org/wiki/Template:infobox_プロレスラー
+      param_names:
+        生年月日: birth date
+        没年月日: death date
+        birth_date: birth date
+        death_date: death date
+        生年月日=: birth date
+        没年月日=: death date
+        生年: birth year
+        生月: birth month
+        生日: birth day
+        没年: death year
+        没月: death month 
+        没日: death day 
+        誕生日: birth date
+        死亡日: death date
+      url: https://ja.wikipedia.org/wiki/Template:ActorActress
+    - name: 生年月日と年齢 # Date of birth and age
+      param_names:
+        "1": birth year
+        "2": birth month   
+        "3": birth day 
+      url: https://ja.wikipedia.org/wiki/Template:生年月日と年齢
+    - name: 基礎情報 軍人
+      param_names:
+        "生年月日": birth date
+        "没年月日": death date
+      dayfirst: true
+      url: https://ja.wikipedia.org/wiki/Template:基礎情報_軍人
+    - name: birth date
+      param_names:
+        "1": birth year
+        "2": birth month
+        "3": birth day
+      url: https://ja.wikipedia.org/wiki/Template:birth_date
+    - name: 死亡年月日と没年齢
+      param_names:
+        "1": birth year
+        "2": birth month
+        "3": birth day
+        "4": death year
+        "5": death month
+        "6": death day
+      url: https://ja.wikipedia.org/wiki/Template:死亡年月日と没年齢
+    - name: death date and age
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+      url: https://ja.wikipedia.org/wiki/Template:death_date_and_age
+  month_map:
+    "1月": "January"
+    "2月": "February"
+    "3月": "March"
+    "4月": "April"
+    "5月": "May"
+    "6月": "June"
+    "7月": "July"
+    "8月": "August"
+    "9月": "September"
+    "10月": "October"
+    "11月": "November"
+    "12月": "December"
+bg:
+  language: bulgarian
+  fallback_countrycode: BGR
+  month_map:
+    "януари": "January"
+    "февруари": "February"
+    "март": "March"
+    "април": "April"
+    "май": "May"
+    "юни": "June"
+    "юли": "July"
+    "август": "August"
+    "септември": "September"
+    "октомври": "October"
+    "ноември": "November"
+    "декември": "December"
+hsb:
+  language: upper_sorbian
+  month_map:
+    "januara": "January"
+    "februara": "February"
+    "marta": "March"
+    "apryla": "April"
+    "meja": "May"
+    "junija": "June"
+    "julija": "July"
+    "awgusta": "August"
+    "septembra": "September"
+    "oktobra": "October"
+    "nowembra": "November"
+    "decembra": "December"
+sk:
+  language: slovak
+  templates:
+    - name: infobox osobnosť
+      param_names:
+        Dátum narodenia: birth date
+        Dátum úmrtia: death date
+      dayfirst: true
+      url: https://sk.wikipedia.org/wiki/Šablóna:Infobox_osobnosť
+    - name: dúv
+      param_names:
+        "1": death year
+        "2": death month   
+        "3": death day
+        "4": birth year     
+        "5": birth month
+        "6": birth day 
+      url: https://sk.wikipedia.org/wiki/Šablóna:dúv
+    - name: Dátum narodenia
+      name_variants:
+        - Dátum narodenia a vek
+      param_names:
+        "1": birth year     
+        "2": birth month
+        "3": birth day 
+      url: https://sk.wikipedia.org/wiki/Šablóna:Dátum narodenia
+  month_map:
+    "januára": "January"
+    "februára": "February"
+    "marca": "March"
+    "apríla": "April"
+    "mája": "May"
+    "júna": "June"
+    "júla": "July"
+    "augusta": "August"
+    "septembra": "September"
+    "októbra": "October"
+    "novembra": "November"
+    "decembra": "December"
+ru:
+  language: russian
+  fallback_countrycode: RUS
+  date_templates:
+    - name: сс3
+      name_variants:
+        - OldStyleDate3
+      param_names:
+        '1': date_julian
+      dayfirst: true
+      url: https://ru.wikipedia.org/wiki/Шаблон:СС3
+    - name: югк
+      param_names:
+        '1': date
+        '2': date_type
+      date_types:
+        "Ю": julian
+        "Г": gregorian
+        "?": unknown
+      examples:
+        - Q48953329
+      url: https://ru.wikipedia.org/wiki/Шаблон:ЮГК
+  templates:
+    - name: Военный деятель # military person
+      name_variants:
+        - государственный деятель # statesman
+        - персона # person
+        - писатель # writer
+        - учёный # scientist
+      param_names:
+        дата рождения: birth date
+        дата смерти: death date
+      dayfirst: true
+      urls: 
+        - https://ru.wikipedia.org/wiki/Шаблон:Военный_деятель
+        - https://ru.wikipedia.org/wiki/Шаблон:учёный
+    - name: датарождения
+      name_variants:
+        - ДатаРождения
+      param_names:
+        '1': day
+        '2': month
+        '3': year
+        '4': day_julian
+        '5': month_julian
+        '6': year_julian    
+      typ: birth
+      url: https://ru.wikipedia.org/wiki/Шаблон:Датарождения
+  month_map:
+    "января": "January"
+    "февраля": "February"
+    "марта": "March"
+    "апреля": "April"
+    "мая": "May"
+    "июня": "June"
+    "июля": "July"
+    "августа": "August"
+    "сентября": "September"
+    "октября": "October"
+    "ноября": "November"
+    "декабря": "December"
+ko:
+  language: korean
+  templates:
+    - name: 공직자 정보
+      url: https://ko.wikipedia.org/wiki/틀:공직자_정보
+      param_names:
+        출생일: birth date 
+        출생: birth date
+        사망일: death date
+        사망: death date
+    - name: 출생일
+      typ: birth
+      param_names:
+        "1": year
+        "2": month
+        "3": day
+      url: https://ko.wikipedia.org/wiki/틀:출생일
+    - name: 사망일과 나이
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+      url: https://ko.wikipedia.org/wiki/틀:사망일과_나이
+  month_map:
+    "1월": "January"
+    "2월": "February"
+    "3월": "March"
+    "4월": "April"
+    "5월": "May"
+    "6월": "June"
+    "7월": "July"
+    "8월": "August"
+    "9월": "September"
+    "10월": "October"
+    "11월": "November"
+    "12월": "December"
+fi:
+  language: finnish
+  fallback_countrycode: FIN
+  templates:
+    - name: Käsikirjoittaja
+      name_variants:
+        - henkilö
+        - valtionjohto
+      param_names:
+        syntymäpäivä: birth date
+        syntymäaika: birth date
+        kuolinaika: death date
+        kuolinpäivä: death date
+      dayfirst: true
+      urls:
+        - https://fi.wikipedia.org/wiki/Malline:Käsikirjoittaja 
+        - https://fi.wikipedia.org/wiki/Malline:valtionjohto
+    - name: kuolinaika ja ikä
+      param_names:
+        "1": birth day
+        "2": birth month
+        "3": birth year
+        "4": death day
+        "5": death month
+        "6": death year
+      url: https://fi.wikipedia.org/wiki/Malline:kuolinaika_ja_ikä
+  month_map:
+    "tammikuuta": "January"
+    "helmikuuta": "February"
+    "maaliskuuta": "March"
+    "huhtikuuta": "April"
+    "toukokuuta": "May"
+    "kesäkuuta": "June"
+    "heinäkuuta": "July"
+    "elokuuta": "August"
+    "syyskuuta": "September"
+    "lokakuuta": "October"
+    "marraskuuta": "November"
+    "joulukuuta": "December"
+eu:
+  language: basque
+  month_map:
+    "urtarrila": "January"
+    "otsaila": "February"
+    "martxoa": "March"
+    "apirila": "April"
+    "maiatza": "May"
+    "ekaina": "June"
+    "uztaila": "July"
+    "abuztua": "August"
+    "iraila": "September"
+    "urria": "October"
+    "azaroa": "November"
+    "abendua": "December"
+el:
+  language: greek
+  fallback_countrycode: GRC
+  ignore_templates:
+    - name: cite web
+      comment: accessdate sometimes machtes with the death date
+  templates:
+    - name: πληροφορίες καλλιτέχνη # artist
+      name_variants:
+        - πληροφορίες αγίου # saint
+      param_names:
+        γέννηση: birth date
+        έτος_γέννησης: birth date
+        θάνατος: death date     
+        έτος_κοίμησης: death date
+      urls: 
+        - https://el.wikipedia.org/wiki/Πρότυπο:πληροφορίες_καλλιτέχνη
+        - https://el.wikipedia.org/wiki/Πρότυπο:Πληροφορίες_Αγίου
+    - name: ηγη # Date of Birth and Age
+      url: https://el.wikipedia.org/wiki/Πρότυπο:ηγη
+      name_variants:
+        - Ημερομηνία γέννησης και ηλικία
+      param_names:
+        "1": birth year
+        "2": birth month
+        "3": birth day
+    - name: Ημερομηνία θανάτου και ηλικία # Date of death and age
+      url: https://el.wikipedia.org/wiki/Πρότυπο:Ημερομηνία_θανάτου_και_ηλικία
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+  month_map:
+    "Ιανουαρίου": "January"
+    "Φεβρουαρίου": "February"
+    "Μαρτίου": "March"
+    "Απριλίου": "April"
+    "Μαΐου": "May"
+    "Ιουνίου": "June"
+    "Ιουλίου": "July"
+    "Αυγούστου": "August"
+    "Σεπτεμβρίου": "September"
+    "Οκτωβρίου": "October"
+    "Νοεμβρίου": "November"
+    "Δεκεμβρίου": "December"
+da:
+  language: danish
+  fallback_countrycode: DNK
+  month_map:
+    "januar": "January"
+    "februar": "February"
+    "marts": "March"
+    "april": "April"
+    "maj": "May"
+    "juni": "June"
+    "juli": "July"
+    "august": "August"
+    "september": "September"
+    "oktober": "October"
+    "november": "November"
+    "december": "December"
+ca:
+  language: catalan
+  fallback_countrycode: ESP
+  month_map:
+    "gener": "January"
+    "febrer": "February"
+    "març": "March"
+    "abril": "April"
+    "maig": "May"
+    "juny": "June"
+    "juliol": "July"
+    "agost": "August"
+    "setembre": "September"
+    "octubre": "October"
+    "novembre": "November"
+    "desembre": "December"
+hr:
+  language: croatian
+  fallback_countrycode: HRV
+  templates:
+    - name: infookvir biskup # bishop
+      name_variants:
+        - Infookvir kršćanski čelnici # Christian leaders
+        - Infookvir kardinal
+        - trener/izbornik/igrač # footballer/coach/coach
+        - Infookvir nogometaš/trener/izbornik
+      param_names:
+        datum_rođenja: birth date
+        datum_smrti: death date
+      dayfirst: true
+      urls: 
+        - https://hr.wikipedia.org/wiki/Predlo%C5%BEak:Infookvir_biskup
+        - https://hr.wikipedia.org/wiki/Predlo%C5%BEak:trener/izbornik/igrač
+  month_map:
+    "siječnja": "January"
+    "veljače": "February"
+    "ožujka": "March"
+    "travnja": "April"
+    "svibnja": "May"
+    "lipnja": "June"
+    "srpnja": "July"
+    "kolovoza": "August"
+    "rujna": "September"
+    "listopada": "October"
+    "studenoga": "November"
+    "prosinca": "December"
+zh:
+  language: chinese
+  fallback_countrycode: CHN
+  templates:
+    - name: infobox person
+      name_variants:
+        - infobox writer
+        - Infobox entertainer
+        - 藝人
+        - 東亞男性歷史人物
+      param_names:
+        birth_date: birth date
+        出生日期: birth date
+        出生: birth date
+        death_date: death date
+        逝世日期: death date
+        逝世: death date
+      url: https://zh.wikipedia.org/wiki/Template:infobox_person
+    - name: birth date
+      name_variants:
+        - Birth date and age
+      param_names:
+        "1": birth year
+        "2": birth month
+        "3": birth day
+        year: birth year
+        month: birth month
+        day: birth day
+      url: https://zh.wikipedia.org/wiki/Template:birth_date
+    - name: Death date and age
+      name_variants:
+        - death_date_and_age
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month  
+        "6": birth day
+      url: https://zh.wikipedia.org/wiki/Template:Death_date_and_age
+  month_map:
+    "一月": "January"
+    "二月": "February"
+    "三月": "March"
+    "四月": "April"
+    "五月": "May"
+    "六月": "June"
+    "七月": "July"
+    "八月": "August"
+    "九月": "September"
+    "十月": "October"
+    "十一月": "November"
+    "十二月": "December"
+lb:
+  language: luxembourgish
+  fallback_countrycode: LUX
+  month_map:
+    "Januar": "January"
+    "Februar": "February"
+    "Mäerz": "March"
+    "Abrëll": "April"
+    "Mee": "May"
+    "Juni": "June"
+    "Juli": "July"
+    "August": "August"
+    "September": "September"
+    "Oktober": "October"
+    "November": "November"
+    "Dezember": "December"
+nds:
+  languge: low german
+  fallback_countrycode: DEU
+  month_map:
+    "Januar": "January"
+    "Februar": "February"
+    "März": "March"
+    "April": "April"
+    "Mai": "May"
+    "Juni": "June"
+    "Juli": "July"
+    "August": "August"
+    "September": "September"
+    "Oktober": "October"
+    "November": "November"
+    "Dezember": "December"
+be:
+  language: belarusian
+  fallback_countrycode: BLR
+  templates:
+    - name: Дн
+      url: https://be.wikipedia.org/wiki/Шаблон:Дн
+      name_variants:
+        - Датанараджэння
+      typ: birth
+      param_names:
+        "1": day_gregorian
+        "2": month_gregorian
+        "3": year_gregorian
+        "4": day_julian
+        "5": month_julian
+        "6": year_julian
+    - name: ДС
+      name_variants:
+        - Датасмерці
+      url: https://be.wikipedia.org/wiki/Шаблон:ДС
+      typ: death
+      param_names:
+        "1": day_gregorian
+        "2": month_gregorian
+        "3": year_gregorian
+        "4": day_julian
+        "5": month_julian
+        "6": year_julian
+
+  month_map:
+    "студзеня": "January"
+    "лютага": "February"
+    "сакавіка": "March"
+    "красавіка": "April"
+    "траўня": "May"
+    "чэрвеня": "June"
+    "ліпеня": "July"
+    "жніўня": "August"
+    "верасня": "September"
+    "кастрычніка": "October"
+    "лістапада": "November"
+    "снежня": "December"
+az:
+  language: azerbaijani
+  fallback_countrycode: AZE
+  month_map:
+    "yanvar": "January"
+    "fevral": "February"
+    "mart": "March"
+    "aprel": "April"
+    "may": "May"
+    "iyun": "June"
+    "iyul": "July"
+    "avqust": "August"
+    "sentyabr": "September"
+    "oktyabr": "October"
+    "noyabr": "November"
+    "dekabr": "December"
+ha:
+  language: hausa
+  fallback_countrycode: NGA
+  month_map:
+    "Janairu": "January"
+    "Fabrairu": "February"
+    "Maris": "March"
+    "Afrilu": "April"
+    "Mayu": "May"
+    "Yuni": "June"
+    "Yuli": "July"
+    "Agusta": "August"
+    "Satumba": "September"
+    "Oktoba": "October"
+    "Nuwamba": "November"
+    "Disamba": "December"
+gl:
+  language: galician
+  month_map:
+    "xaneiro": "January"
+    "febreiro": "February"
+    "marzo": "March"
+    "abril": "April"
+    "maio": "May"
+    "xuño": "June"
+    "xullo": "July"
+    "agosto": "August"
+    "setembro": "September"
+    "outubro": "October"
+    "novembro": "November"
+    "decembro": "December"
+or:
+  language: odia
+  month_map:
+    "ଜାନୁଆରୀ": "January"
+    "ଫେବୃଆରୀ": "February"
+    "ମାର୍ଚ୍ଚ": "March"
+    "ଅପ୍ରେଲ": "April"
+    "ମେ": "May"
+    "ଜୁନ": "June"
+    "ଜୁଲାଇ": "July"
+    "ଅଗଷ୍ଟ": "August"
+    "ସେପ୍ଟେମ୍ବର": "September"
+    "ଅକ୍ଟୋବର": "October"
+    "ନଭେମ୍ବର": "November"
+    "ଡିସେମ୍ବର": "December"
+uz:
+  language: uzbek
+  templates:
+    - name: shaxsiyat bilgiqutisi # Personal information box
+      param_names:
+        tavallud_sanasi: birth date
+        vafot sanasi: death date
+      url: https://uz.wikipedia.org/wiki/Andoza:Shaxsiyat_bilgiqutisi
+    - name: tugʻilgan sanasi va yoshi # Date of birth and age
+      name_variants:
+        - tugʻilgan sanasi
+      type: birth
+      param_names:
+        "1": year
+        "2": month
+        "3": day
+        "year": year
+        "month": month
+        "day": day
+      url: https://uz.wikipedia.org/wiki/Andoza:tugʻilgan_sanasi_va_yoshi
+    - name: Vafot sanasi
+      type: death
+      param_names:
+        "1": year
+        "2": month
+        "3": day
+      url: https://uz.wikipedia.org/wiki/Andoza:Vafot_sanasi
+    - name: vafot sanasi va yoshi # Date of death and age
+      param_names:
+        "1": death year
+        "2": death month
+        "3": death day
+        "4": birth year
+        "5": birth month
+        "6": birth day
+      url: https://uz.wikipedia.org/wiki/Andoza:vafot_sanasi_va_yoshi
+  month_map:
+    "январ": "January"
+    "феврал": "February"
+    "март": "March"
+    "апрел": "April"
+    "май": "May"
+    "июн": "June"
+    "июл": "July"
+    "август": "August"
+    "сентябр": "September"
+    "октябр": "October"
+    "ноябр": "November"
+    "декабр": "December"
+bn:
+  language: Bengali
+  templates:
+    - name: জন্ম তারিখ # Date of birth
+      param_names:
+        '1': birth year
+        '2': birth month
+        '3': birth day
+      url: https://bn.wikipedia.org/wiki/template:জন্ম_তারিখ
+    - name: মৃত্যুর তারিখ # Date of death
+      param_names:
+        '1': death year
+        '2': death month
+        '3': death day
+      url: https://bn.wikipedia.org/wiki/template:মৃত্যুর_তারিখ
+    - name: তথ্যছক ব্যক্তি # person
+      param_names:
+        birth_date: birth date
+        death_date: death date
+      url: https://bn.wikipedia.org/wiki/template:তথ্যছক_ব্যক্তি
+  month_map:
+    "জানুয়ারী": "January"
+    "ফেব্রুয়ারী": "February"
+    "মার্চ": "March"
+    "এপ্রিল": "April"
+    "মে": "May"
+    "জুন": "June"
+    "জুলাই": "July"
+    "আগস্ট": "August"
+    "সেপ্টেম্বর": "September"
+    "অক্টোবর": "October"
+    "নভেম্বর": "November"
+    "ডিসেম্বর": "December"
+kk:
+  language: Kazakh
+  month_map:
+    "Қаңтар": "January"
+    "Ақпан": "February"
+    "Наурыз": "March"
+    "Сәуір": "April"
+    "Мамыр": "May"
+    "Маусым": "June"
+    "Шілде": "July"
+    "Тамыз": "August"
+    "Қыркүйек": "September"
+    "Қазан": "October"
+    "Қараша": "November"
+    "Желтоқсан": "December"
+ht:
+  language: Haitian
+  month_map:
+    "Janvye": "January"
+    "Fevriye": "February"
+    "Mas": "March"
+    "Avril": "April"
+    "Me": "May"
+    "Jen": "June"
+    "Jiyè": "July"
+    "Out": "August"
+    "Septanm": "September"
+    "Oktòb": "October"
+    "Novanm": "November"
+    "Desanm": "December"
+
