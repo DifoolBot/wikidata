@@ -1,6 +1,7 @@
 from dateutil.parser import parse as date_parse
 from datetime import datetime
 from calendar import monthrange
+from typing import Optional
 import re
 
 URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
@@ -23,7 +24,7 @@ def get_param_name_map(template):
     return param_map
 
 class CountryConfig:
-    def __init__(self, key: str, config: dict):
+    def __init__(self, key: Optional[str], config: dict):
         country_config = config.get(key, {})
         self.country_config = country_config or {}
         self.last_julian_date = self.country_config.get('last_julian_date')
@@ -124,7 +125,7 @@ class CountryConfig:
             raise ValueError(f"Date {ymd} is not valid for either Julian or Gregorian calendar in this context.")        
 
 class LanguageConfig:
-    def __init__(self, key: str, config: dict):
+    def __init__(self, key: Optional[str], config: dict):
         lang_config = config.get(key, {})
         self.lang_config = lang_config or {}
         self.month_map = self.lang_config.get('month_map', {})
@@ -269,7 +270,7 @@ class TemplateDateExtractor:
         # that combine both birth and death fields
         self.typ = tpl_cfg.get('typ')
 
-    def __parse_date_string(self, date_str: str, dayfirst: bool = None, calendar_url: str = URL_UNSPECIFIED_CALENDAR, typ: str = None) -> bool:
+    def __parse_date_string(self, date_str: str, dayfirst: Optional[bool], calendar_url: str = URL_UNSPECIFIED_CALENDAR, typ: Optional[str] = None):
         """
         Helper to parse date string and return a tuple (year, month, day, calendar_url), or None on failure.
         Uses two different defaults to detect which components are present.
@@ -303,7 +304,7 @@ class TemplateDateExtractor:
             print(f"Date parse error for '{date_str}': {e}")
             return None
    
-    def _parse_date_string(self, date_str: str, dayfirst: bool = None, calendar_url: str = URL_UNSPECIFIED_CALENDAR, typ: str = None) -> bool:
+    def _parse_date_string(self, date_str: str, dayfirst: Optional[bool] = None, calendar_url: str = URL_UNSPECIFIED_CALENDAR, typ: Optional[str] = None):
         result = self.__parse_date_string(date_str, dayfirst, calendar_url, typ)
         if not result:
             # remove (Aged: 87)
@@ -314,7 +315,7 @@ class TemplateDateExtractor:
         else:
             print(f"{date_str} -> ???")
 
-    def _parse_components(self, day, month, year, calendar_url: str, typ: str = None):
+    def _parse_components(self, day, month, year, calendar_url: str, typ: Optional[str] = None):
         """
         Helper to parse date string and return a tuple (year, month, day, calendar_url), or None on failure.
         """
@@ -366,7 +367,7 @@ class TemplateDateExtractor:
                 
             if date:
                 if isinstance(date, str):
-                    self._parse_date_string(date, self.default_calendar_url, typ=typ if typ else None)
+                    self._parse_date_string(date, dayfirst= None, calendar_url = self.default_calendar_url, typ=typ if typ else None)
                 elif isinstance(date, list):
                     for d in date:
                         d_typ, d_y, d_m, d_d, d_cal_model = d

@@ -16,6 +16,7 @@ import template_date_extractor
 from pywikibot.data import sparql
 from collections import defaultdict
 import re
+from typing import Optional
 
 
 # todo
@@ -51,7 +52,7 @@ class WikidataStatusTracker(ABC):
         pass
 
     @abstractmethod
-    def mark_done(self, qid: str, language: str, message: str):
+    def mark_done(self, qid: str, language: Optional[str], message: str):
         """Mark the item as done."""
         pass
 
@@ -84,12 +85,12 @@ class WikidataStatusTracker(ABC):
         pass
     
     @abstractmethod
-    def get_languages_for_country(self, country_qid: str):
+    def get_languages_for_country(self, country_qid: str) -> List[str]:
         """Return a list of languages for a given country QID."""
         pass
 
     @abstractmethod
-    def get_sorted_languages(self):
+    def get_sorted_languages(self) -> List[str]:
         pass
 
 
@@ -293,7 +294,7 @@ def load_template_config(path: str):
         config = yaml.safe_load(f)
     return config
 
-def get_country_qid_from_yaml(country_code: str, path: str) -> str:
+def get_country_qid_from_yaml(country_code: str, path: str) -> Optional[str]:
     with open(path, encoding='utf-8') as f:
         config = yaml.safe_load(f)
     for key, value in config.items():
@@ -336,8 +337,8 @@ class PersonLocale:
         self.birth_country_qids = set()
         self.death_country_qids = set()
         self.country_qids = set()
-        self.country = None
-        self.language = None
+        self.country: Optional[str] = None
+        self.language: Optional[str] = None
         self.sitelink = None
 
     def load(self):
@@ -429,7 +430,7 @@ class PersonLocale:
         if not self.country_config.first_gregorian_date:
             raise RuntimeError(f'No first_gregorian_date for {self.country}')
 
-    def get_preferred_wikicode(self) -> str:
+    def get_preferred_wikicode(self) -> Optional[str]:
         sitelinks = self.item.sitelinks
         # Filter out unusable sitelinks
         usable_sitelinks = {k: v for k, v in sitelinks.items() if k != 'commonswiki' and 'wikisource' not in k and 'wikiquote' not in k}
@@ -509,12 +510,12 @@ def walk_templates(wikicode, parent=None, graph=None):
     return graph
 
 class EntityDateReconciler:
-    def __init__(self, item: pwb.ItemPage, locale: PersonLocale, tracker: WikidataStatusTracker = None):
+    def __init__(self, item: pwb.ItemPage, locale: PersonLocale, tracker: WikidataStatusTracker):
         self.item = item
         self.sitelink = locale.sitelink
         self.locale = locale
         self.tracker = tracker
-        self.wikicode = None
+        self.wikicode: Optional[mwparserfromhell.wikicode.Wikicode] = None
 
     def build_wbtime(self, y, m=None, d=None, calendarmodel=template_date_extractor.URL_UNSPECIFIED_CALENDAR):
         try:
@@ -573,6 +574,8 @@ class EntityDateReconciler:
 
     def find_single_param_date_matches(self, wikidata_dates: PersonDates) -> list[dict]:
         matches = []
+        if not self.wikicode:
+            return matches
         for tpl in self.wikicode.filter_templates():
             # todo; functie aanroepen
             name = tpl.name.strip_code().strip().lower().replace('_', ' ')
@@ -605,8 +608,10 @@ class EntityDateReconciler:
                             })
         return matches
 
-    def find_date_matches_any_order(self, wikitext: str, wikidata_dates: PersonDates) -> list[dict]:
+    def find_date_matches_any_order(self, wikidata_dates: PersonDates) -> list[dict]:
         matches = []
+        if not self.wikicode:
+            return matches
         for tpl in self.wikicode.filter_templates():
             name = tpl.name.strip_code().strip().lower().replace('_', ' ')
             if name in self.locale.lang_config.date_templates:
@@ -639,6 +644,8 @@ class EntityDateReconciler:
         return matches
 
     def reconcile_sitelink_dates(self):
+        if not self.sitelink:
+            raise RuntimeError('No sitelink')
         wikitext = fetch_page(self.sitelink.site, self.sitelink.title)
         if not wikitext:
             raise RuntimeError('Wikipedia content not found')
@@ -739,11 +746,12 @@ def lookup_country_qid(place_qid: str):
     """
     query_object = sparql.SparqlQuery()
     payload = query_object.query(query = query)
-    for row in payload['results']['bindings']:
-        country_qid = row['country']['value'].split('/')[-1]
-        place_label = row['placeLabel']['value']
-        country_label = row['countryLabel']['value']    
-        return country_qid, place_label, country_label
+    if payload:
+        for row in payload['results']['bindings']:
+            country_qid = row['country']['value'].split('/')[-1]
+            place_label = row['placeLabel']['value']
+            country_label = row['countryLabel']['value']    
+            return country_qid, place_label, country_label
 
     return None
 
@@ -761,13 +769,14 @@ def lookup_country_info(country_qid: str):
     """
     query_object = sparql.SparqlQuery()
     payload = query_object.query(query = query)
-    for row in payload['results']['bindings']:
-        if 'alpha3' in row:
-            alpha3 = row['alpha3']['value']
-        else:
-            alpha3 = ''
-        country = row['label']['value']
-        return alpha3, country
+    if payload:
+        for row in payload['results']['bindings']:
+            if 'alpha3' in row:
+                alpha3 = row['alpha3']['value']
+            else:
+                alpha3 = ''
+            country = row['label']['value']
+            return alpha3, country
 
     return None
     
@@ -834,7 +843,7 @@ def extract_lead_sentence(wikitext: str) -> str:
     print("Raw   :", raw_line)
     return raw_line.strip() if raw_line else ""
 
-def save_lead_sentence_to_yaml(qid: str, lang: str, wikitext: str):
+def save_lead_sentence_to_yaml(qid: str, lang: Optional[str], wikitext: str):
     output_path = "lead_sentences.yaml"
     lead_sentence = extract_lead_sentence(wikitext)
 
