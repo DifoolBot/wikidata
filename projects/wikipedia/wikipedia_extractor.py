@@ -8,12 +8,12 @@ from typing import List, Optional, Tuple
 
 import mwparserfromhell
 import pywikibot as pwb
-import template_date_extractor
+import wikipedia.template_date_extractor as tde
 import yaml
 from dateutil.parser import parse as date_parse
-from mwparserfromhell.nodes import Template, Text, Wikilink
+from mwparserfromhell.nodes import Template, Wikilink
 from pywikibot.data import sparql
-from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
+from pathlib import Path
 
 # todo
 # O if only diff is cal model, then can change if no sources; Q23659454
@@ -38,6 +38,7 @@ from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
 #    6. iterate 50 items
 #    7. publish request
 
+YAML_DIR = Path(__file__).parent
 
 # Abstract base class for tracking Wikidata item processing status
 class WikidataStatusTracker(ABC):
@@ -90,6 +91,10 @@ class WikidataStatusTracker(ABC):
     def get_sorted_languages(self) -> List[str]:
         pass
 
+    @abstractmethod
+    def add_lead_sentence(self, qid: str, lang: str, lead_sentence: str):
+        pass
+
 
 def wbtime_key(w: pwb.WbTime):
     w_norm = w.normalize()
@@ -105,7 +110,7 @@ def wbtime_key(w: pwb.WbTime):
 def wbtime_key_flexible(w: pwb.WbTime):
     # Returns a tuple, but with calendarmodel set to None if unspecified
     w_norm = w.normalize()
-    if w_norm.calendarmodel == template_date_extractor.URL_UNSPECIFIED_CALENDAR:
+    if w_norm.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR:
         return (w_norm.year, w_norm.month, w_norm.day, w_norm.precision, None)
     return (
         w_norm.year,
@@ -113,6 +118,11 @@ def wbtime_key_flexible(w: pwb.WbTime):
         w_norm.day,
         w_norm.precision,
         w_norm.calendarmodel,
+    )
+
+def wbtime_keys_match(key1, key2) -> bool:
+    return key1[:4] == key2[:4] and (
+        key1[4] is None or key2[4] is None or key1[4] == key2[4]
     )
 
 
@@ -179,30 +189,24 @@ class PersonDates:
             candidates.extend([d for d in self.death if matches(d)])
         return candidates
 
-
 def print_dates(dates: List[pwb.WbTime]) -> str:
-    result = []
-    for date in dates:
-        arr = []
-        if date.year and (date.precision >= 9):
-            arr.append(f"y={date.year}")
-        if date.month and (date.precision >= 10):
-            arr.append(f"m={date.month}")
-        if date.day and (date.precision >= 11):
-            arr.append(f"d={date.day}")
-        arr.append(f"p={date.precision}")
-        if date.calendarmodel == template_date_extractor.URL_PROLEPTIC_JULIAN_CALENDAR:
-            arr.append("Julian")
-        if (
-            date.calendarmodel
-            == template_date_extractor.URL_PROLEPTIC_GREGORIAN_CALENDAR
-        ):
-            arr.append("Gregorian")
-        if date.calendarmodel == template_date_extractor.URL_UNSPECIFIED_CALENDAR:
-            arr.append("Unspecified")
-        result.append(",".join(arr))
-    return ";".join(result)
+    CALENDAR_LABELS = {
+        tde.URL_PROLEPTIC_JULIAN_CALENDAR: "Julian",
+        tde.URL_PROLEPTIC_GREGORIAN_CALENDAR: "Gregorian",
+        tde.URL_UNSPECIFIED_CALENDAR: "Unspecified",
+    }
 
+    def describe(date: pwb.WbTime) -> str:
+        parts = [
+            f"y={date.year}" if date.year and date.precision >= 9 else None,
+            f"m={date.month}" if date.month and date.precision >= 10 else None,
+            f"d={date.day}" if date.day and date.precision >= 11 else None,
+            f"p={date.precision}",
+            CALENDAR_LABELS.get(date.calendarmodel) if date.calendarmodel is not None else None,
+        ]
+        return ",".join(p for p in parts if p is not None)
+
+    return ";".join(describe(d) for d in dates)
 
 def assert_no_conflicting_dates(
     wikidata_dates, wikipedia_dates: PersonDates, kind: str, item_id: str
@@ -219,74 +223,46 @@ def assert_no_conflicting_dates(
         other_dates = wikipedia_dates.death
     else:
         raise ValueError(f"Unknown kind: {kind}")
-    if self_dates and other_dates:
-        if len(other_dates) > 1:
-            raise RuntimeError(
-                f"Multiple {kind} dates found in Wikipedia for {item_id}: {other_dates}"
-            )
-        mismatch = True
-        same_except_julian = False
-        same_except_gregorian = False
-        wp = other_dates[0].normalize()
-        for wd0 in self_dates:
-            wd = wd0.normalize()
-            if (
-                wd.year == wp.year
-                and wd.month == wp.month
-                and wd.day == wp.day
-                and wd.precision == wp.precision
+
+    if not (self_dates and other_dates):
+        return
+
+    if len(other_dates) > 1:
+        raise RuntimeError(
+            f"Multiple {kind} dates found in Wikipedia for {item_id}: {other_dates}"
+        )
+    wp = other_dates[0].normalize()
+    mismatch = True
+    calendar_hint = None
+
+    for wd0 in self_dates:
+        wd = wd0.normalize()
+        if (wd.year, wd.month, wd.day, wd.precision) == (wp.year, wp.month, wp.day, wp.precision):
+            if wd.calendarmodel == wp.calendarmodel or (
+                wd.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR or
+                wp.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
             ):
-                if (
-                    wd.calendarmodel == wp.calendarmodel
-                    or wd.calendarmodel
-                    == template_date_extractor.URL_UNSPECIFIED_CALENDAR
-                    or wp.calendarmodel
-                    == template_date_extractor.URL_UNSPECIFIED_CALENDAR
-                ):
-                    mismatch = False
-                    break
-                elif (
-                    wp.calendarmodel
-                    == template_date_extractor.URL_PROLEPTIC_JULIAN_CALENDAR
-                ):
-                    same_except_julian = True
-                elif (
-                    wp.calendarmodel
-                    == template_date_extractor.URL_PROLEPTIC_GREGORIAN_CALENDAR
-                ):
-                    same_except_gregorian = True
-        if mismatch:
-            if same_except_julian:
-                raise RuntimeError(
-                    f"{kind.capitalize()} date mismatch for {item_id}: should be Julian"
-                )
-            if same_except_gregorian:
-                raise RuntimeError(
-                    f"{kind.capitalize()} date mismatch for {item_id}: should be Gregorian"
-                )
+                mismatch = False
+                break
+            elif wp.calendarmodel == tde.URL_PROLEPTIC_JULIAN_CALENDAR:
+                calendar_hint = "Julian"
+            elif wp.calendarmodel == tde.URL_PROLEPTIC_GREGORIAN_CALENDAR:
+                calendar_hint = "Gregorian"
+
+    if mismatch:
+        if calendar_hint:
             raise RuntimeError(
-                f"{kind.capitalize()} date mismatch for {item_id}: Wikidata {print_dates(self_dates)} vs Wikipedia {print_dates(other_dates)}"
+                f"{kind.capitalize()} date mismatch for {item_id}: should be {calendar_hint}"
             )
+        raise RuntimeError(
+            f"{kind.capitalize()} date mismatch for {item_id}:"
+            f"Wikidata {print_dates(self_dates)} vs Wikipedia {print_dates(other_dates)}"
+        )
 
 
 def compare_person_dates(
     wikidata_dates: PersonDates, wikipedia_dates: PersonDates
 ) -> dict:
-    # Flexible key sets: treat unspecified as wildcard
-    def keys_with_unspecified(dates):
-        # Returns a set of keys, with calendarmodel None for unspecified
-        return {wbtime_key_flexible(d) for d in dates}
-
-    wd_birth_keys = keys_with_unspecified(wikidata_dates.birth)
-    wd_death_keys = keys_with_unspecified(wikidata_dates.death)
-    wp_birth_keys = keys_with_unspecified(wikipedia_dates.birth)
-    wp_death_keys = keys_with_unspecified(wikipedia_dates.death)
-
-    # Helper: match if all fields except calendarmodel match, or if either calendarmodel is None
-    def is_match(key1, key2):
-        return key1[:4] == key2[:4] and (
-            key1[4] is None or key2[4] is None or key1[4] == key2[4]
-        )
 
     def find_matches(wd_dates, wp_dates):
         matches = []
@@ -296,7 +272,7 @@ def compare_person_dates(
             found = False
             for wp in wp_dates:
                 wp_key = wbtime_key_flexible(wp)
-                if is_match(wd_key, wp_key):
+                if wbtime_keys_match(wd_key, wp_key):
                     found = True
                     break
             if found:
@@ -343,14 +319,14 @@ def fetch_page(site, title):
     return page.text  # raw wikitext
 
 
-def load_template_config(path: str):
-    with open(path, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    return config
-
-
-def get_country_qid_from_yaml(country_code: str, path: str) -> Optional[str]:
-    with open(path, encoding="utf-8") as f:
+def load_template_config(filename: str):
+    path = YAML_DIR / filename        
+    with path.open(encoding="utf-8") as f:
+        return yaml.safe_load(f)
+        
+def get_country_qid_from_yaml(country_code: str, filename: str) -> Optional[str]:
+    path = YAML_DIR / filename         
+    with path.open(encoding="utf-8") as f:
         config = yaml.safe_load(f)
     for key, value in config.items():
         if value.get("code") == country_code:
@@ -358,8 +334,9 @@ def get_country_qid_from_yaml(country_code: str, path: str) -> Optional[str]:
     return None
 
 
-def ensure_qid_in_yaml(filepath, qid, tracker):
-    with open(filepath, "r", encoding="utf-8") as f:
+def ensure_qid_in_yaml(filename, qid, tracker):
+    path = YAML_DIR / filename     
+    with path.open("r", encoding="utf-8") as f:
         lines = f.readlines()
 
     # Check if any line starts with the QID followed by a colon
@@ -382,7 +359,7 @@ def ensure_qid_in_yaml(filepath, qid, tracker):
         code, description = info
 
         block = f"\n{qid}:\n    code: {code}\n    description: {description}\n"
-        with open(filepath, "a", encoding="utf-8") as f:
+        with path.open("a", encoding="utf-8") as f:
             f.write(block)
 
 
@@ -473,14 +450,14 @@ class PersonLocale:
 
         self.sorted_countries = self.get_weighted_countries()
         self.sorted_languages = self.get_weighted_languages()
-        self.wikicode = self.get_preferred_wikicode()
-        if not self.wikicode:
+        self.sitekey = self.get_preferred_sitekey()
+        if not self.sitekey:
             raise RuntimeError("No most relevant Wikipedia page")
-        self.sitelink = self.item.sitelinks[self.wikicode]
+        self.sitelink = self.item.sitelinks[self.sitekey]
         self.language = self.sitelink.site.lang
 
-        self.lang_config = template_date_extractor.LanguageConfig(
-            self.language, load_template_config("dob_dod_templates.yaml")
+        self.lang_config = tde.LanguageConfig(
+            self.language, load_template_config("languages.yaml")
         )
         if not self.lang_config.month_map:
             if self.language != "en":
@@ -494,21 +471,19 @@ class PersonLocale:
                 raise RuntimeError(
                     f"Language {self.language} has no fallback_countrycode"
                 )
-            self.country = get_country_qid_from_yaml(
-                country_code, path="countries.yaml"
-            )
+            self.country = get_country_qid_from_yaml(country_code, "countries.yaml")
 
-        self.country_config = template_date_extractor.CountryConfig(
+        self.country_config = tde.CountryConfig(
             self.country, load_template_config("countries.yaml")
         )
         if not self.country_config.first_gregorian_date:
             ensure_qid_in_yaml(
-                qid=self.country, filepath="countries.yaml", tracker=self.tracker
+                qid=self.country, filename="countries.yaml", tracker=self.tracker
             )
         if not self.country_config.first_gregorian_date:
             raise RuntimeError(f"No first_gregorian_date for {self.country}")
 
-    def get_preferred_wikicode(self) -> Optional[str]:
+    def get_preferred_sitekey(self) -> Optional[str]:
         sitelinks = self.item.sitelinks
         # Filter out unusable sitelinks
         usable_sitelinks = {
@@ -521,19 +496,19 @@ class PersonLocale:
             raise RuntimeError("No usable Wikipedia page")
         if len(usable_sitelinks) == 1:
             # Only one usable sitelink, return it directly
-            wikicode = next(iter(usable_sitelinks.keys()))
-            return wikicode
+            sitekey = next(iter(usable_sitelinks.keys()))
+            return sitekey
 
         for lang in self.sorted_languages:
-            wikicode = f"{lang}wiki"
-            if wikicode in usable_sitelinks:
-                return wikicode
+            sitekey = f"{lang}wiki"
+            if sitekey in usable_sitelinks:
+                return sitekey
 
         # tracker returns a list of wikis sorted by active users
         for lang in self.tracker.get_sorted_languages():
-            wikicode = f"{lang}wiki"
-            if wikicode in usable_sitelinks:
-                return wikicode
+            sitekey = f"{lang}wiki"
+            if sitekey in usable_sitelinks:
+                return sitekey
 
         return None
 
@@ -613,7 +588,7 @@ class EntityDateReconciler:
         y,
         m=None,
         d=None,
-        calendarmodel=template_date_extractor.URL_UNSPECIFIED_CALENDAR,
+        calendarmodel=tde.URL_UNSPECIFIED_CALENDAR,
     ):
         try:
             y, m, d = int(y), int(m) if m else None, int(d) if d else None
@@ -630,42 +605,35 @@ class EntityDateReconciler:
         except Exception:
             return None
 
-    def parse_date_string(self, date_str, dayfirst=True):
-        date_str = self.locale.lang_config.normalize_date_str(date_str)
-        try:
-            dt = date_parse(date_str, dayfirst=dayfirst, fuzzy=True)
-            return dt.year, dt.month if dt.month else None, dt.day if dt.day else None
-        except Exception:
-            return None, None, None
-
     def extract_distinct_dates(self) -> PersonDates:
         template_graph = walk_templates(self.wikicode)
         dob_dates = []
         dod_dates = []
         for child, parent in template_graph:
-            name = child.name.strip_code().strip().lower().replace("_", " ")
+            name = tde.normalize_wikicode_name(child.name.strip_code())
             if name in self.locale.lang_config.date_templates:
                 continue
             if name not in self.locale.lang_config.template_map:
                 continue
+
+            if parent:
+                parent_name = tde.normalize_wikicode_name(parent.name.strip_code())
+                if not self.locale.lang_config.is_known_template(parent_name):
+                    raise RuntimeError(
+                        f"Unknown parent template: {parent_name}, child: {name}"
+                    )
+
             for tpl_cfg in self.locale.lang_config.template_map[name]:
-                extractor = template_date_extractor.TemplateDateExtractor(
+                extractor = tde.TemplateDateExtractor(
                     tpl_cfg, child, self.locale.lang_config, self.locale.country_config
                 )
                 for result in extractor.get_all_dates():
-                    if parent:
-                        parent_name = (
-                            parent.name.strip_code().strip().lower().replace("_", " ")
-                        )
-                        if not self.locale.lang_config.is_known_template(parent_name):
-                            raise RuntimeError(
-                                f"Unknown parent template: {parent_name}, child: {name}"
-                            )
                     # result is a tuple: (typ, y, m, d, cal_model)
                     if not result or len(result) < 5:
                         continue
                     typ, y, m, d, cal_model = result
                     if y:
+                        # todo: move to TemplateDateExtractor
                         wbt = self.build_wbtime(y, m, d, calendarmodel=cal_model)
                         if wbt:
                             if typ == "birth":
@@ -683,8 +651,8 @@ class EntityDateReconciler:
         if not self.wikicode:
             return matches
         for tpl in self.wikicode.filter_templates():
-            # todo; functie aanroepen
-            name = tpl.name.strip_code().strip().lower().replace("_", " ")
+            name = tde.normalize_wikicode_name(tpl.name.strip_code())
+            # skip generic date templates
             if name in self.locale.lang_config.date_templates:
                 continue
             if name in self.locale.lang_config.ignore_templates:
@@ -725,7 +693,7 @@ class EntityDateReconciler:
         if not self.wikicode:
             return matches
         for tpl in self.wikicode.filter_templates():
-            name = tpl.name.strip_code().strip().lower().replace("_", " ")
+            name = tde.normalize_wikicode_name(tpl.name.strip_code())
             if name in self.locale.lang_config.date_templates:
                 continue
             if name in self.locale.lang_config.ignore_templates:
@@ -822,7 +790,9 @@ class EntityDateReconciler:
                 print(
                     f"No date matches found for {self.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
                 )
-                save_lead_sentence_to_yaml(self.item.id, self.locale.language, wikitext)
+                if not self.locale.language:
+                    raise RuntimeError('No language')
+                save_lead_sentence(self.item.id, self.locale.language, wikitext, self.tracker)
                 if self.tracker:
                     self.tracker.mark_done(
                         self.item.id, self.locale.language, "no matches found"
@@ -861,11 +831,11 @@ def extract_unsourced_dates_from_item(item: pwb.ItemPage) -> PersonDates:
 
 
 def save_matches_to_yaml(qid: str, matches: list[dict]):
-    output_path = "unmatched_templates.yaml"
+    output_path = YAML_DIR / "unmatched_templates.yaml"
 
     # Load existing content if present
     if os.path.exists(output_path):
-        with open(output_path, "r", encoding="utf-8") as f:
+        with output_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     else:
         data = {}
@@ -874,7 +844,7 @@ def save_matches_to_yaml(qid: str, matches: list[dict]):
     data[qid] = matches
 
     # Write updated content back
-    with open(output_path, "w", encoding="utf-8") as f:
+    with output_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
 
@@ -987,24 +957,27 @@ def extract_lead_sentence(wikitext: str) -> str:
     return raw_line.strip() if raw_line else ""
 
 
-def save_lead_sentence_to_yaml(qid: str, lang: Optional[str], wikitext: str):
-    output_path = "lead_sentences.yaml"
+def save_lead_sentence(qid: str, lang: str, wikitext: str, tracker: WikidataStatusTracker):
+    # output_path = YAML_DIR / "lead_sentences.yaml"
+
     lead_sentence = extract_lead_sentence(wikitext)
 
-    entry = {
-        "qid": qid,
-        "language": lang,
-        "lead_sentence": lead_sentence,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-    }
+    # entry = {
+    #     "qid": qid,
+    #     "language": lang,
+    #     "lead_sentence": lead_sentence,
+    #     "timestamp": datetime.utcnow().isoformat() + "Z",
+    # }
 
-    # Append as a new document for easy split/loading
-    with open(output_path, "a", encoding="utf-8") as f:
-        yaml.dump([entry], f, allow_unicode=True)
-        f.write("\n")  # separate documents
+    # # Append as a new document for easy split/loading
+    # with output_path.open("a", encoding="utf-8") as f:
+    #     yaml.dump([entry], f, allow_unicode=True)
+    #     f.write("\n")  # separate documents
+
+    tracker.add_lead_sentence(qid, lang, lead_sentence)
 
 
-def reconcile_entity_dates_with_tracker(
+def reconcile_dates(
     item: pwb.ItemPage, tracker: WikidataStatusTracker
 ):
     """
@@ -1024,7 +997,7 @@ def reconcile_entity_dates_with_tracker(
             return
         locale = PersonLocale(item, tracker)
         locale.load()
-        lang = locale.wikicode
+        lang = locale.sitekey
 
         reconciler = EntityDateReconciler(item, locale, tracker)
         reconciler.reconcile_sitelink_dates()

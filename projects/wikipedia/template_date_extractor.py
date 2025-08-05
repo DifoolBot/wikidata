@@ -43,8 +43,7 @@ class CountryConfig:
                     self.no_julian_calendar = value.get("no_julian_calendar")
                     break
         if self.no_julian_calendar:
-
-            #      last_julian_date:
+            # last_julian_date:
             #     year: 1582
             #     month: 10
             #     day: 4
@@ -213,18 +212,6 @@ class LanguageConfig:
 
 
 class TemplateDateExtractor:
-    def get_value(self, typ: str, field: str):
-        """
-        Helper to get a value from self.values using normalized keys.
-        typ: 'birth', 'death', or ''
-        field: 'date', 'day and month', 'year', etc.
-        """
-        if typ:
-            key = f"{typ} {field}"
-        else:
-            key = field
-        return self.values.get(key)
-
     """
     Extracts and normalizes date values from Wikipedia templates using flexible parameter mapping and language-specific configuration.
     Handles Julian/Gregorian calendar assignment, month normalization, and special template logic.
@@ -240,7 +227,7 @@ class TemplateDateExtractor:
         self.tpl_cfg = tpl_cfg
         self.param_names = tpl_cfg.get("param_names", {})
         self.booleans = tpl_cfg.get("booleans", {})
-        self.dayfirst = tpl_cfg.get("dayfirst", True)
+        self.default_dayfirst = tpl_cfg.get("dayfirst", True)
         self.tpl = tpl
         self.values = {}
         self.birth_values = {}
@@ -299,6 +286,18 @@ class TemplateDateExtractor:
         # that combine both birth and death fields
         self.typ = tpl_cfg.get("typ")
 
+    def get_value(self, typ: str, field: str):
+        """
+        Helper to get a value from self.values using normalized keys.
+        typ: 'birth', 'death', or ''
+        field: 'date', 'day and month', 'year', etc.
+        """
+        if typ:
+            key = f"{typ} {field}"
+        else:
+            key = field
+        return self.values.get(key)
+
     def __parse_date_string(
         self,
         date_str: str,
@@ -313,7 +312,7 @@ class TemplateDateExtractor:
         try:
             date_str = self.lang_config.normalize_date_str(date_str)
             if not dayfirst:
-                dayfirst = self.dayfirst
+                dayfirst = self.default_dayfirst
             today = datetime.today()
             default1 = datetime(today.year + 1, 2, 2)  # 2 Feb next year
             default2 = datetime(today.year + 2, 3, 3)  # 3 Mar year after next
@@ -341,7 +340,6 @@ class TemplateDateExtractor:
             self.results.append(tup)
             return tup
         except Exception as e:
-            # Optionally log or print the error for debugging
             print(f"Date parse error for '{date_str}': {e}")
             return None
 
@@ -427,6 +425,7 @@ class TemplateDateExtractor:
                 else:
                     date = day_or_fulldate
             elif day_month and year:
+                # todo: dayfirst
                 date = f"{day_month} {year}"
 
             if date:

@@ -1,10 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from firebird.driver import connect
 import json
 
 
 class DatabaseHandler(ABC):
-    def __init__(self, config_filename: str):
+    def __init__(self, config_filename):
         # Initialize any required properties here
         with open(config_filename) as f:
             self.config = json.load(f)
