@@ -1,9 +1,16 @@
-from wikipedia.wikipedia_extractor import reconcile_dates, WikidataStatusTracker
-from shared_lib.database_handler import DatabaseHandler
-import pywikibot as pwb
-from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
-from pywikibot.data import sparql
 from pathlib import Path
+
+import pywikibot as pwb
+from pywikibot.data import sparql
+from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
+from wikipedia.wikipedia_extractor import (
+    WikidataStatusTracker,
+    reconcile_dates,
+    PersonLocale,
+)
+
+from shared_lib.database_handler import DatabaseHandler
+
 
 class FirebirdStatusTracker(DatabaseHandler, WikidataStatusTracker):
 
@@ -34,23 +41,32 @@ class FirebirdStatusTracker(DatabaseHandler, WikidataStatusTracker):
 
     def add_language(self, qid: str, language: str):
         sql = "EXECUTE PROCEDURE add_language(?, ?)"
-        self.execute_procedure(sql, (qid, language))        
+        self.execute_procedure(sql, (qid, language))
 
     def get_country_qid(self, place_qid: str):
-        rows = self.execute_query("SELECT QCOUNTRY FROM PLACE where QPLACE=?", (place_qid,))
+        rows = self.execute_query(
+            "SELECT QCOUNTRY FROM PLACE where QPLACE=?", (place_qid,)
+        )
         for row in rows:
             return row[0]
 
         return None
 
-    def set_country_qid(self, place_qid: str, place_label: str, country_qid: str, country_label: str):
+    def set_country_qid(
+        self, place_qid: str, place_label: str, country_qid: str, country_label: str
+    ):
         shortened_place_label = place_label[:255]
         shortened_country_label = country_label[:255]
         sql = "EXECUTE PROCEDURE add_place(?, ?, ?, ?)"
-        self.execute_procedure(sql, (place_qid, shortened_place_label, country_qid, shortened_country_label))
-    
+        self.execute_procedure(
+            sql,
+            (place_qid, shortened_place_label, country_qid, shortened_country_label),
+        )
+
     def get_languages_for_country(self, country_qid: str):
-        rows = self.execute_query("SELECT LANGUAGE FROM GET_LANGUAGES(?)", (country_qid,))
+        rows = self.execute_query(
+            "SELECT LANGUAGE FROM GET_LANGUAGES(?)", (country_qid,)
+        )
         results = []
         for row in rows:
             results.append(row[0])
@@ -76,26 +92,30 @@ where w.language is null"""
         code, description = info
         code = code.upper()
         if not code:
-            code = ''
+            code = ""
         shortened_desc = description[:255]
         sql = "EXECUTE PROCEDURE add_country(?, ?, ?)"
         self.execute_procedure(sql, (country_qid, code, shortened_desc))
 
-
     def get_country_info(self, country_qid: str):
-        rows = self.execute_query("SELECT countrycode,description FROM country where qcountry=?", (country_qid,))
+        rows = self.execute_query(
+            "SELECT countrycode,description FROM country where qcountry=?",
+            (country_qid,),
+        )
         for row in rows:
-            return row[0],row[1]
+            return row[0], row[1]
 
         return None
 
     def get_sorted_languages(self):
-        rows = self.execute_query("SELECT language FROM WIKI where sort_order is not null order by sort_order")
+        rows = self.execute_query(
+            "SELECT language FROM WIKI where sort_order is not null order by sort_order"
+        )
         result = []
         for row in rows:
             result.append(row[0])
         return result
-    
+
     def add_lead_sentence(self, qid: str, lang: str, lead_sentence: str):
         sql = """
             INSERT INTO lead_sentences (qid, lang, lead_sentence) 
@@ -108,7 +128,26 @@ where w.language is null"""
             conn.commit()
         finally:
             conn.close()
-            
+
+    def get_wikipedia_qid(self, lang: str):
+        rows = self.execute_query(
+            "SELECT wikipedia FROM wiki where language=?", (lang,)
+        )
+        for row in rows:
+            return row[0]
+
+        return None
+
+    # def add_source_to_claim(self, item, claim):
+    #     wdpage = cwd.WikiDataPage(item, None, test=False)
+    #     wdpage.load()
+    #     wdpage.add_statement(
+    #             cwd.DateOfBirth(self.create_date(date)),
+    #             reference=self.createwdref(date_info),
+    #         )
+    #     wdpage.apply()
+
+
 def iterate_query():
     qry = """SELECT ?item ?date ?precision WHERE {
         ?item p:P569/psv:P569 ?dateNode.
@@ -126,6 +165,7 @@ def iterate_query():
     site = pwb.Site("wikidata", "wikidata")
     for item in WikidataSPARQLPageGenerator(qry, site=site):
         yield item
+
 
 def calc_query(site, offset, limit) -> int:
     # 615810 items
@@ -146,12 +186,13 @@ def calc_query(site, offset, limit) -> int:
         
 }}"""
     query_object = sparql.SparqlQuery()
-    payload = query_object.query(query = query)
+    payload = query_object.query(query=query)
     if payload:
-        for row in payload['results']['bindings']:
-            count = int(row['count']['value'])
+        for row in payload["results"]["bindings"]:
+            count = int(row["count"]["value"])
             return count
-    raise RuntimeError('finished')
+    raise RuntimeError("finished")
+
 
 def calc():
     site = pwb.Site("wikidata", "wikidata")
@@ -171,29 +212,29 @@ def get_country_languages(country_qid: str):
     This is a placeholder function; actual implementation may vary.
     """
     query = f"""
-SELECT ?country ?countryLabel  ?langCode WHERE {{
-  VALUES ?country {{ wd:{country_qid} }}  # Replace with your country QID
+            SELECT ?country ?countryLabel  ?langCode WHERE {{
+            VALUES ?country {{ wd:{country_qid} }}  # Replace with your country QID
 
-  # Get official languages
-  ?country wdt:P37 ?language.
-  ?language wdt:P218 ?langCode.  # ISO 639-1 code
+            # Get official languages
+            ?country wdt:P37 ?language.
+            ?language wdt:P218 ?langCode.  # ISO 639-1 code
 
-  # Get English label and description
-  SERVICE wikibase:label {{
-    bd:serviceParam wikibase:language "en".
-    ?country rdfs:label ?countryLabel.
-    ?country schema:description ?description.
-  }}
-}}
+            # Get English label and description
+            SERVICE wikibase:label {{
+                bd:serviceParam wikibase:language "en".
+                ?country rdfs:label ?countryLabel.
+                ?country schema:description ?description.
+            }}
+            }}
     """
     query_object = sparql.SparqlQuery()
-    payload = query_object.query(query = query)
+    payload = query_object.query(query=query)
     results = []
     if payload:
-        for row in payload['results']['bindings']:
-            country_desc = row['countryLabel']['value']
-            lang = row['langCode']['value']    
-            
+        for row in payload["results"]["bindings"]:
+            country_desc = row["countryLabel"]["value"]
+            lang = row["langCode"]["value"]
+
             results.append((country_qid, country_desc, lang))
 
     return results
@@ -204,11 +245,30 @@ def query_loop():
     for item in iterate_query():
         reconcile_dates(item, tracker)
 
+
 def todo():
     tracker = FirebirdStatusTracker()
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
         reconcile_dates(item, tracker)
+
+
+def do_item(qid: str):
+    tracker = FirebirdStatusTracker()
+    item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
+    reconcile_dates(item, tracker, check_already_done=False)
+
+
+def do_sandbox(qid: str):
+    tracker = FirebirdStatusTracker()
+    sandbox_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), "Q15397819")
+    real_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
+    locale = PersonLocale(real_item, tracker)
+    locale.load()
+    reconcile_dates(
+        sandbox_item, tracker, check_already_done=False, locale=locale, test=False
+    )
+
 
 def fill():
     tracker = FirebirdStatusTracker()
@@ -222,10 +282,12 @@ def fill():
 
 
 def main():
-    #todo()
-    query_loop()
-    #fill()
-    #calc()
+    # todo()
+    # query_loop()
+    # fill()
+    # calc()
+    do_sandbox("Q5863042")
+
 
 if __name__ == "__main__":
     main()

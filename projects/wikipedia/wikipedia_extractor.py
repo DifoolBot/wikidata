@@ -3,7 +3,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import mwparserfromhell
@@ -13,7 +13,8 @@ import yaml
 from dateutil.parser import parse as date_parse
 from mwparserfromhell.nodes import Template, Wikilink
 from pywikibot.data import sparql
-from pathlib import Path
+
+import shared_lib.change_wikidata as cwd
 
 # todo
 # O if only diff is cal model, then can change if no sources; Q23659454
@@ -32,13 +33,14 @@ from pathlib import Path
 #   O2. check in code
 #    3. review, clean up code
 #    4. changes:
-#         - lead text to database
+#   O     - lead text to database
 #         - generate report of mismatches
 #    5. make request
 #    6. iterate 50 items
 #    7. publish request
 
 YAML_DIR = Path(__file__).parent
+
 
 # Abstract base class for tracking Wikidata item processing status
 class WikidataStatusTracker(ABC):
@@ -95,6 +97,10 @@ class WikidataStatusTracker(ABC):
     def add_lead_sentence(self, qid: str, lang: str, lead_sentence: str):
         pass
 
+    @abstractmethod
+    def get_wikipedia_qid(self, lang: str):
+        pass
+
 
 def wbtime_key(w: pwb.WbTime):
     w_norm = w.normalize()
@@ -119,6 +125,7 @@ def wbtime_key_flexible(w: pwb.WbTime):
         w_norm.precision,
         w_norm.calendarmodel,
     )
+
 
 def wbtime_keys_match(key1, key2) -> bool:
     return key1[:4] == key2[:4] and (
@@ -189,6 +196,7 @@ class PersonDates:
             candidates.extend([d for d in self.death if matches(d)])
         return candidates
 
+
 def print_dates(dates: List[pwb.WbTime]) -> str:
     CALENDAR_LABELS = {
         tde.URL_PROLEPTIC_JULIAN_CALENDAR: "Julian",
@@ -202,11 +210,16 @@ def print_dates(dates: List[pwb.WbTime]) -> str:
             f"m={date.month}" if date.month and date.precision >= 10 else None,
             f"d={date.day}" if date.day and date.precision >= 11 else None,
             f"p={date.precision}",
-            CALENDAR_LABELS.get(date.calendarmodel) if date.calendarmodel is not None else None,
+            (
+                CALENDAR_LABELS.get(date.calendarmodel)
+                if date.calendarmodel is not None
+                else None
+            ),
         ]
         return ",".join(p for p in parts if p is not None)
 
     return ";".join(describe(d) for d in dates)
+
 
 def assert_no_conflicting_dates(
     wikidata_dates, wikipedia_dates: PersonDates, kind: str, item_id: str
@@ -237,10 +250,15 @@ def assert_no_conflicting_dates(
 
     for wd0 in self_dates:
         wd = wd0.normalize()
-        if (wd.year, wd.month, wd.day, wd.precision) == (wp.year, wp.month, wp.day, wp.precision):
+        if (wd.year, wd.month, wd.day, wd.precision) == (
+            wp.year,
+            wp.month,
+            wp.day,
+            wp.precision,
+        ):
             if wd.calendarmodel == wp.calendarmodel or (
-                wd.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR or
-                wp.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
+                wd.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
+                or wp.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
             ):
                 mismatch = False
                 break
@@ -320,12 +338,13 @@ def fetch_page(site, title):
 
 
 def load_template_config(filename: str):
-    path = YAML_DIR / filename        
+    path = YAML_DIR / filename
     with path.open(encoding="utf-8") as f:
         return yaml.safe_load(f)
-        
+
+
 def get_country_qid_from_yaml(country_code: str, filename: str) -> Optional[str]:
-    path = YAML_DIR / filename         
+    path = YAML_DIR / filename
     with path.open(encoding="utf-8") as f:
         config = yaml.safe_load(f)
     for key, value in config.items():
@@ -335,7 +354,7 @@ def get_country_qid_from_yaml(country_code: str, filename: str) -> Optional[str]
 
 
 def ensure_qid_in_yaml(filename, qid, tracker):
-    path = YAML_DIR / filename     
+    path = YAML_DIR / filename
     with path.open("r", encoding="utf-8") as f:
         lines = f.readlines()
 
@@ -575,13 +594,21 @@ def walk_templates(wikicode, parent=None, graph=None):
 
 class EntityDateReconciler:
     def __init__(
-        self, item: pwb.ItemPage, locale: PersonLocale, tracker: WikidataStatusTracker
+        self,
+        page: cwd.WikiDataPage,
+        locale: PersonLocale,
+        tracker: WikidataStatusTracker,
     ):
-        self.item = item
+        self.page = page
         self.sitelink = locale.sitelink
         self.locale = locale
         self.tracker = tracker
         self.wikicode: Optional[mwparserfromhell.wikicode.Wikicode] = None
+        if not locale.language:
+            raise RuntimeError("No language")
+        self.wikipedia_qid = tracker.get_wikipedia_qid(locale.language)
+        if not self.wikipedia_qid:
+            raise RuntimeError(f"No qid for language {locale.language}")
 
     def build_wbtime(
         self,
@@ -729,6 +756,11 @@ class EntityDateReconciler:
                             )
         return matches
 
+    def create_ref(self) -> cwd.Reference:
+        if not self.wikipedia_qid:
+            raise RuntimeError("No wikipedia_qid")
+        return cwd.WikipediaReference(self.wikipedia_qid)
+
     def reconcile_sitelink_dates(self):
         if not self.sitelink:
             raise RuntimeError("No sitelink")
@@ -740,15 +772,15 @@ class EntityDateReconciler:
         self.wikicode = mwparserfromhell.parse(wikitext)
 
         wikipedia_dates = self.extract_distinct_dates()
-        wikidata_dates = extract_unsourced_dates_from_item(self.item)
+        wikidata_dates = extract_unsourced_dates_from_item(self.page.item)
 
         # Raise if both Wikidata and Wikipedia have a birth date and they are different
         assert_no_conflicting_dates(
-            wikidata_dates, wikipedia_dates, "birth", self.item.id
+            wikidata_dates, wikipedia_dates, "birth", self.page.item.id
         )
         # Raise if both Wikidata and Wikipedia have a death date and they are different
         assert_no_conflicting_dates(
-            wikidata_dates, wikipedia_dates, "death", self.item.id
+            wikidata_dates, wikipedia_dates, "death", self.page.item.id
         )
 
         result = compare_person_dates(wikidata_dates, wikipedia_dates)
@@ -759,27 +791,34 @@ class EntityDateReconciler:
         if (not wikidata_dates.birth or matched_birth) and (
             not wikidata_dates.death or matched_death
         ):
-            # Safe to source both birth and death claims
+
             pairs = []
-            if matched_birth and len(matched_birth) > 0:
-                pairs.append((matched_birth[0], "P569"))
-            if matched_death and len(matched_death) > 0:
-                pairs.append((matched_death[0], "P570"))
-            for date, pid in pairs:
-                claims = find_claim_by_wbtime(self.item, pid, date)
-                if len(claims) != 1:
-                    raise RuntimeError(
-                        f"{self.item.id}: Expected one claim for {pid}, got {len(claims)}"
-                    )
-                add_source_to_claim(claims[0], self.sitelink)
+            if matched_birth:
+                pairs.append((matched_birth[0], cwd.DateOfBirth))
+            if matched_death:
+                pairs.append((matched_death[0], cwd.DateOfDeath))
+
+            for date, StatementClass in pairs:
+                statement = StatementClass(
+                    date=cwd.Date.create_from_WbTime(date),
+                    ignore_calendar_model=True,
+                    require_unreferenced=True,
+                    only_change=True,
+                )
+                self.page.add_statement(statement, reference=self.create_ref())
+
+            self.page.summary = f"data from [[{self.wikipedia_qid}]]"
+
             if self.tracker:
                 self.tracker.mark_done(
-                    self.item.id, self.locale.language, "successfully sourced dates"
+                    self.page.item.id,
+                    self.locale.language,
+                    "successfully sourced dates",
                 )
         else:
             # Partial or no matches — attempt template tracing
             print(
-                f"Partial match for {self.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                f"Partial match for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
             )
             unmatched_dates = PersonDates(birth=unmatched_birth, death=unmatched_death)
             matches = self.find_date_matches_any_order(
@@ -788,23 +827,25 @@ class EntityDateReconciler:
 
             if not matches:
                 print(
-                    f"No date matches found for {self.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                    f"No date matches found for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
                 )
                 if not self.locale.language:
-                    raise RuntimeError('No language')
-                save_lead_sentence(self.item.id, self.locale.language, wikitext, self.tracker)
+                    raise RuntimeError("No language")
+                save_lead_sentence(
+                    self.page.item.id, self.locale.language, wikitext, self.tracker
+                )
                 if self.tracker:
                     self.tracker.mark_done(
-                        self.item.id, self.locale.language, "no matches found"
+                        self.page.item.id, self.locale.language, "no matches found"
                     )
             else:
                 print(
-                    f"Found {len(matches)} date matches for {self.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                    f"Found {len(matches)} date matches for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
                 )
-                save_matches_to_yaml(self.item.id, matches)
+                save_matches_to_yaml(self.page.item.id, matches)
                 if self.tracker:
                     self.tracker.mark_done(
-                        self.item.id, self.locale.language, "matches found"
+                        self.page.item.id, self.locale.language, "matches found"
                     )
 
 
@@ -894,8 +935,8 @@ def lookup_country_info(country_qid: str):
     return None
 
 
-def add_source_to_claim(claim: pwb.Claim, sitelink: pwb.Page):
-    print(f"Adding source to claim {claim.id} for sitelink {sitelink.title}")
+# def add_source_to_claim(claim: pwb.Claim, sitelink: pwb.Page):
+#     print(f"Adding source to claim {claim.id} for sitelink {sitelink.title}")
 
 
 def first_non_template_line_with_index(wikitext: str) -> Tuple[int, str]:
@@ -957,7 +998,9 @@ def extract_lead_sentence(wikitext: str) -> str:
     return raw_line.strip() if raw_line else ""
 
 
-def save_lead_sentence(qid: str, lang: str, wikitext: str, tracker: WikidataStatusTracker):
+def save_lead_sentence(
+    qid: str, lang: str, wikitext: str, tracker: WikidataStatusTracker
+):
     # output_path = YAML_DIR / "lead_sentences.yaml"
 
     lead_sentence = extract_lead_sentence(wikitext)
@@ -978,29 +1021,43 @@ def save_lead_sentence(qid: str, lang: str, wikitext: str, tracker: WikidataStat
 
 
 def reconcile_dates(
-    item: pwb.ItemPage, tracker: WikidataStatusTracker
+    item: pwb.ItemPage,
+    tracker: WikidataStatusTracker,
+    check_already_done: bool = True,
+    locale: Optional[PersonLocale] = None,
+    test: bool = True,
 ):
     """
     Reconcile dates for a Wikidata item, using a status tracker to avoid reprocessing.
     """
     lang = ""
-    if tracker.is_done(item.id):
-        print(f"Item {item.id} already processed.")
-        return
-    if tracker.is_error(item.id):
-        print(f"Item {item.id} already processed.")
-        return
+    if check_already_done:
+        if tracker.is_done(item.id):
+            print(f"Item {item.id} already processed.")
+            return
+        if tracker.is_error(item.id):
+            print(f"Item {item.id} already processed.")
+            return
 
     try:
+        page = cwd.WikiDataPage(item, test=test)
+
         if not item.sitelinks:
             tracker.mark_done(item.id, None, "no sitelinks")
             return
-        locale = PersonLocale(item, tracker)
-        locale.load()
-        lang = locale.sitekey
+        if not locale:
+            locale = PersonLocale(item, tracker)
+            locale.load()
+            lang = locale.sitekey
 
-        reconciler = EntityDateReconciler(item, locale, tracker)
+        reconciler = EntityDateReconciler(page, locale, tracker)
         reconciler.reconcile_sitelink_dates()
+
+        if len(page.actions) > 0:
+            page.check_date_statements()
+
+        page.apply()
+
     except RuntimeError as e:
         print(f"Error processing item {item.id}: {lang} {e}")
         tracker.mark_error(item.id, f"{lang} {str(e)}".strip())

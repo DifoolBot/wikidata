@@ -1,6 +1,7 @@
-from abc import ABC
-from firebird.driver import connect
 import json
+from abc import ABC
+
+from firebird.driver import connect
 
 
 class DatabaseHandler(ABC):

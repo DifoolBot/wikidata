@@ -1,15 +1,16 @@
-import pywikibot as pwb
-import constants as wd
 import abc
-# TODO: remove
-from interface_statedin import IStatedIn
-from typing import List, Dict, Set, Optional
+import time
 from collections import OrderedDict
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
 from datetime import date
-# TODO: remove
-import requests
+from typing import Dict, List, Optional
 
+import pywikibot as pwb
+
+import shared_lib.constants as wd
+
+URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
+URL_PROLEPTIC_GREGORIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985727"
 
 PRECISION_DAY = 11
 PRECISION_MONTH = 10
@@ -18,6 +19,7 @@ PRECISION_DECADE = 8
 PRECISION_CENTURY = 7
 PRECISION_MILLENNIUM = 6
 
+# TODO: move naar constants
 PID_NATURE_OF_STATEMENT = "P5102"
 PID_REASON_FOR_PREFERRED_RANK = "P7452"
 PID_SOURCING_CIRCUMSTANCES = "P1480"
@@ -25,6 +27,7 @@ QID_CIRCA = "Q5727902"
 QID_MOST_PRECISE_VALUE = "Q71536040"
 QID_POSSIBLY = "Q30230067"
 
+MAX_LAG_BACKOFF_SECS = 10 * 60
 
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
@@ -49,13 +52,12 @@ def sort_pids(pids):
 
 
 class Reference(abc.ABC):
-    def __init__(self, pid: str, external_id: str, heuristic_qid: str = None):
-        self.pid = pid
-        self.external_id = external_id
-        self.heuristic_qid = heuristic_qid
-
     @abc.abstractmethod
     def is_equal_reference(self, src) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def create_source(self):
         raise NotImplementedError
 
     def has_equal_reference(self, claim) -> bool:
@@ -66,13 +68,39 @@ class Reference(abc.ABC):
         return False
 
 
+class WikipediaReference(Reference):
+    def __init__(self, wikipedia_qid: str):
+        self.wikipedia_qid = wikipedia_qid
+
+    def is_equal_reference(self, src) -> bool:
+        if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in src:
+            for claim in src[wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT]:
+                actual = claim.getTarget()
+                if actual == self.wikipedia_qid:
+                    return True
+        return False
+
+    def create_source(self):
+        source = OrderedDict()
+
+        imported_from_claim = pwb.Claim(
+            REPO, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT, is_reference=True
+        )
+        imported_from_claim.setTarget(pwb.ItemPage(REPO, self.wikipedia_qid))
+        source[wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT] = [imported_from_claim]
+
+        return source
+
+
 class WikidataEntity(abc.ABC):
     wd_page: "WikiDataPage"
-    reference: Reference
+    reference: Optional[Reference]
 
+    # TODO : rename? can_apply
     def can_add(self) -> bool:
         return True
 
+    # TODO : rename? apply
     @abc.abstractmethod
     def add(self):
         raise NotImplementedError
@@ -94,45 +122,62 @@ class Action:
     def post_apply(self):
         raise NotImplementedError
 
+
 class Statement(WikidataEntity):
 
+    # TODO : rename?
     def add(self):
         prop = self.get_prop()
         if prop in self.wd_page.claims:
             for claim in self.wd_page.claims[prop]:
                 if self.can_attach_to_claim(claim, strict=True):
-                    if self.reference.has_equal_reference(claim):
-                        print(" already added")
-                    else:
-                        print(TextColor.OKCYAN + " reference added" + TextColor.ENDC)
-                        self.add_reference(claim)
+                    if claim.rank == "deprecated":
+                        raise RuntimeError("claim is deprecated; strict = True")
+                    if self.reference:
+                        if self.reference.has_equal_reference(claim):
+                            print(" already added")
+                        else:
+                            print(
+                                TextColor.OKCYAN + " reference added" + TextColor.ENDC
+                            )
+                            self.add_reference(claim)
                     return
 
         if prop in self.wd_page.claims:
             for claim in self.wd_page.claims[prop]:
                 if self.can_attach_to_claim(claim, strict=False):
+                    if claim.rank == "deprecated":
+                        raise RuntimeError("claim is deprecated; strict = False")
                     did_delete_ref = False
-                    if self.reference.has_equal_reference(claim):
-                        print(" reference deleted")
-                        self.delete_reference(claim, is_update=True)
-                        did_delete_ref = True
+                    if self.reference:
+                        if self.reference.has_equal_reference(claim):
+                            print(" reference deleted")
+                            self.delete_reference(claim, is_update=True)
+                            did_delete_ref = True
 
                     print(TextColor.OKBLUE + " statement changed" + TextColor.ENDC)
                     self.update_statement(claim)
 
-                    print(" reference added")
-                    self.add_reference(claim, is_update=did_delete_ref)
+                    if self.reference:
+                        print(" reference added")
+                        self.add_reference(claim, is_update=did_delete_ref)
                     return
 
-        print(TextColor.OKGREEN + " statement added" + TextColor.ENDC)
-        claim = self.add_statement()
+        if self.can_add_claim:
+            print(TextColor.OKGREEN + " statement added" + TextColor.ENDC)
+            claim = self.add_statement()
 
-        if self.reference:
-            print(" reference added")
-            self.add_reference(claim)
+            if self.reference:
+                print(" reference added")
+                self.add_reference(claim)
 
     @abc.abstractmethod
-    def get_prop(self) -> str:
+    def can_add_claim(self) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    # TODO: waarom optional
+    def get_prop(self) -> Optional[str]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -140,38 +185,10 @@ class Statement(WikidataEntity):
         raise NotImplementedError
 
     def add_reference(self, claim: pwb.Claim, is_update: bool = False):
-        source = OrderedDict()
+        if not self.reference:
+            return
 
-        stated_in_qid = self.wd_page.stated_in.get_stated_in_from_pid(
-            self.reference.pid
-        )
-
-        if stated_in_qid:
-            stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN, is_reference=True)
-            stated_in_claim.setTarget(pwb.ItemPage(REPO, stated_in_qid))
-            source[wd.PID_STATED_IN] = [stated_in_claim]
-
-        pid_claim = pwb.Claim(REPO, self.reference.pid, is_reference=True)
-        pid_claim.setTarget(self.reference.external_id)
-        source[self.reference.pid] = [pid_claim]
-
-        today = datetime.now(timezone.utc)
-        dateCre = pwb.WbTime(
-            year=int(today.strftime("%Y")),
-            month=int(today.strftime("%m")),
-            day=int(today.strftime("%d")),
-        )
-
-        retr_claim = pwb.Claim(REPO, wd.PID_RETRIEVED, is_reference=True)
-        retr_claim.setTarget(dateCre)
-        source[wd.PID_RETRIEVED] = [retr_claim]
-
-        if self.reference.heuristic_qid:
-            heur_claim = pwb.Claim(REPO, wd.PID_BASED_ON_HEURISTIC, is_reference=True)
-            heur_claim.setTarget(pwb.ItemPage(REPO, self.reference.heuristic_qid))
-            #        QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM,
-            source[wd.PID_BASED_ON_HEURISTIC] = [heur_claim]
-
+        source = self.reference.create_source()
 
         claim.sources.append(source)
         if is_update:
@@ -180,6 +197,9 @@ class Statement(WikidataEntity):
             self.wd_page.reference_added(claim)
 
     def delete_reference(self, claim: pwb.Claim, is_update: bool = False):
+        if not self.reference:
+            return
+
         new_sources = []
         found = False
         for source in claim.sources:
@@ -219,10 +239,10 @@ class Date:
     def __init__(
         self,
         year: int,
-        month: int = None,
-        day: int = None,
-        precision: int = None,
-        calendar: str = None,
+        month: int = 0,
+        day: int = 0,
+        precision: Optional[int] = None,
+        calendar: Optional[str] = None,
     ):
         self.year = year
         self.month = month
@@ -246,6 +266,42 @@ class Date:
             return f"Date(year={self.year}, month={self.month}, precision={self.precision}')"
         else:
             return f"Date(year={self.year}, precision={self.precision}')"
+
+    @classmethod
+    def is_equal(cls, item1, item2, ignore_calendar_model: bool):
+        if isinstance(item1, Date):
+            w1 = item1.create_wikidata_item()
+        else:
+            w1 = item1
+        if isinstance(item2, Date):
+            w2 = item2.create_wikidata_item()
+        else:
+            w2 = item2
+        if isinstance(w1, pwb.WbTime) and isinstance(w2, pwb.WbTime):
+            norm1 = w1.normalize()
+            norm2 = w2.normalize()
+            if ignore_calendar_model:
+                norm1.calendarmodel = norm2.calendarmodel
+            return norm1 == norm2
+        else:
+            return False
+
+    @classmethod
+    def create_from_WbTime(cls, item: pwb.WbTime) -> "Date":
+        if item.calendarmodel == URL_PROLEPTIC_JULIAN_CALENDAR:
+            calendar = "julian"
+        elif item.calendarmodel == URL_PROLEPTIC_GREGORIAN_CALENDAR:
+            calendar = "gregorian"
+        else:
+            raise RuntimeError(f"Unrecognized calendar {item.calendarmodel}")
+
+        return Date(
+            year=item.year,
+            month=item.month,
+            day=item.day,
+            precision=item.precision,
+            calendar=calendar,
+        )
 
     @classmethod
     def get_decade(cls, year: int) -> int:
@@ -305,7 +361,7 @@ class Date:
                 else:
                     raise RuntimeError("invalid precision")
 
-        return Date(year=year_mid, month=month_mid, day=None, precision=precision)
+        return Date(year=year_mid, month=month_mid, day=0, precision=precision)
 
     def is_1_jan(self) -> bool:
         return (
@@ -338,9 +394,9 @@ class Date:
             else:
                 calendar = "gregorian"
         if calendar == "julian":
-            return "http://www.wikidata.org/entity/Q1985786"
+            return URL_PROLEPTIC_JULIAN_CALENDAR
         if calendar == "gregorian":
-            return "http://www.wikidata.org/entity/Q1985727"
+            return URL_PROLEPTIC_GREGORIAN_CALENDAR
 
         raise RuntimeError(f"Unrecognized calendar {calendar}")
 
@@ -372,18 +428,19 @@ class Date:
         )
 
     def __eq__(self, other):
-        if isinstance(other, Date):
-            return (
-                self.year == other.year
-                and self.month == other.month
-                and self.day == other.day
-                and self.precision == other.precision
-            )
-        if isinstance(other, pwb.WbTime):
-            # FIXME calendarmodel
-            this = self.create_wikidata_item()
-            return this.normalize() == other.normalize()
-        return False
+        return Date.is_equal(self, other, ignore_calendar_model=False)
+        # if isinstance(other, Date):
+        #     return (
+        #         self.year == other.year
+        #         and self.month == other.month
+        #         and self.day == other.day
+        #         and self.precision == other.precision
+        #     )
+        # if isinstance(other, pwb.WbTime):
+        #     # FIXME calendarmodel
+        #     this = self.create_wikidata_item()
+        #     return this.normalize() == other.normalize()
+        # return False
 
     def as_string(self) -> str:
         if self.precision == PRECISION_YEAR:
@@ -392,67 +449,71 @@ class Date:
             return f"{self.year}-{self.month}"
         elif self.precision == PRECISION_DAY:
             return f"{self.year}-{self.month}-{self.day}"
+        else:
+            return f"Unknown precision {self.precision}"
 
-class Action:
-    @abc.abstractmethod
-    def prepare(self):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def apply(self):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def post_apply(self):
-        raise NotImplementedError
 
 class AddStatement(Action):
     def __init__(self, statement: Statement):
         self.statement = statement
         self.ignore = False
+
     def prepare(self):
         if not self.statement.can_add():
             self.ignore = True
+
     def apply(self):
         if not self.ignore:
             self.statement.add()
+
     def post_apply(self):
         if not self.ignore:
             self.statement.post_add()
 
+
 class DeleteStatement(Action):
     def __init__(self, statement: Statement):
         self.statement = statement
+
     def prepare(self):
         pass
+
     def apply(self):
-        claim = self.statement.find_claim()
-        self.statement.wd_page.save_deleted_claim(claim)
+        # claim = self.statement.find_claim()
+        # self.statement.wd_page.save_deleted_claim(claim)
+        pass
+
     def post_apply(self):
         pass
+
+
 class MoveReferences(Action):
     def __init__(self, from_statement: Statement, to_statement: Statement):
         self.from_statement = from_statement
         self.to_statement = to_statement
+
     def prepare(self):
         pass
+
     def apply(self):
-        from_claim = self.from_statement.find_claim()
-        to_claim = self.to_statement.find_claim()
+        # from_claim = self.from_statement.find_claim()
+        # to_claim = self.to_statement.find_claim()
         # todo
+        pass
 
     def post_apply(self):
         pass
+
+
 class CheckDateStatements(Action):
     def __init__(self, wd_page: "WikiDataPage", prop: str):
         self.wd_page = wd_page
         self.prop = prop
 
-
     def is_sourced(self, claim: pwb.Claim):
         """Check if the claim has at least one reference."""
         return bool(claim.sources)
-    
+
     def precision_level(self, claim: pwb.Claim):
         """Return numeric precision level: year=9, month=10, day=11"""
         t = claim.getTarget()
@@ -475,32 +536,36 @@ class CheckDateStatements(Action):
         if target1 is None or target2 is None:
             return False
         normalized1 = target1.normalize()
-        normalized = target2.normalize()
+        normalized2 = target2.normalize()
         low_prec = normalized1.precision
-        if normalized.precision < low_prec:
-            low_prec = normalized.precision
-        if low_prec <= 9 or (normalized1.precision != low_prec) or (normalized.precision != low_prec):
-            normalized1.calendarmodel = normalized.calendarmodel
+        if normalized2.precision < low_prec:
+            low_prec = normalized2.precision
+        if (
+            low_prec <= 9
+            or (normalized1.precision != low_prec)
+            or (normalized2.precision != low_prec)
+        ):
+            normalized1.calendarmodel = normalized2.calendarmodel
         normalized1.precision = low_prec
-        normalized.precision = low_prec
+        normalized2.precision = low_prec
         final1 = normalized1.normalize()
-        final2 = normalized.normalize()
+        final2 = normalized2.normalize()
         is_equal = final1 == final2
         return is_equal
 
     def process_property(self, claims):
         """Group statements by normalized date using a precision-to-claims map."""
-        if any(claim.rank == 'preferred' for claim in claims):
-            return # Skip if any statement is already preferred
+        if any(claim.rank == "preferred" for claim in claims):
+            return  # Skip if any statement is already preferred
 
         # Build a dictionary: { precision_level: [claims] }
         precision_map = {}
         for claim in claims:
-            if claim.rank == 'deprecated':
+            if claim.rank == "deprecated":
                 continue
             prec = self.precision_level(claim)
             if prec > 11:
-                raise RuntimeError('Unsupported precision > 11')
+                raise RuntimeError("Unsupported precision > 11")
             precision_map.setdefault(prec, []).append(claim)
 
         by_normalized = []
@@ -520,28 +585,28 @@ class CheckDateStatements(Action):
             # only deprecated statements; nothing to do
             return
         if len(by_normalized) != 1:
-            raise RuntimeError('len(by_normalized) != 1')
+            raise RuntimeError("len(by_normalized) != 1")
 
         group = by_normalized[0]
         if len(group) == 1:
             # only 1 claim, no need to change
             return
-        
+
         for claim in group:
             if claim.qualifiers:
                 if len(claim.qualifiers) != 0:
-                    raise RuntimeError('1 group with claims with qualifiers')
-        
+                    raise RuntimeError("1 group with claims with qualifiers")
+
         claim = group[0]
         if not self.is_sourced(claim):
-            raise RuntimeError('Unsourced best claim')
-        
-        if claim.rank == 'deprecated':
-            raise RuntimeError('Best claim is deprecated')
-        if claim.rank == 'preferred':
-            raise RuntimeError('Best claim is preferred')
+            raise RuntimeError("Unsourced best claim")
 
-        claim.rank = 'preferred'
+        if claim.rank == "deprecated":
+            raise RuntimeError("Best claim is deprecated")
+        if claim.rank == "preferred":
+            raise RuntimeError("Best claim is preferred")
+
+        claim.rank = "preferred"
         qualifier = pwb.Claim(REPO, PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
         target = pwb.ItemPage(REPO, QID_MOST_PRECISE_VALUE)
         qualifier.setTarget(target)
@@ -552,7 +617,7 @@ class CheckDateStatements(Action):
         pass
 
     def apply(self):
-        if self.prop in self.wd_page.item.claims:
+        if self.prop in self.wd_page.claims:
             try:
                 self.process_property(self.wd_page.claims[self.prop])
             except RuntimeError as e:
@@ -566,10 +631,10 @@ class CheckDateStatements(Action):
 class ItemStatement(Statement):
     def __init__(
         self,
-        qid: str = None,
-        start_date: Date = None,
-        end_date: Date = None,
-        qid_alternative: str = None,
+        qid: Optional[str] = None,
+        start_date: Optional[Date] = None,
+        end_date: Optional[Date] = None,
+        qid_alternative: Optional[str] = None,
     ):
         self.qid = qid
         self.qid_alternative = qid_alternative
@@ -663,18 +728,115 @@ class ItemStatement(Statement):
         return claim
 
 
+class DateQualifiers:
+    ALLOWED_PROPS = {
+        PID_NATURE_OF_STATEMENT,
+        PID_SOURCING_CIRCUMSTANCES,
+        wd.PID_EARLIEST_DATE,
+        wd.PID_LATEST_DATE,
+    }
+
+    def __init__(
+        self,
+        is_circa: bool,
+        earliest: Optional[Date] = None,
+        latest: Optional[Date] = None,
+    ):
+        self.is_circa = is_circa
+        self.earliest = earliest
+        self.latest = latest
+
+    @classmethod
+    def from_claim(cls, claim) -> "DateQualifiers":
+        quals = claim.qualifiers  # dict: prop → [Qualifier, …]
+
+        # 1. reject any unknown property
+        extra = set(quals) - cls.ALLOWED_PROPS
+        if extra:
+            raise RuntimeError(f"Unsupported qualifier props: {extra}")
+
+        # 2. parse is_circa: must only ever point to Q5727902
+        seen_circa = False
+        for prop in (PID_NATURE_OF_STATEMENT, PID_SOURCING_CIRCUMSTANCES):
+            for q in quals.get(prop, []):
+                target_qid = q.getTarget().getID()
+                if target_qid != QID_CIRCA:
+                    raise RuntimeError(f"Unknown value {target_qid!r} for {prop}")
+                seen_circa = True
+
+        # 3. parse earliest/latest dates
+        def parse_date(prop):
+            qlist = quals.get(prop, [])
+            if len(qlist) > 1:
+                raise RuntimeError(f"Multiple {prop} qualifiers")
+            if not qlist:
+                return None
+            return Date.create_from_WbTime(qlist[0].getTarget())
+
+        earliest = parse_date(wd.PID_EARLIEST_DATE)
+        latest = parse_date(wd.PID_LATEST_DATE)
+
+        return cls(is_circa=seen_circa, earliest=earliest, latest=latest)
+
+    @classmethod
+    def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
+        return cls(
+            is_circa=stmt.is_circa,
+            earliest=stmt.earliest,
+            latest=stmt.latest,
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, DateQualifiers):
+            return NotImplemented
+        return (
+            self.is_circa == other.is_circa
+            and self.earliest == other.earliest
+            and self.latest == other.latest
+        )
+
+    def __repr__(self):
+        return (
+            f"<DateQualifiers circa={self.is_circa!r}, "
+            f"earliest={self.earliest!r}, latest={self.latest!r}>"
+        )
+
+    @classmethod
+    def is_equal(cls, item1: "DateQualifiers", item2: "DateQualifiers", strict: bool):
+        if strict:
+            return item1 == item2
+        else:
+            return (
+                (item1.is_circa == item2.is_circa)
+                and (
+                    (not item1.earliest and not item2.earliest)
+                    or (item1.earliest == item2.earliest)
+                )
+                and (
+                    (not item1.latest and not item2.latest)
+                    or (item1.latest == item2.latest)
+                )
+            )
+
+
 class DateStatement(Statement):
     def __init__(
         self,
-        date: Date = None,
-        earliest: Date = None,
-        latest: Date = None,
+        date: Optional[Date] = None,
+        earliest: Optional[Date] = None,
+        latest: Optional[Date] = None,
         is_circa: bool = False,
+        ignore_calendar_model: bool = False,
+        require_unreferenced: bool = False,
+        only_change: bool = False,
     ):
         self.date = date
         self.earliest = earliest
         self.latest = latest
         self.is_circa = is_circa
+        self.ignore_calendar_model = ignore_calendar_model
+        self.require_unreferenced = require_unreferenced
+        self.only_change = only_change
 
     def __repr__(self):
         if self.earliest or self.latest:
@@ -682,38 +844,58 @@ class DateStatement(Statement):
         else:
             return f"{self.__class__.__name__}(date={self.date}, is_circa={self.is_circa}')"
 
+    def can_add_claim(self) -> bool:
+        return not self.only_change
+
     def can_attach_to_claim(self, claim, strict: bool) -> bool:
         dt = claim.getTarget()
-        if not self.date == dt:
+        ignore_calendar_model = not strict and self.ignore_calendar_model
+        if not Date.is_equal(
+            self.date, dt, ignore_calendar_model=ignore_calendar_model
+        ):
             return False
 
         has_circa = self.wd_page.is_circa(claim)
         if self.is_circa != has_circa:
             return False
 
-        qualifiers = [
-            (wd.PID_EARLIEST_DATE, self.earliest),
-            (wd.PID_LATEST_DATE, self.latest),
-        ]
-
-        for qualifier, value in qualifiers:
-            if qualifier in claim.qualifiers and value:
-                if not self.has_equal_qualifier(value, claim, qualifier):
-                    return False
-            elif strict and (qualifier in claim.qualifiers or value):
+        if self.require_unreferenced:
+            refs = claim.getSources()
+            if refs:
                 return False
-            elif qualifier in claim.qualifiers:
-                raise RuntimeError("Need to check this variant")
 
-        return True
+        # build & validate both qualifier‐sets
+        claim_qs = DateQualifiers.from_claim(claim)  # may raise
+        target_qs = DateQualifiers.from_statement(self)
+
+        # a single EQ check
+        return DateQualifiers.is_equal(claim_qs, target_qs, strict)
+
+        # qualifiers = [
+        #     (wd.PID_EARLIEST_DATE, self.earliest),
+        #     (wd.PID_LATEST_DATE, self.latest),
+        # ]
+
+        # for qualifier, value in qualifiers:
+        #     if qualifier in claim.qualifiers and value:
+        #         if not self.has_equal_qualifier(value, claim, qualifier):
+        #             return False
+        #     elif strict and (qualifier in claim.qualifiers or value):
+        #         return False
+        #     elif qualifier in claim.qualifiers:
+        #         raise RuntimeError("Need to check this variant")
+
+        # if self.has_unknown_qualifiers(claim):
+        #     raise RuntimeError("Unexpeced qualifier")
+
+        # return True
 
     def update_statement(self, claim: pwb.Claim):
         if self.is_circa and not self.wd_page.is_circa(claim):
             qual_claim = pwb.Claim(
                 REPO, wd.PID_SOURCING_CIRCUMSTANCES, is_qualifier=True
             )
-            # FIXME : const
-            qual_claim.setTarget(pwb.ItemPage(REPO, "Q5727902"))
+            qual_claim.setTarget(pwb.ItemPage(REPO, QID_CIRCA))
             claim.qualifiers.setdefault(wd.PID_SOURCING_CIRCUMSTANCES, []).append(
                 qual_claim
             )
@@ -735,7 +917,10 @@ class DateStatement(Statement):
                     claim.qualifiers.setdefault(qualifier, []).append(qual_claim)
         self.wd_page.claim_changed(claim)
 
-    def add_statement(self) -> pwb.Claim:
+    def add_statement(self) -> Optional[pwb.Claim]:
+        if not self.date:
+            return None
+
         pid = self.get_prop()
         claim = pwb.Claim(REPO, pid)
         claim.setTarget(self.date.create_wikidata_item())
@@ -746,7 +931,12 @@ class DateStatement(Statement):
 
 
 class ExternalIDStatement(Statement):
-    def __init__(self, url: str = None, prop: str = None, external_id: str = None):
+    def __init__(
+        self,
+        url: Optional[str] = None,
+        prop: Optional[str] = None,
+        external_id: Optional[str] = None,
+    ):
         self.url = url
         self.prop = prop
         self.external_id = external_id
@@ -764,6 +954,7 @@ class ExternalIDStatement(Statement):
 
     def can_add(self):
         if self.url and (not self.prop or not self.external_id):
+            raise RuntimeError("Not implemented")
             found_list = self.wd_page.stated_in.extract_ids_from_url(self.url)
             if not found_list:
                 raise RuntimeError(f"Unrecognized url {self.url}")
@@ -790,10 +981,10 @@ class ExternalIDStatement(Statement):
                 f"{self.url} - {self.prop} - {self.external_id} redirects to {actual_external_id}"
             )
             self.external_id = actual_external_id
-        
+
         return True
 
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return self.prop
 
     def update_statement(self, claim: pwb.Claim):
@@ -866,48 +1057,53 @@ class Label(WikidataEntity):
             print(TextColor.OKGREEN + " alias added" + TextColor.ENDC)
             self.wd_page.save_alias(self.language, self.text)
 
-    def get_prop(self) -> str:
-        return None
-
 
 class DateOfBirth(DateStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DATE_OF_BIRTH
 
     def post_add(self):
-        if self.date.precision >= PRECISION_YEAR:
-            self.wd_page.add_birth_year(self.date.year)
+        if self.date:
+            if self.date.precision:
+                if self.date.precision >= PRECISION_YEAR:
+                    self.wd_page.add_birth_year(self.date.year)
 
 
 class DateOfBaptism(DateStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DATE_OF_BAPTISM
 
     def post_add(self):
-        if self.date.precision >= PRECISION_YEAR:
-            self.wd_page.add_birth_year(self.date.year)
+        if self.date:
+            if self.date.precision:
+                if self.date.precision >= PRECISION_YEAR:
+                    self.wd_page.add_birth_year(self.date.year)
 
 
 class DateOfDeath(DateStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DATE_OF_DEATH
 
     def post_add(self):
-        if self.date.precision >= PRECISION_YEAR:
-            self.wd_page.add_death_year(self.date.year)
+        if self.date:
+            if self.date.precision:
+                if self.date.precision >= PRECISION_YEAR:
+                    self.wd_page.add_death_year(self.date.year)
 
 
 class DateOfBurialOrCremation(DateStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DATE_OF_BURIAL_OR_CREMATION
 
     def post_add(self):
-        if self.date.precision >= PRECISION_YEAR:
-            self.wd_page.add_death_year(self.date.year)
+        if self.date:
+            if self.date.precision:
+                if self.date.precision >= PRECISION_YEAR:
+                    self.wd_page.add_death_year(self.date.year)
 
 
 class PlaceOfBirth(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_PLACE_OF_BIRTH
 
     def post_add(self):
@@ -915,140 +1111,159 @@ class PlaceOfBirth(ItemStatement):
 
 
 class PlaceOfDeath(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_PLACE_OF_DEATH
 
 
 class SexOrGender(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_SEX_OR_GENDER
 
 
 class Father(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_FATHER
 
 
 class Mother(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_MOTHER
 
 
 class Child(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_CHILD
 
 
 class Patronym(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_PATRONYM_OR_MATRONYM
 
 
 class Occupation(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_OCCUPATION
 
 
 class MilitaryOrPoliceRank(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_MILITARY_OR_POLICE_RANK
 
 
 class NobleTitle(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_NOBLE_TITLE
 
 
 class PositionHeld(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_POSITION_HELD
 
 
 class WorkLocation(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_WORK_LOCATION
 
 
 class MasterOf(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_STUDENT
 
 
 class DescribedBySource(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DESCRIBED_BY_SOURCE
 
 
 class DepictedBy(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_DEPICTED_BY
 
 
 class StudentOf(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_STUDENT_OF
 
 
 class ReligionOrWorldview(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_RELIGION_OR_WORLDVIEW
 
 
 class MedicalCondition(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_MEDICAL_CONDITION
 
 
 class Genre(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_GENRE
 
 
 class LanguagesSpokenWrittenOrSigned(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_LANGUAGES_SPOKEN_WRITTEN_OR_SIGNED
 
 
 class MemberOf(ItemStatement):
-    def get_prop(self) -> str:
+    def get_prop(self) -> Optional[str]:
         return wd.PID_MEMBER_OF
 
 
-class WikiDataPage:
-    def __init__(self, item: pwb.ItemPage, stated_in: IStatedIn, test: bool):
-        self.item = item
-        self.actions = []
-        self.test = test
-        self.stated_in = stated_in
-        self.claims = None
-        self.changed_claims = []
-        self.deleted_claims = []
-        self.claims_with_changed_references = []
-        self.references_added = 0
-        self.references_changed = 0
-        self.references_deleted = 0
-        self.data = {}
-        self.summary = ""
-
-        self.birth_year_low = None
-        self.birth_year_high = None
-        self.death_year_low = None
-        self.death_year_high = None
-
-    def load(self):
-        qid = self.item.title()
+def ensure_loaded(item: pwb.ItemPage):
+    try:
+        qid = item.title()
 
         if not qid.startswith("Q"):  # ignore property pages and lexeme pages
-            return
+            raise RuntimeError(f"Skipping {qid} because it does not start with a Q")
 
-        if not self.item.exists():
-            return
+        if not item.exists():
+            raise RuntimeError(f"Skipping {qid} because it does not exists")
 
-        if self.item.isRedirectPage():
-            return
+    except pwb.exceptions.MaxlagTimeoutError as ex:
+        time.sleep(MAX_LAG_BACKOFF_SECS)
+        raise RuntimeError("max lag timeout. sleeping")
 
-        self.claims = self.item.get().get("claims")
-        self.determine_birth_death()
+    if item.isRedirectPage():
+        raise RuntimeError(f"Skipping {qid} because it is a redirect")
+
+    if not item.botMayEdit():
+        raise RuntimeError(f"Skipping {qid} because it cannot be edited by bots")
+
+    return item
+
+
+@dataclass
+class WikiDataPage:
+    item: pwb.ItemPage
+    test: bool
+
+    # defaults for everything else
+    actions: List = field(default_factory=list)
+    claims: Dict = field(init=False)
+    changed_claims: List = field(default_factory=list)
+    deleted_claims: List = field(default_factory=list)
+    claims_with_changed_references: List = field(default_factory=list)
+    references_added: int = 0
+    references_changed: int = 0
+    references_deleted: int = 0
+    data: Dict = field(default_factory=dict)
+    summary: str = ""
+    birth_year_low: Optional[int] = None
+    birth_year_high: Optional[int] = None
+    death_year_low: Optional[int] = None
+    death_year_high: Optional[int] = None
+
+    def __post_init__(self):
+        # ensure_loaded before anything else
+        self.item = ensure_loaded(self.item)
+        # safely extract claims once
+        self.claims = self.item.get().get("claims", {})
+
+    @classmethod
+    def from_qid(cls, site, qid: str, test: bool):
+        item = pwb.ItemPage(site, qid)
+        return cls(item=item, test=test)
 
     def _add_action(self, action):
         """
@@ -1056,29 +1271,31 @@ class WikiDataPage:
         """
         self.actions.append(action)
 
-    def add_statement(self, statement: WikidataEntity, reference: Reference = None):
+    def add_statement(
+        self, statement: Statement, reference: Optional[Reference] = None
+    ):
         """
         Creates an action to add a statement to the page.
-        
+
         :param statement: The WikidataEntity to add as a statement.
         :param reference: Optional reference for the statement.
         """
         self._prepare_statement(statement, reference)
         self._add_action(AddStatement(statement))
 
-    def delete_statement(self, statement: WikidataEntity):
+    def delete_statement(self, statement: Statement):
         """
         Creates an action to delete a statement from the page.
-        
+
         :param statement: The WikidataEntity to delete.
         """
         self._prepare_statement(statement)
         self._add_action(DeleteStatement(statement))
 
-    def move_references(self, from_statement: WikidataEntity, to_statement: WikidataEntity):
+    def move_references(self, from_statement: Statement, to_statement: Statement):
         """
         Creates an action to move references from one statement to another.
-        
+
         :param from_statement: The source statement for references.
         :param to_statement: The target statement for references.
         """
@@ -1087,13 +1304,20 @@ class WikiDataPage:
         self._add_action(MoveReferences(from_statement, to_statement))
 
     def check_date_statements(self):
-        for prop in [wd.PID_DATE_OF_BIRTH, wd.PID_DATE_OF_BURIAL_OR_CREMATION, wd.PID_DATE_OF_DEATH, wd.PID_DATE_OF_BAPTISM]:
+        for prop in [
+            wd.PID_DATE_OF_BIRTH,
+            wd.PID_DATE_OF_BURIAL_OR_CREMATION,
+            wd.PID_DATE_OF_DEATH,
+            wd.PID_DATE_OF_BAPTISM,
+        ]:
             self._add_action(CheckDateStatements(self, prop))
 
-    def _prepare_statement(self, statement: WikidataEntity, reference: Reference = None):
+    def _prepare_statement(
+        self, statement: WikidataEntity, reference: Optional[Reference] = None
+    ):
         """
         Helper method to prepare a statement by setting its page and reference attributes.
-        
+
         :param statement: The WikidataEntity to prepare.
         :param reference: Optional reference to associate with the statement.
         """
@@ -1103,13 +1327,15 @@ class WikiDataPage:
     def apply(self) -> bool:
         """
         Applies all actions on the Wikidata page in sequence.
-        
+
         :return: True if actions were successfully applied, False otherwise.
         """
         for phase in ["prepare", "apply", "post_apply"]:
             for action in self.actions:
                 # Dynamically call the method on the specific subclass instance
-                getattr(action, phase)()  # Dynamically invokes the method (e.g., prepare, apply)
+                getattr(
+                    action, phase
+                )()  # Dynamically invokes the method (e.g., prepare, apply)
 
         added_objects = []
         changed_objects = []
@@ -1118,22 +1344,23 @@ class WikiDataPage:
         pids_changed = set()
         pids_deleted = set()
 
-        for prop in self.claims:
-            for claim in self.claims[prop]:
-                if claim.snak is None:
-                    added_objects.append(claim)
-                    pids_added.add(claim.id)
-                    self.save_changed_claim(claim)
-                elif claim.snak in self.deleted_claims:
-                    deleted_objects.append(claim)
-                    pids_deleted.add(claim.id)
-                    self.save_deleted_claim(claim)
-                elif claim.snak in self.changed_claims:
-                    changed_objects.append(claim)
-                    pids_changed.add(claim.id)
-                    self.save_changed_claim(claim)
-                elif claim.snak in self.claims_with_changed_references:
-                    self.save_changed_claim(claim)
+        if self.claims:
+            for prop in self.claims:
+                for claim in self.claims[prop]:
+                    if claim.snak is None:
+                        added_objects.append(claim)
+                        pids_added.add(claim.id)
+                        self.save_changed_claim(claim)
+                    elif claim.snak in self.deleted_claims:
+                        deleted_objects.append(claim)
+                        pids_deleted.add(claim.id)
+                        self.save_deleted_claim(claim)
+                    elif claim.snak in self.changed_claims:
+                        changed_objects.append(claim)
+                        pids_changed.add(claim.id)
+                        self.save_changed_claim(claim)
+                    elif claim.snak in self.claims_with_changed_references:
+                        self.save_changed_claim(claim)
 
         print(f"added statements: {len(added_objects)}")
         print(f"changed statements: {len(changed_objects)}")
@@ -1142,7 +1369,7 @@ class WikiDataPage:
         print(f"references changed: {self.references_changed}")
         print(f"references deleted: {self.references_deleted}")
 
-        summary = self.summary  # 'Update from ecartico.org'
+        summary = self.summary
 
         def generate_description(action, pids, sort_func):
             desc = ", ".join(f"[[Property:{pid}]]" for pid in sort_func(pids))
@@ -1200,19 +1427,23 @@ class WikiDataPage:
         self.data["claims"].append(claim.toJSON())
 
     def save_deleted_claim(self, claim: pwb.Claim):
-        if not 'id' in claim:
-            raise RuntimeError("save_deleted_claim: claim does not contain 'id'")
+        raise RuntimeError("Not implemented")
+        # if not 'id' in claim:
+        #     raise RuntimeError("save_deleted_claim: claim does not contain 'id'")
 
-        if "claims" not in self.data:
-            self.data["claims"] = []
-        self.data["claims"].append({'id': claim['id'], 'remove': ''})
+        # if "claims" not in self.data:
+        #     self.data["claims"] = []
+        # self.data["claims"].append({'id': claim['id'], 'remove': ''})
 
     def print(self):
         for statement in self.actions:
             print(statement)
 
     def has_property(self, pid: str) -> bool:
-        return pid in self.claims
+        if self.claims:
+            return pid in self.claims
+        else:
+            return False
 
     def has_qid(self, pid: str) -> bool:
         qids = self.get_qids(pid)
@@ -1220,14 +1451,15 @@ class WikiDataPage:
 
     def get_qids(self, pid: str):
         res = set()
-        if pid in self.claims:
-            for claim in self.claims[pid]:
-                if claim.getRank() == "deprecated":
-                    continue
-                target = claim.getTarget()
-                if target:
-                    qid = target.getID()
-                    res.add(qid)
+        if self.claims:
+            if pid in self.claims:
+                for claim in self.claims[pid]:
+                    if claim.getRank() == "deprecated":
+                        continue
+                    target = claim.getTarget()
+                    if target:
+                        qid = target.getID()
+                        res.add(qid)
         return res
 
     def claim_changed(self, claim: pwb.Claim):
@@ -1235,7 +1467,8 @@ class WikiDataPage:
             self.changed_claims.append(claim.snak)
 
     def add_claim(self, pid, claim: pwb.Claim):
-        self.claims.setdefault(pid, []).append(claim)
+        if self.claims:
+            self.claims.setdefault(pid, []).append(claim)
 
     def reference_added(self, claim: pwb.Claim):
         if claim.snak:
@@ -1259,15 +1492,15 @@ class WikiDataPage:
             wd.PID_DATE_OF_DEATH: self.add_death_year,
             wd.PID_DATE_OF_BURIAL_OR_CREMATION: self.add_death_year,
         }
-
-        for pid, add_year_func in date_mappings.items():
-            if pid in self.claims:
-                for claim in self.claims[pid]:
-                    if claim.getRank() == "deprecated":
-                        continue
-                    date = claim.getTarget()
-                    if date and date.precision >= PRECISION_YEAR:
-                        add_year_func(date.year)
+        if self.claims:
+            for pid, add_year_func in date_mappings.items():
+                if pid in self.claims:
+                    for claim in self.claims[pid]:
+                        if claim.getRank() == "deprecated":
+                            continue
+                        date = claim.getTarget()
+                        if date and date.precision >= PRECISION_YEAR:
+                            add_year_func(date.year)
 
     def add_birth_year(self, year: int):
         if not self.birth_year_low or self.birth_year_low > year:
@@ -1298,26 +1531,26 @@ class WikiDataPage:
             claim, PID_SOURCING_CIRCUMSTANCES, QID_POSSIBLY
         ) or self.has_qualifier(claim, PID_NATURE_OF_STATEMENT, QID_POSSIBLY)
 
-    def base_check_url_redirect(self, url, headers):
-        try:
-            # Send a HEAD request to check for redirects or 404
-            response = requests.get(url, allow_redirects=True, headers=headers)
+    # def base_check_url_redirect(self, url, headers):
+    #     try:
+    #         # Send a HEAD request to check for redirects or 404
+    #         response = requests.get(url, allow_redirects=True, headers=headers)
 
-            # Check if the URL results in a 404
-            if response.status_code == 404:
-                return (False, None)
+    #         # Check if the URL results in a 404
+    #         if response.status_code == 404:
+    #             return (False, None)
 
-            # Extract the final URL after redirects (if any)
-            final_url = response.url
+    #         # Extract the final URL after redirects (if any)
+    #         final_url = response.url
 
-            return (True, final_url)
+    #         return (True, final_url)
 
-        except requests.RequestException as e:
-            # Handle exceptions (e.g., network issues)
-            print(f"Error occurred: {e}")
-            return (False, None)
+    #     except requests.RequestException as e:
+    #         # Handle exceptions (e.g., network issues)
+    #         print(f"Error occurred: {e}")
+    #         return (False, None)
 
-    def check_url_redirect(self, pid: str, external_id: str):
+    def check_url_redirect(self, pid: Optional[str], external_id: Optional[str]):
         # ignore for now
         if pid == wd.PID_VIAF_ID and False:
             url = f"https://viaf.org/viaf/{external_id}"
