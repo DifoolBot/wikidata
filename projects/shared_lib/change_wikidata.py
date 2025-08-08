@@ -19,16 +19,9 @@ PRECISION_DECADE = 8
 PRECISION_CENTURY = 7
 PRECISION_MILLENNIUM = 6
 
-# TODO: move naar constants
-PID_NATURE_OF_STATEMENT = "P5102"
-PID_REASON_FOR_PREFERRED_RANK = "P7452"
-PID_SOURCING_CIRCUMSTANCES = "P1480"
-QID_CIRCA = "Q5727902"
-QID_MOST_PRECISE_VALUE = "Q71536040"
-QID_POSSIBLY = "Q30230067"
-
 MAX_LAG_BACKOFF_SECS = 10 * 60
 
+# TODO : nodig?
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
 SITE.get_tokens("csrf")
@@ -176,7 +169,7 @@ class Statement(WikidataEntity):
         raise NotImplementedError
 
     @abc.abstractmethod
-    # TODO: waarom optional
+    # optional because of ExternalIDStatement
     def get_prop(self) -> Optional[str]:
         raise NotImplementedError
 
@@ -429,18 +422,6 @@ class Date:
 
     def __eq__(self, other):
         return Date.is_equal(self, other, ignore_calendar_model=False)
-        # if isinstance(other, Date):
-        #     return (
-        #         self.year == other.year
-        #         and self.month == other.month
-        #         and self.day == other.day
-        #         and self.precision == other.precision
-        #     )
-        # if isinstance(other, pwb.WbTime):
-        #     # FIXME calendarmodel
-        #     this = self.create_wikidata_item()
-        #     return this.normalize() == other.normalize()
-        # return False
 
     def as_string(self) -> str:
         if self.precision == PRECISION_YEAR:
@@ -607,10 +588,12 @@ class CheckDateStatements(Action):
             raise RuntimeError("Best claim is preferred")
 
         claim.rank = "preferred"
-        qualifier = pwb.Claim(REPO, PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
-        target = pwb.ItemPage(REPO, QID_MOST_PRECISE_VALUE)
+        qualifier = pwb.Claim(REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
+        target = pwb.ItemPage(REPO, wd.QID_MOST_PRECISE_VALUE)
         qualifier.setTarget(target)
-        claim.qualifiers.setdefault(PID_REASON_FOR_PREFERRED_RANK, []).append(qualifier)
+        claim.qualifiers.setdefault(wd.PID_REASON_FOR_PREFERRED_RANK, []).append(
+            qualifier
+        )
         self.wd_page.claim_changed(claim)
 
     def prepare(self):
@@ -729,22 +712,102 @@ class ItemStatement(Statement):
 
 
 class DateQualifiers:
+    IGNORE_PROPS = {
+        wd.PID_AGE_OF_SUBJECT_AT_EVENT,
+    }
     ALLOWED_PROPS = {
-        PID_NATURE_OF_STATEMENT,
-        PID_SOURCING_CIRCUMSTANCES,
+        wd.PID_NATURE_OF_STATEMENT,
+        wd.PID_SOURCING_CIRCUMSTANCES,
         wd.PID_EARLIEST_DATE,
         wd.PID_LATEST_DATE,
+        wd.PID_INSTANCE_OF,
     }
 
     def __init__(
         self,
         is_circa: bool,
+        gregorian_date_earlier_than_1584: bool,
         earliest: Optional[Date] = None,
         latest: Optional[Date] = None,
     ):
         self.is_circa = is_circa
+        self.gregorian_date_earlier_than_1584 = gregorian_date_earlier_than_1584
         self.earliest = earliest
         self.latest = latest
+
+    def merge(self, other: "DateQualifiers"):
+        self.is_circa = self.is_circa or other.is_circa
+        self.gregorian_date_earlier_than_1584 = (
+            self.gregorian_date_earlier_than_1584
+            or other.gregorian_date_earlier_than_1584
+        )
+        if other.earliest:
+            if self.earliest:
+                if other.earliest != self.earliest:
+                    raise RuntimeError("Can not merge because of diff earliest")
+            else:
+                self.earliest = other.earliest
+        if other.latest:
+            if self.latest:
+                if other.latest != self.latest:
+                    raise RuntimeError("Can not merge because of diff latest")
+            else:
+                self.latest = other.latest
+
+    def recreate_qualifiers(self, claim: pwb.Claim):
+        QUALIFIER_PRIORITY = {
+            wd.PID_SOURCING_CIRCUMSTANCES: 0,
+            wd.PID_EARLIEST_DATE: 1,
+            wd.PID_LATEST_DATE: 2,
+        }
+
+        # filter
+        filtered = {}
+        for qual_propid, qualifier in claim.qualifiers.items():
+            if qual_propid == wd.PID_INSTANCE_OF:
+                new_statements = []
+                for qual_statement in qualifier:
+                    qid = qual_statement.getTarget().getID()
+                    if (
+                        qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584
+                    ) and not self.gregorian_date_earlier_than_1584:
+                        continue
+                    new_statements.append(qual_statement)
+                if new_statements:
+                    filtered[wd.PID_INSTANCE_OF] = new_statements
+            else:
+                filtered[qual_propid] = qualifier
+
+        # add
+
+        # sort
+        custom_pid_order = []
+        seen = set()
+        for pid in claim.qualifiers:
+            if pid not in seen:
+                custom_pid_order.append(pid)
+                seen.add(pid)
+
+        for pid in sorted(QUALIFIER_PRIORITY, key=lambda p: QUALIFIER_PRIORITY[p]):
+            if pid in filtered and pid not in seen:
+                custom_pid_order.append(pid)
+                seen.add(pid)
+
+        if (
+            wd.PID_EARLIEST_DATE in custom_pid_order
+            and wd.PID_LATEST_DATE in custom_pid_order
+        ):
+            i1, i2 = custom_pid_order.index(
+                wd.PID_EARLIEST_DATE
+            ), custom_pid_order.index(wd.PID_LATEST_DATE)
+            if i1 > i2:
+                item = custom_pid_order.pop(i1)
+                custom_pid_order.insert(i2, item)
+
+        ordered_dict = OrderedDict(
+            (key, filtered[key]) for key in custom_pid_order if key in filtered
+        )
+        return ordered_dict
 
     @classmethod
     def from_claim(cls, claim) -> "DateQualifiers":
@@ -757,12 +820,20 @@ class DateQualifiers:
 
         # 2. parse is_circa: must only ever point to Q5727902
         seen_circa = False
-        for prop in (PID_NATURE_OF_STATEMENT, PID_SOURCING_CIRCUMSTANCES):
+        for prop in (wd.PID_NATURE_OF_STATEMENT, wd.PID_SOURCING_CIRCUMSTANCES):
             for q in quals.get(prop, []):
                 target_qid = q.getTarget().getID()
-                if target_qid != QID_CIRCA:
+                if target_qid != wd.QID_CIRCA:
                     raise RuntimeError(f"Unknown value {target_qid!r} for {prop}")
                 seen_circa = True
+
+        seen_gregorian_date_earlier_than_1584 = False
+        for prop in (wd.PID_INSTANCE_OF,):
+            for q in quals.get(prop, []):
+                target_qid = q.getTarget().getID()
+                if target_qid != wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
+                    raise RuntimeError(f"Unknown value {target_qid!r} for {prop}")
+                seen_gregorian_date_earlier_than_1584 = True
 
         # 3. parse earliest/latest dates
         def parse_date(prop):
@@ -776,12 +847,18 @@ class DateQualifiers:
         earliest = parse_date(wd.PID_EARLIEST_DATE)
         latest = parse_date(wd.PID_LATEST_DATE)
 
-        return cls(is_circa=seen_circa, earliest=earliest, latest=latest)
+        return cls(
+            is_circa=seen_circa,
+            gregorian_date_earlier_than_1584=seen_gregorian_date_earlier_than_1584,
+            earliest=earliest,
+            latest=latest,
+        )
 
     @classmethod
     def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
         return cls(
             is_circa=stmt.is_circa,
+            gregorian_date_earlier_than_1584=False,
             earliest=stmt.earliest,
             latest=stmt.latest,
         )
@@ -793,6 +870,8 @@ class DateQualifiers:
             self.is_circa == other.is_circa
             and self.earliest == other.earliest
             and self.latest == other.latest
+            and self.gregorian_date_earlier_than_1584
+            == other.gregorian_date_earlier_than_1584
         )
 
     def __repr__(self):
@@ -806,6 +885,7 @@ class DateQualifiers:
         if strict:
             return item1 == item2
         else:
+            # ignore gregorian_date_earlier_than_1584
             return (
                 (item1.is_circa == item2.is_circa)
                 and (
@@ -868,54 +948,31 @@ class DateStatement(Statement):
         claim_qs = DateQualifiers.from_claim(claim)  # may raise
         target_qs = DateQualifiers.from_statement(self)
 
-        # a single EQ check
         return DateQualifiers.is_equal(claim_qs, target_qs, strict)
 
-        # qualifiers = [
-        #     (wd.PID_EARLIEST_DATE, self.earliest),
-        #     (wd.PID_LATEST_DATE, self.latest),
-        # ]
-
-        # for qualifier, value in qualifiers:
-        #     if qualifier in claim.qualifiers and value:
-        #         if not self.has_equal_qualifier(value, claim, qualifier):
-        #             return False
-        #     elif strict and (qualifier in claim.qualifiers or value):
-        #         return False
-        #     elif qualifier in claim.qualifiers:
-        #         raise RuntimeError("Need to check this variant")
-
-        # if self.has_unknown_qualifiers(claim):
-        #     raise RuntimeError("Unexpeced qualifier")
-
-        # return True
-
     def update_statement(self, claim: pwb.Claim):
-        if self.is_circa and not self.wd_page.is_circa(claim):
-            qual_claim = pwb.Claim(
-                REPO, wd.PID_SOURCING_CIRCUMSTANCES, is_qualifier=True
-            )
-            qual_claim.setTarget(pwb.ItemPage(REPO, QID_CIRCA))
-            claim.qualifiers.setdefault(wd.PID_SOURCING_CIRCUMSTANCES, []).append(
-                qual_claim
-            )
+        claim_changed = False
+        if self.date:
+            if self.date.calendar:
+                claim.setTarget(self.date.create_wikidata_item())
+                claim_changed = True
 
-        qualifiers = [
-            (wd.PID_EARLIEST_DATE, self.earliest),
-            (wd.PID_LATEST_DATE, self.latest),
-        ]
+        claim_qs = DateQualifiers.from_claim(claim)  # may raise
+        target_qs = DateQualifiers.from_statement(self)
+        target_qs.merge(claim_qs)
 
-        for qualifier, value in qualifiers:
-            if value:
-                if not self.has_equal_qualifier(value, claim, qualifier):
-                    qual_claim = pwb.Claim(REPO, qualifier, is_qualifier=True)
-                    if isinstance(value, Date):
-                        target = value.create_wikidata_item()
-                    else:
-                        target = value
-                    qual_claim.setTarget(target)
-                    claim.qualifiers.setdefault(qualifier, []).append(qual_claim)
-        self.wd_page.claim_changed(claim)
+        if self.date:
+            if target_qs.gregorian_date_earlier_than_1584 and (
+                self.date.calendar == "julian"
+            ):
+                target_qs.gregorian_date_earlier_than_1584 = False
+
+        if claim_qs != target_qs:
+            claim.qualifiers = target_qs.recreate_qualifiers(claim)
+            claim_changed = True
+
+        if claim_changed:
+            self.wd_page.claim_changed(claim)
 
     def add_statement(self) -> Optional[pwb.Claim]:
         if not self.date:
@@ -1220,15 +1277,16 @@ def ensure_loaded(item: pwb.ItemPage):
         if not item.exists():
             raise RuntimeError(f"Skipping {qid} because it does not exists")
 
+        if item.isRedirectPage():
+            raise RuntimeError(f"Skipping {qid} because it is a redirect")
+
+        if not item.botMayEdit():
+            raise RuntimeError(f"Skipping {qid} because it cannot be edited by bots")
+
     except pwb.exceptions.MaxlagTimeoutError as ex:
+        print("Max lag timeout. Sleeping")
         time.sleep(MAX_LAG_BACKOFF_SECS)
-        raise RuntimeError("max lag timeout. sleeping")
-
-    if item.isRedirectPage():
-        raise RuntimeError(f"Skipping {qid} because it is a redirect")
-
-    if not item.botMayEdit():
-        raise RuntimeError(f"Skipping {qid} because it cannot be edited by bots")
+        raise RuntimeError("Max lag timeout")
 
     return item
 
@@ -1332,10 +1390,7 @@ class WikiDataPage:
         """
         for phase in ["prepare", "apply", "post_apply"]:
             for action in self.actions:
-                # Dynamically call the method on the specific subclass instance
-                getattr(
-                    action, phase
-                )()  # Dynamically invokes the method (e.g., prepare, apply)
+                getattr(action, phase)()
 
         added_objects = []
         changed_objects = []
@@ -1523,13 +1578,13 @@ class WikiDataPage:
 
     def is_circa(self, claim) -> bool:
         return self.has_qualifier(
-            claim, PID_SOURCING_CIRCUMSTANCES, QID_CIRCA
-        ) or self.has_qualifier(claim, PID_NATURE_OF_STATEMENT, QID_CIRCA)
+            claim, wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA
+        ) or self.has_qualifier(claim, wd.PID_NATURE_OF_STATEMENT, wd.QID_CIRCA)
 
     def is_possibly(self, claim) -> bool:
         return self.has_qualifier(
-            claim, PID_SOURCING_CIRCUMSTANCES, QID_POSSIBLY
-        ) or self.has_qualifier(claim, PID_NATURE_OF_STATEMENT, QID_POSSIBLY)
+            claim, wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_POSSIBLY
+        ) or self.has_qualifier(claim, wd.PID_NATURE_OF_STATEMENT, wd.QID_POSSIBLY)
 
     # def base_check_url_redirect(self, url, headers):
     #     try:

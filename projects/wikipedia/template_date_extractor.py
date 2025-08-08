@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import datetime
 from typing import Optional
 
+import pywikibot as pwb
 from dateutil.parser import parse as date_parse
 
 URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
@@ -25,6 +26,28 @@ def get_param_name_map(template):
         normalized = normalize_wikicode_name(original)
         param_map[normalized] = original
     return param_map
+
+
+def build_wbtime(
+    y,
+    m,
+    d,
+    calendarmodel=URL_UNSPECIFIED_CALENDAR,
+):
+    try:
+        y, m, d = int(y), int(m) if m else None, int(d) if d else None
+        if d:
+            return pwb.WbTime(
+                year=y, month=m, day=d, precision=11, calendarmodel=calendarmodel
+            )
+        elif m:
+            return pwb.WbTime(
+                year=y, month=m, precision=10, calendarmodel=calendarmodel
+            )
+        else:
+            return pwb.WbTime(year=y, precision=9, calendarmodel=calendarmodel)
+    except Exception:
+        return None
 
 
 class CountryConfig:
@@ -330,13 +353,8 @@ class TemplateDateExtractor:
                 typ = self.typ if self.typ else None
             # if not typ:
             #     raise ValueError("Type (typ) must be specified for date tuple.")
-            tup = (
-                typ,
-                y if y else None,
-                m if m else None,
-                d if d else None,
-                calendar_url,
-            )
+            wbt = build_wbtime(y, m, d, calendarmodel=calendar_url)
+            tup = (typ, wbt)
             self.results.append(tup)
             return tup
         except Exception as e:
@@ -437,12 +455,9 @@ class TemplateDateExtractor:
                         typ=typ if typ else None,
                     )
                 elif isinstance(date, list):
-                    for d in date:
-                        d_typ, d_y, d_m, d_d, d_cal_model = d
-                        if not d_typ:
-                            d_typ = typ
-                        tup = (d_typ, d_y, d_m, d_d, d_cal_model)
-                        self.results.append(tup)
+                    self.results.extend(
+                        [(d_typ or typ, d_wbt) for d_typ, d_wbt in date]
+                    )
             elif year:
                 self._parse_components(
                     day,

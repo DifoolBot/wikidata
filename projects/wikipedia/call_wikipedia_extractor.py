@@ -12,6 +12,17 @@ from wikipedia.wikipedia_extractor import (
 from shared_lib.database_handler import DatabaseHandler
 
 
+def date_str(date: pwb.WbTime) -> str:
+    if date.precision == 9:
+        return str(date.year)
+    elif date.precision == 10:
+        return "{0:+04d}-{1:02d}".format(date.year, date.month)
+    elif date.precision == 11:
+        return "{0:+04d}-{1:02d}-{2:02d}".format(date.year, date.month, date.day)
+    else:
+        raise RuntimeError("Unsupported precision")
+
+
 class FirebirdStatusTracker(DatabaseHandler, WikidataStatusTracker):
 
     def __init__(self):
@@ -137,6 +148,20 @@ where w.language is null"""
             return row[0]
 
         return None
+
+    def add_mismatch(
+        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates
+    ):
+        sql = "INSERT INTO mismatch (qid, lang, kind, wd, wp) VALUES (?, ?, ?, ?, ?)"
+        conn = self.get_connection()
+        try:
+            cur = conn.cursor()
+            for wd in wikidata_dates:
+                for wp in wikipedia_dates:
+                    cur.execute(sql, (qid, lang, kind[0], date_str(wd), date_str(wp)))
+                    conn.commit()
+        finally:
+            conn.close()
 
     # def add_source_to_claim(self, item, claim):
     #     wdpage = cwd.WikiDataPage(item, None, test=False)
@@ -281,12 +306,18 @@ def fill():
             print(f"Added {country_desc} ({lang}) to {qid}")
 
 
+def generate_report():
+    tracker = FirebirdStatusTracker()
+
+
 def main():
-    # todo()
+    todo()
     # query_loop()
     # fill()
     # calc()
-    do_sandbox("Q5863042")
+    # do_sandbox("Q3071923")
+    # do_item("Q3071923")
+    # generate_report()
 
 
 if __name__ == "__main__":

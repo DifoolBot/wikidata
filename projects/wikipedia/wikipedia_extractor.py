@@ -16,16 +16,13 @@ from pywikibot.data import sparql
 
 import shared_lib.change_wikidata as cwd
 
-# todo
-# O if only diff is cal model, then can change if no sources; Q23659454
+# TODO
 # - Q3290522: 'July 28, 2008 (aged 87)' -> date parse error
 # - Q6097011: ''16 de November de 2002 (81 años)' -> date parser error
 # - Q12441676: '20 January 1993(aged 72)' -> date parse error
 # - Q4978907: alder in template with birth param
 # - Q3894616: weird date parse errors
-# - lead text to database
 # - generate report of mismatches
-# - item.get aanpassen
 # - circa? -> raise exception
 
 # steps:
@@ -101,6 +98,12 @@ class WikidataStatusTracker(ABC):
     def get_wikipedia_qid(self, lang: str):
         pass
 
+    @abstractmethod
+    def add_mismatch(
+        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates
+    ):
+        pass
+
 
 def wbtime_key(w: pwb.WbTime):
     w_norm = w.normalize()
@@ -124,6 +127,18 @@ def wbtime_key_flexible(w: pwb.WbTime):
         w_norm.day,
         w_norm.precision,
         w_norm.calendarmodel,
+    )
+
+
+def wbtime_key_ignore(w: pwb.WbTime):
+    # Returns a tuple, but with calendarmodel set to None if unspecified
+    w_norm = w.normalize()
+    return (
+        w_norm.year,
+        w_norm.month,
+        w_norm.day,
+        w_norm.precision,
+        None,
     )
 
 
@@ -221,113 +236,63 @@ def print_dates(dates: List[pwb.WbTime]) -> str:
     return ";".join(describe(d) for d in dates)
 
 
-def assert_no_conflicting_dates(
-    wikidata_dates, wikipedia_dates: PersonDates, kind: str, item_id: str
-):
+def compare_dates_asymmetric(wikipedia_dates, wikidata_dates, key_fn):
     """
-    Raise if both self and other have a date of the given kind and they are different.
-    Allows match if all fields except calendarmodel match, and at least one calendarmodel is URL_UNSPECIFIED_CALENDAR.
+    Compare Wikidata dates against Wikipedia dates.
+    Returns matched Wikipedia dates and unmatched Wikidata dates.
     """
-    if kind == "birth":
-        self_dates = wikidata_dates.birth
-        other_dates = wikipedia_dates.birth
-    elif kind == "death":
-        self_dates = wikidata_dates.death
-        other_dates = wikipedia_dates.death
-    else:
-        raise ValueError(f"Unknown kind: {kind}")
+    matched_wikipedia = []
+    unmatched_wikidata = []
 
-    if not (self_dates and other_dates):
-        return
-
-    if len(other_dates) > 1:
-        raise RuntimeError(
-            f"Multiple {kind} dates found in Wikipedia for {item_id}: {other_dates}"
-        )
-    wp = other_dates[0].normalize()
-    mismatch = True
-    calendar_hint = None
-
-    for wd0 in self_dates:
-        wd = wd0.normalize()
-        if (wd.year, wd.month, wd.day, wd.precision) == (
-            wp.year,
-            wp.month,
-            wp.day,
-            wp.precision,
-        ):
-            if wd.calendarmodel == wp.calendarmodel or (
-                wd.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
-                or wp.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR
-            ):
-                mismatch = False
+    for wd_date in wikidata_dates:
+        match_found = False
+        wd_key = key_fn(wd_date)
+        for wp_date in wikipedia_dates:
+            wp_key = key_fn(wp_date)
+            if wbtime_keys_match(wd_key, wp_key):
+                matched_wikipedia.append(wp_date)
+                match_found = True
                 break
-            elif wp.calendarmodel == tde.URL_PROLEPTIC_JULIAN_CALENDAR:
-                calendar_hint = "Julian"
-            elif wp.calendarmodel == tde.URL_PROLEPTIC_GREGORIAN_CALENDAR:
-                calendar_hint = "Gregorian"
+        if not match_found:
+            unmatched_wikidata.append(wd_date)
 
-    if mismatch:
-        if calendar_hint:
-            raise RuntimeError(
-                f"{kind.capitalize()} date mismatch for {item_id}: should be {calendar_hint}"
-            )
-        raise RuntimeError(
-            f"{kind.capitalize()} date mismatch for {item_id}:"
-            f"Wikidata {print_dates(self_dates)} vs Wikipedia {print_dates(other_dates)}"
-        )
+    return matched_wikipedia, unmatched_wikidata
 
 
-def compare_person_dates(
-    wikidata_dates: PersonDates, wikipedia_dates: PersonDates
-) -> dict:
+# def compare_person_dates(
+#     wikidata_dates: PersonDates, wikipedia_dates: PersonDates
+# ) -> dict:
 
-    def find_matches(wd_dates, wp_dates):
-        matches = []
-        unmatched = []
-        for wd in wd_dates:
-            wd_key = wbtime_key_flexible(wd)
-            found = False
-            for wp in wp_dates:
-                wp_key = wbtime_key_flexible(wp)
-                if wbtime_keys_match(wd_key, wp_key):
-                    found = True
-                    break
-            if found:
-                matches.append(wd)
-            else:
-                unmatched.append(wd)
-        return matches, unmatched
+#     def find_matches(wd_dates, wp_dates):
+#         matches = []
+#         unmatched = []
+#         for wd in wd_dates:
+#             wd_key = wbtime_key_ignore(wd)
+#             found = False
+#             for wp in wp_dates:
+#                 wp_key = wbtime_key_ignore(wp)
+#                 if wbtime_keys_match(wd_key, wp_key):
+#                     found = True
+#                     break
+#             if found:
+#                 matches.append(wd)
+#             else:
+#                 unmatched.append(wd)
+#         return matches, unmatched
 
-    matched_birth, unmatched_birth = find_matches(
-        wikidata_dates.birth, wikipedia_dates.birth
-    )
-    matched_death, unmatched_death = find_matches(
-        wikidata_dates.death, wikipedia_dates.death
-    )
+#     matched_birth, unmatched_birth = find_matches(
+#         wikidata_dates.birth, wikipedia_dates.birth
+#     )
+#     matched_death, unmatched_death = find_matches(
+#         wikidata_dates.death, wikipedia_dates.death
+#     )
 
-    return {
-        "unmatched_birth": unmatched_birth,
-        "unmatched_death": unmatched_death,
-        "matched_birth": matched_birth,
-        "matched_death": matched_death,
-    }
-
-
-def find_claim_by_wbtime(
-    item: pwb.ItemPage, property_id: str, target: pwb.WbTime
-) -> list[pwb.Claim]:
-    item.get()
-    matching_claims = []
-
-    for claim in item.claims.get(property_id, []):
-        if claim.rank == "deprecated":
-            continue
-        value = claim.getTarget()
-        if isinstance(value, pwb.WbTime) and wbtime_key(value) == wbtime_key(target):
-            matching_claims.append(claim)
-
-    return matching_claims
+#     return {
+#         "unmatched_birth": unmatched_birth,
+#         "unmatched_death": unmatched_death,
+#         "matched_birth": matched_birth,
+#         "matched_death": matched_death,
+#     }
 
 
 def fetch_page(site, title):
@@ -394,7 +359,7 @@ class PersonLocale:
         self.sitelink = None
 
     def load(self):
-        self.item.get()
+        cwd.ensure_loaded(self.item)
 
         # Helper to filter claims by rank
         def filter_claims_by_rank(claims):
@@ -523,7 +488,7 @@ class PersonLocale:
             if sitekey in usable_sitelinks:
                 return sitekey
 
-        # tracker returns a list of wikis sorted by active users
+        # Tracker returns a list of wikis sorted by active users
         for lang in self.tracker.get_sorted_languages():
             sitekey = f"{lang}wiki"
             if sitekey in usable_sitelinks:
@@ -604,33 +569,14 @@ class EntityDateReconciler:
         self.locale = locale
         self.tracker = tracker
         self.wikicode: Optional[mwparserfromhell.wikicode.Wikicode] = None
+        self.qid = self.page.item.id
+
         if not locale.language:
             raise RuntimeError("No language")
+        # TODO: move to locale
         self.wikipedia_qid = tracker.get_wikipedia_qid(locale.language)
         if not self.wikipedia_qid:
             raise RuntimeError(f"No qid for language {locale.language}")
-
-    def build_wbtime(
-        self,
-        y,
-        m=None,
-        d=None,
-        calendarmodel=tde.URL_UNSPECIFIED_CALENDAR,
-    ):
-        try:
-            y, m, d = int(y), int(m) if m else None, int(d) if d else None
-            if d:
-                return pwb.WbTime(
-                    year=y, month=m, day=d, precision=11, calendarmodel=calendarmodel
-                )
-            elif m:
-                return pwb.WbTime(
-                    year=y, month=m, precision=10, calendarmodel=calendarmodel
-                )
-            else:
-                return pwb.WbTime(year=y, precision=9, calendarmodel=calendarmodel)
-        except Exception:
-            return None
 
     def extract_distinct_dates(self) -> PersonDates:
         template_graph = walk_templates(self.wikicode)
@@ -654,19 +600,11 @@ class EntityDateReconciler:
                 extractor = tde.TemplateDateExtractor(
                     tpl_cfg, child, self.locale.lang_config, self.locale.country_config
                 )
-                for result in extractor.get_all_dates():
-                    # result is a tuple: (typ, y, m, d, cal_model)
-                    if not result or len(result) < 5:
-                        continue
-                    typ, y, m, d, cal_model = result
-                    if y:
-                        # todo: move to TemplateDateExtractor
-                        wbt = self.build_wbtime(y, m, d, calendarmodel=cal_model)
-                        if wbt:
-                            if typ == "birth":
-                                dob_dates.append(wbt)
-                            elif typ == "death":
-                                dod_dates.append(wbt)
+                for typ, wbt in extractor.get_all_dates():
+                    if typ == "birth":
+                        dob_dates.append(wbt)
+                    elif typ == "death":
+                        dod_dates.append(wbt)
         result = PersonDates(birth=dob_dates, death=dod_dates)
         result.deduplicate()
         if len(result.birth) > 1 or len(result.death) > 1:
@@ -774,29 +712,35 @@ class EntityDateReconciler:
         wikipedia_dates = self.extract_distinct_dates()
         wikidata_dates = extract_unsourced_dates_from_item(self.page.item)
 
-        # Raise if both Wikidata and Wikipedia have a birth date and they are different
-        assert_no_conflicting_dates(
-            wikidata_dates, wikipedia_dates, "birth", self.page.item.id
+        birth_mismatch = self.has_dates_mismatch(
+            wikidata_dates, wikipedia_dates, "birth"
         )
-        # Raise if both Wikidata and Wikipedia have a death date and they are different
-        assert_no_conflicting_dates(
-            wikidata_dates, wikipedia_dates, "death", self.page.item.id
+        death_mismatch = self.has_dates_mismatch(
+            wikidata_dates, wikipedia_dates, "death"
+        )
+        if birth_mismatch and death_mismatch:
+            raise RuntimeError("Mismatch birth+death dates")
+        if birth_mismatch:
+            raise RuntimeError("Mismatch birth dates")
+        if death_mismatch:
+            raise RuntimeError("Mismatch death dates")
+
+        matched_wikipedia_birth, unmatched_wikidata_birth = compare_dates_asymmetric(
+            wikipedia_dates.birth, wikidata_dates.birth, wbtime_key_ignore
+        )
+        matched_wikipedia_death, unmatched_wikidata_death = compare_dates_asymmetric(
+            wikipedia_dates.death, wikidata_dates.death, wbtime_key_ignore
         )
 
-        result = compare_person_dates(wikidata_dates, wikipedia_dates)
-        matched_birth = result["matched_birth"]
-        matched_death = result["matched_death"]
-        unmatched_birth = result["unmatched_birth"]
-        unmatched_death = result["unmatched_death"]
-        if (not wikidata_dates.birth or matched_birth) and (
-            not wikidata_dates.death or matched_death
+        if (not wikidata_dates.birth or matched_wikipedia_birth) and (
+            not wikidata_dates.death or matched_wikipedia_death
         ):
 
             pairs = []
-            if matched_birth:
-                pairs.append((matched_birth[0], cwd.DateOfBirth))
-            if matched_death:
-                pairs.append((matched_death[0], cwd.DateOfDeath))
+            if matched_wikipedia_birth:
+                pairs.append((matched_wikipedia_birth[0], cwd.DateOfBirth))
+            if matched_wikipedia_death:
+                pairs.append((matched_wikipedia_death[0], cwd.DateOfDeath))
 
             for date, StatementClass in pairs:
                 statement = StatementClass(
@@ -809,48 +753,104 @@ class EntityDateReconciler:
 
             self.page.summary = f"data from [[{self.wikipedia_qid}]]"
 
-            if self.tracker:
-                self.tracker.mark_done(
-                    self.page.item.id,
-                    self.locale.language,
-                    "successfully sourced dates",
-                )
+            self.tracker.mark_done(
+                self.qid,
+                self.locale.language,
+                "successfully sourced dates",
+            )
         else:
             # Partial or no matches — attempt template tracing
             print(
-                f"Partial match for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                f"Partial match for {self.qid} in {self.locale.language} wiki: {self.sitelink.title}"
             )
-            unmatched_dates = PersonDates(birth=unmatched_birth, death=unmatched_death)
+            unmatched_dates = PersonDates(
+                birth=unmatched_wikidata_birth, death=unmatched_wikidata_death
+            )
             matches = self.find_date_matches_any_order(
                 unmatched_dates
             ) + self.find_single_param_date_matches(unmatched_dates)
 
             if not matches:
                 print(
-                    f"No date matches found for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                    f"No date matches found for {self.qid} in {self.locale.language} wiki: {self.sitelink.title}"
                 )
-                if not self.locale.language:
-                    raise RuntimeError("No language")
-                save_lead_sentence(
-                    self.page.item.id, self.locale.language, wikitext, self.tracker
+
+                # save the lead sentence
+                lead_sentence = extract_lead_sentence(wikitext)
+                self.tracker.add_lead_sentence(
+                    self.qid,
+                    self.locale.language if self.locale.language else "?",
+                    lead_sentence,
                 )
-                if self.tracker:
-                    self.tracker.mark_done(
-                        self.page.item.id, self.locale.language, "no matches found"
-                    )
+
+                self.tracker.mark_done(
+                    self.qid,
+                    self.locale.language if self.locale.language else "?",
+                    "no matches found",
+                )
             else:
                 print(
-                    f"Found {len(matches)} date matches for {self.page.item.id} in {self.locale.language} wiki: {self.sitelink.title}"
+                    f"Found {len(matches)} date matches for {self.qid} in {self.locale.language} wiki: {self.sitelink.title}"
                 )
-                save_matches_to_yaml(self.page.item.id, matches)
-                if self.tracker:
-                    self.tracker.mark_done(
-                        self.page.item.id, self.locale.language, "matches found"
-                    )
+                save_matches_to_yaml(self.qid, matches)
+                self.tracker.mark_done(self.qid, self.locale.language, "matches found")
+
+    def has_dates_mismatch(
+        self, wikidata_dates, wikipedia_dates: PersonDates, kind: str
+    ) -> bool:
+        """
+        Raise if both self and other have a date of the given kind and they are different.
+        Allows match if all fields except calendarmodel match, and at least one calendarmodel is URL_UNSPECIFIED_CALENDAR.
+        """
+        if kind == "birth":
+            self_dates = wikidata_dates.birth
+            other_dates = wikipedia_dates.birth
+        elif kind == "death":
+            self_dates = wikidata_dates.death
+            other_dates = wikipedia_dates.death
+        else:
+            raise ValueError(f"Unknown kind: {kind}")
+
+        if not (self_dates and other_dates):
+            return False
+
+        if len(other_dates) > 1:
+            raise RuntimeError(
+                f"Multiple {kind} dates found in Wikipedia for {self.qid}: {other_dates}"
+            )
+        wp = other_dates[0].normalize()
+        mismatch = True
+
+        for wd0 in self_dates:
+            wd = wd0.normalize()
+            if (wd.year, wd.month, wd.day, wd.precision) == (
+                wp.year,
+                wp.month,
+                wp.day,
+                wp.precision,
+            ):
+                mismatch = False
+                break
+
+        if mismatch:
+            print(
+                f"{kind.capitalize()} date mismatch for {self.qid,}:"
+                f"Wikidata {print_dates(self_dates)} vs Wikipedia {print_dates(other_dates)}"
+            )
+
+            self.tracker.add_mismatch(
+                self.qid,
+                self.locale.language if self.locale.language else "?",
+                kind,
+                self_dates,
+                other_dates,
+            )
+        return mismatch
 
 
 def extract_unsourced_dates_from_item(item: pwb.ItemPage) -> PersonDates:
-    item.get()
+    cwd.ensure_loaded(item)
+
     claims = item.claims
     result = PersonDates()
 
@@ -874,29 +874,26 @@ def extract_unsourced_dates_from_item(item: pwb.ItemPage) -> PersonDates:
 def save_matches_to_yaml(qid: str, matches: list[dict]):
     output_path = YAML_DIR / "unmatched_templates.yaml"
 
-    # Load existing content if present
     if os.path.exists(output_path):
         with output_path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     else:
         data = {}
 
-    # Add or update the entry for this QID
     data[qid] = matches
 
-    # Write updated content back
     with output_path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
 
 def lookup_country_qid(place_qid: str):
     query = f"""
-    SELECT ?country ?placeLabel ?countryLabel WHERE {{
-        values ?place {{wd:{place_qid}}}
-        ?place wdt:P17 ?country.
-      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }}
-    }}
-    """
+            SELECT ?country ?placeLabel ?countryLabel WHERE {{
+                values ?place {{wd:{place_qid}}}
+                ?place wdt:P17 ?country.
+            SERVICE wikibase:label {{ bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }}
+            }}
+            """
     query_object = sparql.SparqlQuery()
     payload = query_object.query(query=query)
     if payload:
@@ -920,7 +917,7 @@ def lookup_country_info(country_qid: str):
                 FILTER(LANG(?label) IN ("en", "mul"))
             }}
             }}
-    """
+            """
     query_object = sparql.SparqlQuery()
     payload = query_object.query(query=query)
     if payload:
@@ -933,10 +930,6 @@ def lookup_country_info(country_qid: str):
             return alpha3, country
 
     return None
-
-
-# def add_source_to_claim(claim: pwb.Claim, sitelink: pwb.Page):
-#     print(f"Adding source to claim {claim.id} for sitelink {sitelink.title}")
 
 
 def first_non_template_line_with_index(wikitext: str) -> Tuple[int, str]:
@@ -960,13 +953,12 @@ def first_non_template_line_with_index(wikitext: str) -> Tuple[int, str]:
             raw = str(node)
             cumulative_line += raw.count("\n")
             continue
+        # same for wikilink
         if isinstance(node, Wikilink):
             raw = str(node)
             cumulative_line += raw.count("\n")
             continue
 
-        # For plain text nodes, split into lines and test each
-        # if isinstance(node, Text):
         raw = str(node)
         lines = raw.splitlines()
         if not lines:
@@ -996,28 +988,6 @@ def extract_lead_sentence(wikitext: str) -> str:
     raw_line = raw_lines[idx] if 0 <= idx < len(raw_lines) else ""
     print("Raw   :", raw_line)
     return raw_line.strip() if raw_line else ""
-
-
-def save_lead_sentence(
-    qid: str, lang: str, wikitext: str, tracker: WikidataStatusTracker
-):
-    # output_path = YAML_DIR / "lead_sentences.yaml"
-
-    lead_sentence = extract_lead_sentence(wikitext)
-
-    # entry = {
-    #     "qid": qid,
-    #     "language": lang,
-    #     "lead_sentence": lead_sentence,
-    #     "timestamp": datetime.utcnow().isoformat() + "Z",
-    # }
-
-    # # Append as a new document for easy split/loading
-    # with output_path.open("a", encoding="utf-8") as f:
-    #     yaml.dump([entry], f, allow_unicode=True)
-    #     f.write("\n")  # separate documents
-
-    tracker.add_lead_sentence(qid, lang, lead_sentence)
 
 
 def reconcile_dates(
@@ -1055,8 +1025,7 @@ def reconcile_dates(
 
         if len(page.actions) > 0:
             page.check_date_statements()
-
-        page.apply()
+            page.apply()
 
     except RuntimeError as e:
         print(f"Error processing item {item.id}: {lang} {e}")
