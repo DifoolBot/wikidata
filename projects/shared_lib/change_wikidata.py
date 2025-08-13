@@ -712,9 +712,6 @@ class ItemStatement(Statement):
 
 
 class DateQualifiers:
-    IGNORE_PROPS = {
-        wd.PID_AGE_OF_SUBJECT_AT_EVENT,
-    }
     ALLOWED_PROPS = {
         wd.PID_NATURE_OF_STATEMENT,
         wd.PID_SOURCING_CIRCUMSTANCES,
@@ -726,20 +723,19 @@ class DateQualifiers:
     def __init__(
         self,
         is_circa: bool,
-        gregorian_date_earlier_than_1584: bool,
+        gregorian_pre_1584_date: bool,
         earliest: Optional[Date] = None,
         latest: Optional[Date] = None,
     ):
         self.is_circa = is_circa
-        self.gregorian_date_earlier_than_1584 = gregorian_date_earlier_than_1584
+        self.gregorian_pre_1584_date = gregorian_pre_1584_date
         self.earliest = earliest
         self.latest = latest
 
     def merge(self, other: "DateQualifiers"):
         self.is_circa = self.is_circa or other.is_circa
-        self.gregorian_date_earlier_than_1584 = (
-            self.gregorian_date_earlier_than_1584
-            or other.gregorian_date_earlier_than_1584
+        self.gregorian_pre_1584_date = (
+            self.gregorian_pre_1584_date or other.gregorian_pre_1584_date
         )
         if other.earliest:
             if self.earliest:
@@ -763,20 +759,26 @@ class DateQualifiers:
 
         # filter
         filtered = {}
-        for qual_propid, qualifier in claim.qualifiers.items():
-            if qual_propid == wd.PID_INSTANCE_OF:
+        for pid, qualifiers in claim.qualifiers.items():
+            if pid in {
+                wd.PID_INSTANCE_OF,
+                wd.PID_SOURCING_CIRCUMSTANCES,
+                wd.PID_NATURE_OF_STATEMENT,
+            }:
                 new_statements = []
-                for qual_statement in qualifier:
-                    qid = qual_statement.getTarget().getID()
+                for q in qualifiers:
+                    qid = q.getTarget().getID()
                     if (
                         qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584
-                    ) and not self.gregorian_date_earlier_than_1584:
+                    ) and not self.gregorian_pre_1584_date:
                         continue
-                    new_statements.append(qual_statement)
+                    if (qid == wd.QID_CIRCA) and not self.is_circa:
+                        continue
+                    new_statements.append(q)
                 if new_statements:
                     filtered[wd.PID_INSTANCE_OF] = new_statements
             else:
-                filtered[qual_propid] = qualifier
+                filtered[pid] = qualifiers
 
         # add
 
@@ -811,29 +813,29 @@ class DateQualifiers:
 
     @classmethod
     def from_claim(cls, claim) -> "DateQualifiers":
-        quals = claim.qualifiers  # dict: prop → [Qualifier, …]
+        quals = claim.qualifiers
 
         # 1. reject any unknown property
         extra = set(quals) - cls.ALLOWED_PROPS
         if extra:
             raise RuntimeError(f"Unsupported qualifier props: {extra}")
 
-        # 2. parse is_circa: must only ever point to Q5727902
+        # 2. parse is_circa, gregorian_date_earlier_than_1584
         seen_circa = False
-        for prop in (wd.PID_NATURE_OF_STATEMENT, wd.PID_SOURCING_CIRCUMSTANCES):
-            for q in quals.get(prop, []):
-                target_qid = q.getTarget().getID()
-                if target_qid != wd.QID_CIRCA:
-                    raise RuntimeError(f"Unknown value {target_qid!r} for {prop}")
-                seen_circa = True
-
-        seen_gregorian_date_earlier_than_1584 = False
-        for prop in (wd.PID_INSTANCE_OF,):
-            for q in quals.get(prop, []):
-                target_qid = q.getTarget().getID()
-                if target_qid != wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
-                    raise RuntimeError(f"Unknown value {target_qid!r} for {prop}")
-                seen_gregorian_date_earlier_than_1584 = True
+        seen_gregorian_pre_1584_date = False
+        for qualifier_pid in (
+            wd.PID_NATURE_OF_STATEMENT,
+            wd.PID_SOURCING_CIRCUMSTANCES,
+            wd.PID_INSTANCE_OF,
+        ):
+            for qualifier in quals.get(qualifier_pid, []):
+                qid = qualifier.getTarget().getID()
+                if qid == wd.QID_CIRCA:
+                    seen_circa = True
+                elif qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
+                    seen_gregorian_pre_1584_date = True
+                else:
+                    raise RuntimeError(f"Unknown value {qid} for {qualifier_pid}")
 
         # 3. parse earliest/latest dates
         def parse_date(prop):
@@ -849,7 +851,7 @@ class DateQualifiers:
 
         return cls(
             is_circa=seen_circa,
-            gregorian_date_earlier_than_1584=seen_gregorian_date_earlier_than_1584,
+            gregorian_pre_1584_date=seen_gregorian_pre_1584_date,
             earliest=earliest,
             latest=latest,
         )
@@ -858,7 +860,7 @@ class DateQualifiers:
     def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
         return cls(
             is_circa=stmt.is_circa,
-            gregorian_date_earlier_than_1584=False,
+            gregorian_pre_1584_date=False,
             earliest=stmt.earliest,
             latest=stmt.latest,
         )
@@ -870,8 +872,7 @@ class DateQualifiers:
             self.is_circa == other.is_circa
             and self.earliest == other.earliest
             and self.latest == other.latest
-            and self.gregorian_date_earlier_than_1584
-            == other.gregorian_date_earlier_than_1584
+            and self.gregorian_pre_1584_date == other.gregorian_pre_1584_date
         )
 
     def __repr__(self):
@@ -953,8 +954,14 @@ class DateStatement(Statement):
     def update_statement(self, claim: pwb.Claim):
         claim_changed = False
         if self.date:
-            if self.date.calendar:
-                claim.setTarget(self.date.create_wikidata_item())
+            new_dt = self.date.create_wikidata_item()
+            old_dt = claim.getTarget()
+            if not old_dt:
+                raise RuntimeError("No old date")
+            if not self.date.calendar:
+                new_dt.calendarmodel = old_dt.calendarmodel
+            if new_dt.normalize() != old_dt.normalize():
+                claim.setTarget(new_dt)
                 claim_changed = True
 
         claim_qs = DateQualifiers.from_claim(claim)  # may raise
@@ -962,10 +969,8 @@ class DateStatement(Statement):
         target_qs.merge(claim_qs)
 
         if self.date:
-            if target_qs.gregorian_date_earlier_than_1584 and (
-                self.date.calendar == "julian"
-            ):
-                target_qs.gregorian_date_earlier_than_1584 = False
+            if target_qs.gregorian_pre_1584_date and (self.date.calendar == "julian"):
+                target_qs.gregorian_pre_1584_date = False
 
         if claim_qs != target_qs:
             claim.qualifiers = target_qs.recreate_qualifiers(claim)

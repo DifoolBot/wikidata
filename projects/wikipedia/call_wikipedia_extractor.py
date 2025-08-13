@@ -1,26 +1,113 @@
 from pathlib import Path
 
 import pywikibot as pwb
+from convertdate import julian
 from pywikibot.data import sparql
 from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
 from wikipedia.wikipedia_extractor import (
+    PersonLocale,
     WikidataStatusTracker,
     reconcile_dates,
-    PersonLocale,
 )
-
+import wikipedia.template_date_extractor as tde
 from shared_lib.database_handler import DatabaseHandler
+
+PAGE_TITLE = "User:Difool/date_mismatches"
+WIKI_FILE = "wiki.txt"
 
 
 def date_str(date: pwb.WbTime) -> str:
+    calendar_map = {
+        tde.URL_PROLEPTIC_GREGORIAN_CALENDAR: "G",
+        tde.URL_PROLEPTIC_JULIAN_CALENDAR: "J",
+    }
+    cm = calendar_map.get(str(date.calendarmodel), "")
+
     if date.precision == 9:
-        return str(date.year)
+        dt = f"{date.year:04d}"
     elif date.precision == 10:
-        return "{0:+04d}-{1:02d}".format(date.year, date.month)
+        dt = f"{date.year:04d}-{date.month:02d}"
     elif date.precision == 11:
-        return "{0:+04d}-{1:02d}-{2:02d}".format(date.year, date.month, date.day)
+        dt = f"{date.year:04d}-{date.month:02d}-{date.day:02d}"
     else:
-        raise RuntimeError("Unsupported precision")
+        raise RuntimeError(f"Unsupported precision: {date.precision}")
+
+    return f"{dt}{cm}"
+
+
+def assume_gregorian(wbt: pwb.WbTime) -> pwb.WbTime:
+    return pwb.WbTime(
+        year=wbt.year,
+        month=wbt.month,
+        day=wbt.day,
+        precision=wbt.precision,
+        calendarmodel=tde.URL_PROLEPTIC_GREGORIAN_CALENDAR,
+    ).normalize()
+
+
+def julian_to_gregorian(wbt: pwb.WbTime) -> pwb.WbTime:
+    """Convert WbTime to a Gregorian date object, accounting for Julian calendar if needed."""
+    g_year, g_month, g_day = julian.to_gregorian(wbt.year, wbt.month, wbt.day)
+    return pwb.WbTime(
+        year=g_year,
+        month=g_month,
+        day=g_day,
+        precision=wbt.precision,
+        calendarmodel=tde.URL_PROLEPTIC_GREGORIAN_CALENDAR,
+    ).normalize()
+
+
+def change_precision(wbt: pwb.WbTime, precision: int) -> pwb.WbTime:
+    """Returns a copy of WbTime with adjusted precision."""
+    return pwb.WbTime(
+        year=wbt.year,
+        month=wbt.month,
+        day=wbt.day,
+        precision=precision,
+        calendarmodel=wbt.calendarmodel,
+    ).normalize()
+
+
+def date_difference_characteristic(wd_date: pwb.WbTime, wp_date: pwb.WbTime) -> str:
+    # Gregorian-Julian diff
+    if wp_date.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR:
+        wp_date.calendarmodel = wd_date.calendarmodel
+    if wd_date.precision == 11 and wp_date.precision == 11:
+        if julian_to_gregorian(wd_date) == assume_gregorian(wp_date):
+            return "Gregorian-Julian"
+        if julian_to_gregorian(wp_date) == assume_gregorian(wd_date):
+            return "Gregorian-Julian"
+
+    # More/Less precision (only if normalized values match at lowest precision)
+    if wd_date.precision != wp_date.precision:
+        lowest_precision = min(wd_date.precision, wp_date.precision)
+        wd_norm = change_precision(wd_date, lowest_precision)
+        wp_norm = change_precision(wp_date, lowest_precision)
+        # don't care about calendar model
+        wp_norm.calendarmodel = wd_norm.calendarmodel
+        if wd_norm == wp_norm:
+            if wd_date.precision > wp_date.precision:
+                return "More prec."
+            elif wd_date.precision < wp_date.precision:
+                return "Less prec."
+
+    # Component-wise differences
+    y_diff = wd_date.year != wp_date.year
+    m_diff = wd_date.month != wp_date.month
+    d_diff = wd_date.day != wp_date.day
+
+    if y_diff and not m_diff and not d_diff:
+        return "Year"
+    elif m_diff and not y_diff and not d_diff:
+        return "Month"
+    elif d_diff and not y_diff and not m_diff:
+        return "Day"
+    elif d_diff and m_diff and not y_diff:
+        return "Day/Month"
+    elif y_diff or m_diff or d_diff:
+        return "Other"
+    else:
+        return ""
 
 
 class FirebirdStatusTracker(DatabaseHandler, WikidataStatusTracker):
@@ -150,27 +237,42 @@ where w.language is null"""
         return None
 
     def add_mismatch(
-        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates
+        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates, url
     ):
-        sql = "INSERT INTO mismatch (qid, lang, kind, wd, wp) VALUES (?, ?, ?, ?, ?)"
+        sql = "INSERT INTO mismatch (qid, lang, kind, wd, wp, diff, url) VALUES (?, ?, ?, ?, ?, ?, ?)"
         conn = self.get_connection()
         try:
             cur = conn.cursor()
             for wd in wikidata_dates:
                 for wp in wikipedia_dates:
-                    cur.execute(sql, (qid, lang, kind[0], date_str(wd), date_str(wp)))
+                    cur.execute(
+                        sql,
+                        (
+                            qid,
+                            lang,
+                            kind[0],
+                            date_str(wd),
+                            date_str(wp),
+                            date_difference_characteristic(wd, wp),
+                            url,
+                        ),
+                    )
                     conn.commit()
         finally:
             conn.close()
 
-    # def add_source_to_claim(self, item, claim):
-    #     wdpage = cwd.WikiDataPage(item, None, test=False)
-    #     wdpage.load()
-    #     wdpage.add_statement(
-    #             cwd.DateOfBirth(self.create_date(date)),
-    #             reference=self.createwdref(date_info),
-    #         )
-    #     wdpage.apply()
+    def get_mismatches(self):
+        sql = "SELECT QID, LANG, KIND, WD, WP, URL, DIFF FROM MISMATCH order by cast(substring(qid from 2) as integer)"
+        rows = self.execute_query(sql)
+        for row in rows:
+            qid = row[0]
+            lang = row[1]
+            kind = row[2]
+            wd = row[3]
+            wp = row[4]
+            url = row[5]
+            diff = row[6]
+            yield qid, lang, kind, wd, wp, url, diff
 
 
 def iterate_query():
@@ -306,18 +408,60 @@ def fill():
             print(f"Added {country_desc} ({lang}) to {qid}")
 
 
-def generate_report():
+def make_wikitext():
     tracker = FirebirdStatusTracker()
+
+    heading = ""
+    header = '\n{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! QID\n! Lang\n! WikiLink\n! Event\n! WD Date\n! WP Date\n! Diff'
+    body = ""
+    line = "\n|-\n| {{{{Q|{qid}}}}}\n| {lang}\n| {wikilink}\n| {event}\n| {wd_date}\n| {wp_date}\n| {diff}"
+    for row in tracker.get_mismatches():
+        qid, lang, event, wd_date, wp_date, url, diff = row
+        if event == "b":
+            event = "Birth"
+        if event == "d":
+            event = "Death"
+        wikilink = f"[[{url}]]"
+
+        body = body + line.format(
+            qid=qid,
+            lang=lang,
+            wikilink=wikilink,
+            event=event,
+            wd_date=wd_date,
+            wp_date=wp_date,
+            diff=diff,
+        )
+    footer = "\n|}"
+    wikitext = f"{heading}{header}{body}{footer}"
+
+    return wikitext
+
+
+def write_to_wiki(wikitext):
+    # with open(WIKI_FILE, "w", encoding="utf-8") as outfile:
+    #     outfile.write(wikitext)
+    # return
+    if not wikitext:
+        return
+    site = pwb.Site("wikidata", "wikidata")
+    page = pwb.Page(site, PAGE_TITLE)
+    page.text = page.text + "\n" + wikitext
+    page.save(summary="upd", minor=False)
+
+
+def generate_report():
+    write_to_wiki(make_wikitext())
 
 
 def main():
-    todo()
+    # todo()
     # query_loop()
     # fill()
     # calc()
     # do_sandbox("Q3071923")
     # do_item("Q3071923")
-    # generate_report()
+    generate_report()
 
 
 if __name__ == "__main__":

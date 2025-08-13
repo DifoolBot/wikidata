@@ -24,6 +24,8 @@ import shared_lib.change_wikidata as cwd
 # - Q3894616: weird date parse errors
 # - generate report of mismatches
 # - circa? -> raise exception
+# - move wiki from error description to new column
+# - Q23542792: geeft een foute datum (birth/death)
 
 # steps:
 #   O1. move code to other computer
@@ -31,12 +33,14 @@ import shared_lib.change_wikidata as cwd
 #    3. review, clean up code
 #    4. changes:
 #   O     - lead text to database
-#         - generate report of mismatches
+#   O     - generate report of mismatches
 #    5. make request
 #    6. iterate 50 items
 #    7. publish request
 
 YAML_DIR = Path(__file__).parent
+
+SITE = pwb.Site("wikidata", "wikidata")
 
 
 # Abstract base class for tracking Wikidata item processing status
@@ -100,7 +104,7 @@ class WikidataStatusTracker(ABC):
 
     @abstractmethod
     def add_mismatch(
-        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates
+        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates, url: str
     ):
         pass
 
@@ -259,42 +263,6 @@ def compare_dates_asymmetric(wikipedia_dates, wikidata_dates, key_fn):
     return matched_wikipedia, unmatched_wikidata
 
 
-# def compare_person_dates(
-#     wikidata_dates: PersonDates, wikipedia_dates: PersonDates
-# ) -> dict:
-
-#     def find_matches(wd_dates, wp_dates):
-#         matches = []
-#         unmatched = []
-#         for wd in wd_dates:
-#             wd_key = wbtime_key_ignore(wd)
-#             found = False
-#             for wp in wp_dates:
-#                 wp_key = wbtime_key_ignore(wp)
-#                 if wbtime_keys_match(wd_key, wp_key):
-#                     found = True
-#                     break
-#             if found:
-#                 matches.append(wd)
-#             else:
-#                 unmatched.append(wd)
-#         return matches, unmatched
-
-#     matched_birth, unmatched_birth = find_matches(
-#         wikidata_dates.birth, wikipedia_dates.birth
-#     )
-#     matched_death, unmatched_death = find_matches(
-#         wikidata_dates.death, wikipedia_dates.death
-#     )
-
-#     return {
-#         "unmatched_birth": unmatched_birth,
-#         "unmatched_death": unmatched_death,
-#         "matched_birth": matched_birth,
-#         "matched_death": matched_death,
-#     }
-
-
 def fetch_page(site, title):
     page = pwb.Page(site, title)
     if not page.exists():
@@ -439,6 +407,7 @@ class PersonLocale:
             raise RuntimeError("No most relevant Wikipedia page")
         self.sitelink = self.item.sitelinks[self.sitekey]
         self.language = self.sitelink.site.lang
+        self.url = f":{self.sitelink.site.code}:{self.sitelink.title}"
 
         self.lang_config = tde.LanguageConfig(
             self.language, load_template_config("languages.yaml")
@@ -844,6 +813,7 @@ class EntityDateReconciler:
                 kind,
                 self_dates,
                 other_dates,
+                self.locale.url,
             )
         return mismatch
 
