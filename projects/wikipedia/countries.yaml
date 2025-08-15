@@ -963,3 +963,21 @@ Q790:
         year: 1582
         month: 12
         day: 20    
+
+Q170604:
+    description: New France
+    # France	1582	9 Dec	20 Dec
+    last_julian_date:
+        year: 1582
+        month: 12
+        day: 9
+    first_gregorian_date:
+        year: 1582
+        month: 12
+        day: 20    
+
+Q794:
+    code: IRN
+    description: Iran
+    # Solar Hijri calendar
+    no_julian_calendar: true  

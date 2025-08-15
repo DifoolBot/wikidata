@@ -11,6 +11,7 @@ pl:
         - polityk infobox
         - brydżysta infobox
         - władca infobox
+        - biogram infobox
       param_names:
         data urodzenia: birth date
         data śmierci: death date
@@ -383,6 +384,14 @@ en:
         "4": birth year
         "5": birth month
         "6": birth day
+    - name: Death date and age text
+      name_variants:
+        - death-date and age # !!
+      url: https://en.wikipedia.org/wiki/Template:Death_date_and_age_text
+      param_names:
+        "1": death date
+        "2": birth date
+        # TODO: gregorian parameter
 pt:
   language: portuguese
   fallback_countrycode: PRT
@@ -404,11 +413,13 @@ pt:
         - Info/Prelado da Igreja Católica
         - info/biografia/wikidata
         - info/nobre
+        - info/político
       urls:
         - https://pt.wikipedia.org/wiki/Predefinição:info/esporte/atleta
         - https://pt.wikipedia.org/wiki/Predefinição:Info/Prelado_da_Igreja_Católica
         - https://pt.wikipedia.org/wiki/Predefinição:Info/Biografia/Wikidata
         - https://pt.wikipedia.org/wiki/Predefinição:Info/nobre
+        - https://pt.wikipedia.org/wiki/Predefinição:Info/Político
       param_names:
         nascimento data: birth date
         data de nascimento: birth date
@@ -496,10 +507,9 @@ fr:
         "1": day or full date
         "2": month
         "3": year
-        julien: julian
-      booleans:
-        yes: "oui"
-        no: "non"
+        julien: calendar
+      calendar:
+        "oui": julian
   templates:
     - name: Infobox Personnalité militaire
       name_variants:
@@ -648,6 +658,7 @@ es:
         - ficha de noble
         - ficha de obispo
         - Ficha de líder cristiano
+        - ficha de líder religioso
       param_names: 
         fecha de nacimiento: birth date
         fecha de fallecimiento: death date
@@ -819,6 +830,7 @@ hu:
       urls: 
         - https://hu.wikipedia.org/wiki/Sablon:Személy_infobox
         - https://hu.wikipedia.org/wiki/Sablon:Egyházi_személy_infobox
+        - https://hu.wikipedia.org/wiki/Sablon:püspök_infobox
       param_names:
         születési dátum: birth date
         halál dátuma: death date
@@ -1217,6 +1229,15 @@ el:
 da:
   language: danish
   fallback_countrycode: DNK
+  templates:
+    - name: infoboks leder
+      param_names:
+        fødselsdag: birth date
+        fødsels_dag: birth date
+        dødsdato: death date
+        døds_dato: death date
+      dayfirst: true
+      url: https://da.wikipedia.org/wiki/Template:infoboks_leder
   month_map:
     "januar": "January"
     "februar": "February"
@@ -1332,6 +1353,8 @@ zh:
 lb:
   language: luxembourgish
   fallback_countrycode: LUX
+  ignore_templates:
+    - name: citation
   month_map:
     "Januar": "January"
     "Februar": "February"
@@ -1577,4 +1600,46 @@ ht:
     "Oktòb": "October"
     "Novanm": "November"
     "Desanm": "December"
+fa:
+  language: Persian
+  fallback_countrycode: IRN
+  templates:
+    - name: infobox artist
+      param_names:
+        'تاریخ تولد': birth date
+        'تاریخ مرگ': death date
+        'birth_date': birth date
+        'death_date': death date
+      url: https://fa.wikipedia.org/wiki/template:infobox_artist
+    - name: تاریخ تولد و سن
+      # Date of Birth and Age
+      param_names:
+        '1': birth year
+        '2': birth month
+        '3': birth day
+        'گاه‌شمار': calendar
+      calendar:
+        "خورشیدی": solar_hijri
+      url: https://fa.wikipedia.org/wiki/template:تاریخ_تولد_و_سن
+    - name: تاریخ تولد
+      # Date of birth
+      param_names:
+        '1': birth year
+        '2': birth month
+        '3': birth day
+      url: https://fa.wikipedia.org/wiki/template:تاریخ_تولد
+
+  month_map:
+    "ژانویه": "January"
+    "فوریه": "February"
+    "مارس": "March"
+    "آوریل": "April"
+    "مه": "May"
+    "ژوئن": "June"
+    "ژوئیه": "July"
+    "اوت": "August"
+    "سپتامبر": "September"
+    "اکتبر": "October"
+    "نوامبر": "November"
+    "دسامبر": "December"
 

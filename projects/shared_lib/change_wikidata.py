@@ -11,6 +11,7 @@ import shared_lib.constants as wd
 
 URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
 URL_PROLEPTIC_GREGORIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985727"
+URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/Q18195782"
 
 PRECISION_DAY = 11
 PRECISION_MONTH = 10
@@ -21,7 +22,6 @@ PRECISION_MILLENNIUM = 6
 
 MAX_LAG_BACKOFF_SECS = 10 * 60
 
-# TODO : nodig?
 SITE = pwb.Site("wikidata", "wikidata")
 SITE.login()
 SITE.get_tokens("csrf")
@@ -89,11 +89,9 @@ class WikidataEntity(abc.ABC):
     wd_page: "WikiDataPage"
     reference: Optional[Reference]
 
-    # TODO : rename? can_apply
     def can_add(self) -> bool:
         return True
 
-    # TODO : rename? apply
     @abc.abstractmethod
     def add(self):
         raise NotImplementedError
@@ -285,6 +283,8 @@ class Date:
             calendar = "julian"
         elif item.calendarmodel == URL_PROLEPTIC_GREGORIAN_CALENDAR:
             calendar = "gregorian"
+        elif item.calendarmodel == URL_UNSPECIFIED_CALENDAR:
+            calendar = None
         else:
             raise RuntimeError(f"Unrecognized calendar {item.calendarmodel}")
 
@@ -522,7 +522,7 @@ class CheckDateStatements(Action):
         if normalized2.precision < low_prec:
             low_prec = normalized2.precision
         if (
-            low_prec <= 9
+            low_prec <= PRECISION_YEAR
             or (normalized1.precision != low_prec)
             or (normalized2.precision != low_prec)
         ):
@@ -545,8 +545,8 @@ class CheckDateStatements(Action):
             if claim.rank == "deprecated":
                 continue
             prec = self.precision_level(claim)
-            if prec > 11:
-                raise RuntimeError("Unsupported precision > 11")
+            if prec > PRECISION_DAY:
+                raise RuntimeError("Unsupported precision > 11 (day)")
             precision_map.setdefault(prec, []).append(claim)
 
         by_normalized = []

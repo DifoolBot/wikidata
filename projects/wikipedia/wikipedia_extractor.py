@@ -22,7 +22,6 @@ import shared_lib.change_wikidata as cwd
 # - Q12441676: '20 January 1993(aged 72)' -> date parse error
 # - Q4978907: alder in template with birth param
 # - Q3894616: weird date parse errors
-# - generate report of mismatches
 # - circa? -> raise exception
 # - move wiki from error description to new column
 # - Q23542792: geeft een foute datum (birth/death)
@@ -71,11 +70,13 @@ class WikidataStatusTracker(ABC):
         pass
 
     @abstractmethod
-    def set_country_info(self, country_qid: str, info):
+    def set_country_info(
+        self, country_qid: str, country_code: Optional[str], country_desc: str
+    ):
         pass
 
     @abstractmethod
-    def get_country_info(self, country_qid: str):
+    def get_country_info(self, country_qid: str) -> Optional[Tuple]:
         pass
 
     @abstractmethod
@@ -99,14 +100,47 @@ class WikidataStatusTracker(ABC):
         pass
 
     @abstractmethod
-    def get_wikipedia_qid(self, lang: str):
+    def get_wikipedia_qid(self, lang: Optional[str]):
         pass
 
     @abstractmethod
     def add_mismatch(
-        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates, url: str
+        self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates, url
     ):
         pass
+
+    def ensure_country_info(
+        self,
+        qid: Optional[str] = None,
+        code: Optional[str] = None,
+    ):
+        if not qid:
+            qid = get_country_qid_from_yaml(code, "countries.yaml")
+        if not qid:
+            info = lookup_country_info_by_code(code)
+            if not info:
+                raise RuntimeError(f"No country info for country code {code}")
+            qid, code, description = info
+            if qid:
+                if not self.get_country_info(qid):
+                    self.set_country_info(qid, code, description)
+            return info
+
+        # load from database
+        info = self.get_country_info(qid)
+        if info:
+            qid, code, description = info
+            if not code or not description:
+                # reload from wikidata
+                info = None
+        if not info:
+            info = lookup_country_info_by_qid(qid)
+            if info:
+                qid, code, description = info
+                self.set_country_info(qid, code, description)
+        if not info:
+            raise RuntimeError(f"No country info for {qid}")
+        return info
 
 
 def wbtime_key(w: pwb.WbTime):
@@ -276,7 +310,12 @@ def load_template_config(filename: str):
         return yaml.safe_load(f)
 
 
-def get_country_qid_from_yaml(country_code: str, filename: str) -> Optional[str]:
+def get_country_qid_from_yaml(
+    country_code: Optional[str], filename: str
+) -> Optional[str]:
+    if not country_code:
+        return None
+
     path = YAML_DIR / filename
     with path.open(encoding="utf-8") as f:
         config = yaml.safe_load(f)
@@ -286,7 +325,7 @@ def get_country_qid_from_yaml(country_code: str, filename: str) -> Optional[str]
     return None
 
 
-def ensure_qid_in_yaml(filename, qid, tracker):
+def ensure_qid_in_yaml(filename, qid, tracker: WikidataStatusTracker):
     path = YAML_DIR / filename
     with path.open("r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -295,20 +334,8 @@ def ensure_qid_in_yaml(filename, qid, tracker):
     qid_present = any(re.match(rf"^{re.escape(qid)}\s*:", line) for line in lines)
 
     if not qid_present:
-        info = tracker.get_country_info(qid)
-        if not info:
-            load = True
-        else:
-            code, description = info
-            load = not code or not description
-        if load:
-            info = lookup_country_info(qid)
-            if info:
-                tracker.set_country_info(qid, info)
-        if not info:
-            raise RuntimeError(f"No country info for {qid}")
-
-        code, description = info
+        info = tracker.ensure_country_info(qid=qid)
+        qid, code, description = info
 
         block = f"\n{qid}:\n    code: {code}\n    description: {description}\n"
         with path.open("a", encoding="utf-8") as f:
@@ -324,6 +351,8 @@ class PersonLocale:
         self.country_qids = set()
         self.country: Optional[str] = None
         self.language: Optional[str] = None
+        self.wikipedia_qid: Optional[str] = None
+        self.url: Optional[str] = None
         self.sitelink = None
 
     def load(self):
@@ -424,7 +453,9 @@ class PersonLocale:
                 raise RuntimeError(
                     f"Language {self.language} has no fallback_countrycode"
                 )
-            self.country = get_country_qid_from_yaml(country_code, "countries.yaml")
+            info = self.tracker.ensure_country_info(code=country_code)
+            qid, code, desc = info
+            self.country = qid
 
         self.country_config = tde.CountryConfig(
             self.country, load_template_config("countries.yaml")
@@ -435,6 +466,9 @@ class PersonLocale:
             )
         if not self.country_config.first_gregorian_date:
             raise RuntimeError(f"No first_gregorian_date for {self.country}")
+        self.wikipedia_qid = self.tracker.get_wikipedia_qid(self.language)
+        if not self.wikipedia_qid:
+            raise RuntimeError(f"No qid for language {self.language}")
 
     def get_preferred_sitekey(self) -> Optional[str]:
         sitelinks = self.item.sitelinks
@@ -497,6 +531,8 @@ class PersonLocale:
             for country_qid in qid_set:
                 langs = self.tracker.get_languages_for_country(country_qid)
                 if not langs:
+                    self.tracker.ensure_country_info(qid=country_qid)
+
                     raise RuntimeError(
                         f"No languages found for country QID {country_qid} in item {self.item.id}"
                     )
@@ -539,13 +575,6 @@ class EntityDateReconciler:
         self.tracker = tracker
         self.wikicode: Optional[mwparserfromhell.wikicode.Wikicode] = None
         self.qid = self.page.item.id
-
-        if not locale.language:
-            raise RuntimeError("No language")
-        # TODO: move to locale
-        self.wikipedia_qid = tracker.get_wikipedia_qid(locale.language)
-        if not self.wikipedia_qid:
-            raise RuntimeError(f"No qid for language {locale.language}")
 
     def extract_distinct_dates(self) -> PersonDates:
         template_graph = walk_templates(self.wikicode)
@@ -664,9 +693,10 @@ class EntityDateReconciler:
         return matches
 
     def create_ref(self) -> cwd.Reference:
-        if not self.wikipedia_qid:
-            raise RuntimeError("No wikipedia_qid")
-        return cwd.WikipediaReference(self.wikipedia_qid)
+        if not self.locale.wikipedia_qid:
+            raise RuntimeError(f"No qid for language {self.locale.language}")
+
+        return cwd.WikipediaReference(self.locale.wikipedia_qid)
 
     def reconcile_sitelink_dates(self):
         if not self.sitelink:
@@ -720,7 +750,7 @@ class EntityDateReconciler:
                 )
                 self.page.add_statement(statement, reference=self.create_ref())
 
-            self.page.summary = f"data from [[{self.wikipedia_qid}]]"
+            self.page.summary = f"data from [[{self.locale.wikipedia_qid}]]"
 
             self.tracker.mark_done(
                 self.qid,
@@ -876,7 +906,10 @@ def lookup_country_qid(place_qid: str):
     return None
 
 
-def lookup_country_info(country_qid: str):
+def lookup_country_info_by_qid(country_qid: Optional[str]):
+    if not country_qid:
+        return None
+
     query = f"""
             SELECT ?alpha3 ?label WHERE {{
             VALUES ?country {{ wd:{country_qid} }}  
@@ -893,11 +926,36 @@ def lookup_country_info(country_qid: str):
     if payload:
         for row in payload["results"]["bindings"]:
             if "alpha3" in row:
-                alpha3 = row["alpha3"]["value"]
+                country_code = row["alpha3"]["value"]
             else:
-                alpha3 = ""
-            country = row["label"]["value"]
-            return alpha3, country
+                country_code = ""
+            country_desc = row["label"]["value"]
+            return country_qid, country_code, country_desc
+
+    return None
+
+
+def lookup_country_info_by_code(country_code: Optional[str]):
+    if not country_code:
+        return None
+
+    query = f"""
+                SELECT DISTINCT ?country ?countryLabel WHERE {{
+                VALUES ?code {{"{country_code}"}}
+                ?country p:P298 ?statement0.
+                ?statement0 ps:P298 ?code.
+                ?country p:P31 ?statement1.
+                ?statement1 (ps:P31/(wdt:P279*)) wd:Q6256.
+                SERVICE wikibase:label {{ bd:serviceParam wikibase:language "mul,en". }}
+                }}
+            """
+    query_object = sparql.SparqlQuery()
+    payload = query_object.query(query=query)
+    if payload:
+        for row in payload["results"]["bindings"]:
+            country_qid = row["country"]["value"].split("/")[-1]
+            country_desc = row["countryLabel"]["value"]
+            return country_qid, country_code, country_desc
 
     return None
 

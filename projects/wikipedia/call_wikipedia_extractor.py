@@ -186,14 +186,13 @@ where w.language is null"""
         for row in rows:
             yield row[0]
 
-    def set_country_info(self, country_qid: str, info):
-        code, description = info
-        code = code.upper()
-        if not code:
-            code = ""
-        shortened_desc = description[:255]
+    def set_country_info(self, country_qid: str, country_code: str, country_desc: str):
+        country_code = country_code.upper()
+        if not country_code:
+            country_code = ""
+        shortened_desc = country_desc[:255]
         sql = "EXECUTE PROCEDURE add_country(?, ?, ?)"
-        self.execute_procedure(sql, (country_qid, code, shortened_desc))
+        self.execute_procedure(sql, (country_qid, country_code, shortened_desc))
 
     def get_country_info(self, country_qid: str):
         rows = self.execute_query(
@@ -201,7 +200,7 @@ where w.language is null"""
             (country_qid,),
         )
         for row in rows:
-            return row[0], row[1]
+            return country_qid, row[0], row[1]
 
         return None
 
@@ -455,13 +454,13 @@ def generate_report():
 
 
 def main():
-    # todo()
+    todo()
     # query_loop()
     # fill()
     # calc()
     # do_sandbox("Q3071923")
     # do_item("Q3071923")
-    generate_report()
+    # generate_report()
 
 
 if __name__ == "__main__":

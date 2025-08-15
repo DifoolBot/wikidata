@@ -290,6 +290,7 @@ class TemplateDateExtractor:
                         )
                     self.values[normalized_meaning] = val.strip_code().strip()
 
+        # TODO: rewrite
         # Determine if julian flag is set using booleans from tpl_cfg if available
         julian_val = (
             self.values.get("julian", "").strip().lower()
@@ -437,20 +438,21 @@ class TemplateDateExtractor:
             month = self.get_value(typ, "month")
             year = self.get_value(typ, "year")
 
+            dayfirst = None
             if day_or_fulldate:
                 if day_or_fulldate.isdigit():
                     day = day_or_fulldate
                 else:
                     date = day_or_fulldate
             elif day_month and year:
-                # todo: dayfirst
+                dayfirst = True
                 date = f"{day_month} {year}"
 
             if date:
                 if isinstance(date, str):
                     self._parse_date_string(
                         date,
-                        dayfirst=None,
+                        dayfirst=dayfirst,
                         calendar_url=self.default_calendar_url,
                         typ=typ if typ else None,
                     )
