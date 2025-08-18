@@ -33,7 +33,7 @@ import shared_lib.change_wikidata as cwd
 #    4. changes:
 #   O     - lead text to database
 #   O     - generate report of mismatches
-#    5. make request
+#   O5. make request
 #    6. iterate 50 items
 #    7. publish request
 
@@ -1038,6 +1038,7 @@ def reconcile_dates(
             return
 
     try:
+        print(f"--{item.id}--")
         page = cwd.WikiDataPage(item, test=test)
 
         if not item.sitelinks:

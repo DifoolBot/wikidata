@@ -981,3 +981,16 @@ Q794:
     description: Iran
     # Solar Hijri calendar
     no_julian_calendar: true  
+
+Q750:
+    code: BOL
+    description: Bolivia
+    # Spanish Empire	1582	4 Oct	15 Oct
+    last_julian_date:
+        year: 1582
+        month: 10
+        day: 4
+    first_gregorian_date:
+        year: 1582
+        month: 10
+        day: 15

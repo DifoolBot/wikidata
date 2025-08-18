@@ -9,9 +9,16 @@ import pywikibot as pwb
 
 import shared_lib.constants as wd
 
+CALENDAR_JULIAN = "julian"
+CALENDAR_GREGORIAN = "gregorian"
+CALENDAR_ASSUMED_GREGORIAN = "assumed_gregorian"
+
 URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
 URL_PROLEPTIC_GREGORIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985727"
-URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/Q18195782"
+URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR
+URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN = (
+    "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
+)
 
 PRECISION_DAY = 11
 PRECISION_MONTH = 10
@@ -280,11 +287,13 @@ class Date:
     @classmethod
     def create_from_WbTime(cls, item: pwb.WbTime) -> "Date":
         if item.calendarmodel == URL_PROLEPTIC_JULIAN_CALENDAR:
-            calendar = "julian"
+            calendar = CALENDAR_JULIAN
         elif item.calendarmodel == URL_PROLEPTIC_GREGORIAN_CALENDAR:
-            calendar = "gregorian"
+            calendar = CALENDAR_GREGORIAN
         elif item.calendarmodel == URL_UNSPECIFIED_CALENDAR:
             calendar = None
+        elif item.calendarmodel == URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+            calendar = CALENDAR_ASSUMED_GREGORIAN
         else:
             raise RuntimeError(f"Unrecognized calendar {item.calendarmodel}")
 
@@ -383,12 +392,12 @@ class Date:
         calendar = self.calendar
         if calendar is None:
             if self.year < 1582:
-                calendar = "julian"
+                calendar = CALENDAR_JULIAN
             else:
-                calendar = "gregorian"
-        if calendar == "julian":
+                calendar = CALENDAR_GREGORIAN
+        if calendar == CALENDAR_JULIAN:
             return URL_PROLEPTIC_JULIAN_CALENDAR
-        if calendar == "gregorian":
+        if calendar == CALENDAR_GREGORIAN or calendar == CALENDAR_ASSUMED_GREGORIAN:
             return URL_PROLEPTIC_GREGORIAN_CALENDAR
 
         raise RuntimeError(f"Unrecognized calendar {calendar}")
@@ -723,20 +732,21 @@ class DateQualifiers:
     def __init__(
         self,
         is_circa: bool,
-        gregorian_pre_1584_date: bool,
+        gregorian_pre_1584: bool,
+        assumed_gregorian: bool = False,
         earliest: Optional[Date] = None,
         latest: Optional[Date] = None,
     ):
         self.is_circa = is_circa
-        self.gregorian_pre_1584_date = gregorian_pre_1584_date
+        self.gregorian_pre_1584 = gregorian_pre_1584
+        self.assumed_gregorian = assumed_gregorian
         self.earliest = earliest
         self.latest = latest
 
     def merge(self, other: "DateQualifiers"):
         self.is_circa = self.is_circa or other.is_circa
-        self.gregorian_pre_1584_date = (
-            self.gregorian_pre_1584_date or other.gregorian_pre_1584_date
-        )
+        self.gregorian_pre_1584 = self.gregorian_pre_1584 or other.gregorian_pre_1584
+        self.assumed_gregorian = self.assumed_gregorian or other.assumed_gregorian
         if other.earliest:
             if self.earliest:
                 if other.earliest != self.earliest:
@@ -757,44 +767,65 @@ class DateQualifiers:
             wd.PID_LATEST_DATE: 2,
         }
 
-        # filter
+        # Start with a shallow copy of existing qualifiers, but only keep allowed ones
         filtered = {}
         for pid, qualifiers in claim.qualifiers.items():
             if pid in {
-                wd.PID_INSTANCE_OF,
-                wd.PID_SOURCING_CIRCUMSTANCES,
                 wd.PID_NATURE_OF_STATEMENT,
+                wd.PID_SOURCING_CIRCUMSTANCES,
+                wd.PID_INSTANCE_OF,
             }:
-                new_statements = []
+                filtered[pid] = []
                 for q in qualifiers:
                     qid = q.getTarget().getID()
-                    if (
-                        qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584
-                    ) and not self.gregorian_pre_1584_date:
-                        continue
-                    if (qid == wd.QID_CIRCA) and not self.is_circa:
-                        continue
-                    new_statements.append(q)
-                if new_statements:
-                    filtered[wd.PID_INSTANCE_OF] = new_statements
+                    if qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
+                        if self.gregorian_pre_1584:
+                            filtered[pid].append(q)
+                    elif qid == wd.QID_CIRCA:
+                        if self.is_circa:
+                            filtered[pid].append(q)
+                    elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+                        if self.assumed_gregorian:
+                            filtered[pid].append(q)
+                    else:
+                        filtered[pid].append(q)
             else:
                 filtered[pid] = qualifiers
 
-        # add
+        # Add missing qualifiers if needed
+        def add_qual(pid, qid, condition):
+            if condition:
+                already = any(
+                    q.getTarget().getID() == qid for q in filtered.get(pid, [])
+                )
+                if not already:
+                    qual = pwb.Claim(REPO, pid, is_qualifier=True)
+                    qual.setTarget(pwb.ItemPage(REPO, qid))
+                    filtered.setdefault(pid, []).append(qual)
 
-        # sort
+        add_qual(wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA, self.is_circa)
+        add_qual(
+            wd.PID_SOURCING_CIRCUMSTANCES,
+            wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584,
+            self.gregorian_pre_1584,
+        )
+        add_qual(
+            wd.PID_SOURCING_CIRCUMSTANCES,
+            wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN,
+            self.assumed_gregorian,
+        )
+
+        # Sort qualifiers by custom order
         custom_pid_order = []
         seen = set()
         for pid in claim.qualifiers:
             if pid not in seen:
                 custom_pid_order.append(pid)
                 seen.add(pid)
-
         for pid in sorted(QUALIFIER_PRIORITY, key=lambda p: QUALIFIER_PRIORITY[p]):
             if pid in filtered and pid not in seen:
                 custom_pid_order.append(pid)
                 seen.add(pid)
-
         if (
             wd.PID_EARLIEST_DATE in custom_pid_order
             and wd.PID_LATEST_DATE in custom_pid_order
@@ -822,7 +853,8 @@ class DateQualifiers:
 
         # 2. parse is_circa, gregorian_date_earlier_than_1584
         seen_circa = False
-        seen_gregorian_pre_1584_date = False
+        seen_gregorian_pre_1584 = False
+        seen_assumed_gregorian = False
         for qualifier_pid in (
             wd.PID_NATURE_OF_STATEMENT,
             wd.PID_SOURCING_CIRCUMSTANCES,
@@ -833,7 +865,9 @@ class DateQualifiers:
                 if qid == wd.QID_CIRCA:
                     seen_circa = True
                 elif qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
-                    seen_gregorian_pre_1584_date = True
+                    seen_gregorian_pre_1584 = True
+                elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+                    seen_assumed_gregorian = True
                 else:
                     raise RuntimeError(f"Unknown value {qid} for {qualifier_pid}")
 
@@ -851,16 +885,21 @@ class DateQualifiers:
 
         return cls(
             is_circa=seen_circa,
-            gregorian_pre_1584_date=seen_gregorian_pre_1584_date,
+            gregorian_pre_1584=seen_gregorian_pre_1584,
+            assumed_gregorian=seen_assumed_gregorian,
             earliest=earliest,
             latest=latest,
         )
 
     @classmethod
     def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
+        assumed_gregorian = (
+            getattr(stmt.date, "calendar", None) == CALENDAR_ASSUMED_GREGORIAN
+        )
         return cls(
             is_circa=stmt.is_circa,
-            gregorian_pre_1584_date=False,
+            gregorian_pre_1584=False,
+            assumed_gregorian=assumed_gregorian,
             earliest=stmt.earliest,
             latest=stmt.latest,
         )
@@ -872,7 +911,8 @@ class DateQualifiers:
             self.is_circa == other.is_circa
             and self.earliest == other.earliest
             and self.latest == other.latest
-            and self.gregorian_pre_1584_date == other.gregorian_pre_1584_date
+            and self.assumed_gregorian == other.assumed_gregorian
+            and self.gregorian_pre_1584 == other.gregorian_pre_1584
         )
 
     def __repr__(self):
@@ -969,8 +1009,9 @@ class DateStatement(Statement):
         target_qs.merge(claim_qs)
 
         if self.date:
-            if target_qs.gregorian_pre_1584_date and (self.date.calendar == "julian"):
-                target_qs.gregorian_pre_1584_date = False
+            if self.date.calendar == CALENDAR_JULIAN:
+                target_qs.gregorian_pre_1584 = False
+                target_qs.assumed_gregorian = False
 
         if claim_qs != target_qs:
             claim.qualifiers = target_qs.recreate_qualifiers(claim)
@@ -1458,6 +1499,11 @@ class WikiDataPage:
         elif self.test:
             print(summary)
             return True
+
+        summary = (
+            summary
+            + ", test edit for [[Wikidata:Requests_for_permissions/Bot/DifoolBot_7]]"
+        )
 
         # see: https://www.wikidata.org/w/api.php?action=help&modules=wbeditentity
         # Removes the claims from the item with the provided GUIDs

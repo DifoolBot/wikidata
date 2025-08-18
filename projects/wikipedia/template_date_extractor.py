@@ -2,13 +2,17 @@ import re
 from calendar import monthrange
 from datetime import datetime
 from typing import Optional
+import constants as wd
 
 import pywikibot as pwb
 from dateutil.parser import parse as date_parse
 
 URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
 URL_PROLEPTIC_GREGORIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985727"
-URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/Q18195782"
+URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR
+URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN = (
+    "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
+)
 
 
 def normalize_wikicode_name(name: str) -> str:
@@ -110,7 +114,7 @@ class CountryConfig:
             if cal1 == cal2:
                 return cal1
             else:
-                return URL_UNSPECIFIED_CALENDAR
+                return URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
         # If year and month are provided
         if year and month and not day:
             y = int(year)
@@ -125,7 +129,7 @@ class CountryConfig:
             if cal1 == cal2:
                 return cal1
             else:
-                return URL_UNSPECIFIED_CALENDAR
+                return URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
         # If year, month, and day are provided
         if year and month and day:
             ymd = (int(year), int(month), int(day))
@@ -141,7 +145,7 @@ class CountryConfig:
         # Gregorian: date >= first_gregorian
         is_gregorian = ymd >= first_gregorian
         if is_julian and is_gregorian:
-            return URL_UNSPECIFIED_CALENDAR
+            return URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
         elif is_julian:
             return URL_PROLEPTIC_JULIAN_CALENDAR
         elif is_gregorian:
