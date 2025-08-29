@@ -294,22 +294,22 @@ class TemplateDateExtractor:
                         )
                     self.values[normalized_meaning] = val.strip_code().strip()
 
-        # TODO: rewrite
-        # Determine if julian flag is set using booleans from tpl_cfg if available
-        julian_val = (
-            self.values.get("julian", "").strip().lower()
-            if "julian" in self.values
-            else ""
-        )
-        true_values = ["1", "true", "yes"]
-        if "yes" in self.booleans:
-            true_values.append(self.booleans["yes"].strip().lower())
-        self.julian_flag = julian_val in true_values
-        # Set default calendar URL based on julian_flag
-        if self.julian_flag:
-            self.default_calendar_url = URL_PROLEPTIC_JULIAN_CALENDAR
-        else:
-            self.default_calendar_url = URL_UNSPECIFIED_CALENDAR
+        self.default_calendar_url = URL_UNSPECIFIED_CALENDAR
+        if "calendar" in self.values:
+            raise NotImplementedError(
+                "The 'calendar' parameter is not supported in this version."
+            )
+            calendar_key = self.values["calendar"]
+            for key, meaning in calendar_key:
+                normalized_key = normalize_wikicode_name(key)
+                normalized_meaning = normalize_wikicode_name(meaning)
+                if normalized_key == calendar_key:
+                    if normalized_meaning == "julian":
+                        self.default_calendar_url = URL_PROLEPTIC_JULIAN_CALENDAR
+                    elif normalized_meaning == "solar_hijri":
+                        raise NotImplementedError(
+                            "Solar Hijri calendar is not implemented yet."
+                        )
         # birth/death/None; None is for infobox templates
         # that combine both birth and death fields
         self.typ = tpl_cfg.get("typ")
@@ -337,34 +337,34 @@ class TemplateDateExtractor:
         Helper to parse date string and return a tuple (year, month, day, calendar_url), or None on failure.
         Uses two different defaults to detect which components are present.
         """
+        date_str = self.lang_config.normalize_date_str(date_str)
+        if not dayfirst:
+            dayfirst = self.default_dayfirst
+        today = datetime.today()
+        default1 = datetime(today.year + 1, 2, 2)  # 2 Feb next year
+        default2 = datetime(today.year + 2, 3, 3)  # 3 Mar year after next
         try:
-            date_str = self.lang_config.normalize_date_str(date_str)
-            if not dayfirst:
-                dayfirst = self.default_dayfirst
-            today = datetime.today()
-            default1 = datetime(today.year + 1, 2, 2)  # 2 Feb next year
-            default2 = datetime(today.year + 2, 3, 3)  # 3 Mar year after next
             dt1 = date_parse(date_str, dayfirst=dayfirst, fuzzy=True, default=default1)
             dt2 = date_parse(date_str, dayfirst=dayfirst, fuzzy=True, default=default2)
-            # Compare components: if they differ, that component was not present in the string
-            y = dt1.year if dt1.year == dt2.year else 0
-            m = dt1.month if dt1.month == dt2.month else 0
-            d = dt1.day if dt1.day == dt2.day else 0
-            if y == 0:
-                return None
-            if calendar_url == URL_UNSPECIFIED_CALENDAR:
-                calendar_url = self.country_config.get_calendar_model(y, m, d)
-            if not typ:
-                typ = self.typ if self.typ else None
-            # if not typ:
-            #     raise ValueError("Type (typ) must be specified for date tuple.")
-            wbt = build_wbtime(y, m, d, calendarmodel=calendar_url)
-            tup = (typ, wbt)
-            self.results.append(tup)
-            return tup
         except Exception as e:
             print(f"Date parse error for '{date_str}': {e}")
             return None
+        # Compare components: if they differ, that component was not present in the string
+        y = dt1.year if dt1.year == dt2.year else 0
+        m = dt1.month if dt1.month == dt2.month else 0
+        d = dt1.day if dt1.day == dt2.day else 0
+        if y == 0:
+            return None
+        if calendar_url == URL_UNSPECIFIED_CALENDAR:
+            calendar_url = self.country_config.get_calendar_model(y, m, d)
+        if not typ:
+            typ = self.typ if self.typ else None
+        # if not typ:
+        #     raise ValueError("Type (typ) must be specified for date tuple.")
+        wbt = build_wbtime(y, m, d, calendarmodel=calendar_url)
+        tup = (typ, wbt)
+        self.results.append(tup)
+        return tup
 
     def _parse_date_string(
         self,
