@@ -68,6 +68,28 @@ class Reference(abc.ABC):
         return False
 
 
+class StateInReference(Reference):
+    def __init__(self, state_in_qid: str):
+        self.state_in_qid = state_in_qid
+
+    def is_equal_reference(self, src) -> bool:
+        if wd.PID_STATED_IN in src:
+            for claim in src[wd.PID_STATED_IN]:
+                actual = claim.getTarget()
+                if actual == self.state_in_qid:
+                    return True
+        return False
+
+    def create_source(self):
+        source = OrderedDict()
+
+        stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN, is_reference=True)
+        stated_in_claim.setTarget(pwb.ItemPage(REPO, self.state_in_qid))
+        source[wd.PID_STATED_IN] = [stated_in_claim]
+
+        return source
+
+
 class WikipediaReference(Reference):
     def __init__(self, wikipedia_qid: str):
         self.wikipedia_qid = wikipedia_qid
@@ -123,6 +145,9 @@ class Action:
 
 class Statement(WikidataEntity):
 
+    def __init__(self, only_change: bool = False):
+        self.only_change = only_change
+
     # TODO : rename?
     def add(self):
         prop = self.get_prop()
@@ -169,9 +194,8 @@ class Statement(WikidataEntity):
                 print(" reference added")
                 self.add_reference(claim)
 
-    @abc.abstractmethod
     def can_add_claim(self) -> bool:
-        raise NotImplementedError
+        return not self.only_change
 
     @abc.abstractmethod
     # optional because of ExternalIDStatement
@@ -236,15 +260,15 @@ class Statement(WikidataEntity):
 class Date:
     def __init__(
         self,
-        year: int,
-        month: int = 0,
-        day: int = 0,
+        year: Optional[int],
+        month: Optional[int] = 0,
+        day: Optional[int] = 0,
         precision: Optional[int] = None,
         calendar: Optional[str] = None,
     ):
-        self.year = year
-        self.month = month
-        self.day = day
+        self.year = year if year else 0
+        self.month = month if month else 0
+        self.day = day if day else 0
         self.precision = precision
         if not self.precision:
             if self.day:
@@ -444,7 +468,7 @@ class Date:
 
 
 class AddStatement(Action):
-    def __init__(self, statement: Statement):
+    def __init__(self, statement: WikidataEntity):
         self.statement = statement
         self.ignore = False
 
@@ -472,6 +496,30 @@ class DeleteStatement(Action):
         # claim = self.statement.find_claim()
         # self.statement.wd_page.save_deleted_claim(claim)
         pass
+
+    def post_apply(self):
+        pass
+
+
+class DeprecateLabel(Action):
+    def __init__(self, wd_page: "WikiDataPage", old_label: str, new_label: str):
+        self.wd_page = wd_page
+        self.old_label = old_label
+        self.new_label = new_label
+
+    def prepare(self):
+        pass
+
+    def apply(self):
+        for language in self.wd_page.item.labels:
+            if self.wd_page.item.labels[language] == self.old_label:
+                if language in ["en", "mul"]:
+                    self.wd_page.save_label(language, self.new_label)
+                else:
+                    # remove label in other languages
+                    self.wd_page.save_label(language, "")
+                if language == "en":
+                    self.wd_page.save_alias(language, self.old_label)
 
     def post_apply(self):
         pass
@@ -628,6 +676,7 @@ class ItemStatement(Statement):
         end_date: Optional[Date] = None,
         qid_alternative: Optional[str] = None,
     ):
+        super().__init__(only_change=False)
         self.qid = qid
         self.qid_alternative = qid_alternative
         # PID_START_TIME
@@ -951,22 +1000,19 @@ class DateStatement(Statement):
         require_unreferenced: bool = False,
         only_change: bool = False,
     ):
+        super().__init__(only_change)
         self.date = date
         self.earliest = earliest
         self.latest = latest
         self.is_circa = is_circa
         self.ignore_calendar_model = ignore_calendar_model
         self.require_unreferenced = require_unreferenced
-        self.only_change = only_change
 
     def __repr__(self):
         if self.earliest or self.latest:
             return f"{self.__class__.__name__}(date={self.date}, earliest={self.earliest}, latest={self.latest}, is_circa={self.is_circa}')"
         else:
             return f"{self.__class__.__name__}(date={self.date}, is_circa={self.is_circa}')"
-
-    def can_add_claim(self) -> bool:
-        return not self.only_change
 
     def can_attach_to_claim(self, claim, strict: bool) -> bool:
         dt = claim.getTarget()
@@ -1040,6 +1086,7 @@ class ExternalIDStatement(Statement):
         prop: Optional[str] = None,
         external_id: Optional[str] = None,
     ):
+        super().__init__()
         self.url = url
         self.prop = prop
         self.external_id = external_id
@@ -1268,6 +1315,11 @@ class WorkLocation(ItemStatement):
         return wd.PID_WORK_LOCATION
 
 
+class Residence(ItemStatement):
+    def get_prop(self) -> Optional[str]:
+        return wd.PID_RESIDENCE
+
+
 class MasterOf(ItemStatement):
     def get_prop(self) -> Optional[str]:
         return wd.PID_STUDENT
@@ -1376,7 +1428,7 @@ class WikiDataPage:
         self.actions.append(action)
 
     def add_statement(
-        self, statement: Statement, reference: Optional[Reference] = None
+        self, statement: WikidataEntity, reference: Optional[Reference] = None
     ):
         """
         Creates an action to add a statement to the page.
@@ -1384,7 +1436,7 @@ class WikiDataPage:
         :param statement: The WikidataEntity to add as a statement.
         :param reference: Optional reference for the statement.
         """
-        self._prepare_statement(statement, reference)
+        self._prepare_entity(statement, reference)
         self._add_action(AddStatement(statement))
 
     def delete_statement(self, statement: Statement):
@@ -1393,7 +1445,7 @@ class WikiDataPage:
 
         :param statement: The WikidataEntity to delete.
         """
-        self._prepare_statement(statement)
+        self._prepare_entity(statement)
         self._add_action(DeleteStatement(statement))
 
     def move_references(self, from_statement: Statement, to_statement: Statement):
@@ -1403,9 +1455,12 @@ class WikiDataPage:
         :param from_statement: The source statement for references.
         :param to_statement: The target statement for references.
         """
-        self._prepare_statement(from_statement)
-        self._prepare_statement(to_statement)
+        self._prepare_entity(from_statement)
+        self._prepare_entity(to_statement)
         self._add_action(MoveReferences(from_statement, to_statement))
+
+    def deprecate_label(self, old_label, new_label: str):
+        self._add_action(DeprecateLabel(self, old_label, new_label))
 
     def check_date_statements(self):
         for prop in [
@@ -1416,7 +1471,7 @@ class WikiDataPage:
         ]:
             self._add_action(CheckDateStatements(self, prop))
 
-    def _prepare_statement(
+    def _prepare_entity(
         self, statement: WikidataEntity, reference: Optional[Reference] = None
     ):
         """
@@ -1500,10 +1555,10 @@ class WikiDataPage:
             print(summary)
             return True
 
-        summary = (
-            summary
-            + ", test edit for [[Wikidata:Requests_for_permissions/Bot/DifoolBot_7]]"
-        )
+        # summary = (
+        #     summary
+        #     + ", test edit for [[Wikidata:Requests_for_permissions/Bot/DifoolBot_7]]"
+        # )
 
         # see: https://www.wikidata.org/w/api.php?action=help&modules=wbeditentity
         # Removes the claims from the item with the provided GUIDs

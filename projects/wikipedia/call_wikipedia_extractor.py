@@ -372,11 +372,11 @@ def query_loop():
         reconcile_dates(item, tracker)
 
 
-def todo():
+def todo(test: bool = True):
     tracker = FirebirdStatusTracker()
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-        reconcile_dates(item, tracker)
+        reconcile_dates(item, tracker, test=test)
 
 
 def do_item(qid: str):
@@ -385,7 +385,18 @@ def do_item(qid: str):
     reconcile_dates(item, tracker, check_already_done=False)
 
 
-def do_sandbox(qid: str):
+def do_sandbox2(qid: str):
+    tracker = FirebirdStatusTracker()
+    sandbox_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), "Q13406268")
+    real_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
+    locale = PersonLocale(real_item, tracker)
+    locale.load()
+    reconcile_dates(
+        sandbox_item, tracker, check_already_done=False, locale=locale, test=True
+    )
+
+
+def do_sandbox3(qid: str):
     tracker = FirebirdStatusTracker()
     sandbox_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), "Q15397819")
     real_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
@@ -454,11 +465,11 @@ def generate_report():
 
 
 def main():
-    todo()
+    todo(test=False)
     # query_loop()
     # fill()
     # calc()
-    # do_sandbox("Q3071923")
+    do_sandbox2("Q18747311")
     # do_item("Q3071923")
     # generate_report()
 
