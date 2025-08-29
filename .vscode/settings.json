@@ -1,0 +1,11 @@
+{
+  "python.analysis.extraPaths": [
+    "projects",
+    "projects/shared_lib"
+  ],
+  "python.envFile": "${workspaceFolder}/.env",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  }
+}
