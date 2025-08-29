@@ -25,6 +25,7 @@ import shared_lib.change_wikidata as cwd
 # - circa? -> raise exception
 # - move wiki from error description to new column
 # - Q23542792: geeft een foute datum (birth/death)
+# - Q18747311: check; is Julian should be Gregorian?
 
 # steps:
 #   O1. move code to other computer
