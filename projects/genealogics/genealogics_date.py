@@ -11,6 +11,7 @@ class GenealogicsDate:
     day: Optional[int] = None
     modifier: Optional[DateModifier] = None
     raw: Optional[str] = None
+    is_decade: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -21,12 +22,14 @@ class GenealogicsDate:
             "raw": self.raw,
         }
 
-    def precision(self) -> Literal["day", "month", "year", "none"]:
+    def precision(self) -> Literal["day", "month", "year", "decade", "none"]:
         if self.year and self.month and self.day:
             return "day"
         elif self.year and self.month:
             return "month"
         elif self.year:
+            if self.is_decade:
+                return "decade"
             return "year"
         return "none"
 

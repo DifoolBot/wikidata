@@ -44,6 +44,8 @@ def parse_wikitree_date(
             modifier = "before"
         elif "after" == status_lower:
             modifier = "after"
+        elif "guess" == status_lower:
+            modifier = "guess"
         else:
             raise ValueError(f"Unknown status modifier: {status}")
 
@@ -54,30 +56,140 @@ def parse_wikitree_date(
     return GenealogicsDate(year=year, month=month, day=day, modifier=modifier, raw=raw)
 
 
-def construct_display_name(profile):
-    """
-    Construct a name with the following rules:
-    - First name always included
-    - Use middle name if present, else middle initial
-    - Use last_name_current if present, else last_name_at_birth
-    - No prefix/suffix
-    """
-    first = profile.get("FirstName") or ""
-    middle = profile.get("MiddleName") or ""
-    middle_initial = profile.get("MiddleInitial") or ""
-    last = profile.get("LastNameCurrent") or profile.get("LastNameAtBirth") or ""
+class NameBuilder:
+    TITLE_STRINGS = [
+        "Baronet",
+        "Duchess",
+        # Add more as needed
+    ]
 
-    parts = [first]
+    ORDINAL_PATTERN = r"^(\d+(?:st|nd|rd|th))"
 
-    if middle:
-        parts.append(middle)
-    elif middle_initial:
-        parts.append(middle_initial)
+    def _extract_title(self, nicknames):
+        if not nicknames:
+            return None
+        import re
 
-    parts.append(last)
+        for title in self.TITLE_STRINGS:
+            # Accepts either ordinal+title or bare title (possibly with 'of ...')
+            ordinal_pattern = rf"{self.ORDINAL_PATTERN} {title}"
+            bare_pattern = rf"^{title}(?: of .*)?$"
+            if re.match(ordinal_pattern, nicknames) or re.match(
+                bare_pattern, nicknames
+            ):
+                return nicknames
+        raise RuntimeError(
+            f"Nicknames field does not start with ordinal+title or bare title: {nicknames}"
+        )
 
-    # Join with spaces and strip stray whitespace
-    return " ".join(p for p in parts if p).strip()
+    def add_alias(self, alias):
+        # Check for comma in alias
+        if "," in alias:
+            raise RuntimeError(f"Comma found in alias: {alias}")
+        # Do not add display_name as alias
+        if alias == self.display_name:
+            return
+        # Do not add duplicates, preserve order
+        if alias not in self.aliases:
+            self.aliases.append(alias)
+
+    def __init__(self, profile: dict):
+        self.profile = profile
+        self.display_name = None
+        self.aliases = []  # preserve order
+        self.deprecated_names = set()
+        self.title = None
+        self._build()
+
+    def _get_base_name(self, last_name):
+        first = self.profile.get("FirstName") or ""
+        middle = self.profile.get("MiddleName") or ""
+        middle_initial = self.profile.get("MiddleInitial") or ""
+        # Check for commas in used values (except LastNameOther)
+        for val, label in [
+            (first, "FirstName"),
+            (middle, "MiddleName"),
+            (middle_initial, "MiddleInitial"),
+            (last_name, "LastNameCurrent/AtBirth/Other"),
+        ]:
+            if label != "LastNameOther" and "," in val:
+                raise RuntimeError(f"Comma found in {label}: {val}")
+        parts = [first]
+        if middle:
+            parts.append(middle)
+        elif middle_initial:
+            parts.append(middle_initial)
+        parts.append(last_name)
+        return " ".join(p for p in parts if p).strip()
+
+    def _build(self):
+        p = self.profile
+        nicknames = p.get("Nicknames")
+        gender = (p.get("Gender") or "").lower()
+        if gender not in ("male", "female"):
+            raise RuntimeError(f"Gender must be 'male' or 'female', got: {gender}")
+        last_name_current = p.get("LastNameCurrent") or ""
+        last_name_at_birth = p.get("LastNameAtBirth") or ""
+        last_name_other = p.get("LastNameOther") or ""
+        prefix = p.get("Prefix") or ""
+        suffix = p.get("Suffix") or ""
+
+        if nicknames:
+            self.title = self._extract_title(nicknames)
+
+        # Display name: for female, use married name if present, else birth name
+        if (
+            # gender == "female"
+            last_name_current
+            and last_name_at_birth
+            and last_name_current != last_name_at_birth
+        ):
+            self.display_name = self._get_base_name(last_name_current)
+            alias = self._get_base_name(last_name_at_birth)
+            self.add_alias(alias)
+        else:
+            self.display_name = self._get_base_name(
+                last_name_current or last_name_at_birth
+            )
+
+        # Aliases from LastNameOther (comma separated, preserve order)
+        if last_name_other:
+            for alt_last in [
+                n.strip() for n in last_name_other.split(",") if n.strip()
+            ]:
+                alias = self._get_base_name(alt_last)
+                self.add_alias(alias)
+
+        # Deprecated names: display_name with prefix, suffix, or both
+        deprecated = set()
+        if prefix:
+            if "," in prefix:
+                raise RuntimeError(f"Comma found in Prefix: {prefix}")
+            deprecated.add(f"{prefix} {self.display_name}")
+        if suffix:
+            if "," in suffix:
+                raise RuntimeError(f"Comma found in Suffix: {suffix}")
+            deprecated.add(f"{self.display_name} {suffix}")
+        if prefix and suffix:
+            deprecated.add(f"{prefix} {self.display_name} {suffix}")
+        self.deprecated_names = deprecated
+
+        # Remove display_name from aliases and deprecated_names
+        if self.display_name in self.aliases:
+            self.aliases = [a for a in self.aliases if a != self.display_name]
+        self.deprecated_names.discard(self.display_name)
+
+    def get_title(self):
+        return self.title
+
+    def get_display_name(self):
+        return self.display_name
+
+    def get_aliases(self):
+        return list(self.aliases)
+
+    def get_deprecated_names(self):
+        return list(self.deprecated_names)
 
 
 def get_fields() -> str:
@@ -89,11 +201,13 @@ def get_fields() -> str:
             "MiddleInitial",
             "LastNameAtBirth",
             "LastNameCurrent",
-            "Nicknames",
-            "LastNameOther",
+            # these can't be used as 'mul'
+            "Nicknames",  # 4th Baronet Musgrave of Eden Hall, Duchess of Lancaster
+            # comma separated list
+            "LastNameOther",  # de Roet, Ruet, Rueth, Roelt, Swynford
             "RealName",  # The "Preferred" first name of the profile
-            "Prefix",  # Lieutenant
-            "Suffix",
+            "Prefix",  # Lieutenant, Sir
+            "Suffix",  # MP
             "ColloquialName",
             "BirthDate",  # The date of birth, YYYY-MM-DD. The Month (MM) and Day (DD) may be zeros.
             "DeathDate",  # The date of death, YYYY-MM-DD. The Month (MM) and Day (DD) may be zeros.
@@ -151,16 +265,29 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     profile = entry.get("profile", {})
     datastatus = profile.get("DataStatus", {})
 
-    birth_date = parse_wikitree_date(
-        profile.get("BirthDate"), datastatus.get("BirthDate")
-    )
-    death_date = parse_wikitree_date(
-        profile.get("DeathDate"), datastatus.get("DeathDate")
-    )
+    for date_type in ("Birth", "Death"):
+        decade_value = profile.get(f"{date_type}DateDecade")
+        date_str = profile.get(f"{date_type}Date")
+        status = datastatus.get(f"{date_type}Date")
+        date_value = parse_wikitree_date(date_str, status)
+        if decade_value == "unknown" and date_value:
+            raise RuntimeError("unknown decade with known date")
+        if not date_value and decade_value and decade_value != "unknown":
+            decade_year = decade_value.rstrip("s")
+            date_value = GenealogicsDate(
+                year=int(decade_year),
+                is_decade=True,
+                raw=decade_value,
+            )
+        if date_type == "Birth":
+            birth_date = date_value
+        else:
+            death_date = date_value
 
     first_name = profile.get("FirstName")
     real_name = profile.get("RealName")
 
+    is_date_guess = False
     findagrave_ids = set()
     for template in profile.get("Templates", []):
         if template.get("name") == "FindAGrave":
@@ -171,6 +298,8 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
             findagrave_id = next(iter(params.keys()))
             findagrave_ids.add(findagrave_id)
             break
+        if template.get("name") == "DateGuess":
+            is_date_guess = True
     if len(findagrave_ids) > 1:
         raise RuntimeError("Multiple FindAGrave IDs found, unexpected")
     if len(findagrave_ids) > 0:
@@ -180,25 +309,19 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
 
     if profile.get("IsPerson") != 1:
         raise RuntimeError("This one is not a person, needs special handling")
-    if real_name:
-        if first_name != real_name:
-            raise RuntimeError(
-                "This one has diff FirstName, RealName field, needs special handling"
-            )
-    if profile.get("Nicknames"):
-        raise RuntimeError("This one has a Nicknames field, needs special handling")
-    if profile.get("LastNameOther"):
-        raise RuntimeError("This one has a LastNameOther field, needs special handling")
-    if profile.get("Suffix"):
-        raise RuntimeError("This one has a Suffix field, needs special handling")
-    if profile.get("BirthDateDecade") and not birth_date:
+    # if real_name:
+    #     if first_name != real_name:
+    #         raise RuntimeError(
+    #             "This one has diff FirstName, RealName field, needs special handling"
+    #         )
+    # if profile.get("Nicknames"):
+    #     raise RuntimeError("This one has a Nicknames field, needs special handling")
+    if profile.get("ColloquialName"):
         raise RuntimeError(
-            "This one has a BirthDateDecade field and no birth_date, needs special handling"
+            "This one has a ColloquialName field, needs special handling"
         )
-    if profile.get("DeathDateDecade") and not death_date:
-        raise RuntimeError(
-            "This one has a DeathDateDecade field and no death_date, needs special handling"
-        )
+    # if profile.get("LastNameOther"):
+    #     raise RuntimeError("This one has a LastNameOther field, needs special handling")
     check_status(profile, datastatus, "BirthLocation")
     check_status(profile, datastatus, "DeathLocation")
     check_status(profile, datastatus, "FirstName")
@@ -212,9 +335,12 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     check_status(profile, datastatus, "Suffix")
     check_status(profile, datastatus, "Nicknames")
 
+    name_builder = NameBuilder(profile)
     # Build result with all fields + DataStatus for dates and locations
     result = {
-        "display_name": construct_display_name(profile),
+        "display_name": name_builder.get_display_name(),
+        "aliases": name_builder.get_aliases(),
+        "deprecated_names": name_builder.get_deprecated_names(),
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),
         "middle_initial": profile.get("MiddleInitial"),
@@ -235,6 +361,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "gender": profile.get("Gender"),
         "is_living": profile.get("IsLiving"),
         "findagrave_id": findagrave_id,
+        "is_date_guess": is_date_guess,
         "data_status": profile.get("DataStatus"),
     }
 
@@ -248,8 +375,16 @@ def test(wt_id: str):
 
 
 if __name__ == "__main__":
-    test("Adams-57")  # birth date before; prefix
+    # test("Adams-57")  # birth date before; prefix
     # test("Unknown-488976")
     # test("Bååt-25")
     # test("Zu_Schwarzburg-Leutenberg-1")
     # test("Moton-5")
+    # test("Duvall-727")  # guess date
+    # test("Taylor-21104")
+    # test("Taylor-21105")  # date decade; death = year, no status,
+    # # text indicates range
+    # test("Hutton-1476")  # prefix = sir, suffix = MP
+    # test("Musgrave-741")  # prefix = sir, suffix = MP; nicknames
+    # test("Roet-3")
+    test("Roet-18")  # realname
