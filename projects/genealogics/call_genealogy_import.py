@@ -10,6 +10,9 @@ from pywikibot.data import sparql
 from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
 
 from shared_lib.database_handler import DatabaseHandler
+from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
+from shared_lib.lookups.retrieval.db_cache import DBCache
+from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
 
 
 class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
@@ -39,21 +42,21 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         for row in rows:
             yield row[0]
 
-    def get_location_qid(self, location: str) -> Optional[str]:
-        """Get the QID for a location string, or None if not found."""
-        location = location.strip()
-        if not location:
-            return None
-        shortened_loc = location[:255]
-        sql = "EXECUTE PROCEDURE add_location(?)"
-        self.execute_procedure(sql, (shortened_loc,))
-        rows = self.execute_query(
-            "SELECT QID FROM LOCATION WHERE UPPER(LOCATION)=UPPER(?)", (shortened_loc,)
-        )
-        for row in rows:
-            return row[0]
+    # def get_location_qid(self, location: str) -> Optional[str]:
+    #     """Get the QID for a location string, or None if not found."""
+    #     location = location.strip()
+    #     if not location:
+    #         return None
+    #     shortened_loc = location[:255]
+    #     sql = "EXECUTE PROCEDURE add_location(?)"
+    #     self.execute_procedure(sql, (shortened_loc,))
+    #     rows = self.execute_query(
+    #         "SELECT QID FROM LOCATION WHERE UPPER(LOCATION)=UPPER(?)", (shortened_loc,)
+    #     )
+    #     for row in rows:
+    #         return row[0]
 
-        return None
+    #     return None
 
 
 def iterate_query():
@@ -77,21 +80,35 @@ def iterate_query():
 
 def query_loop():
     tracker = FirebirdStatusTracker()
+    place_lookup = CachedPlaceLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     for item in iterate_query():
-        update_wikidata_from_sources(item, tracker)
+        update_wikidata_from_sources(item, place_lookup, tracker)
 
 
 def todo(test: bool = True):
     tracker = FirebirdStatusTracker()
+    place_lookup = CachedPlaceLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-        update_wikidata_from_sources(item, tracker, test=test)
+        update_wikidata_from_sources(item, place_lookup, tracker, test=test)
 
 
 def do_item(qid: str, test: bool = True):
     tracker = FirebirdStatusTracker()
+    place_lookup = CachedPlaceLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-    update_wikidata_from_sources(item, tracker, check_already_done=False, test=test)
+    update_wikidata_from_sources(
+        item, place_lookup, tracker, check_already_done=False, test=test
+    )
 
 
 def main():
@@ -103,7 +120,9 @@ def main():
     # do_item("Q101247401")
     # do_item("Q100450663")
     # do_item("Q100450658")  # Pelatiah Adams, Sr.
-    do_item("Q104034261")  # Harriet Byne Mead
+    # do_item("Q104034261")  # Harriet Byne Mead
+    # do_item("Q15327330")  # Paon de Roet ()
+    do_item("Q100447276")  # Joan
     # generate_report()
 
 

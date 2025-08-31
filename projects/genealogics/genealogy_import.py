@@ -12,6 +12,9 @@ import genealogics.genealogics_date as gd
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 
+from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
+
+
 # TODO:
 #   * Update description
 #   * Only genealogics.org -> always update name
@@ -43,11 +46,6 @@ class GenealogicsStatusTracker(ABC):
         """Return True if the item is marked as errored."""
         pass
 
-    @abstractmethod
-    def get_location_qid(self, location: str) -> Optional[str]:
-        """Get the QID for a location string, or None if not found."""
-        pass
-
 
 def StateInGenealogicsOrg() -> cwd.Reference:
     return cwd.StateInReference(wd.QID_GENEALOGICS)
@@ -61,9 +59,11 @@ class WikidataUpdater:
     def __init__(
         self,
         page: cwd.WikiDataPage,
+        place_lookup: PlaceLookupInterface,
         tracker: GenealogicsStatusTracker,
     ):
         self.page = page
+        self.place_lookup = place_lookup
         self.tracker = tracker
         self.qid = self.page.item.id
         self.data_from_genealogics = False
@@ -71,6 +71,7 @@ class WikidataUpdater:
 
     def create_date(self, cls: Type[cwd.DateStatement], g_date: gd.GenealogicsDate):
         earliest = latest = None
+        is_circa = False
         date = cwd.Date(year=g_date.year, month=g_date.month, day=g_date.day)
         if g_date.modifier == "before":
             latest = date
@@ -84,49 +85,55 @@ class WikidataUpdater:
                 date = cwd.Date(year=g_date.year)
             else:
                 date = None
+        elif g_date.modifier == "about":
+            is_circa = True
         elif not g_date.modifier:
             pass
         else:
             raise ValueError(f"Unexpected date modifier {g_date.modifier}")
-        return cls(date=date, earliest=earliest, latest=latest)
+        return cls(date=date, earliest=earliest, latest=latest, is_circa=is_circa)
 
-    def work_wikitree(self, wt_id: str):
+    def work_wikitree(self, wt_id: str, mode: str):
         data = wtp.fetch_wikitree_profiles(wt_id)
         pprint(data, sort_dicts=False)
 
-        if birth_date := data.get("birth_date"):
-            self.page.add_statement(
-                self.create_date(cwd.DateOfBirth, birth_date),
-                reference=StateInWikiTree(),
-            )
-            self.data_from_wikitree = True
+        if mode == "full" or wd.PID_DATE_OF_BIRTH not in self.page.claims:
+            if birth_date := data.get("birth_date"):
+                self.page.add_statement(
+                    self.create_date(cwd.DateOfBirth, birth_date),
+                    reference=StateInWikiTree(),
+                )
+                self.data_from_wikitree = True
 
-        if birth_location := data.get("birth_location"):
-            location_qid = self.tracker.get_location_qid(birth_location)
-            if not location_qid:
-                raise RuntimeError(f"Location not found: {birth_location}")
-            self.page.add_statement(
-                cwd.PlaceOfBirth(qid=location_qid),
-                reference=StateInGenealogicsOrg(),
-            )
-            self.data_from_wikitree = True
+        if mode == "full" or wd.PID_PLACE_OF_BIRTH not in self.page.claims:
+            if birth_location := data.get("birth_location"):
+                location_qid = self.place_lookup.get_place_qid_by_desc(birth_location)
+                if not location_qid:
+                    raise RuntimeError(f"Location not found: {birth_location}")
+                self.page.add_statement(
+                    cwd.PlaceOfBirth(qid=location_qid),
+                    reference=StateInGenealogicsOrg(),
+                )
+                self.data_from_wikitree = True
 
-        if death_date := data.get("death_date"):
-            self.page.add_statement(
-                self.create_date(cwd.DateOfDeath, death_date),
-                reference=StateInWikiTree(),
-            )
-            self.data_from_wikitree = True
+        if mode == "full" or wd.PID_DATE_OF_DEATH not in self.page.claims:
+            if death_date := data.get("death_date"):
+                self.page.add_statement(
+                    self.create_date(cwd.DateOfDeath, death_date),
+                    reference=StateInWikiTree(),
+                )
+                self.data_from_wikitree = True
 
-        if death_location := data.get("death_location"):
-            location_qid = self.tracker.get_location_qid(death_location)
-            if not location_qid:
-                raise RuntimeError(f"Location not found: {death_location}")
-            self.page.add_statement(
-                cwd.PlaceOfDeath(qid=location_qid),
-                reference=StateInGenealogicsOrg(),
-            )
-            self.data_from_wikitree = True
+        if mode == "full" or wd.PID_PLACE_OF_DEATH not in self.page.claims:
+            if death_location := data.get("death_location"):
+                location_qid = self.place_lookup.get_place_qid_by_desc(death_location)
+                if not location_qid:
+                    raise RuntimeError(f"Location not found: {death_location}")
+                self.page.add_statement(
+                    cwd.PlaceOfDeath(qid=location_qid),
+                    reference=StateInGenealogicsOrg(),
+                )
+                self.data_from_wikitree = True
 
         if findagrave_id := data.get("findagrave_id"):
             self.page.add_statement(
@@ -140,10 +147,12 @@ class WikidataUpdater:
         if prefix := data.get("prefix"):
             if prefix == "Lieutenant":
                 pass
+            elif prefix == "Sir":
+                pass
             else:
                 raise NotImplementedError(f"Prefix not implemented yet: {prefix}")
 
-    def work_genealogics(self, id: str):
+    def work_genealogics(self, id: str, mode: str):
         data = gap.fetch_genealogics(id)
         pprint(data, sort_dicts=False)
         label_parts = data.get("label_parts")
@@ -164,77 +173,82 @@ class WikidataUpdater:
                 raise ValueError(f"Unexpected gender {gender}")
             self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
             self.data_from_genealogics = True
-        if birth := data.get("birth"):
+        if mode in ["full", "wikitree"]:
+            if birth := data.get("birth"):
 
-            if birth_date := birth.get("date"):
-                self.page.add_statement(
-                    self.create_date(cwd.DateOfBirth, birth_date),
-                    reference=StateInGenealogicsOrg(),
-                )
-                self.data_from_genealogics = True
-
-            if birth_place := birth.get("place"):
-                location_qid = self.tracker.get_location_qid(birth_place)
-                if not location_qid:
-                    raise RuntimeError(f"Location not found: {birth_place}")
-                self.page.add_statement(
-                    cwd.PlaceOfBirth(qid=location_qid),
-                    reference=StateInGenealogicsOrg(),
-                )
-                self.data_from_genealogics = True
-        if "christening" in data and data["christening"]:
-            raise NotImplementedError("Christening not implemented yet")
-
-        if death := data.get("death"):
-
-            if death_date := death.get("date"):
-                self.page.add_statement(
-                    self.create_date(cwd.DateOfDeath, death_date),
-                    reference=StateInGenealogicsOrg(),
-                )
-                self.data_from_genealogics = True
-
-            if death_place := death.get("place"):
-                location_qid = self.tracker.get_location_qid(death_place)
-                if not location_qid:
-                    raise RuntimeError(f"Location not found: {death_place}")
-                self.page.add_statement(
-                    cwd.PlaceOfDeath(qid=location_qid),
-                    reference=StateInGenealogicsOrg(),
-                )
-                self.data_from_genealogics = True
-
-        if "burial" in data and data["burial"]:
-            raise NotImplementedError("Burial not implemented yet")
-
-        if names.location:
-            location = names.location
-            lived_in = data.get("lived_in")
-            if lived_in:
-                location = f"{location}; {lived_in}"
-            location_qid = self.tracker.get_location_qid(location)
-            if not location_qid:
-                raise RuntimeError(f"Location not found: {location}")
-            self.page.add_statement(cwd.Residence(qid=location_qid), reference=None)
-            self.data_from_genealogics = True
-
-        if "en" in self.page.item.labels:
-            current_label = self.page.item.labels["en"]
-            if len(label_parts) == 2:
-                title = label_parts[1]
-                raw_text = f"{label_parts[0]}, {title}"
-                cleaned_name = f"{names.cleaned_name}, {title}"
-            else:
-                raw_text = label_parts[0]
-                cleaned_name = names.cleaned_name
-            if names.cleaned_name and (current_label == raw_text):
-                if raw_text != cleaned_name:
-                    self.page.deprecate_label(current_label, cleaned_name)
+                if birth_date := birth.get("date"):
+                    self.page.add_statement(
+                        self.create_date(cwd.DateOfBirth, birth_date),
+                        reference=StateInGenealogicsOrg(),
+                    )
                     self.data_from_genealogics = True
 
-            for name in names.variants:
-                self.page.add_statement(cwd.Label(name, language="en"), reference=None)
+                if birth_place := birth.get("place"):
+                    location_qid = self.place_lookup.get_place_qid_by_desc(birth_place)
+                    if not location_qid:
+                        raise RuntimeError(f"Location not found: {birth_place}")
+                    self.page.add_statement(
+                        cwd.PlaceOfBirth(qid=location_qid),
+                        reference=StateInGenealogicsOrg(),
+                    )
+                    self.data_from_genealogics = True
+            if "christening" in data and data["christening"]:
+                raise NotImplementedError("Christening not implemented yet")
+
+            if death := data.get("death"):
+
+                if death_date := death.get("date"):
+                    self.page.add_statement(
+                        self.create_date(cwd.DateOfDeath, death_date),
+                        reference=StateInGenealogicsOrg(),
+                    )
+                    self.data_from_genealogics = True
+
+                if death_place := death.get("place"):
+                    location_qid = self.place_lookup.get_place_qid_by_desc(death_place)
+                    if not location_qid:
+                        raise RuntimeError(f"Location not found: {death_place}")
+                    self.page.add_statement(
+                        cwd.PlaceOfDeath(qid=location_qid),
+                        reference=StateInGenealogicsOrg(),
+                    )
+                    self.data_from_genealogics = True
+
+            if "burial" in data and data["burial"]:
+                raise NotImplementedError("Burial not implemented yet")
+
+        if mode in ["full", "wikitree"]:
+            if names.location:
+                location = names.location
+                lived_in = data.get("lived_in")
+                if lived_in:
+                    location = f"{location}; {lived_in}"
+                location_qid = self.place_lookup.get_place_qid_by_desc(location)
+                if not location_qid:
+                    raise RuntimeError(f"Location not found: {location}")
+                self.page.add_statement(cwd.Residence(qid=location_qid), reference=None)
                 self.data_from_genealogics = True
+
+        if mode in ["full", "wikitree"]:
+            if "en" in self.page.item.labels:
+                current_label = self.page.item.labels["en"]
+                if len(label_parts) == 2:
+                    title = label_parts[1]
+                    raw_text = f"{label_parts[0]}, {title}"
+                    cleaned_name = f"{names.cleaned_name}, {title}"
+                else:
+                    raw_text = label_parts[0]
+                    cleaned_name = names.cleaned_name
+                if names.cleaned_name and (current_label == raw_text):
+                    if raw_text != cleaned_name:
+                        self.page.deprecate_label(current_label, cleaned_name)
+                        self.data_from_genealogics = True
+
+                for name in names.variants:
+                    self.page.add_statement(
+                        cwd.Label(name, language="en"), reference=None
+                    )
+                    self.data_from_genealogics = True
 
     def work(self):
         identifiers = {}
@@ -258,12 +272,30 @@ class WikidataUpdater:
             if len(identifiers[wd.PID_WIKITREE_PERSON_ID]) != 1:
                 raise RuntimeError("Multiple Genealogics.org IDs found")
 
+        id_set = set(identifiers.keys())
+        # remove ignore
+        id_set = id_set - {wd.PID_FIND_A_GRAVE_MEMORIAL_ID, wd.PID_GENI_COM_PROFILE_ID}
+        if id_set <= set([wd.PID_GENEALOGICS_ORG_PERSON_ID]):
+            mode = "full"
+        elif id_set <= set(
+            [
+                wd.PID_GENEALOGICS_ORG_PERSON_ID,
+                wd.PID_WIKITREE_PERSON_ID,
+            ]
+        ):
+            mode = "wikitree"
+        else:
+            mode = "simple"
+
         if wd.PID_GENEALOGICS_ORG_PERSON_ID in identifiers:
             for id in identifiers[wd.PID_GENEALOGICS_ORG_PERSON_ID]:
-                self.work_genealogics(id)
+                self.work_genealogics(id, mode=mode)
+
+        if mode == "wikitree":
+            mode = "full"
         if wd.PID_WIKITREE_PERSON_ID in identifiers:
             for id in identifiers[wd.PID_WIKITREE_PERSON_ID]:
-                self.work_wikitree(id)
+                self.work_wikitree(id, mode)
 
         from_arr = []
         if self.data_from_genealogics:
@@ -277,6 +309,7 @@ class WikidataUpdater:
 
 def update_wikidata_from_sources(
     item: pwb.ItemPage,
+    place_lookup: PlaceLookupInterface,
     tracker: GenealogicsStatusTracker,
     check_already_done: bool = True,
     test: bool = True,
@@ -296,7 +329,7 @@ def update_wikidata_from_sources(
         print(f"--{item.id}--")
         page = cwd.WikiDataPage(item, test=test)
 
-        updater = WikidataUpdater(page, tracker)
+        updater = WikidataUpdater(page, place_lookup, tracker)
         updater.work()
 
         if len(page.actions) > 0:

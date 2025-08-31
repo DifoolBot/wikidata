@@ -1067,12 +1067,18 @@ class DateStatement(Statement):
             self.wd_page.claim_changed(claim)
 
     def add_statement(self) -> Optional[pwb.Claim]:
-        if not self.date:
-            return None
+        #        if not self.date:
+        #            return None
 
         pid = self.get_prop()
         claim = pwb.Claim(REPO, pid)
-        claim.setTarget(self.date.create_wikidata_item())
+        if self.date:
+            claim.setTarget(self.date.create_wikidata_item())
+        else:
+            claim.setSnakType("somevalue")
+
+        # else:
+        #    claim.setTarget(None)
 
         self.update_statement(claim)
         self.wd_page.add_claim(pid, claim)
