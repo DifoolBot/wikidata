@@ -12,7 +12,8 @@ from shared_lib.lookups.interfaces.place_lookup_interface import (
 class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
     def __init__(self):
         file_path = Path(__file__).parent / "wd_cache.json"
-        super().__init__(file_path)
+        create_script = Path("schemas/wikidata_cache.sql")
+        super().__init__(file_path, create_script)
 
     def get_place_by_qid(self, qid: str) -> Optional[Tuple[str, str, str]]:
         sql = f"SELECT FIRST 1 PLACE_QID, COUNTRY_QID, PLACE_LABEL FROM PLACES WHERE PLACE_QID=?"

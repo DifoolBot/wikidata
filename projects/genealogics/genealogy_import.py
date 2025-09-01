@@ -85,7 +85,7 @@ class WikidataUpdater:
                 date = cwd.Date(year=g_date.year)
             else:
                 date = None
-        elif g_date.modifier == "about":
+        elif g_date.modifier in ["about", "estimated"]:
             is_circa = True
         elif not g_date.modifier:
             pass
@@ -171,10 +171,12 @@ class WikidataUpdater:
                 gender_qid = wd.QID_FEMALE
             else:
                 raise ValueError(f"Unexpected gender {gender}")
-            self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
-            self.data_from_genealogics = True
-        if mode in ["full", "wikitree"]:
-            if birth := data.get("birth"):
+            if wd.PID_SEX_OR_GENDER not in self.page.claims:
+                self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
+                self.data_from_genealogics = True
+
+        if birth := data.get("birth"):
+            if mode in ["full", "wikitree"]:
 
                 if birth_date := birth.get("date"):
                     self.page.add_statement(
@@ -192,10 +194,18 @@ class WikidataUpdater:
                         reference=StateInGenealogicsOrg(),
                     )
                     self.data_from_genealogics = True
-            if "christening" in data and data["christening"]:
-                raise NotImplementedError("Christening not implemented yet")
+        if wd.PID_DATE_OF_BAPTISM not in self.page.claims:
+            if christening := data.get("christening"):
+                if christening_date := christening.get("date"):
+                    self.page.add_statement(
+                        self.create_date(cwd.DateOfBaptism, christening_date),
+                        reference=StateInGenealogicsOrg(),
+                    )
 
-            if death := data.get("death"):
+                    self.data_from_genealogics = True
+
+        if death := data.get("death"):
+            if mode in ["full", "wikitree"]:
 
                 if death_date := death.get("date"):
                     self.page.add_statement(
@@ -214,8 +224,15 @@ class WikidataUpdater:
                     )
                     self.data_from_genealogics = True
 
-            if "burial" in data and data["burial"]:
-                raise NotImplementedError("Burial not implemented yet")
+        if wd.PID_DATE_OF_BURIAL_OR_CREMATION not in self.page.claims:
+            if burial := data.get("burial"):
+                if burial_date := burial.get("date"):
+                    self.page.add_statement(
+                        self.create_date(cwd.DateOfBurialOrCremation, burial_date),
+                        reference=StateInGenealogicsOrg(),
+                    )
+
+                    self.data_from_genealogics = True
 
         if mode in ["full", "wikitree"]:
             if names.location:

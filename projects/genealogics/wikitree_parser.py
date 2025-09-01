@@ -45,7 +45,7 @@ def parse_wikitree_date(
         elif "after" == status_lower:
             modifier = "after"
         elif "guess" == status_lower:
-            modifier = "guess"
+            modifier = "estimated"
         else:
             raise ValueError(f"Unknown status modifier: {status}")
 

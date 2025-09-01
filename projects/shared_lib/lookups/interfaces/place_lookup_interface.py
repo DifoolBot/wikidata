@@ -9,7 +9,7 @@ class PlaceLookupInterface(Protocol):
         """
         ...
 
-    def get_place_qid_by_desc(self, desc: str) -> str:
+    def get_place_qid_by_desc(self, text: str) -> str:
         """
         Retrieve place data by qid.
         Returns (place_qid, country_qid, place description) or None if not found.
@@ -34,6 +34,4 @@ class CountryLookupInterface(Protocol):
         """
         ...
 
-    def set_country(
-        self, country_qid: str, country_code: str, country_description: str
-    ): ...
+    def set_country(self, country_qid: str, country_code: str, country_label: str): ...
