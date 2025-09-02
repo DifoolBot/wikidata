@@ -3,7 +3,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Literal, Set
 
 import pywikibot as pwb
 
@@ -49,6 +49,93 @@ class TextColor:
 
 def sort_pids(pids):
     return sorted(pids, key=lambda x: int(x[1:]))
+
+
+def is_sourced(self, claim: pwb.Claim):
+    """Check if the claim has at least one reference."""
+    return bool(claim.sources)
+
+
+def precision_level(self, claim: pwb.Claim):
+    """Return numeric precision level: year=9, month=10, day=11"""
+    t = claim.getTarget()
+    if t:
+        return t.precision
+    else:
+        return 0
+
+
+def has_same_normalized_date(self, claim1: pwb.Claim, claim2: pwb.Claim):
+    """
+    return True if the dates are the same on the lowest precision
+    So   1955   == 2 Mar 1955
+    and  1590s  == 1591
+    """
+    # can be None
+    target1 = claim1.getTarget()
+    target2 = claim2.getTarget()
+    if target1 is None and target2 is None:
+        return True
+    if target1 is None or target2 is None:
+        return False
+    normalized1 = target1.normalize()
+    normalized2 = target2.normalize()
+    low_prec = normalized1.precision
+    if normalized2.precision < low_prec:
+        low_prec = normalized2.precision
+    if (
+        low_prec <= PRECISION_YEAR
+        or (normalized1.precision != low_prec)
+        or (normalized2.precision != low_prec)
+    ):
+        normalized1.calendarmodel = normalized2.calendarmodel
+    normalized1.precision = low_prec
+    normalized2.precision = low_prec
+    final1 = normalized1.normalize()
+    final2 = normalized2.normalize()
+    is_equal = final1 == final2
+    return is_equal
+
+
+def filter_claims_by_rank(claims):
+    preferred_claims = [
+        c for c in claims if getattr(c, "rank", "").lower() == "preferred"
+    ]
+    if preferred_claims:
+        return preferred_claims
+    # If no preferred, use normal (or any non-deprecated)
+    return [c for c in claims if getattr(c, "rank", "").lower() not in ("deprecated",)]
+
+
+def get_date_groups(self, claims):
+    """Group statements by normalized date using a precision-to-claims map."""
+    if any(claim.rank == "preferred" for claim in claims):
+        return  # Skip if any statement is already preferred
+
+    # Build a dictionary: { precision_level: [claims] }
+    precision_map = {}
+    for claim in claims:
+        if claim.rank == "deprecated":
+            continue
+        prec = self.precision_level(claim)
+        if prec > PRECISION_DAY:
+            raise RuntimeError("Unsupported precision > 11 (day)")
+        precision_map.setdefault(prec, []).append(claim)
+
+    by_normalized = []
+    # Highest precision first
+    for prec in sorted(precision_map.keys(), reverse=True):
+        for claim in precision_map[prec]:
+            found = False
+            for group in by_normalized:
+                if self.has_same_normalized_date(claim, group[0]):
+                    group.append(claim)
+                    found = True
+                    break
+            if not found:
+                by_normalized.append([claim])
+
+    return by_normalized
 
 
 class Reference(abc.ABC):
@@ -140,6 +227,24 @@ class Action:
 
     @abc.abstractmethod
     def post_apply(self):
+        raise NotImplementedError
+
+    ActionKind = Literal[
+        "add_claim",
+        "add_label",
+        "delete_claim",
+        "delete_label",
+        "change_claim",
+        "change_labels",
+        "read_claims",
+        "read_labels",
+    ]
+
+    @abc.abstractmethod
+    def get_action_kind(self) -> Set[ActionKind]:
+        """
+        Return a list of allowed action kind strings. Must only contain values from ActionKind.
+        """
         raise NotImplementedError
 
 
@@ -484,6 +589,9 @@ class AddStatement(Action):
         if not self.ignore:
             self.statement.post_add()
 
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"add_claim"}
+
 
 class DeleteStatement(Action):
     def __init__(self, statement: Statement):
@@ -499,6 +607,9 @@ class DeleteStatement(Action):
 
     def post_apply(self):
         pass
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"delete_claim"}
 
 
 class DeprecateLabel(Action):
@@ -523,6 +634,9 @@ class DeprecateLabel(Action):
 
     def post_apply(self):
         pass
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"change_labels", "read_claims"}
 
 
 class RecalcDateSpan(Action):
@@ -556,6 +670,9 @@ class RecalcDateSpan(Action):
     def post_apply(self):
         pass
 
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"read_claims", "change_labels"}
+
 
 class MoveReferences(Action):
     def __init__(self, from_statement: Statement, to_statement: Statement):
@@ -574,82 +691,24 @@ class MoveReferences(Action):
     def post_apply(self):
         pass
 
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"change_claim"}
+
 
 class CheckDateStatements(Action):
     def __init__(self, wd_page: "WikiDataPage", prop: str):
         self.wd_page = wd_page
         self.prop = prop
 
-    def is_sourced(self, claim: pwb.Claim):
-        """Check if the claim has at least one reference."""
-        return bool(claim.sources)
-
-    def precision_level(self, claim: pwb.Claim):
-        """Return numeric precision level: year=9, month=10, day=11"""
-        t = claim.getTarget()
-        if t:
-            return t.precision
-        else:
-            return 0
-
-    def has_same_normalized_date(self, claim1: pwb.Claim, claim2: pwb.Claim):
-        """
-        return True if the dates are the same on the lowest precision
-        So   1955   == 2 Mar 1955
-        and  1590s  == 1591
-        """
-        # can be None
-        target1 = claim1.getTarget()
-        target2 = claim2.getTarget()
-        if target1 is None and target2 is None:
-            return True
-        if target1 is None or target2 is None:
-            return False
-        normalized1 = target1.normalize()
-        normalized2 = target2.normalize()
-        low_prec = normalized1.precision
-        if normalized2.precision < low_prec:
-            low_prec = normalized2.precision
-        if (
-            low_prec <= PRECISION_YEAR
-            or (normalized1.precision != low_prec)
-            or (normalized2.precision != low_prec)
-        ):
-            normalized1.calendarmodel = normalized2.calendarmodel
-        normalized1.precision = low_prec
-        normalized2.precision = low_prec
-        final1 = normalized1.normalize()
-        final2 = normalized2.normalize()
-        is_equal = final1 == final2
-        return is_equal
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"read_claims", "change_claim"}
 
     def process_property(self, claims):
         """Group statements by normalized date using a precision-to-claims map."""
         if any(claim.rank == "preferred" for claim in claims):
             return  # Skip if any statement is already preferred
 
-        # Build a dictionary: { precision_level: [claims] }
-        precision_map = {}
-        for claim in claims:
-            if claim.rank == "deprecated":
-                continue
-            prec = self.precision_level(claim)
-            if prec > PRECISION_DAY:
-                raise RuntimeError("Unsupported precision > 11 (day)")
-            precision_map.setdefault(prec, []).append(claim)
-
-        by_normalized = []
-        # Highest precision first
-        for prec in sorted(precision_map.keys(), reverse=True):
-            for claim in precision_map[prec]:
-                found = False
-                for group in by_normalized:
-                    if self.has_same_normalized_date(claim, group[0]):
-                        group.append(claim)
-                        found = True
-                        break
-                if not found:
-                    by_normalized.append([claim])
+        by_normalized = get_date_groups(self, claims)
 
         if len(by_normalized) == 0:
             # only deprecated statements; nothing to do
@@ -1533,6 +1592,33 @@ class WikiDataPage:
 
         :return: True if actions were successfully applied, False otherwise.
         """
+
+        # Define ActionKind order
+        ACTION_KIND_ORDER = [
+            "add_claim",
+            "add_label",
+            "delete_claim",
+            "delete_label",
+            "change_claim",
+            "change_labels",
+            "read_claims",
+            "read_labels",
+            "update_claims",
+        ]
+
+        def kind_index(kind):
+            return ACTION_KIND_ORDER.index(kind)
+
+        def sort_key(action):
+            kinds = action.get_action_kind()
+            if not kinds:
+                return (len(ACTION_KIND_ORDER), len(ACTION_KIND_ORDER))
+            earliest = min(kind_index(k) for k in kinds)
+            latest = max(kind_index(k) for k in kinds)
+            return (latest, earliest)
+
+        self.actions.sort(key=sort_key)
+
         for phase in ["prepare", "apply", "post_apply"]:
             for action in self.actions:
                 getattr(action, phase)()
