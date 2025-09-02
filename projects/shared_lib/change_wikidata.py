@@ -525,6 +525,38 @@ class DeprecateLabel(Action):
         pass
 
 
+class RecalcDateSpan(Action):
+    def __init__(self, wd_page: "WikiDataPage", language: str, current_span_str: str):
+        self.wd_page = wd_page
+        self.language = language
+        self.current_span_str = current_span_str
+
+    def prepare(self):
+        pass
+
+    def apply(self):
+        if self.language not in self.wd_page.item.descriptions:
+            return
+        current_description = self.wd_page.item.descriptions[self.language]
+        if self.current_span_str not in current_description:
+            return
+
+        new_span_str = self.wd_page.calculate_date_span_description()
+        if new_span_str and new_span_str != current_description:
+            new_description = current_description.replace(
+                self.current_span_str, new_span_str
+            )
+            self.wd_page.save_description(language, new_description)
+            print(
+                TextColor.OKGREEN
+                + f" description updated to '{new_description}'"
+                + TextColor.ENDC
+            )
+
+    def post_apply(self):
+        pass
+
+
 class MoveReferences(Action):
     def __init__(self, from_statement: Statement, to_statement: Statement):
         self.from_statement = from_statement
@@ -1467,6 +1499,9 @@ class WikiDataPage:
 
     def deprecate_label(self, old_label, new_label: str):
         self._add_action(DeprecateLabel(self, old_label, new_label))
+
+    def recalc_date_span(self, language: str, current_str: str):
+        self._add_action(RecalcDateSpan(self, language, current_str))
 
     def check_date_statements(self):
         for prop in [

@@ -49,3 +49,22 @@ class GenealogicsDate:
         if date_str:
             parts.append(date_str.strip())
         return " ".join(parts) if parts else (self.raw or "")
+
+    def get_deprecated_date_str(self) -> str:
+        # (14 May 1694 - uncertain 1757)
+        parts = []
+        if self.modifier:
+            if self.modifier == "estimated":
+                parts.append("uncertain")
+        date_str = ""
+        if self.day:
+            date_str += f"{self.day:02d} "
+        if self.month:
+            from calendar import month_abbr
+
+            date_str += f"{month_abbr[self.month]} "
+        if self.year is not None:
+            date_str += str(self.year)
+        if date_str:
+            parts.append(date_str.strip())
+        return " ".join(parts) if parts else (self.raw or "")

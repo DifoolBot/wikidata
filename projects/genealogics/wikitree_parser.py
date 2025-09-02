@@ -161,17 +161,23 @@ class NameBuilder:
                 self.add_alias(alias)
 
         # Deprecated names: display_name with prefix, suffix, or both
+        if "," in prefix:
+            raise RuntimeError(f"Comma found in Prefix: {prefix}")
+        if "," in suffix:
+            raise RuntimeError(f"Comma found in Suffix: {suffix}")
+
         deprecated = set()
-        if prefix:
-            if "," in prefix:
-                raise RuntimeError(f"Comma found in Prefix: {prefix}")
-            deprecated.add(f"{prefix} {self.display_name}")
-        if suffix:
-            if "," in suffix:
-                raise RuntimeError(f"Comma found in Suffix: {suffix}")
-            deprecated.add(f"{self.display_name} {suffix}")
-        if prefix and suffix:
-            deprecated.add(f"{prefix} {self.display_name} {suffix}")
+        prefix_variants = self.get_prefix_variants(prefix)
+        suffix_variants = self.get_suffix_variants(prefix)
+        if prefix_variants or suffix_variants:
+            prefix_variants.append("")
+            suffix_variants.append("")
+        for pr in prefix_variants:
+            for su in suffix_variants:
+                if pr or su:
+                    deprecated.add(f"{pr} {self.bare_display_name} {su}".strip())
+                    if pr and su:
+                        deprecated.add(f"{pr} {self.bare_display_name}, {su}".strip())
         self.deprecated_names = deprecated
 
         # Remove display_name from aliases and deprecated_names
@@ -335,12 +341,18 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     check_status(profile, datastatus, "Suffix")
     check_status(profile, datastatus, "Nicknames")
 
+    # (14 May 1694 - uncertain 1757)
+    depr_start = birth_date.get_deprecated_date_str() if birth_date else "?"
+    depr_end = death_date.get_deprecated_date_str() if death_date else "?"
+    deprecated_desc_date = f"({depr_start} - {depr_end})"
+
     name_builder = NameBuilder(profile)
     # Build result with all fields + DataStatus for dates and locations
     result = {
         "display_name": name_builder.get_display_name(),
         "aliases": name_builder.get_aliases(),
         "deprecated_names": name_builder.get_deprecated_names(),
+        "deprecated_desc_date": deprecated_desc_date,
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),
         "middle_initial": profile.get("MiddleInitial"),

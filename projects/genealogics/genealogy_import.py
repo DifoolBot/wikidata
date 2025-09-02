@@ -20,9 +20,10 @@ from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInte
 #   * Only genealogics.org -> always update name
 #   * Add title to Nameparser
 #   * Check if current name is problematic -> deprecate, else -> deprecate only English label
-#   * Gaat iets fout met None dates met before/after
+#   O Gaat iets fout met None dates met before/after
 #   * gebruik code voor Julian/Gregorian
 #   * Q100450663: description aanpassen
+#   * wait before read gen, wikitree
 
 
 class GenealogicsStatusTracker(ABC):
@@ -68,6 +69,7 @@ class WikidataUpdater:
         self.qid = self.page.item.id
         self.data_from_genealogics = False
         self.data_from_wikitree = False
+        self.deprecated_desc_date = None
 
     def create_date(self, cls: Type[cwd.DateStatement], g_date: gd.GenealogicsDate):
         earliest = latest = None
@@ -144,10 +146,35 @@ class WikidataUpdater:
             )
             self.data_from_wikitree = True
 
+        if mode in ["full", "wikitree"]:
+            if "en" in self.page.item.labels:
+                display_name = data.get("display_name")
+                current_label = self.page.item.labels["en"]
+                for name in data.get("deprecated_names", []):
+                    if current_label == name:
+                        self.page.deprecate_label(current_label, display_name)
+                        self.data_from_wikitree = True
+                        break
+            if "en" in self.page.item.descriptions:
+                current_desc = self.page.item.descriptions["en"]
+                deprecated_desc_date = data.get("deprecated_desc_date")
+                if deprecated_desc_date and (
+                    current_desc.endswith(deprecated_desc_date)
+                ):
+                    # need to do last, as the dates can change
+                    self.deprecated_desc_date = deprecated_desc_date
         if prefix := data.get("prefix"):
-            if prefix == "Lieutenant":
+            # honorific prefix (P511) Lieutenant (Q123564138)
+            if prefix == "Lieutenant" or prefix == "Lieut.":
                 pass
             elif prefix == "Sir":
+                # honorific prefix (P511) Sir (Q209690)
+                pass
+            elif prefix == "Ensign":
+                # military or police rank x ensign
+                pass
+            elif prefix == "Rev.":
+                # honorific prefix x Reverend
                 pass
             else:
                 raise NotImplementedError(f"Prefix not implemented yet: {prefix}")
@@ -313,6 +340,9 @@ class WikidataUpdater:
         if wd.PID_WIKITREE_PERSON_ID in identifiers:
             for id in identifiers[wd.PID_WIKITREE_PERSON_ID]:
                 self.work_wikitree(id, mode)
+
+        if self.deprecated_desc_date:
+            self.page.recalc_date_span("en", self.deprecated_desc_date)
 
         from_arr = []
         if self.data_from_genealogics:

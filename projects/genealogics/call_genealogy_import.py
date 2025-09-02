@@ -22,10 +22,10 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         super().__init__(file_path)
 
     def is_error(self, qid: str) -> bool:
-        return self.has_record("QERROR", "QCODE=? AND NOT RETRY", (qid,))
+        return self.has_record("ERRORS", "qid=? AND NOT RETRY", (qid,))
 
     def is_done(self, qid: str) -> bool:
-        return self.has_record("QDONE", "QCODE=?", (qid,))
+        return self.has_record("DONE", "qid=?", (qid,))
 
     def mark_error(self, qid: str, error: str):
         shortened_msg = error[:255]
@@ -38,7 +38,7 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         self.execute_procedure(sql, (qid, language, shortened_msg))
 
     def get_todo(self):
-        rows = self.execute_query("SELECT QCODE FROM qtodo order by 1")
+        rows = self.execute_query("SELECT qid FROM todo order by 1")
         for row in rows:
             yield row[0]
 
@@ -122,7 +122,9 @@ def main():
     # do_item("Q100450658")  # Pelatiah Adams, Sr.
     # do_item("Q104034261")  # Harriet Byne Mead
     # do_item("Q15327330")  # Paon de Roet ()
-    do_item("Q100447276")  # Joan
+    # do_item("Q100447276")  # Joan
+    # do_item("Q100154116")  # Rev.
+    do_item("Q100148333")
     # generate_report()
 
 
