@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from pprint import pprint
+from typing import Optional
 
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
@@ -96,12 +97,13 @@ class NameBuilder:
     def __init__(self, profile: dict):
         self.profile = profile
         self.display_name = None
+        self.bare_display_name = None
         self.aliases = []  # preserve order
         self.deprecated_names = set()
         self.title = None
         self._build()
 
-    def _get_base_name(self, last_name):
+    def _get_base_name(self, last_name, include_suffix: bool = False):
         first = self.profile.get("FirstName") or ""
         middle = self.profile.get("MiddleName") or ""
         middle_initial = self.profile.get("MiddleInitial") or ""
@@ -120,7 +122,39 @@ class NameBuilder:
         elif middle_initial:
             parts.append(middle_initial)
         parts.append(last_name)
-        return " ".join(p for p in parts if p).strip()
+        name = " ".join(p for p in parts if p).strip()
+        if include_suffix:
+            suffix = self.profile.get("Suffix") or ""
+            suffix = self.get_allowed_suffix(suffix)
+            if suffix:
+                if "," in suffix:
+                    raise RuntimeError(f"Comma found in Suffix: {suffix}")
+                name = f"{name}, {suffix}"
+        return name
+
+    def get_prefix_suffix_variants(self, prefix: str) -> list[str]:
+        if not prefix:
+            return []
+        variants = [prefix]
+        if prefix == "Lieut.":
+            variants.append("Lt.")
+        return variants
+
+    def get_allowed_suffix(self, suffix: str) -> Optional[str]:
+        allowed_suffixes = {"Jr.", "Sr.", "II", "III", "IV", "V"}
+        not_allowed_suffixes = {}
+        if not suffix:
+            return ""
+        suffix = suffix.strip()
+        if suffix == "Jr":
+            suffix = "Jr."
+        if suffix == "Sr":
+            suffix = "Sr."
+
+        if suffix in allowed_suffixes:
+            return suffix
+        elif suffix not in not_allowed_suffixes:
+            raise RuntimeError(f"Unexpected suffix: {suffix}")
 
     def _build(self):
         p = self.profile
@@ -144,12 +178,20 @@ class NameBuilder:
             and last_name_at_birth
             and last_name_current != last_name_at_birth
         ):
-            self.display_name = self._get_base_name(last_name_current)
+            self.display_name = self._get_base_name(
+                last_name_current, include_suffix=True
+            )
+            self.bare_display_name = self._get_base_name(
+                last_name_current, include_suffix=False
+            )
             alias = self._get_base_name(last_name_at_birth)
             self.add_alias(alias)
         else:
             self.display_name = self._get_base_name(
-                last_name_current or last_name_at_birth
+                last_name_current or last_name_at_birth, include_suffix=True
+            )
+            self.bare_display_name = self._get_base_name(
+                last_name_current or last_name_at_birth, include_suffix=False
             )
 
         # Aliases from LastNameOther (comma separated, preserve order)
@@ -167,8 +209,8 @@ class NameBuilder:
             raise RuntimeError(f"Comma found in Suffix: {suffix}")
 
         deprecated = set()
-        prefix_variants = self.get_prefix_variants(prefix)
-        suffix_variants = self.get_suffix_variants(prefix)
+        prefix_variants = self.get_prefix_suffix_variants(prefix)
+        suffix_variants = self.get_prefix_suffix_variants(suffix)
         if prefix_variants or suffix_variants:
             prefix_variants.append("")
             suffix_variants.append("")
@@ -176,7 +218,7 @@ class NameBuilder:
             for su in suffix_variants:
                 if pr or su:
                     deprecated.add(f"{pr} {self.bare_display_name} {su}".strip())
-                    if pr and su:
+                    if su:
                         deprecated.add(f"{pr} {self.bare_display_name}, {su}".strip())
         self.deprecated_names = deprecated
 

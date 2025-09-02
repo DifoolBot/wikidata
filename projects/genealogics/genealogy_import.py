@@ -1,19 +1,17 @@
+import re
 from abc import ABC, abstractmethod
 from pprint import pprint
-from typing import List, Optional, Tuple
-from typing import Type
+from typing import List, Optional, Tuple, Type
 
-import genealogics.genealogics_org_parser as gap
-import genealogics.wikitree_parser as wtp
-import genealogics.nameparser as np
-import pywikibot as pwb
 import genealogics.genealogics_date as gd
+import genealogics.genealogics_org_parser as gap
+import genealogics.nameparser as np
+import genealogics.wikitree_parser as wtp
+import pywikibot as pwb
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-
 from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
-
 
 # TODO:
 #   * Update description
@@ -54,6 +52,11 @@ def StateInGenealogicsOrg() -> cwd.Reference:
 
 def StateInWikiTree() -> cwd.Reference:
     return cwd.StateInReference(wd.QID_WIKITREE)
+
+
+def is_year_span(text: str) -> bool:
+    pattern = r"\b(?:\()?\d{3,4}\s?[–—-]\s?\d{3,4}(?:\))?\b"
+    return re.fullmatch(pattern, text) is not None
 
 
 class WikidataUpdater:
@@ -150,11 +153,12 @@ class WikidataUpdater:
             if "en" in self.page.item.labels:
                 display_name = data.get("display_name")
                 current_label = self.page.item.labels["en"]
-                for name in data.get("deprecated_names", []):
-                    if current_label == name:
-                        self.page.deprecate_label(current_label, display_name)
-                        self.data_from_wikitree = True
-                        break
+                if display_name:
+                    for name in data.get("deprecated_names", []):
+                        if current_label == name:
+                            self.page.deprecate_label(current_label, display_name)
+                            self.data_from_wikitree = True
+                            break
             if "en" in self.page.item.descriptions:
                 current_desc = self.page.item.descriptions["en"]
                 deprecated_desc_date = data.get("deprecated_desc_date")
@@ -163,6 +167,9 @@ class WikidataUpdater:
                 ):
                     # need to do last, as the dates can change
                     self.deprecated_desc_date = deprecated_desc_date
+                elif is_year_span(current_desc):
+                    self.deprecated_desc_date = current_desc
+
         if prefix := data.get("prefix"):
             # honorific prefix (P511) Lieutenant (Q123564138)
             if prefix == "Lieutenant" or prefix == "Lieut.":

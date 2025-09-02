@@ -542,11 +542,11 @@ class RecalcDateSpan(Action):
             return
 
         new_span_str = self.wd_page.calculate_date_span_description()
-        if new_span_str and new_span_str != current_description:
+        if new_span_str and new_span_str != self.current_span_str:
             new_description = current_description.replace(
                 self.current_span_str, new_span_str
             )
-            self.wd_page.save_description(language, new_description)
+            self.wd_page.save_description(self.language, new_description)
             print(
                 TextColor.OKGREEN
                 + f" description updated to '{new_description}'"
@@ -1503,6 +1503,9 @@ class WikiDataPage:
     def recalc_date_span(self, language: str, current_str: str):
         self._add_action(RecalcDateSpan(self, language, current_str))
 
+    def calculate_date_span_description(self) -> str | None:
+        return None
+
     def check_date_statements(self):
         for prop in [
             wd.PID_DATE_OF_BIRTH,
@@ -1609,15 +1612,20 @@ class WikiDataPage:
         self.item.editEntity(data=self.data, summary=summary)
         return True
 
-    def save_label(self, language: str, name: str):
+    def save_label(self, language: str, value: str):
         if "labels" not in self.data:
             self.data["labels"] = {}
-        self.data["labels"][language] = name
+        self.data["labels"][language] = value
 
-    def save_alias(self, language: str, name: str):
+    def save_description(self, language: str, value: str):
+        if "descriptions" not in self.data:
+            self.data["descriptions"] = {}
+        self.data["descriptions"][language] = value
+
+    def save_alias(self, language: str, value: str):
         if "aliases" not in self.data:
             self.data["aliases"] = {}
-        self.data["aliases"].setdefault(language, []).append(name)
+        self.data["aliases"].setdefault(language, []).append(value)
 
     def save_changed_claim(self, claim: pwb.Claim):
         # add changed claim to self.data
