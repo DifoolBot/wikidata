@@ -19,7 +19,8 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
 
     def __init__(self):
         file_path = Path(__file__).parent / "genealogics.json"
-        super().__init__(file_path)
+        create_script = Path("schemas/genealogics.sql")
+        super().__init__(file_path, create_script)
 
     def is_error(self, qid: str) -> bool:
         return self.has_record("ERRORS", "qid=? AND NOT RETRY", (qid,))
@@ -32,10 +33,10 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         sql = "EXECUTE PROCEDURE add_error(?, ?)"
         self.execute_procedure(sql, (qid, shortened_msg))
 
-    def mark_done(self, qid: str, language: str, message: str):
+    def mark_done(self, qid: str, message: str):
         shortened_msg = message[:255]
         sql = "EXECUTE PROCEDURE add_done(?, ?, ?)"
-        self.execute_procedure(sql, (qid, language, shortened_msg))
+        self.execute_procedure(sql, (qid, shortened_msg))
 
     def get_todo(self):
         rows = self.execute_query("SELECT qid FROM todo order by 1")
@@ -123,8 +124,8 @@ def main():
     # do_item("Q104034261")  # Harriet Byne Mead
     # do_item("Q15327330")  # Paon de Roet ()
     # do_item("Q100447276")  # Joan
-    # do_item("Q100154116")  # Rev.
-    do_item("Q100148333")
+    do_item("Q100154116")  # Rev.
+    # do_item("Q100148333", test=False)
     # generate_report()
 
 

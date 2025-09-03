@@ -129,7 +129,7 @@ class NameBuilder:
             if suffix:
                 if "," in suffix:
                     raise RuntimeError(f"Comma found in Suffix: {suffix}")
-                name = f"{name}, {suffix}"
+                name = f"{name} {suffix}"
         return name
 
     def get_prefix_suffix_variants(self, prefix: str) -> list[str]:

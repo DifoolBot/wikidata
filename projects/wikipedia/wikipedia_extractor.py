@@ -751,7 +751,7 @@ class EntityDateReconciler:
                 )
                 self.page.add_statement(statement, reference=self.create_ref())
 
-            self.page.summary = f"data from [[{self.locale.wikipedia_qid}]]"
+            self.page.summary = f"from [[{self.locale.wikipedia_qid}]]"
 
             self.tracker.mark_done(
                 self.qid,

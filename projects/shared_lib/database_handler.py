@@ -19,7 +19,8 @@ def parse_firebird_script(script_text):
         line_strip = line.strip()
 
         # Detect SET TERM
-        match = re.match(r"^SET\s+TERM\s+(.+?)\s+(?:;|$)", line_strip, re.IGNORECASE)
+        pattern = rf"^SET\s+TERM\s+(.+?)\s+{current_term}$"
+        match = re.match(pattern, line_strip, re.IGNORECASE)
         if match:
             current_term = match.group(1)
             continue

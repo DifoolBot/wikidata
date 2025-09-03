@@ -31,7 +31,7 @@ class GenealogicsStatusTracker(ABC):
         pass
 
     @abstractmethod
-    def mark_done(self, qid: str, language: Optional[str], message: str):
+    def mark_done(self, qid: str, message: str):
         """Mark the item as done."""
         pass
 
@@ -55,7 +55,7 @@ def StateInWikiTree() -> cwd.Reference:
 
 
 def is_year_span(text: str) -> bool:
-    pattern = r"\b(?:\()?\d{3,4}\s?[–—-]\s?\d{3,4}(?:\))?\b"
+    pattern = r"^(?:\()?\d{3,4}\s?[–—-]\s?\d{3,4}(?:\))?$"
     return re.fullmatch(pattern, text) is not None
 
 
@@ -117,7 +117,7 @@ class WikidataUpdater:
                     raise RuntimeError(f"Location not found: {birth_location}")
                 self.page.add_statement(
                     cwd.PlaceOfBirth(qid=location_qid),
-                    reference=StateInGenealogicsOrg(),
+                    reference=StateInWikiTree(),
                 )
                 self.data_from_wikitree = True
 
@@ -136,7 +136,7 @@ class WikidataUpdater:
                     raise RuntimeError(f"Location not found: {death_location}")
                 self.page.add_statement(
                     cwd.PlaceOfDeath(qid=location_qid),
-                    reference=StateInGenealogicsOrg(),
+                    reference=StateInWikiTree(),
                 )
                 self.data_from_wikitree = True
 
@@ -156,6 +156,9 @@ class WikidataUpdater:
                 if display_name:
                     for name in data.get("deprecated_names", []):
                         if current_label == name:
+                            print(
+                                f"Deprecating label: {current_label} -> {display_name}"
+                            )
                             self.page.deprecate_label(current_label, display_name)
                             self.data_from_wikitree = True
                             break
@@ -175,14 +178,20 @@ class WikidataUpdater:
             if prefix == "Lieutenant" or prefix == "Lieut.":
                 pass
             elif prefix == "Sir":
-                # honorific prefix (P511) Sir (Q209690)
-                pass
+                self.page.add_statement(
+                    cwd.HonorificPrefix(qid=wd.QID_SIR),
+                    reference=None,
+                )
+                self.data_from_wikitree = True
             elif prefix == "Ensign":
                 # military or police rank x ensign
                 pass
             elif prefix == "Rev.":
-                # honorific prefix x Reverend
-                pass
+                self.page.add_statement(
+                    cwd.HonorificPrefix(qid=wd.QID_REVEREND),
+                    reference=None,
+                )
+                self.data_from_wikitree = True
             else:
                 raise NotImplementedError(f"Prefix not implemented yet: {prefix}")
 
@@ -349,6 +358,7 @@ class WikidataUpdater:
                 self.work_wikitree(id, mode)
 
         if self.deprecated_desc_date:
+            print(f"Deprecating description: {self.deprecated_desc_date}")
             self.page.recalc_date_span("en", self.deprecated_desc_date)
 
         from_arr = []
@@ -358,7 +368,7 @@ class WikidataUpdater:
             from_arr.append("WikiTree")
         if from_arr:
             from_str = ", ".join(from_arr)
-            self.page.summary = f"Data from {from_str}"
+            self.page.summary = f"from {from_str}"
 
 
 def update_wikidata_from_sources(
@@ -389,6 +399,12 @@ def update_wikidata_from_sources(
         if len(page.actions) > 0:
             page.check_date_statements()
             page.apply()
+
+            if not test:
+                tracker.mark_done(page.item.id, "changed")
+        else:
+            if not test:
+                tracker.mark_done(page.item.id, "nothing changed")
 
     except RuntimeError as e:
         print(f"Error processing item {item.id}: {e}")
