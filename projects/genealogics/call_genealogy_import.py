@@ -87,12 +87,10 @@ def query_loop():
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(),
-        source=WikidataClient(),
-        country = country_lookup
+        cache=DBCache(), source=WikidataClient(), country=country_lookup
     )
     for item in iterate_query():
-        update_wikidata_from_sources(item, place_lookup, tracker)
+        update_wikidata_from_sources(item, country_lookup, place_lookup, tracker)
 
 
 def todo(test: bool = True):
@@ -102,13 +100,13 @@ def todo(test: bool = True):
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(),
-        source=WikidataClient(),
-        country = country_lookup
+        cache=DBCache(), source=WikidataClient(), country=country_lookup
     )
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-        update_wikidata_from_sources(item, place_lookup, tracker, test=test)
+        update_wikidata_from_sources(
+            item, country_lookup, place_lookup, tracker, test=test
+        )
 
 
 def do_item(qid: str, test: bool = True):
@@ -118,13 +116,11 @@ def do_item(qid: str, test: bool = True):
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(),
-        source=WikidataClient(),
-        country = country_lookup
+        cache=DBCache(), source=WikidataClient(), country=country_lookup
     )
     item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
     update_wikidata_from_sources(
-        item, place_lookup, tracker, check_already_done=False, test=test
+        item, country_lookup, place_lookup, tracker, check_already_done=False, test=test
     )
 
 

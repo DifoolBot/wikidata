@@ -1,8 +1,8 @@
-from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
 from collections import defaultdict
 from typing import Optional
+
 import shared_lib.constants as wd
-import shared_lib.country_config as cc
+from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
 
 
 class LocaleResolver:
@@ -50,7 +50,7 @@ class LocaleResolver:
         data = self.place_lookup.get_place_by_qid(place_qid)
         if not data:
             raise RuntimeError(f"Country QID not found for place of birth {place_qid}")
-        place_qid, country_qid, place_description = data
+        place_qid, country_qid, place_label = data
         self.birth_country_qids.add(country_qid)
         self.country_qids.add(country_qid)
 
@@ -58,7 +58,7 @@ class LocaleResolver:
         data = self.place_lookup.get_place_by_qid(place_qid)
         if not data:
             raise RuntimeError(f"Country QID not found for place of death {place_qid}")
-        place_qid, country_qid, place_description = data
+        place_qid, country_qid, place_label = data
         self.death_country_qids.add(country_qid)
         self.country_qids.add(country_qid)
 
@@ -66,7 +66,7 @@ class LocaleResolver:
         data = self.place_lookup.get_place_by_qid(place_qid)
         if not data:
             raise RuntimeError(f"Country QID not found for place {place_qid}")
-        place_qid, country_qid, place_description = data
+        place_qid, country_qid, place_label = data
         self.country_qids.add(country_qid)
 
     def add_country(self, country_qid: str):
@@ -78,7 +78,7 @@ class LocaleResolver:
             return sorted_countries[0]
         else:
             return None
-        
+
     def get_weighted_countries(self):
         weights = {
             3: self.birth_country_qids,
@@ -97,12 +97,11 @@ class LocaleResolver:
             qid for qid, _ in sorted(country_scores.items(), key=lambda x: -x[1])
         ]
         return sorted_country_qids
-    
-    def resolve(self) -> str:
+
+    def resolve(self) -> Optional[str]:
         country_qid = self.get_country()
         return country_qid
-    
-    
+
     # def get_weighted_languages(self):
     #     weights = {
     #         3: self.birth_country_qids,

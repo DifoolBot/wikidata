@@ -14,13 +14,6 @@ CALENDAR_JULIAN = "julian"
 CALENDAR_GREGORIAN = "gregorian"
 CALENDAR_ASSUMED_GREGORIAN = "assumed_gregorian"
 
-URL_PROLEPTIC_JULIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985786"
-URL_PROLEPTIC_GREGORIAN_CALENDAR = "http://www.wikidata.org/entity/Q1985727"
-URL_UNSPECIFIED_CALENDAR = "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR
-URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN = (
-    "http://www.wikidata.org/wiki/" + wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN
-)
-
 PRECISION_DAY = 11
 PRECISION_MONTH = 10
 PRECISION_YEAR = 9
@@ -501,13 +494,13 @@ class Date:
 
     @classmethod
     def create_from_WbTime(cls, item: pwb.WbTime) -> "Date":
-        if item.calendarmodel == URL_PROLEPTIC_JULIAN_CALENDAR:
+        if item.calendarmodel == wd.URL_PROLEPTIC_JULIAN_CALENDAR:
             calendar = CALENDAR_JULIAN
-        elif item.calendarmodel == URL_PROLEPTIC_GREGORIAN_CALENDAR:
+        elif item.calendarmodel == wd.URL_PROLEPTIC_GREGORIAN_CALENDAR:
             calendar = CALENDAR_GREGORIAN
-        elif item.calendarmodel == URL_UNSPECIFIED_CALENDAR:
+        elif item.calendarmodel == wd.URL_UNSPECIFIED_CALENDAR:
             calendar = None
-        elif item.calendarmodel == URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+        elif item.calendarmodel == wd.URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
             calendar = CALENDAR_ASSUMED_GREGORIAN
         else:
             raise RuntimeError(f"Unrecognized calendar {item.calendarmodel}")
@@ -611,9 +604,9 @@ class Date:
             else:
                 calendar = CALENDAR_GREGORIAN
         if calendar == CALENDAR_JULIAN:
-            return URL_PROLEPTIC_JULIAN_CALENDAR
+            return wd.URL_PROLEPTIC_JULIAN_CALENDAR
         if calendar == CALENDAR_GREGORIAN or calendar == CALENDAR_ASSUMED_GREGORIAN:
-            return URL_PROLEPTIC_GREGORIAN_CALENDAR
+            return wd.URL_PROLEPTIC_GREGORIAN_CALENDAR
 
         raise RuntimeError(f"Unrecognized calendar {calendar}")
 

@@ -1,6 +1,22 @@
-from typing import Optional
+import re
 from calendar import monthrange
+from pathlib import Path
+from typing import Optional
+
+import pywikibot as pwb
+import yaml
+
 import shared_lib.constants as wd
+from shared_lib.lookups.interfaces.place_lookup_interface import CountryLookupInterface
+
+YAML_DIR = Path("projects\\wikipedia\\")
+
+
+def load_template_config(filename: str):
+    path = YAML_DIR / filename
+    with path.open(encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
 
 class CountryConfig:
     def __init__(self, key: Optional[str], config: dict):
@@ -29,13 +45,13 @@ class CountryConfig:
             self.last_julian_date = {"year": 1582, "month": 10, "day": 4}
             self.first_gregorian_date = {"year": 1582, "month": 10, "day": 15}
 
+
 class CalendarSystemResolver:
-    def __init__(self, last_julian_date, first_gregorian_date, no_julian_calendar):
+    def __init__(self, last_julian_date, first_gregorian_date):
         self.last_julian_date = last_julian_date
         self.first_gregorian_date = first_gregorian_date
-        self.no_julian_calendar = no_julian_calendar
-        
-    def get_calendar_model(self, year, month, day) -> str:
+
+    def get_calendar_url(self, year, month, day) -> str:
         """
         Given a year, month, day, returns the calendar model URL.
         - If the date can be both Julian and Gregorian, returns URL_UNSPECIFIED_CALENDAR.
@@ -108,3 +124,64 @@ class CalendarSystemResolver:
             raise ValueError(
                 f"Date {ymd} is not valid for either Julian or Gregorian calendar in this context."
             )
+
+
+class DateCalendarService:
+    def __init__(
+        self, country_qid: Optional[str], country_lookup: CountryLookupInterface
+    ):
+        self.country_qid = country_qid
+        self.country_lookup = country_lookup
+
+        if self.country_qid:
+            country_config = CountryConfig(
+                self.country_qid, load_template_config("countries.yaml")
+            )
+            if not country_config.first_gregorian_date:
+                self.ensure_qid_in_yaml()
+                raise RuntimeError(f"No first_gregorian_date for {self.country_qid}")
+
+            self.last_julian_date = country_config.last_julian_date
+            self.first_gregorian_date = country_config.first_gregorian_date
+        else:
+            self.last_julian_date = {"year": 1582, "month": 10, "day": 4}
+            self.first_gregorian_date = {"year": 1582, "month": 10, "day": 15}
+
+    def ensure_qid_in_yaml(self):
+        if not self.country_qid:
+            return
+
+        path = YAML_DIR / "countries.yaml"
+        with path.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Check if any line starts with the QID followed by a colon
+        qid_present = any(
+            re.match(rf"^{re.escape(self.country_qid)}\s*:", line) for line in lines
+        )
+
+        if not qid_present:
+            info = self.country_lookup.get_country_by_qid(self.country_qid)
+            if info:
+                country_qid, code, description = info
+
+                block = f"\n{country_qid}:\n    code: {code}\n    description: {description}\n"
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(block)
+
+    def get_calendar_url(self, year, month, day) -> str:
+        resolver = CalendarSystemResolver(
+            self.last_julian_date, self.first_gregorian_date
+        )
+        return resolver.get_calendar_url(year, month, day)
+
+    def get_wbtime(self, year, month, day) -> pwb.WbTime:
+        resolver = CalendarSystemResolver(
+            self.last_julian_date, self.first_gregorian_date
+        )
+        calendarmodel = resolver.get_calendar_url(year, month, day)
+        date = pwb.WbTime(
+            year=year, month=month, day=day, calendarmodel=calendarmodel
+        ).normalize()
+
+        return date
