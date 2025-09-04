@@ -203,20 +203,20 @@ def get_date_groups(claims) -> List[List[pwb.Claim]]:
             raise RuntimeError("Unsupported precision > 11 (day)")
         precision_map.setdefault(prec, []).append(claim)
 
-    by_normalized = []
+    groups = []
     # Highest precision first
     for prec in sorted(precision_map.keys(), reverse=True):
         for claim in precision_map[prec]:
             found = False
-            for group in by_normalized:
+            for group in groups:
                 if has_same_normalized_date(claim, group[0]):
                     group.append(claim)
                     found = True
                     break
             if not found:
-                by_normalized.append([claim])
+                groups.append([claim])
 
-    return by_normalized
+    return groups
 
 
 class Reference(abc.ABC):

@@ -11,6 +11,7 @@ from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
 
 from shared_lib.database_handler import DatabaseHandler
 from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
+from shared_lib.lookups.impl.cached_country_lookup import CachedCountryLookup
 from shared_lib.lookups.retrieval.db_cache import DBCache
 from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
 
@@ -81,9 +82,14 @@ def iterate_query():
 
 def query_loop():
     tracker = FirebirdStatusTracker()
+    country_lookup = CachedCountryLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     place_lookup = CachedPlaceLookup(
         cache=DBCache(),
         source=WikidataClient(),
+        country = country_lookup
     )
     for item in iterate_query():
         update_wikidata_from_sources(item, place_lookup, tracker)
@@ -91,9 +97,14 @@ def query_loop():
 
 def todo(test: bool = True):
     tracker = FirebirdStatusTracker()
+    country_lookup = CachedCountryLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     place_lookup = CachedPlaceLookup(
         cache=DBCache(),
         source=WikidataClient(),
+        country = country_lookup
     )
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
@@ -102,9 +113,14 @@ def todo(test: bool = True):
 
 def do_item(qid: str, test: bool = True):
     tracker = FirebirdStatusTracker()
+    country_lookup = CachedCountryLookup(
+        cache=DBCache(),
+        source=WikidataClient(),
+    )
     place_lookup = CachedPlaceLookup(
         cache=DBCache(),
         source=WikidataClient(),
+        country = country_lookup
     )
     item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
     update_wikidata_from_sources(

@@ -28,8 +28,8 @@ class WikidataClient(PlaceLookupInterface, CountryLookupInterface):
             for row in payload["results"]["bindings"]:
                 country_qid = row["country"]["value"].split("/")[-1]
                 place_label = row["placeLabel"]["value"]
-                country_label = row["countryLabel"]["value"]
-                return country_qid, place_label, country_label
+                #country_label = row["countryLabel"]["value"]
+                return place_qid, country_qid, place_label
 
         return None
 

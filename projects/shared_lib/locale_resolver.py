@@ -1,14 +1,50 @@
 from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
 from collections import defaultdict
 from typing import Optional
+import shared_lib.constants as wd
+import shared_lib.country_config as cc
 
 
-class PersonCountryLanguage:
+class LocaleResolver:
     def __init__(self, place_lookup: PlaceLookupInterface):
         self.place_lookup = place_lookup
         self.birth_country_qids = set()
         self.death_country_qids = set()
         self.country_qids = set()
+        self.country_config = None
+
+    def load_from_claims(self, claims: dict):
+        """
+        Load country information from Wikidata claims.
+        """
+        if wd.PID_PLACE_OF_BIRTH in claims:
+            for claim in claims[wd.PID_PLACE_OF_BIRTH]:
+                if claim.rank == "deprecated":
+                    continue
+                place_qid = claim.get_target().id
+                self.add_place_of_birth(place_qid)
+
+        if wd.PID_PLACE_OF_DEATH in claims:
+            for claim in claims[wd.PID_PLACE_OF_DEATH]:
+                if claim.rank == "deprecated":
+                    continue
+                place_qid = claim.get_target().id
+                self.add_place_of_death(place_qid)
+
+        # Countries of citizenship (P27)
+        if wd.PID_COUNTRY_OF_CITIZENSHIP in claims:
+            for claim in claims[wd.PID_COUNTRY_OF_CITIZENSHIP]:
+                if claim.rank == "deprecated":
+                    continue
+                country_qid = claim.get_target().id
+                self.add_country(country_qid)
+
+        if wd.PID_RESIDENCE in claims:
+            for claim in claims[wd.PID_RESIDENCE]:
+                if claim.rank == "deprecated":
+                    continue
+                country_qid = claim.get_target().id
+                self.add_country(country_qid)
 
     def add_place_of_birth(self, place_qid: str):
         data = self.place_lookup.get_place_by_qid(place_qid)
@@ -42,7 +78,7 @@ class PersonCountryLanguage:
             return sorted_countries[0]
         else:
             return None
-
+        
     def get_weighted_countries(self):
         weights = {
             3: self.birth_country_qids,
@@ -61,7 +97,12 @@ class PersonCountryLanguage:
             qid for qid, _ in sorted(country_scores.items(), key=lambda x: -x[1])
         ]
         return sorted_country_qids
-
+    
+    def resolve(self) -> str:
+        country_qid = self.get_country()
+        return country_qid
+    
+    
     # def get_weighted_languages(self):
     #     weights = {
     #         3: self.birth_country_qids,

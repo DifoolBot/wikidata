@@ -12,6 +12,7 @@ import pywikibot as pwb
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
+from shared_lib.locale_resolver import LocaleResolver
 
 # TODO:
 #   * Update description
@@ -73,21 +74,23 @@ class WikidataUpdater:
         self.data_from_genealogics = False
         self.data_from_wikitree = False
         self.deprecated_desc_date = None
+        self.locale = LocaleResolver(place_lookup)
 
     def create_date(self, cls: Type[cwd.DateStatement], g_date: gd.GenealogicsDate):
         earliest = latest = None
         is_circa = False
-        date = cwd.Date(year=g_date.year, month=g_date.month, day=g_date.day)
+        calendar = self.locale.get_calendar_model(year=g_date.year, month=g_date.month, day=g_date.day)
+        date = cwd.Date(year=g_date.year, month=g_date.month, day=g_date.day, calendar=calendar)
         if g_date.modifier == "before":
             latest = date
             if date.precision == cwd.PRECISION_DAY:
-                date = cwd.Date(year=g_date.year)
+                date = cwd.Date(year=g_date.year, calendar=calendar)
             else:
                 date = None
         elif g_date.modifier == "after":
             earliest = date
             if date.precision == cwd.PRECISION_DAY:
-                date = cwd.Date(year=g_date.year)
+                date = cwd.Date(year=g_date.year, calendar=calendar)
             else:
                 date = None
         elif g_date.modifier in ["about", "estimated"]:
@@ -119,6 +122,7 @@ class WikidataUpdater:
                     cwd.PlaceOfBirth(qid=location_qid),
                     reference=StateInWikiTree(),
                 )
+                self.locale.add_place_of_birth(location_qid)
                 self.data_from_wikitree = True
 
         if mode == "full" or wd.PID_DATE_OF_DEATH not in self.page.claims:
@@ -138,6 +142,7 @@ class WikidataUpdater:
                     cwd.PlaceOfDeath(qid=location_qid),
                     reference=StateInWikiTree(),
                 )
+                self.locale.add_place_of_death(location_qid)
                 self.data_from_wikitree = True
 
         if findagrave_id := data.get("findagrave_id"):
@@ -236,6 +241,7 @@ class WikidataUpdater:
                         cwd.PlaceOfBirth(qid=location_qid),
                         reference=StateInGenealogicsOrg(),
                     )
+                    self.locale.add_place_of_birth(location_qid)
                     self.data_from_genealogics = True
         if wd.PID_DATE_OF_BAPTISM not in self.page.claims:
             if christening := data.get("christening"):
@@ -287,6 +293,7 @@ class WikidataUpdater:
                 if not location_qid:
                     raise RuntimeError(f"Location not found: {location}")
                 self.page.add_statement(cwd.Residence(qid=location_qid), reference=None)
+                self.locale.add_place(location_qid)
                 self.data_from_genealogics = True
 
         if mode in ["full", "wikitree"]:
@@ -331,6 +338,8 @@ class WikidataUpdater:
         if wd.PID_WIKITREE_PERSON_ID in identifiers:
             if len(identifiers[wd.PID_WIKITREE_PERSON_ID]) != 1:
                 raise RuntimeError("Multiple Genealogics.org IDs found")
+            
+        self.locale.load_from_claims(self.page.item.claims)
 
         id_set = set(identifiers.keys())
         # remove ignore
