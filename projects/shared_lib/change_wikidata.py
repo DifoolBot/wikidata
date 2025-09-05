@@ -331,8 +331,9 @@ class Action:
 
 class Statement(WikidataEntity):
 
-    def __init__(self, only_change: bool = False):
+    def __init__(self, only_change: bool = False, remove_old_claims: bool = False):
         self.only_change = only_change
+        self.remove_old_claims = remove_old_claims
 
     # TODO : rename?
     def add(self):
@@ -371,6 +372,11 @@ class Statement(WikidataEntity):
                     return
 
         if self.can_add_claim:
+            if self.remove_old_claims:
+                if prop in self.wd_page.claims:
+                    for claim in self.wd_page.claims[prop]:
+                        self.delete_reference(claim, is_update=False, can_delete_claim=True)
+                                    
             self.print_action("statement added", TextColor.OKGREEN)
             claim = self.add_statement()
 
@@ -402,7 +408,8 @@ class Statement(WikidataEntity):
         else:
             self.wd_page.reference_added(claim)
 
-    def delete_reference(self, claim: pwb.Claim, is_update: bool = False):
+    def delete_reference(self, claim: pwb.Claim, is_update: bool = False,
+                         can_delete_claim: bool = False):
         if not self.reference:
             return
 
@@ -415,9 +422,13 @@ class Statement(WikidataEntity):
                 new_sources.append(source)
 
         if found:
-            claim.sources = new_sources
-            if not is_update:
-                self.wd_page.reference_deleted(claim)
+            if new_sources == [] and can_delete_claim:
+                print('reference removed, claim deleted')
+                self.wd_page.claim_deleted(claim)
+            else:
+                claim.sources = new_sources
+                if not is_update:
+                    self.wd_page.reference_deleted(claim)
 
     @abc.abstractmethod
     def update_statement(self, claim: pwb.Claim):
@@ -854,8 +865,9 @@ class ItemStatement(Statement):
         start_date: Optional[Date] = None,
         end_date: Optional[Date] = None,
         qid_alternative: Optional[str] = None,
+        remove_old_claims: bool = False,
     ):
-        super().__init__(only_change=False)
+        super().__init__(only_change=False, remove_old_claims=remove_old_claims)
         self.qid = qid
         self.qid_alternative = qid_alternative
         # PID_START_TIME
@@ -1178,8 +1190,9 @@ class DateStatement(Statement):
         ignore_calendar_model: bool = False,
         require_unreferenced: bool = False,
         only_change: bool = False,
+        remove_old_claims: bool = False,
     ):
-        super().__init__(only_change)
+        super().__init__(only_change=only_change, remove_old_claims=remove_old_claims)
         self.date = date
         self.earliest = earliest
         self.latest = latest
@@ -1908,13 +1921,13 @@ class WikiDataPage:
         self.data["claims"].append(claim.toJSON())
 
     def save_deleted_claim(self, claim: pwb.Claim):
-        raise RuntimeError("Not implemented")
-        # if not 'id' in claim:
-        #     raise RuntimeError("save_deleted_claim: claim does not contain 'id'")
+        id = claim.snak
+        if not id:
+            raise RuntimeError("No snak to delete")
 
-        # if "claims" not in self.data:
-        #     self.data["claims"] = []
-        # self.data["claims"].append({'id': claim['id'], 'remove': ''})
+        if "claims" not in self.data:
+            self.data["claims"] = []
+        self.data["claims"].append({'id': id, 'remove': ''})
 
     def print(self):
         for statement in self.actions:
@@ -1946,6 +1959,10 @@ class WikiDataPage:
     def claim_changed(self, claim: pwb.Claim):
         if claim.snak:
             self.changed_claims.append(claim.snak)
+
+    def claim_deleted(self, claim: pwb.Claim):
+        if claim.snak:
+            self.deleted_claims.append(claim.snak)
 
     def add_claim(self, pid, claim: pwb.Claim):
         if self.claims:
