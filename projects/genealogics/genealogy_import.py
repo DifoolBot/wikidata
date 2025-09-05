@@ -94,6 +94,8 @@ class WikidataUpdater:
             year=g_date.year, month=g_date.month, day=g_date.day
         )
         date = cwd.Date.create_from_WbTime(wb_time)
+        if date.calendar == cwd.CALENDAR_ASSUMED_GREGORIAN:
+            date.calendar = cwd.CALENDAR_GREGORIAN
         if g_date.modifier == "before":
             latest = date
             if date.precision == cwd.PRECISION_DAY:
@@ -112,7 +114,8 @@ class WikidataUpdater:
             pass
         else:
             raise ValueError(f"Unexpected date modifier {g_date.modifier}")
-        return cls(date=date, earliest=earliest, latest=latest, is_circa=is_circa)
+        return cls(date=date, earliest=earliest, latest=latest, is_circa=is_circa,
+                   remove_old_claims=True)
 
     def work_wikitree(self, wt_id: str, mode: str):
         data = wtp.fetch_wikitree_profiles(wt_id)
@@ -193,7 +196,7 @@ class WikidataUpdater:
 
         if prefix := data.get("prefix"):
             # honorific prefix (P511) Lieutenant (Q123564138)
-            if prefix == "Lieutenant" or prefix == "Lieut.":
+            if prefix == "Lieutenant" or prefix == "Lieut." or prefix == 'Lieut':
                 pass
             elif prefix == "Sir":
                 self.page.add_statement(
@@ -204,7 +207,7 @@ class WikidataUpdater:
             elif prefix == "Ensign":
                 # military or police rank x ensign
                 pass
-            elif prefix == "Rev.":
+            elif prefix == "Rev." or prefix == "Rev":
                 self.page.add_statement(
                     cwd.HonorificPrefix(qid=wd.QID_REVEREND),
                     reference=None,

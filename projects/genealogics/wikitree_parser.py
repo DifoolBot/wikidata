@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from pprint import pprint
 from typing import Optional
-
+from shared_lib.rate_limiter import rate_limit
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
 
@@ -135,9 +135,18 @@ class NameBuilder:
     def get_prefix_suffix_variants(self, prefix: str) -> list[str]:
         if not prefix:
             return []
+        # Dictionary of known prefix variants
+        prefix_variants = [
+            ["Lieutenant", "Lieut.", "Lieut", "Lt.", "Lt"],
+            ["Reverend", "Rev.", "Rev"],
+        ]
+        for variants in prefix_variants:
+            if prefix in variants:
+                return variants
+            
         variants = [prefix]
-        if prefix == "Lieut.":
-            variants.append("Lt.")
+        if prefix.endswith("."):
+            variants.append(prefix[:-1])
         return variants
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
@@ -275,6 +284,22 @@ def check_status(profile, datastatus, key: str):
     if profile.get(key) and datastatus.get(key) and datastatus.get(key) != "certain":
         raise RuntimeError(f"{key} not certain: {datastatus.get(key)}")
 
+@rate_limit(30) # 1 call every 30 seconds
+def fetch_wikitree_api(wt_id: str, use_cache: bool = True):
+    params = {
+        "action": "getProfile",
+        "key": wt_id,
+        "fields": get_fields(),
+        # "fields": "*",
+        "appId": "DifoolBot-Wikidata",
+    }
+
+    print('Retrieving data from WIkiTree API for', wt_id)
+    r = requests.get(API_URL, params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    return data
+
 
 def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     """
@@ -289,18 +314,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     else:
-        params = {
-            "action": "getProfile",
-            "key": wt_id,
-            "fields": get_fields(),
-            # "fields": "*",
-            "appId": "DifoolBot-Wikidata",
-        }
-
-        r = requests.get(API_URL, params=params, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-
+        data = fetch_wikitree_api(wt_id, use_cache)
         # Save raw API result to cache file
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
@@ -370,8 +384,16 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         )
     # if profile.get("LastNameOther"):
     #     raise RuntimeError("This one has a LastNameOther field, needs special handling")
-    check_status(profile, datastatus, "BirthLocation")
-    check_status(profile, datastatus, "DeathLocation")
+    if datastatus.get("BirthLocation") == 'guess':
+        birth_location = None
+    else:
+        check_status(profile, datastatus, "BirthLocation")
+        birth_location = profile.get("BirthLocation")
+    if datastatus.get("DeathLocation") == 'guess':
+        death_location = None
+    else:
+        check_status(profile, datastatus, "DeathLocation")
+        death_location = profile.get("DeathLocation")
     check_status(profile, datastatus, "FirstName")
     check_status(profile, datastatus, "MiddleName")
     check_status(profile, datastatus, "LastNameCurrent")
@@ -407,11 +429,9 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "suffix": profile.get("Suffix"),
         "colloquial_name": profile.get("ColloquialName"),
         "birth_date": birth_date,
-        "birth_location": profile.get("BirthLocation"),
-        # "birth_location_status": datastatus.get("BirthLocation"),
+        "birth_location": birth_location, 
         "death_date": death_date,
-        "death_location": profile.get("DeathLocation"),
-        # "death_location_status": datastatus.get("DeathLocation"),
+        "death_location": death_location,
         "gender": profile.get("Gender"),
         "is_living": profile.get("IsLiving"),
         "findagrave_id": findagrave_id,

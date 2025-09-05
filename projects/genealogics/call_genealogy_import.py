@@ -36,7 +36,7 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
 
     def mark_done(self, qid: str, message: str):
         shortened_msg = message[:255]
-        sql = "EXECUTE PROCEDURE add_done(?, ?, ?)"
+        sql = "EXECUTE PROCEDURE add_done(?, ?)"
         self.execute_procedure(sql, (qid, shortened_msg))
 
     def get_todo(self):
@@ -136,10 +136,13 @@ def main():
     # do_item("Q104034261")  # Harriet Byne Mead
     # do_item("Q15327330")  # Paon de Roet ()
     # do_item("Q100447276")  # Joan
-    do_item("Q100154116")  # Rev.
+    # do_item("Q100154116", test=False)  # Rev.
     # do_item("Q100148333", test=False)
     # generate_report()
 
+    do_item("Q100433231")
+    #do_item("Q112795079", test = False)
+    #do_item("Q100433233")
 
 if __name__ == "__main__":
     main()
