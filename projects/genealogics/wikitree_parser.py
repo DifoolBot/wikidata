@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from pprint import pprint
-from typing import Optional
+from typing import Optional, Set
 from shared_lib.rate_limiter import rate_limit
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
@@ -132,9 +132,9 @@ class NameBuilder:
                 name = f"{name} {suffix}"
         return name
 
-    def get_prefix_suffix_variants(self, prefix: str) -> list[str]:
+    def get_prefix_suffix_variants(self, prefix: str) -> Set[str]:
         if not prefix:
-            return []
+            return set()
         # Dictionary of known prefix variants
         prefix_variants = [
             ["Lieutenant", "Lieut.", "Lieut", "Lt.", "Lt"],
@@ -144,12 +144,12 @@ class NameBuilder:
         ]
         for variants in prefix_variants:
             if prefix in variants:
-                return variants
+                return set(variants)
 
         variants = [prefix]
         if prefix.endswith("."):
             variants.append(prefix[:-1])
-        return variants
+        return set(variants)
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
         allowed_suffixes = {"Jr.", "Sr.", "II", "III", "IV", "V"}
@@ -219,26 +219,20 @@ class NameBuilder:
         if "," in suffix:
             raise RuntimeError(f"Comma found in Suffix: {suffix}")
 
-        deprecated = set()
+
+        # Build prefix and suffix variants
         prefix_variants = self.get_prefix_suffix_variants(prefix)
-        suffix_variants = self.get_prefix_suffix_variants(suffix)
-        if prefix_variants or suffix_variants:
-            prefix_variants.append("")
-            suffix_variants.append("")
-        for pr in prefix_variants:
-            for su in suffix_variants:
-                if pr or su:
-                    deprecated.add(f"{pr} {self.bare_display_name} {su}".strip())
-                    if su:
-                        deprecated.add(f"{pr} {self.bare_display_name}, {su}".strip())
+        prefix_variants.update(["Dr.", "Capt.", "Col.", "Hon. Capt.", "Lt.", "Rev.", ""])  # '' for no prefix
+        suffix_variants = {"Jr.", "Sr.", ""}  # '' for no suffix
+        if suffix:
+            suffix_variants.add(suffix)
 
-        deprecated.add("Capt. " + self.bare_display_name)
-        deprecated.add("Col. " + self.bare_display_name)
-        deprecated.add("Hon. Capt. " + self.bare_display_name)
-        deprecated.add("Lt. " + self.bare_display_name)
-        deprecated.add("Rev. " + self.bare_display_name)
-
-        self.deprecated_names = deprecated
+        # Build deprecated names directly as a set comprehension
+        self.deprecated_names = {
+            f"{pr} {self.bare_display_name} {su}".strip()
+            if not su else f"{pr} {self.bare_display_name}, {su}".strip()
+            for pr in prefix_variants for su in suffix_variants if pr or su
+        }
 
         # Remove display_name from aliases and deprecated_names
         if self.display_name in self.aliases:
@@ -362,15 +356,24 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     is_date_guess = False
     findagrave_ids = set()
     for template in profile.get("Templates", []):
-        if template.get("name") == "FindAGrave":
+        template_name = template.get("name")
+        if template_name == "FindAGrave":
             # {'name': 'FindAGrave', 'params': {'39387590': ''}}
             params = template.get("params", {})
-            if len(params) != 1:
-                raise RuntimeError("Unexpected FindAGrave template format")
-            findagrave_id = next(iter(params.keys()))
-            findagrave_ids.add(findagrave_id)
-            break
-        if template.get("name") == "DateGuess":
+            found_id = None
+            different = False
+            for key, value in params.items():
+                if key.isdigit() and not value:
+                    found_id = key
+                elif key == 'sameas' and value == 'no':
+                    different = True
+                elif key == 'sameas' and value == 'yes':
+                    pass
+                else:
+                    raise RuntimeError(f"Unexpected FindAGrave template format: {params}") 
+            if not different and found_id:
+                findagrave_ids.add(found_id)
+        if template_name == "DateGuess":
             is_date_guess = True
     if len(findagrave_ids) > 1:
         raise RuntimeError("Multiple FindAGrave IDs found, unexpected")
@@ -404,6 +407,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     else:
         check_status(profile, datastatus, "DeathLocation")
         death_location = profile.get("DeathLocation")
+    check_status(profile, datastatus, "Gender")
     check_status(profile, datastatus, "FirstName")
     check_status(profile, datastatus, "MiddleName")
     check_status(profile, datastatus, "LastNameCurrent")
