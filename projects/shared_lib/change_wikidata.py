@@ -230,8 +230,10 @@ class Reference(abc.ABC):
 
 
 class StateInReference(Reference):
-    def __init__(self, state_in_qid: str):
+    def __init__(self, state_in_qid: str, identifier_pid: str, identifier: str):
         self.state_in_qid = state_in_qid
+        self.identifier_pid = identifier_pid
+        self.identifier = identifier
 
     def is_equal_reference(self, src) -> bool:
         if wd.PID_STATED_IN in src:
@@ -239,6 +241,12 @@ class StateInReference(Reference):
                 actual = claim.getTarget()
                 if actual.id == self.state_in_qid:
                     return True
+        if self.identifier_pid in src:
+            for claim in src[self.identifier_pid]:
+                actual = claim.getTarget()
+                if actual == self.identifier:
+                    return True
+
         return False
 
     def create_source(self):
@@ -375,8 +383,10 @@ class Statement(WikidataEntity):
             if self.remove_old_claims:
                 if prop in self.wd_page.claims:
                     for claim in self.wd_page.claims[prop]:
-                        self.delete_reference(claim, is_update=False, can_delete_claim=True)
-                                    
+                        self.delete_reference(
+                            claim, is_update=False, can_delete_claim=True
+                        )
+
             self.print_action("statement added", TextColor.OKGREEN)
             claim = self.add_statement()
 
@@ -408,8 +418,9 @@ class Statement(WikidataEntity):
         else:
             self.wd_page.reference_added(claim)
 
-    def delete_reference(self, claim: pwb.Claim, is_update: bool = False,
-                         can_delete_claim: bool = False):
+    def delete_reference(
+        self, claim: pwb.Claim, is_update: bool = False, can_delete_claim: bool = False
+    ):
         if not self.reference:
             return
 
@@ -423,7 +434,7 @@ class Statement(WikidataEntity):
 
         if found:
             if new_sources == [] and can_delete_claim:
-                print('reference removed, claim deleted')
+                print("reference removed, claim deleted")
                 self.wd_page.claim_deleted(claim)
             else:
                 claim.sources = new_sources
@@ -1033,7 +1044,7 @@ class DateQualifiers:
                 filtered[pid] = qualifiers
 
         # Add missing qualifiers if needed
-        def add_qual(pid, qid, condition):
+        def add_qid_qual(pid, qid, condition):
             if condition:
                 already = any(
                     q.getTarget().getID() == qid for q in filtered.get(pid, [])
@@ -1043,17 +1054,27 @@ class DateQualifiers:
                     qual.setTarget(pwb.ItemPage(REPO, qid))
                     filtered.setdefault(pid, []).append(qual)
 
-        add_qual(wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA, self.is_circa)
-        add_qual(
+        def add_date_qual(pid, value: Optional[Date]):
+            if value:
+                already = pid in filtered
+                if not already:
+                    qual = pwb.Claim(REPO, pid, is_qualifier=True)
+                    qual.setTarget(value.create_wikidata_item())
+                    filtered.setdefault(pid, []).append(qual)
+
+        add_qid_qual(wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA, self.is_circa)
+        add_qid_qual(
             wd.PID_SOURCING_CIRCUMSTANCES,
             wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584,
             self.gregorian_pre_1584,
         )
-        add_qual(
+        add_qid_qual(
             wd.PID_SOURCING_CIRCUMSTANCES,
             wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN,
             self.assumed_gregorian,
         )
+        add_date_qual(wd.PID_EARLIEST_DATE, self.earliest)
+        add_date_qual(wd.PID_LATEST_DATE, self.latest)
 
         # Sort qualifiers by custom order
         custom_pid_order = []
@@ -1259,9 +1280,6 @@ class DateStatement(Statement):
             self.wd_page.claim_changed(claim)
 
     def add_statement(self) -> Optional[pwb.Claim]:
-        #        if not self.date:
-        #            return None
-
         pid = self.get_prop()
         claim = pwb.Claim(REPO, pid)
         if self.date:
@@ -1269,10 +1287,8 @@ class DateStatement(Statement):
         else:
             claim.setSnakType("somevalue")
 
-        # else:
-        #    claim.setTarget(None)
-
-        self.update_statement(claim)
+        target_qs = DateQualifiers.from_statement(self)
+        claim.qualifiers = target_qs.recreate_qualifiers(claim)
         self.wd_page.add_claim(pid, claim)
         return claim
 
@@ -1927,7 +1943,7 @@ class WikiDataPage:
 
         if "claims" not in self.data:
             self.data["claims"] = []
-        self.data["claims"].append({'id': id, 'remove': ''})
+        self.data["claims"].append({"id": id, "remove": ""})
 
     def print(self):
         for statement in self.actions:
@@ -2006,10 +2022,12 @@ class WikiDataPage:
             death_year = None
         if birth_year or death_year:
             if not birth_year:
-                birth_year = "?"
-            if not death_year:
-                death_year = "?"
-            return f"({birth_year}–{death_year})"
+                span = f"d. {death_year}"
+            elif not death_year:
+                span = f"b. {birth_year}"
+            else:
+                span = f"{birth_year}–{death_year}"
+            return f"({span})"
         return None
 
     def determine_birth_death(self):

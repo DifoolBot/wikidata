@@ -21,14 +21,14 @@ class LocaleResolver:
             for claim in claims[wd.PID_PLACE_OF_BIRTH]:
                 if claim.rank == "deprecated":
                     continue
-                place_qid = claim.get_target().id
+                place_qid = claim.getTarget().id
                 self.add_place_of_birth(place_qid)
 
         if wd.PID_PLACE_OF_DEATH in claims:
             for claim in claims[wd.PID_PLACE_OF_DEATH]:
                 if claim.rank == "deprecated":
                     continue
-                place_qid = claim.get_target().id
+                place_qid = claim.getTarget().id
                 self.add_place_of_death(place_qid)
 
         # Countries of citizenship (P27)
@@ -36,14 +36,14 @@ class LocaleResolver:
             for claim in claims[wd.PID_COUNTRY_OF_CITIZENSHIP]:
                 if claim.rank == "deprecated":
                     continue
-                country_qid = claim.get_target().id
+                country_qid = claim.getTarget().id
                 self.add_country(country_qid)
 
         if wd.PID_RESIDENCE in claims:
             for claim in claims[wd.PID_RESIDENCE]:
                 if claim.rank == "deprecated":
                     continue
-                country_qid = claim.get_target().id
+                country_qid = claim.getTarget().id
                 self.add_country(country_qid)
 
     def add_place_of_birth(self, place_qid: str):

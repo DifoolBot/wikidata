@@ -139,11 +139,13 @@ class NameBuilder:
         prefix_variants = [
             ["Lieutenant", "Lieut.", "Lieut", "Lt.", "Lt"],
             ["Reverend", "Rev.", "Rev"],
+            ["Ensign", "Ens.", "Ens"],
+            ["Dr", "Dr."],
         ]
         for variants in prefix_variants:
             if prefix in variants:
                 return variants
-            
+
         variants = [prefix]
         if prefix.endswith("."):
             variants.append(prefix[:-1])
@@ -229,6 +231,13 @@ class NameBuilder:
                     deprecated.add(f"{pr} {self.bare_display_name} {su}".strip())
                     if su:
                         deprecated.add(f"{pr} {self.bare_display_name}, {su}".strip())
+
+        deprecated.add("Capt. " + self.bare_display_name)
+        deprecated.add("Col. " + self.bare_display_name)
+        deprecated.add("Hon. Capt. " + self.bare_display_name)
+        deprecated.add("Lt. " + self.bare_display_name)
+        deprecated.add("Rev. " + self.bare_display_name)
+
         self.deprecated_names = deprecated
 
         # Remove display_name from aliases and deprecated_names
@@ -284,7 +293,8 @@ def check_status(profile, datastatus, key: str):
     if profile.get(key) and datastatus.get(key) and datastatus.get(key) != "certain":
         raise RuntimeError(f"{key} not certain: {datastatus.get(key)}")
 
-@rate_limit(30) # 1 call every 30 seconds
+
+@rate_limit(30)  # 1 call every 30 seconds
 def fetch_wikitree_api(wt_id: str, use_cache: bool = True):
     params = {
         "action": "getProfile",
@@ -294,7 +304,7 @@ def fetch_wikitree_api(wt_id: str, use_cache: bool = True):
         "appId": "DifoolBot-Wikidata",
     }
 
-    print('Retrieving data from WIkiTree API for', wt_id)
+    print("Retrieving data from WIkiTree API for", wt_id)
     r = requests.get(API_URL, params=params, timeout=20)
     r.raise_for_status()
     data = r.json()
@@ -384,12 +394,12 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         )
     # if profile.get("LastNameOther"):
     #     raise RuntimeError("This one has a LastNameOther field, needs special handling")
-    if datastatus.get("BirthLocation") == 'guess':
+    if datastatus.get("BirthLocation") == "guess":
         birth_location = None
     else:
         check_status(profile, datastatus, "BirthLocation")
         birth_location = profile.get("BirthLocation")
-    if datastatus.get("DeathLocation") == 'guess':
+    if datastatus.get("DeathLocation") == "guess":
         death_location = None
     else:
         check_status(profile, datastatus, "DeathLocation")
@@ -405,10 +415,15 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     check_status(profile, datastatus, "Suffix")
     check_status(profile, datastatus, "Nicknames")
 
-    # (14 May 1694 - uncertain 1757)
-    depr_start = birth_date.get_deprecated_date_str() if birth_date else "?"
-    depr_end = death_date.get_deprecated_date_str() if death_date else "?"
-    deprecated_desc_date = f"({depr_start} - {depr_end})"
+    # # (14 May 1694 - uncertain 1757)
+    # deprecated_desc_dates = set()
+    # depr_start = birth_date.get_deprecated_date_str() if birth_date else "?"
+    # depr_end = death_date.get_deprecated_date_str() if death_date else "?"
+    # deprecated_desc_dates.add(f"({depr_start} - {depr_end})")
+    # deprecated_desc_dates.add(f"({depr_start} - certain {depr_end})")
+    # deprecated_desc_dates.add(f"(certain {depr_start} - certain {depr_end})")
+    # deprecated_desc_dates.add(f"(certain {depr_start} - {depr_end})")
+    # deprecated_desc_dates.add(f"{depr_start} - {depr_end}")
 
     name_builder = NameBuilder(profile)
     # Build result with all fields + DataStatus for dates and locations
@@ -416,7 +431,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "display_name": name_builder.get_display_name(),
         "aliases": name_builder.get_aliases(),
         "deprecated_names": name_builder.get_deprecated_names(),
-        "deprecated_desc_date": deprecated_desc_date,
+        # "deprecated_desc_dates": list(deprecated_desc_dates),
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),
         "middle_initial": profile.get("MiddleInitial"),
@@ -429,7 +444,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "suffix": profile.get("Suffix"),
         "colloquial_name": profile.get("ColloquialName"),
         "birth_date": birth_date,
-        "birth_location": birth_location, 
+        "birth_location": birth_location,
         "death_date": death_date,
         "death_location": death_location,
         "gender": profile.get("Gender"),

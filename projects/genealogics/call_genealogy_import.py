@@ -140,9 +140,36 @@ def main():
     # do_item("Q100148333", test=False)
     # generate_report()
 
-    do_item("Q100433231")
-    #do_item("Q112795079", test = False)
-    #do_item("Q100433233")
+    # --- real name ----
+    # do_item("Q100725746")  # 	Maj. William Todd	-	Todd-507 -> real name = guess
+
+    # --- nick name ----
+    # do_item("Q100726196")  # 	Col. Gawin Corbin	-	Corbin-188
+    # do_item("Q100751106")  # 	A. M. Burton	-	Burton-4875
+
+    # --- done ----
+    # do_item("Q100433231", test=False)
+    # # do_item("Q112795079", test = False)
+    # do_item("Q100433233", test=False)
+    # do_item("Q100153942", test=False)  # 	Ens. John Rowley	-	Rowley-98
+    # do_item("Q100154350", test=False)  # 	Col. Septa Fillmore	-	Fillmore-605
+    # do_item("Q100145569", test=False)  # Hon. Capt. Christopher Christophers
+    # do_item("Q100402439", test=False)  # 	Capt. Nathan Chesebrough	-	Chesebrough-95
+    # do_item("Q100154116")  # 	Rev. Richard Treat	-	Treat-254
+    # do_item("Q100155340", test=False)  # 	Lt. Samuel Fairchild	-	Fairchild-75
+    # do_item("Q100402424", test=False)  # 	Lt. Robert Chesebrough	-	Chesebrough-213
+    # do_item("Q100433231")  # 	Rev. Thomas Smith	-	Smith-889
+    # do_item("Q100753235", test=False)  # 	Dr. Harris Fuller Hamilton	-	Hamilton-8375
+    # do_item("Q100753240", test=False)  # 	Dr. Merrill Thomas Hamilton	-	Hamilton-8376
+    # do_item("Q100753243", test=False)  # 	Dr. Hannibal Charles Hamilton	-	Hamilton-8377
+    # do_item("Q100753251", test=False)  # 	Rev. Elisha Hamilton	-	Hamilton-8379
+    # do_item("Q100773424")  # 	J. Michael Lane	-	Lane-15238
+    # do_item("Q100898120", test=False)  # 	Capt. Jonathan Starr	-	Starr-50
+    # do_item("Q100911124", test=False)  # 	Capt. Prince Alden	-	Alden-50
+    # do_item("Q100912551", test=False)  # 	Capt. John Dyer	-	Dyer-9459
+
+    do_item("Q100912707")  # 	Rev. Solomon Paine	-	Paine-134
+
 
 if __name__ == "__main__":
     main()

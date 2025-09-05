@@ -39,7 +39,7 @@ class GenealogicsDate:
             parts.append(self.modifier.capitalize())
         date_str = ""
         if self.day:
-            date_str += f"{self.day:02d} "
+            date_str += f"{self.day} "
         if self.month:
             from calendar import month_abbr
 
@@ -58,7 +58,7 @@ class GenealogicsDate:
                 parts.append("uncertain")
         date_str = ""
         if self.day:
-            date_str += f"{self.day:02d} "
+            date_str += f"{self.day} "
         if self.month:
             from calendar import month_abbr
 

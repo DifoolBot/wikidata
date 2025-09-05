@@ -51,17 +51,23 @@ class GenealogicsStatusTracker(ABC):
         pass
 
 
-def StateInGenealogicsOrg() -> cwd.Reference:
-    return cwd.StateInReference(wd.QID_GENEALOGICS)
+def StateInGenealogicsOrg(identifier: str) -> cwd.Reference:
+    return cwd.StateInReference(
+        wd.QID_GENEALOGICS, wd.PID_GENEALOGICS_ORG_PERSON_ID, identifier
+    )
 
 
-def StateInWikiTree() -> cwd.Reference:
-    return cwd.StateInReference(wd.QID_WIKITREE)
+def StateInWikiTree(identifier: str) -> cwd.Reference:
+    return cwd.StateInReference(wd.QID_WIKITREE, wd.PID_WIKITREE_PERSON_ID, identifier)
 
 
 def is_year_span(text: str) -> bool:
     pattern = r"^(?:\()?\d{3,4}\s?[–—-]\s?\d{3,4}(?:\))?$"
     return re.fullmatch(pattern, text) is not None
+
+
+def is_only_spaces_and_dashes(s):
+    return bool(s) and set(s).issubset({" ", "-"})
 
 
 class WikidataUpdater:
@@ -114,8 +120,23 @@ class WikidataUpdater:
             pass
         else:
             raise ValueError(f"Unexpected date modifier {g_date.modifier}")
-        return cls(date=date, earliest=earliest, latest=latest, is_circa=is_circa,
-                   remove_old_claims=True)
+        return cls(
+            date=date,
+            earliest=earliest,
+            latest=latest,
+            is_circa=is_circa,
+            remove_old_claims=True,
+        )
+
+    def get_wiki_tree_span(self, description: str) -> Optional[str]:
+        pattern = r"\(?(?:certain|uncertain)? ?\d{1,2} [A-Za-z]{3} \d{4} - (?:(?:certain|uncertain)? ?\d{1,2} [A-Za-z]{3} \d{4})?\)?"
+        match = re.search(pattern, description)
+
+        if match:
+            date_range = match.group(0)
+            return date_range
+        else:
+            return None
 
     def work_wikitree(self, wt_id: str, mode: str):
         data = wtp.fetch_wikitree_profiles(wt_id)
@@ -128,7 +149,7 @@ class WikidataUpdater:
                     raise RuntimeError(f"Location not found: {birth_location}")
                 self.page.add_statement(
                     cwd.PlaceOfBirth(qid=location_qid),
-                    reference=StateInWikiTree(),
+                    reference=StateInWikiTree(wt_id),
                 )
                 self.locale.add_place_of_birth(location_qid)
                 self.data_from_wikitree = True
@@ -140,7 +161,7 @@ class WikidataUpdater:
                     raise RuntimeError(f"Location not found: {death_location}")
                 self.page.add_statement(
                     cwd.PlaceOfDeath(qid=location_qid),
-                    reference=StateInWikiTree(),
+                    reference=StateInWikiTree(wt_id),
                 )
                 self.locale.add_place_of_death(location_qid)
                 self.data_from_wikitree = True
@@ -149,7 +170,7 @@ class WikidataUpdater:
             if birth_date := data.get("birth_date"):
                 self.page.add_statement(
                     self.create_date(cwd.DateOfBirth, birth_date),
-                    reference=StateInWikiTree(),
+                    reference=StateInWikiTree(wt_id),
                 )
                 self.data_from_wikitree = True
 
@@ -157,7 +178,7 @@ class WikidataUpdater:
             if death_date := data.get("death_date"):
                 self.page.add_statement(
                     self.create_date(cwd.DateOfDeath, death_date),
-                    reference=StateInWikiTree(),
+                    reference=StateInWikiTree(wt_id),
                 )
                 self.data_from_wikitree = True
 
@@ -166,7 +187,7 @@ class WikidataUpdater:
                 cwd.ExternalIDStatement(
                     prop=wd.PID_FIND_A_GRAVE_MEMORIAL_ID, external_id=findagrave_id
                 ),
-                reference=StateInWikiTree(),
+                reference=StateInWikiTree(wt_id),
             )
             self.data_from_wikitree = True
 
@@ -185,18 +206,21 @@ class WikidataUpdater:
                             break
             if "en" in self.page.item.descriptions:
                 current_desc = self.page.item.descriptions["en"]
-                deprecated_desc_date = data.get("deprecated_desc_date")
-                if deprecated_desc_date and (
-                    current_desc.endswith(deprecated_desc_date)
-                ):
-                    # need to do last, as the dates can change
-                    self.deprecated_desc_date = deprecated_desc_date
+                wiki_tree_span = self.get_wiki_tree_span(current_desc)
+                if wiki_tree_span:
+                    self.deprecated_desc_date = wiki_tree_span
                 elif is_year_span(current_desc):
+                    self.deprecated_desc_date = current_desc
+
+        if not self.deprecated_desc_date:
+            if "en" in self.page.item.descriptions:
+                current_desc = self.page.item.descriptions["en"]
+                if current_desc and is_only_spaces_and_dashes(current_desc):
                     self.deprecated_desc_date = current_desc
 
         if prefix := data.get("prefix"):
             # honorific prefix (P511) Lieutenant (Q123564138)
-            if prefix == "Lieutenant" or prefix == "Lieut." or prefix == 'Lieut':
+            if prefix == "Lieutenant" or prefix == "Lieut." or prefix == "Lieut":
                 pass
             elif prefix == "Sir":
                 self.page.add_statement(
@@ -207,12 +231,18 @@ class WikidataUpdater:
             elif prefix == "Ensign":
                 # military or police rank x ensign
                 pass
+            elif prefix == "Capt.":
+                # military or police rank x ensign
+                pass
             elif prefix == "Rev." or prefix == "Rev":
                 self.page.add_statement(
                     cwd.HonorificPrefix(qid=wd.QID_REVEREND),
                     reference=None,
                 )
                 self.data_from_wikitree = True
+            elif prefix == "Dr":
+                # military or police rank x ensign
+                pass
             else:
                 raise NotImplementedError(f"Prefix not implemented yet: {prefix}")
 
@@ -245,7 +275,7 @@ class WikidataUpdater:
                 if birth_date := birth.get("date"):
                     self.page.add_statement(
                         self.create_date(cwd.DateOfBirth, birth_date),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
                     self.data_from_genealogics = True
 
@@ -255,7 +285,7 @@ class WikidataUpdater:
                         raise RuntimeError(f"Location not found: {birth_place}")
                     self.page.add_statement(
                         cwd.PlaceOfBirth(qid=location_qid),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
                     self.locale.add_place_of_birth(location_qid)
                     self.data_from_genealogics = True
@@ -264,7 +294,7 @@ class WikidataUpdater:
                 if christening_date := christening.get("date"):
                     self.page.add_statement(
                         self.create_date(cwd.DateOfBaptism, christening_date),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
 
                     self.data_from_genealogics = True
@@ -275,7 +305,7 @@ class WikidataUpdater:
                 if death_date := death.get("date"):
                     self.page.add_statement(
                         self.create_date(cwd.DateOfDeath, death_date),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
                     self.data_from_genealogics = True
 
@@ -285,7 +315,7 @@ class WikidataUpdater:
                         raise RuntimeError(f"Location not found: {death_place}")
                     self.page.add_statement(
                         cwd.PlaceOfDeath(qid=location_qid),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
                     self.data_from_genealogics = True
 
@@ -294,7 +324,7 @@ class WikidataUpdater:
                 if burial_date := burial.get("date"):
                     self.page.add_statement(
                         self.create_date(cwd.DateOfBurialOrCremation, burial_date),
-                        reference=StateInGenealogicsOrg(),
+                        reference=StateInGenealogicsOrg(id),
                     )
 
                     self.data_from_genealogics = True
@@ -359,7 +389,11 @@ class WikidataUpdater:
 
         id_set = set(identifiers.keys())
         # remove ignore
-        id_set = id_set - {wd.PID_FIND_A_GRAVE_MEMORIAL_ID, wd.PID_GENI_COM_PROFILE_ID}
+        id_set = id_set - {
+            wd.PID_FIND_A_GRAVE_MEMORIAL_ID,
+            wd.PID_GENI_COM_PROFILE_ID,
+            wd.PID_SAR_ANCESTOR_ID,
+        }
         if id_set <= set([wd.PID_GENEALOGICS_ORG_PERSON_ID]):
             mode = "full"
         elif id_set <= set(
