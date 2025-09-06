@@ -1425,7 +1425,7 @@ class Label(WikidataEntity):
             self.wd_page.save_alias(self.language, self.text)
 
     def get_description(self) -> str:
-        return f"{self.language}{self.text}"
+        return f"{self.language}:{self.text}"
 
 
 class DateOfBirth(DateStatement):

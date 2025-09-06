@@ -171,6 +171,16 @@ def main():
     # do_item("Q100912707")  # 	Rev. Solomon Paine	-	Paine-134
     # do_item("Q101341465")
 
+    # do_item("Q100912707", test = False)  # 	Rev. Solomon Paine	-	Paine-134
+    # do_item("Q102157587", test = False) #	Dr. Ezra Granger Williams	-	Williams-93388
+    # do_item("Q102157728", test = False) #	Capt. John Williams	-	Williams-28337
+    # do_item("Q102157858", test = False) #	Lt. Abner Cooley	-	Cooley-653
+    # do_item("Q102157894", test = False) #	Capt. Stephen Hollister, Sr.	-	Hollister-159
+    # do_item("Q102161818", test = False) #	Capt. John Sherwood	-	Sherwood-1611
+
+    # do_item("Q102162290", test = False) #	Capt. Joseph Hull, Jr.	-	Hull-2951
+    do_item("Q102165976", test=False)  # 	J. F. Paxton
+
 
 if __name__ == "__main__":
     main()

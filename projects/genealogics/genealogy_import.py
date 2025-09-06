@@ -103,12 +103,14 @@ class WikidataUpdater:
         if date.calendar == cwd.CALENDAR_ASSUMED_GREGORIAN:
             date.calendar = cwd.CALENDAR_GREGORIAN
         if g_date.modifier == "before":
+            raise NotImplementedError("Before modifier not implemented yet")
             latest = date
             if date.precision == cwd.PRECISION_DAY:
                 date = cwd.Date(year=g_date.year, calendar=date.calendar)
             else:
                 date = None
         elif g_date.modifier == "after":
+            raise NotImplementedError("After modifier not implemented yet")
             earliest = date
             if date.precision == cwd.PRECISION_DAY:
                 date = cwd.Date(year=g_date.year, calendar=date.calendar)
@@ -129,7 +131,8 @@ class WikidataUpdater:
         )
 
     def get_wiki_tree_span(self, description: str) -> Optional[str]:
-        pattern = r"\(?(?:certain|uncertain)? ?\d{1,2} [A-Za-z]{3} \d{4} - (?:(?:certain|uncertain)? ?\d{1,2} [A-Za-z]{3} \d{4})?\)?"
+        date_pattern = r"(?:certain|uncertain)? ?(?:\d{1,2})? ?(?:[A-Za-z]{3})? ?\d{4}"
+        pattern = rf"\(?{date_pattern} - {date_pattern}\)?"
         match = re.search(pattern, description)
 
         if match:
@@ -141,6 +144,19 @@ class WikidataUpdater:
     def work_wikitree(self, wt_id: str, mode: str):
         data = wtp.fetch_wikitree_profiles(wt_id)
         pprint(data, sort_dicts=False)
+
+        if mode == "full" or wd.PID_SEX_OR_GENDER not in self.page.claims:
+            if gender := data.get("gender"):
+                if gender == "Male":
+                    gender_qid = wd.QID_MALE
+                elif gender == "Female":
+                    gender_qid = wd.QID_FEMALE
+                    raise RuntimeError("Need to check")
+                else:
+                    raise ValueError(f"Unexpected gender {gender}")
+                if wd.PID_SEX_OR_GENDER not in self.page.claims:
+                    self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
+                    self.data_from_wikitree = True
 
         if mode == "full" or wd.PID_PLACE_OF_BIRTH not in self.page.claims:
             if birth_location := data.get("birth_location"):
@@ -191,26 +207,38 @@ class WikidataUpdater:
             )
             self.data_from_wikitree = True
 
-        if mode in ["full", "wikitree"]:
+        # Update label and description
+        if display_name := data.get("display_name"):
             if "en" in self.page.item.labels:
-                display_name = data.get("display_name")
                 current_label = self.page.item.labels["en"]
-                if display_name:
-                    for name in data.get("deprecated_names", []):
-                        if current_label == name:
-                            print(
-                                f"Deprecating label: {current_label} -> {display_name}"
-                            )
-                            self.page.deprecate_label(current_label, display_name)
-                            self.data_from_wikitree = True
-                            break
-            if "en" in self.page.item.descriptions:
-                current_desc = self.page.item.descriptions["en"]
-                wiki_tree_span = self.get_wiki_tree_span(current_desc)
-                if wiki_tree_span:
-                    self.deprecated_desc_date = wiki_tree_span
-                elif is_year_span(current_desc):
-                    self.deprecated_desc_date = current_desc
+            elif "mul" in self.page.item.labels:
+                raise RuntimeError("Need to check")
+                current_label = self.page.item.labels["mul"]
+            else:
+                raise RuntimeError("Need to check")
+                current_label = None
+            print(f"Current label: {current_label}")
+            did_deprecate = False
+            if mode in ["full", "wikitree"]:
+                for name in data.get("deprecated_names", []):
+                    if current_label == name:
+                        print(
+                            f"Deprecating label: {current_label} -> {display_name}"
+                        )
+                        self.page.deprecate_label(current_label, display_name)
+                        self.data_from_wikitree = True
+                        did_deprecate = True
+                        break
+            if not did_deprecate:
+                self.page.add_statement(cwd.Label(display_name, language="en"), reference=None)
+        if "en" in self.page.item.descriptions:
+            current_desc = self.page.item.descriptions["en"]
+            print(f"Current desc: {current_desc}")
+            wiki_tree_span = self.get_wiki_tree_span(current_desc)
+            if wiki_tree_span:
+                self.deprecated_desc_date = wiki_tree_span
+            elif is_year_span(current_desc):
+                self.deprecated_desc_date = current_desc
 
         if not self.deprecated_desc_date:
             if "en" in self.page.item.descriptions:
