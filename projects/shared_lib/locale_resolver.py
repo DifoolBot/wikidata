@@ -21,30 +21,38 @@ class LocaleResolver:
             for claim in claims[wd.PID_PLACE_OF_BIRTH]:
                 if claim.rank == "deprecated":
                     continue
-                place_qid = claim.getTarget().id
-                self.add_place_of_birth(place_qid)
+                target = claim.getTarget()
+                if target:
+                    place_qid = target.id
+                    self.add_place_of_birth(place_qid)
 
         if wd.PID_PLACE_OF_DEATH in claims:
             for claim in claims[wd.PID_PLACE_OF_DEATH]:
                 if claim.rank == "deprecated":
                     continue
-                place_qid = claim.getTarget().id
-                self.add_place_of_death(place_qid)
+                target = claim.getTarget()
+                if target:
+                    place_qid = target.id
+                    self.add_place_of_death(place_qid)
 
         # Countries of citizenship (P27)
         if wd.PID_COUNTRY_OF_CITIZENSHIP in claims:
             for claim in claims[wd.PID_COUNTRY_OF_CITIZENSHIP]:
                 if claim.rank == "deprecated":
                     continue
-                country_qid = claim.getTarget().id
-                self.add_country(country_qid)
+                target = claim.getTarget()
+                if target:
+                    country_qid = target.id
+                    self.add_country(country_qid)
 
         if wd.PID_RESIDENCE in claims:
             for claim in claims[wd.PID_RESIDENCE]:
                 if claim.rank == "deprecated":
                     continue
-                country_qid = claim.getTarget().id
-                self.add_country(country_qid)
+                target = claim.getTarget()
+                if target:
+                    country_qid = target.id
+                    self.add_country(country_qid)
 
     def add_place_of_birth(self, place_qid: str):
         data = self.place_lookup.get_place_by_qid(place_qid)

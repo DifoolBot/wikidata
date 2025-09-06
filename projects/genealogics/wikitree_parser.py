@@ -1,10 +1,15 @@
 import json
+import time
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Set
-from shared_lib.rate_limiter import rate_limit
+
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
+
+from shared_lib.rate_limiter import rate_limit
+
+BACKOFF_SECS = 5 * 60
 
 API_URL = "https://api.wikitree.com/api.php"
 CACHE_DIR = Path("wikitree_cache")
@@ -219,19 +224,25 @@ class NameBuilder:
         if "," in suffix:
             raise RuntimeError(f"Comma found in Suffix: {suffix}")
 
-
         # Build prefix and suffix variants
         prefix_variants = self.get_prefix_suffix_variants(prefix)
-        prefix_variants.update(["Dr.", "Capt.", "Col.", "Hon. Capt.", "Lt.", "Rev.", ""])  # '' for no prefix
+        prefix_variants.update(
+            ["Dr.", "Capt.", "Col.", "Hon. Capt.", "Lt.", "Rev.", ""]
+        )  # '' for no prefix
         suffix_variants = {"Jr.", "Sr.", ""}  # '' for no suffix
         if suffix:
             suffix_variants.add(suffix)
 
         # Build deprecated names directly as a set comprehension
         self.deprecated_names = {
-            f"{pr} {self.bare_display_name} {su}".strip()
-            if not su else f"{pr} {self.bare_display_name}, {su}".strip()
-            for pr in prefix_variants for su in suffix_variants if pr or su
+            (
+                f"{pr} {self.bare_display_name} {su}".strip()
+                if not su
+                else f"{pr} {self.bare_display_name}, {su}".strip()
+            )
+            for pr in prefix_variants
+            for su in suffix_variants
+            if pr or su
         }
 
         # Remove display_name from aliases and deprecated_names
@@ -318,10 +329,18 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)
     else:
-        data = fetch_wikitree_api(wt_id, use_cache)
-        # Save raw API result to cache file
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        try:
+            data = fetch_wikitree_api(wt_id, use_cache)
+            # Save raw API result to cache file
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as ex:
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print("*** Uncaught Error ***")
+            print(message)
+            time.sleep(BACKOFF_SECS)
+            raise RuntimeError("WikiTree Connection error" + message)
 
     # Validate response
     if not isinstance(data, list) or not data:
@@ -365,12 +384,14 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
             for key, value in params.items():
                 if key.isdigit() and not value:
                     found_id = key
-                elif key == 'sameas' and value == 'no':
+                elif key == "sameas" and value == "no":
                     different = True
-                elif key == 'sameas' and value == 'yes':
+                elif key == "sameas" and value == "yes":
                     pass
                 else:
-                    raise RuntimeError(f"Unexpected FindAGrave template format: {params}") 
+                    raise RuntimeError(
+                        f"Unexpected FindAGrave template format: {params}"
+                    )
             if not different and found_id:
                 findagrave_ids.add(found_id)
         if template_name == "DateGuess":
