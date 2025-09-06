@@ -125,7 +125,7 @@ def do_item(qid: str, test: bool = True):
 
 
 def main():
-    # todo(test=True)
+    todo(test=True)
     # query_loop()
     # fill()
     # calc()
@@ -168,7 +168,8 @@ def main():
     # do_item("Q100911124", test=False)  # 	Capt. Prince Alden	-	Alden-50
     # do_item("Q100912551", test=False)  # 	Capt. John Dyer	-	Dyer-9459
 
-    do_item("Q100912707")  # 	Rev. Solomon Paine	-	Paine-134
+    # do_item("Q100912707")  # 	Rev. Solomon Paine	-	Paine-134
+    # do_item("Q101341465")
 
 
 if __name__ == "__main__":

@@ -39,6 +39,8 @@ WHERE NOT EXISTS (
         return None
 
     def set_place(self, place_qid: str, country_qid: str, place_label: str):
+        if not place_qid:
+            raise RuntimeError("No place qid")
         sql = (
             f"INSERT INTO PLACES (PLACE_QID, COUNTRY_QID, PLACE_LABEL) VALUES (?, ?, ?)"
         )
@@ -57,5 +59,7 @@ WHERE NOT EXISTS (
         return None
 
     def set_country(self, country_qid: str, country_code: str, country_label: str):
+        if not country_qid:
+            raise RuntimeError("No country qid")
         sql = f"INSERT INTO COUNTRIES (COUNTRY_QID, COUNTRY_CODE, COUNTRY_LABEL) VALUES (?, ?, ?)"
         self.execute_procedure(sql, (country_qid, country_code, country_label))

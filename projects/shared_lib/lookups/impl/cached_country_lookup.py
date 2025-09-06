@@ -9,6 +9,8 @@ class CachedCountryLookup(CountryLookupInterface):
         self.source = source
 
     def get_country_by_qid(self, qid: str):
+        if not qid:
+            return None
         result = self.cache.get_country_by_qid(qid)
         if result:
             return result
@@ -19,6 +21,9 @@ class CachedCountryLookup(CountryLookupInterface):
         return result
 
     def get_country_by_code(self, qid: str):
+        if not qid:
+            return None
+
         result = self.cache.get_country_by_code(qid)
         if result:
             return result

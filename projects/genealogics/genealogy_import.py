@@ -280,6 +280,9 @@ class WikidataUpdater:
                     self.data_from_genealogics = True
 
                 if birth_place := birth.get("place"):
+                    lived_in = data.get("lived_in")
+                    if lived_in:
+                        birth_place = f"{birth_place}, {lived_in}"
                     location_qid = self.place_lookup.get_place_qid_by_desc(birth_place)
                     if not location_qid:
                         raise RuntimeError(f"Location not found: {birth_place}")
@@ -310,6 +313,9 @@ class WikidataUpdater:
                     self.data_from_genealogics = True
 
                 if death_place := death.get("place"):
+                    lived_in = data.get("lived_in")
+                    if lived_in:
+                        birth_place = f"{death_place}, {lived_in}"
                     location_qid = self.place_lookup.get_place_qid_by_desc(death_place)
                     if not location_qid:
                         raise RuntimeError(f"Location not found: {death_place}")
