@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from pprint import pprint
 from typing import List, Optional, Tuple, Type
 
+
 import genealogics.genealogics_date as gd
 import genealogics.genealogics_org_parser as gap
 import genealogics.nameparser as np
@@ -27,6 +28,76 @@ from shared_lib.calendar_system_resolver import DateCalendarService
 #   * gebruik code voor Julian/Gregorian
 #   * Q100450663: description aanpassen
 #   * wait before read gen, wikitree
+
+
+# --- Prefix normalization and mapping ---
+def normalize_prefix(prefix: str) -> str:
+    """
+    Normalize a prefix string to a canonical form (e.g., 'Lieut.' -> 'Lieutenant').
+    Returns the normalized prefix, or the original if not recognized.
+    """
+    if not prefix:
+        return ""
+    prefix_map = {
+        "Brig. Gen.": "Brigadier General",
+        "Capt": "Captain",
+        "Captain": "Captain",
+        "Col.": "Colonel",
+        "Col": "Colonel",
+        "Colonel": "Colonel",
+        "Count": "Count",
+        "Deacon": "Deacon",
+        "Dr.": "Dr",
+        "Gen.": "General",
+        "Hon": "Honorable",
+        "Hon.": "Honorable",
+        "Jonkheer": "Jonkheer",
+        "Judge": "Judge",
+        "Lieut.": "Lieutenant",
+        "Lieut": "Lieutenant",
+        "Lt": "Lieutenant",
+        "Lt.": "Lieutenant",
+        "Lt. Deacon": "Lieutenant Deacon",
+        "Maj.": "Major",
+        "Mr": "Mr",
+        "Mr.": "Mr",
+        "Professor": "Professor",
+        "Rabbi": "Rabbi",
+        "Rev.": "Reverend",
+        "Rev": "Reverend",
+        "Reverend": "Reverend",
+        "Sgt": "Sergeant",
+        "Sgt.": "Sergeant",
+
+        # Add more as needed
+    }
+    return prefix_map.get(prefix, prefix)
+
+# Maps normalized prefix to (class, qid) or None if not mapped
+# Maps normalized prefix to (class, qid) or None if not mapped
+PREFIX_TO_CLASS_QID = {
+    "Brigadier General": None,
+    "Captain": None,
+    "Colonel": None,
+    "Count": (cwd.NobleTitle, wd.QID_COUNT),
+    "Deacon": None,
+    "Dr": None,
+    "General": None,
+    "Honorable": (cwd.HonorificPrefix, wd.QID_THE_HONOURABLE),
+    "Jonkheer": (cwd.NobleTitle, wd.QID_JONKHEER),
+    "Judge": None,
+    "Lieutenant": None,  
+    "Lieutenant Deacon": None,
+    "Major": None,
+    "Mr": None,
+    "Professor": None,
+    "Rabbi": (cwd.HonorificPrefix, wd.QID_RABBI),
+    "Reverend": (cwd.HonorificPrefix, wd.QID_REVEREND),
+    "Sergeant": None,
+    "Sir": (cwd.HonorificPrefix, wd.QID_SIR),
+}
+
+
 
 
 class GenealogicsStatusTracker(ABC):
@@ -70,7 +141,12 @@ def is_only_spaces_and_dashes(s):
     return bool(s) and set(s).issubset({" ", "-"})
 
 
+
+
+
 class WikidataUpdater:
+
+
     def __init__(
         self,
         page: cwd.WikiDataPage,
@@ -247,32 +323,20 @@ class WikidataUpdater:
                     self.deprecated_desc_date = current_desc
 
         if prefix := data.get("prefix"):
-            # honorific prefix (P511) Lieutenant (Q123564138)
-            if prefix == "Lieutenant" or prefix == "Lieut." or prefix == "Lieut":
-                pass
-            elif prefix == "Sir":
+            norm_prefix = normalize_prefix(prefix)
+            mapping = PREFIX_TO_CLASS_QID.get(norm_prefix)
+            if mapping:
+                cls, qid = mapping
                 self.page.add_statement(
-                    cwd.HonorificPrefix(qid=wd.QID_SIR),
+                    cls(qid=qid),
                     reference=None,
                 )
                 self.data_from_wikitree = True
-            elif prefix == "Ensign":
-                # military or police rank x ensign
-                pass
-            elif prefix == "Capt.":
-                # military or police rank x ensign
-                pass
-            elif prefix == "Rev." or prefix == "Rev":
-                self.page.add_statement(
-                    cwd.HonorificPrefix(qid=wd.QID_REVEREND),
-                    reference=None,
-                )
-                self.data_from_wikitree = True
-            elif prefix == "Dr":
-                # military or police rank x ensign
+            elif norm_prefix in PREFIX_TO_CLASS_QID:
+                # Known but intentionally not mapped
                 pass
             else:
-                raise NotImplementedError(f"Prefix not implemented yet: {prefix}")
+                raise NotImplementedError(f"Prefix not implemented yet: {prefix} (normalized: {norm_prefix})")
 
     def work_genealogics(self, id: str, mode: str):
         data = gap.fetch_genealogics(id)

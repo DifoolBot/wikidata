@@ -152,7 +152,7 @@ class NameBuilder:
         return set(variants)
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
-        allowed_suffixes = {"Jr.", "Sr.", "II", "III", "IV", "V"}
+        allowed_suffixes = {"Jr.", "Sr.", "I", "II", "III", "IV", "V"}
         not_allowed_suffixes = {}
         if not suffix:
             return ""
@@ -284,8 +284,10 @@ def get_fields() -> str:
 
 
 def check_status(profile, datastatus, key: str):
-    if profile.get(key) and datastatus.get(key) and datastatus.get(key) != "certain":
-        raise RuntimeError(f"{key} not certain: {datastatus.get(key)}")
+    value = profile.get(key)
+    status = datastatus.get(key)
+    if value and status and status not in ("certain", "blank"):
+        raise RuntimeError(f"{key}: {value} {status} - certain/blank expected")
 
 
 @rate_limit(30)  # 1 call every 30 seconds
@@ -298,7 +300,7 @@ def fetch_wikitree_api(wt_id: str, use_cache: bool = True):
         "appId": "DifoolBot-Wikidata",
     }
 
-    print("Retrieving data from WIkiTree API for", wt_id)
+    print("Retrieving data from WikiTree API for", wt_id)
     r = requests.get(API_URL, params=params, timeout=20)
     r.raise_for_status()
     data = r.json()
@@ -330,6 +332,9 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     entry = data[0]
     profile = entry.get("profile", {})
     datastatus = profile.get("DataStatus", {})
+
+    if len(profile) <= 1:
+        raise RuntimeError(f"Likely private profile for {wt_id}")
 
     for date_type in ("Birth", "Death"):
         decade_value = profile.get(f"{date_type}DateDecade")

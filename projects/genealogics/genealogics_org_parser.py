@@ -149,12 +149,15 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
 
         if expect_date_place:
             # Try to extract date and place from the row
-            date = place = None
+            date = place = modifiers = None
             if len(tds) == 3:
                 date = parse_genealogics_date(tds[1].get_text(" ", strip=True))
                 place = tds[2].get_text(" ", strip=True)
                 if place == "(years before)":
                     place = None
+                elif place == "(date will probated)" or place == "(date will proven)":
+                    place = None
+                    modifiers = "date of probate"
                 elif place.startswith("("):
                     raise ValueError(f"Unexpected place format: {place}")
             elif len(tds) == 2:
@@ -170,7 +173,7 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
                 else:
                     # treat as date
                     date = parse_genealogics_date(td_text)
-            return {"date": date, "place": place}
+            return {"date": date, "place": place, "modifiers": modifiers}
         else:
             # Just return the cleaned text for simple fields
             return tds[1].get_text(" ", strip=True)
