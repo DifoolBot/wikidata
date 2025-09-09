@@ -1,10 +1,13 @@
 import re
+import time
 from pathlib import Path
 from typing import List, cast
 
 import requests
 from bs4 import BeautifulSoup, Tag
-from genealogics.genealogics_date import GenealogicsDate, DateModifier
+from genealogics.genealogics_date import DateModifier, GenealogicsDate
+
+BACKOFF_SECS = 5 * 60
 from genealogics.rules import Field
 import genealogics.nameparser as np
 
@@ -102,12 +105,20 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
     if use_cache and cache_file.exists():
         html = cache_file.read_text(encoding="utf-8")
     else:
-        base_url = "https://www.genealogics.org/getperson.php"
-        params = {"personID": p1819_id, "tree": "LEO"}
-        r = requests.get(base_url, params=params, timeout=20)
-        r.raise_for_status()
-        html = r.text
-        cache_file.write_text(html, encoding="utf-8")
+        try:
+            base_url = "https://www.genealogics.org/getperson.php"
+            params = {"personID": p1819_id, "tree": "LEO"}
+            r = requests.get(base_url, params=params, timeout=20)
+            r.raise_for_status()
+            html = r.text
+            cache_file.write_text(html, encoding="utf-8")
+        except Exception as ex:
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print("*** Uncaught Error ***")
+            print(message)
+            time.sleep(BACKOFF_SECS)
+            raise RuntimeError("genealogics.org Connection error" + message)
 
     soup = BeautifulSoup(html, "html.parser")
 
