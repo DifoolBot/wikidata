@@ -12,6 +12,8 @@ class GenealogicsDate:
     modifier: Optional[DateModifier] = None
     raw: Optional[str] = None
     is_decade: bool = False
+    alt_year: Optional[int] = None
+    place: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {

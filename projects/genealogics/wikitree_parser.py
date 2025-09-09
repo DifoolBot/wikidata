@@ -142,6 +142,7 @@ class NameBuilder:
         if not prefix:
             return set()
         # Dictionary of known prefix variants
+        # TODO: use prefix_suffix_utils
         prefix_variants = [
             ["Lieutenant", "Lieut.", "Lieut", "Lt.", "Lt"],
             ["Reverend", "Rev.", "Rev"],
@@ -470,7 +471,6 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         Field.PLACE_OF_DEATH: death_location,
         Field.GENDER: profile.get("Gender"),
         Field.FIND_A_GRAVE_ID: findagrave_id,
-
         # "deprecated_desc_dates": list(deprecated_desc_dates),
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),
@@ -481,7 +481,6 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "last_name_other": profile.get("LastNameOther"),
         "real_name": profile.get("RealName"),
         "colloquial_name": profile.get("ColloquialName"),
-
         "is_living": profile.get("IsLiving"),
         "is_date_guess": is_date_guess,
         "data_status": profile.get("DataStatus"),

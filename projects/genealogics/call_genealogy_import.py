@@ -40,7 +40,7 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         self.execute_procedure(sql, (qid, shortened_msg))
 
     def get_todo(self):
-        rows = self.execute_query("SELECT qid FROM todo order by 1")
+        rows = self.execute_query("SELECT first 1 qid FROM todo order by id")
         for row in rows:
             yield row[0]
 
@@ -105,7 +105,12 @@ def todo(test: bool = True):
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
         update_wikidata_from_sources(
-            item, country_lookup, place_lookup, tracker, test=test
+            item,
+            country_lookup,
+            place_lookup,
+            tracker,
+            test=test,
+            check_already_done=False,
         )
 
 
@@ -125,6 +130,7 @@ def do_item(qid: str, test: bool = True):
 
 
 def main():
+    # todo(test=False)
     todo(test=True)
     # query_loop()
     # fill()
@@ -179,7 +185,8 @@ def main():
     # do_item("Q102161818", test = False) #	Capt. John Sherwood	-	Sherwood-1611
 
     # do_item("Q102162290", test = False) #	Capt. Joseph Hull, Jr.	-	Hull-2951
-    do_item("Q102165976", test=False)  # 	J. F. Paxton
+    # do_item("Q102165976", test=False)  # 	J. F. Paxton
+    # do_item("Q110426659")
 
 
 if __name__ == "__main__":

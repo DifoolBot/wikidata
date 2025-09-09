@@ -818,15 +818,15 @@ class CheckDateStatements(Action):
         if any(claim.rank == "preferred" for claim in claims):
             return  # Skip if any statement is already preferred
 
-        by_normalized = get_date_groups(claims)
+        groups = get_date_groups(claims)
 
-        if len(by_normalized) == 0:
+        if len(groups) == 0:
             # only deprecated statements; nothing to do
             return
-        if len(by_normalized) != 1:
+        if len(groups) != 1:
             raise RuntimeError("len(by_normalized) != 1")
 
-        group = by_normalized[0]
+        group = groups[0]
         if len(group) == 1:
             # only 1 claim, no need to change
             return
@@ -1476,6 +1476,7 @@ class DateOfProbate(DateStatement):
 
     def get_description(self) -> str:
         return "Date of probate"
+
 
 class DateOfBurialOrCremation(DateStatement):
     def get_prop(self) -> Optional[str]:

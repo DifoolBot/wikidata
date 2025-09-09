@@ -91,9 +91,9 @@ class NameParser:
             matched = False
             for prefix in sorted(self.prefixes, key=lambda x: -len(x.split())):
                 prefix_parts = prefix.split()
-                if name_parts[:len(prefix_parts)] == prefix_parts:
+                if name_parts[: len(prefix_parts)] == prefix_parts:
                     prefixes_found.append(prefix)
-                    name_parts = name_parts[len(prefix_parts):]
+                    name_parts = name_parts[len(prefix_parts) :]
                     matched = True
                     break
             if not matched:
@@ -138,11 +138,12 @@ class NameParser:
             f"placeholders={self.placeholders}, "
             f"prefixes={self.extracted_prefixes}, "
             f"suffixes={self.extracted_suffixes}, "
-            )
-    
+        )
+
+
 def _test_nameparser():
-    prefixes = ['Prof.', 'Dr.', 'Sir', 'prof', 'Dr.']
-    suffixes = ['Jr.', 'Sr.', 'III', 'PhD', 'Jr']
+    prefixes = ["Prof.", "Dr.", "Sir", "prof", "Dr."]
+    suffixes = ["Jr.", "Sr.", "III", "PhD", "Jr"]
     examples = [
         # (input, expected_prefix, expected_cleaned, expected_suffix)
         ("Prof. Dr. John Smith, Jr.", "Prof. Dr.", "John Smith", "Jr."),
@@ -157,10 +158,17 @@ def _test_nameparser():
         np = NameParser(raw, prefixes=prefixes, suffixes=suffixes)
         prefix = " ".join(np.extracted_prefixes) if np.extracted_prefixes else None
         suffix = " ".join(np.extracted_suffixes) if np.extracted_suffixes else None
-        assert prefix == exp_prefix, f"Prefix failed: {raw} got '{prefix}' expected '{exp_prefix}'"
-        assert np.cleaned_name == exp_cleaned, f"Cleaned name failed: {raw} got '{np.cleaned_name}' expected '{exp_cleaned}'"
-        assert suffix == exp_suffix, f"Suffix failed: {raw} got '{suffix}' expected '{exp_suffix}'"
+        assert (
+            prefix == exp_prefix
+        ), f"Prefix failed: {raw} got '{prefix}' expected '{exp_prefix}'"
+        assert (
+            np.cleaned_name == exp_cleaned
+        ), f"Cleaned name failed: {raw} got '{np.cleaned_name}' expected '{exp_cleaned}'"
+        assert (
+            suffix == exp_suffix
+        ), f"Suffix failed: {raw} got '{suffix}' expected '{exp_suffix}'"
     print("All NameParser tests passed.")
+
 
 if __name__ == "__main__":
     _test_nameparser()
