@@ -5,6 +5,7 @@ from typing import Optional, Set
 from shared_lib.rate_limiter import rate_limit
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
+from genealogics.rules import Field
 
 API_URL = "https://api.wikitree.com/api.php"
 CACHE_DIR = Path("wikitree_cache")
@@ -437,9 +438,18 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
     name_builder = NameBuilder(profile)
     # Build result with all fields + DataStatus for dates and locations
     result = {
-        "display_name": name_builder.get_display_name(),
-        "aliases": name_builder.get_aliases(),
-        "deprecated_names": name_builder.get_deprecated_names(),
+        Field.DISPLAY_NAME: name_builder.get_display_name(),
+        Field.ALIASES: name_builder.get_aliases(),
+        Field.DEPRECATED_NAMES: name_builder.get_deprecated_names(),
+        Field.PREFIX: profile.get("Prefix"),
+        Field.SUFFIX: profile.get("Suffix"),
+        Field.DATE_OF_BIRTH: birth_date,
+        Field.PLACE_OF_BIRTH: birth_location,
+        Field.DATE_OF_DEATH: death_date,
+        Field.PLACE_OF_DEATH: death_location,
+        Field.GENDER: profile.get("Gender"),
+        Field.FIND_A_GRAVE_ID: findagrave_id,
+
         # "deprecated_desc_dates": list(deprecated_desc_dates),
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),
@@ -449,16 +459,9 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         "nicknames": profile.get("Nicknames"),
         "last_name_other": profile.get("LastNameOther"),
         "real_name": profile.get("RealName"),
-        "prefix": profile.get("Prefix"),
-        "suffix": profile.get("Suffix"),
         "colloquial_name": profile.get("ColloquialName"),
-        "birth_date": birth_date,
-        "birth_location": birth_location,
-        "death_date": death_date,
-        "death_location": death_location,
-        "gender": profile.get("Gender"),
+
         "is_living": profile.get("IsLiving"),
-        "findagrave_id": findagrave_id,
         "is_date_guess": is_date_guess,
         "data_status": profile.get("DataStatus"),
     }

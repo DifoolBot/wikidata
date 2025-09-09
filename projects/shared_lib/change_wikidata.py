@@ -1470,6 +1470,13 @@ class DateOfDeath(DateStatement):
         return "Date of death"
 
 
+class DateOfProbate(DateStatement):
+    def get_prop(self) -> Optional[str]:
+        return wd.PID_DATE_OF_PROBATE
+
+    def get_description(self) -> str:
+        return "Date of probate"
+
 class DateOfBurialOrCremation(DateStatement):
     def get_prop(self) -> Optional[str]:
         return wd.PID_DATE_OF_BURIAL_OR_CREMATION

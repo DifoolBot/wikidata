@@ -5,6 +5,9 @@ from typing import List, cast
 import requests
 from bs4 import BeautifulSoup, Tag
 from genealogics.genealogics_date import GenealogicsDate, DateModifier
+from genealogics.rules import Field
+import genealogics.nameparser as np
+
 
 CACHE_DIR = Path("genealogics_cache")
 CACHE_DIR.mkdir(exist_ok=True)
@@ -178,15 +181,40 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
             # Just return the cleaned text for simple fields
             return tds[1].get_text(" ", strip=True)
 
+    birth = get_field_info("Birth", expect_date_place=True)
+    christening = get_field_info("Christening", expect_date_place=True)
+    death = get_field_info("Death", expect_date_place=True)
+    if death.get("modifiers") == "date of probate":
+        probate = death
+        # keep death as is, date is in the form 'before' probate date
+    else:
+        probate = None
+    burial = get_field_info("Burial", expect_date_place=True)
+    if len(name_parts) not in [1, 2]:
+        raise RuntimeError("Unexpected name parts")
+    names = np.NameParser(name_parts[0])
+    if not names.cleaned_name:
+        raise RuntimeError("No cleaned name found")
+    if names.location:
+        lived_in = get_field_info("Lived In"),
+        if lived_in:
+            residence = f"{names.location}, {lived_in}"
+        else:
+            residence = f"{names.location}"
+    else:
+        residence = None
     return {
-        "label_parts": name_parts,
-        "birth": get_field_info("Birth", expect_date_place=True),
-        "christening": get_field_info("Christening", expect_date_place=True),
-        "gender": get_field_info("Gender"),
-        "lived_in": get_field_info("Lived In"),
-        "honorific": get_field_info("Honorific"),
-        "death": get_field_info("Death", expect_date_place=True),
-        "burial": get_field_info("Burial", expect_date_place=True),
+        Field.DISPLAY_NAME: names.cleaned_name,
+        Field.DATE_OF_BIRTH: birth.get("date") if birth else None,
+        Field.PLACE_OF_BIRTH: birth.get("place") if birth else None,
+        Field.DATE_OF_DEATH: death.get("date") if death else None,
+        Field.PLACE_OF_DEATH: death.get("place") if death else None,
+        Field.PLACE_OF_RESIDENCE: residence,
+        Field.DATE_OF_BAPTISM: christening.get("date") if christening else None,
+        Field.DATE_OF_BURIAL: burial.get("date") if burial else None,
+        Field.DATE_OF_PROBATE: probate.get("date") if probate else None,
+        Field.GENDER: get_field_info("Gender"),
+        Field.PREFIX: get_field_info("Honorific"),
     }
 
 
