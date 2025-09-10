@@ -731,6 +731,7 @@ class DeprecateLabel(Action):
                         TextColor.OKBLUE,
                     )
                     self.wd_page.save_label(language, self.new_label)
+                    self.wd_page.remove_saved_alias(language, self.new_label)
                 else:
                     # remove label in other languages
                     print_color(
@@ -738,10 +739,12 @@ class DeprecateLabel(Action):
                     )
                     self.wd_page.save_label(language, "")
                 if language == "en":
-                    print_color(
-                        f" {language} alias: {self.old_label} added", TextColor.OKGREEN
-                    )
-                    self.wd_page.save_alias(language, self.old_label)
+                    if not self.wd_page.has_alias(language, self.old_label):
+                        print_color(
+                            f" {language} alias: {self.old_label} added",
+                            TextColor.OKGREEN,
+                        )
+                        self.wd_page.save_alias(language, self.old_label)
 
     def post_apply(self):
         pass
@@ -814,6 +817,7 @@ class CheckDateStatements(Action):
         return {"read_claims", "change_claim"}
 
     def process_property(self, claims):
+        claims = self.wd_page.exclude_deleted_claims(claims)
         """Group statements by normalized date using a precision-to-claims map."""
         if any(claim.rank == "preferred" for claim in claims):
             return  # Skip if any statement is already preferred
@@ -1374,51 +1378,17 @@ class Label(WikidataEntity):
     def __repr__(self):
         return f"Label(text='{self.text}', language='{self.language}')"
 
-    def has_language_label(self, language: str) -> bool:
-        if language in self.wd_page.item.labels:
-            return True
-
-        if "labels" in self.wd_page.data:
-            if language in self.wd_page.data["labels"]:
-                return True
-
-        return False
-
-    def has_label(self, language: str, text: str) -> bool:
-        # already saved?
-        if "labels" in self.wd_page.data:
-            if language in self.wd_page.data["labels"]:
-                if self.wd_page.data["labels"][language] == text:
-                    return True
-
-        # already on the page?
-        if language not in self.wd_page.item.labels:
-            return False
-        return self.wd_page.item.labels[language] == text
-
-    def has_alias(self, language: str, text: str) -> bool:
-        # already saved?
-        if "aliases" in self.wd_page.data:
-            if language in self.wd_page.data["aliases"]:
-                if text in self.wd_page.data["aliases"][language]:
-                    return True
-
-        # already on the page?
-        if language not in self.wd_page.item.aliases:
-            return False
-        return text in self.wd_page.item.aliases[language]
-
     def add(self):
-        if not self.has_language_label(self.language):
+        if not self.wd_page.has_language_label(self.language):
             self.print_action("label added", TextColor.OKGREEN)
             self.wd_page.save_label(self.language, self.text)
             return
 
-        if self.has_label(self.language, self.text):
+        if self.wd_page.has_label(self.language, self.text):
             self.print_action("already added")
             return
 
-        if self.has_alias(self.language, self.text):
+        if self.wd_page.has_alias(self.language, self.text):
             self.print_action("already added (as alias)")
         else:
             self.print_action(" alias added", TextColor.OKGREEN)
@@ -1920,6 +1890,49 @@ class WikiDataPage:
         self.item.editEntity(data=self.data, summary=summary)
         return True
 
+    def exclude_deleted_claims(self, claims):
+        result = []
+        for claim in claims:
+            if claim.snak and claim.snak in self.deleted_claims:
+                pass
+            else:
+                result.append(claim)
+        return result
+
+    def has_language_label(self, language: str) -> bool:
+        if language in self.item.labels:
+            return True
+
+        if "labels" in self.data:
+            if language in self.data["labels"]:
+                return True
+
+        return False
+
+    def has_label(self, language: str, text: str) -> bool:
+        # already saved?
+        if "labels" in self.data:
+            if language in self.data["labels"]:
+                if self.data["labels"][language] == text:
+                    return True
+
+        # already on the page?
+        if language not in self.item.labels:
+            return False
+        return self.item.labels[language] == text
+
+    def has_alias(self, language: str, text: str) -> bool:
+        # already saved?
+        if "aliases" in self.data:
+            if language in self.data["aliases"]:
+                if text in self.data["aliases"][language]:
+                    return True
+
+        # already on the page?
+        if language not in self.item.aliases:
+            return False
+        return text in self.item.aliases[language]
+
     def save_label(self, language: str, value: str):
         if "labels" not in self.data:
             self.data["labels"] = {}
@@ -1929,6 +1942,15 @@ class WikiDataPage:
         if "descriptions" not in self.data:
             self.data["descriptions"] = {}
         self.data["descriptions"][language] = value
+
+    def remove_saved_alias(self, language: str, value: str):
+        if "aliases" in self.data and language in self.data["aliases"]:
+            if value in self.data["aliases"][language]:
+                self.data["aliases"][language].remove(value)
+                if not self.data["aliases"][language]:
+                    self.data["aliases"].pop(language)
+                    if not self.data["aliases"]:
+                        self.data.pop("aliases")
 
     def save_alias(self, language: str, value: str):
         if "aliases" not in self.data:
@@ -2009,25 +2031,47 @@ class WikiDataPage:
 
     def calculate_date_span_description(self) -> str | None:
         if wd.PID_DATE_OF_BIRTH in self.claims:
-            groups = get_date_groups(
-                filter_claims_by_rank(self.claims[wd.PID_DATE_OF_BIRTH])
-            )
-            if len(groups) > 1:
+            claims = self.claims[wd.PID_DATE_OF_BIRTH]
+            claims = self.exclude_deleted_claims(claims)
+            claims = filter_claims_by_rank(claims)
+
+            groups = get_date_groups(claims)
+
+            birth_years = set()
+            for group in groups:
+                claim = next(iter(group))
+                birth_year = get_year_str(claim)
+                birth_years.add(birth_year)
+            if len(birth_years) > 1:
                 return None
-            claim = next(iter(groups[0]))
-            birth_year = get_year_str(claim)
+            if len(birth_years) == 1:
+                birth_year = next(iter(birth_years))
+            else:
+                birth_year = None
         else:
             birth_year = None
+
         if wd.PID_DATE_OF_DEATH in self.claims:
-            groups = get_date_groups(
-                filter_claims_by_rank(self.claims[wd.PID_DATE_OF_DEATH])
-            )
-            if len(groups) > 1:
+            claims = self.claims[wd.PID_DATE_OF_DEATH]
+            claims = self.exclude_deleted_claims(claims)
+            claims = filter_claims_by_rank(claims)
+
+            groups = get_date_groups(claims)
+
+            death_years = set()
+            for group in groups:
+                claim = next(iter(group))
+                death_year = get_year_str(claim)
+                death_years.add(death_year)
+            if len(death_years) > 1:
                 return None
-            claim = next(iter(groups[0]))
-            death_year = get_year_str(claim)
+            if len(death_years) == 1:
+                death_year = next(iter(death_years))
+            else:
+                death_year = None
         else:
             death_year = None
+
         if birth_year or death_year:
             if not birth_year:
                 span = f"d. {death_year}"

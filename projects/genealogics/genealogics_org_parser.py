@@ -1,15 +1,14 @@
 import re
 import time
 from pathlib import Path
-from typing import List, cast
-import re
-from typing import Optional
+from typing import List, Optional, cast
 
+import genealogics.nameparser as np
+import genealogics.prefix_suffix_utils as psu
 import requests
 from bs4 import BeautifulSoup, Tag
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
 from genealogics.rules import Field
-import genealogics.nameparser as np
 
 BACKOFF_SECS = 5 * 60
 
@@ -43,7 +42,6 @@ _month_map = {
     "nov": 11,
     "dec": 12,
 }
-
 
 
 def _strip_modifier(text: str) -> tuple[Optional[DateModifier], str]:
@@ -324,7 +322,7 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
     burial = get_date_place_field("Burial")
     if len(name_parts) not in [1, 2]:
         raise RuntimeError("Unexpected name parts")
-    names = np.NameParser(name_parts[0])
+    names = np.NameParser(name_parts[0], psu.get_prefixes(), psu.get_suffixes())
     if not names.cleaned_name:
         raise RuntimeError("No cleaned name found")
     if names.location:

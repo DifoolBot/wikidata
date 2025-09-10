@@ -130,63 +130,15 @@ def do_item(qid: str, test: bool = True):
 
 
 def main():
-    # todo(test=False)
-    todo(test=True)
     # query_loop()
     # fill()
     # calc()
     # do_sandbox2("Q18747311")
+
+    todo(test=False)
+    todo(test=True)
+
     # do_item("Q101247401")
-    # do_item("Q100450663")
-    # do_item("Q100450658")  # Pelatiah Adams, Sr.
-    # do_item("Q104034261")  # Harriet Byne Mead
-    # do_item("Q15327330")  # Paon de Roet ()
-    # do_item("Q100447276")  # Joan
-    # do_item("Q100154116", test=False)  # Rev.
-    # do_item("Q100148333", test=False)
-    # generate_report()
-
-    # --- real name ----
-    # do_item("Q100725746")  # 	Maj. William Todd	-	Todd-507 -> real name = guess
-
-    # --- nick name ----
-    # do_item("Q100726196")  # 	Col. Gawin Corbin	-	Corbin-188
-    # do_item("Q100751106")  # 	A. M. Burton	-	Burton-4875
-
-    # --- done ----
-    # do_item("Q100433231", test=False)
-    # # do_item("Q112795079", test = False)
-    # do_item("Q100433233", test=False)
-    # do_item("Q100153942", test=False)  # 	Ens. John Rowley	-	Rowley-98
-    # do_item("Q100154350", test=False)  # 	Col. Septa Fillmore	-	Fillmore-605
-    # do_item("Q100145569", test=False)  # Hon. Capt. Christopher Christophers
-    # do_item("Q100402439", test=False)  # 	Capt. Nathan Chesebrough	-	Chesebrough-95
-    # do_item("Q100154116")  # 	Rev. Richard Treat	-	Treat-254
-    # do_item("Q100155340", test=False)  # 	Lt. Samuel Fairchild	-	Fairchild-75
-    # do_item("Q100402424", test=False)  # 	Lt. Robert Chesebrough	-	Chesebrough-213
-    # do_item("Q100433231")  # 	Rev. Thomas Smith	-	Smith-889
-    # do_item("Q100753235", test=False)  # 	Dr. Harris Fuller Hamilton	-	Hamilton-8375
-    # do_item("Q100753240", test=False)  # 	Dr. Merrill Thomas Hamilton	-	Hamilton-8376
-    # do_item("Q100753243", test=False)  # 	Dr. Hannibal Charles Hamilton	-	Hamilton-8377
-    # do_item("Q100753251", test=False)  # 	Rev. Elisha Hamilton	-	Hamilton-8379
-    # do_item("Q100773424")  # 	J. Michael Lane	-	Lane-15238
-    # do_item("Q100898120", test=False)  # 	Capt. Jonathan Starr	-	Starr-50
-    # do_item("Q100911124", test=False)  # 	Capt. Prince Alden	-	Alden-50
-    # do_item("Q100912551", test=False)  # 	Capt. John Dyer	-	Dyer-9459
-
-    # do_item("Q100912707")  # 	Rev. Solomon Paine	-	Paine-134
-    # do_item("Q101341465")
-
-    # do_item("Q100912707", test = False)  # 	Rev. Solomon Paine	-	Paine-134
-    # do_item("Q102157587", test = False) #	Dr. Ezra Granger Williams	-	Williams-93388
-    # do_item("Q102157728", test = False) #	Capt. John Williams	-	Williams-28337
-    # do_item("Q102157858", test = False) #	Lt. Abner Cooley	-	Cooley-653
-    # do_item("Q102157894", test = False) #	Capt. Stephen Hollister, Sr.	-	Hollister-159
-    # do_item("Q102161818", test = False) #	Capt. John Sherwood	-	Sherwood-1611
-
-    # do_item("Q102162290", test = False) #	Capt. Joseph Hull, Jr.	-	Hull-2951
-    # do_item("Q102165976", test=False)  # 	J. F. Paxton
-    # do_item("Q110426659")
 
 
 if __name__ == "__main__":

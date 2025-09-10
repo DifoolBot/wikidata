@@ -34,7 +34,7 @@ PREFIX_ENTRIES = [
         "qid": wd.QID_COUNT,
     },
     {"variants": ["Deacon"], "normalized": "Deacon", "class": None, "qid": None},
-    {"variants": ["Dr."], "normalized": "Dr", "class": None, "qid": None},
+    {"variants": ["Dr.", "Dr"], "normalized": "Dr", "class": None, "qid": None},
     {"variants": ["Gen."], "normalized": "General", "class": None, "qid": None},
     {
         "variants": ["Hon", "Hon."],
@@ -77,6 +77,7 @@ PREFIX_ENTRIES = [
         "qid": wd.QID_REVEREND,
     },
     {"variants": ["Sgt", "Sgt."], "normalized": "Sergeant", "class": None, "qid": None},
+    {"variants": ["Mrs."], "normalized": "Mrs.", "class": None, "qid": None},
     {
         "variants": ["Sir"],
         "normalized": "Sir",
@@ -120,6 +121,14 @@ def analyze_suffix(suffix: str):
         if suffix in entry["variants"]:
             return entry["class"], entry["qid"]
     raise ValueError(f"Unknown suffix: {suffix}")
+
+
+def get_prefixes():
+    return [variant for entry in PREFIX_ENTRIES for variant in entry["variants"]]
+
+
+def get_suffixes():
+    return [variant for entry in SUFFIX_ENTRIES for variant in entry["variants"]]
 
 
 # Maps normalized prefix to (class, qid) or None if not mapped
