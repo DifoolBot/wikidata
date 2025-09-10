@@ -10,7 +10,7 @@ PREFIX_ENTRIES = [
         "qid": None,
     },
     {
-        "variants": ["Capt", "Captain"],
+        "variants": ["Capt", "Capt.", "Captain"],
         "normalized": "Captain",
         "class": None,
         "qid": None,

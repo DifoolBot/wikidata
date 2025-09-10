@@ -14,13 +14,10 @@ class Field(Enum):
     PLACE_OF_DEATH = "place_of_death"
     PLACE_OF_RESIDENCE = "place_of_residence"
     GENDER = "gender"
-    # # genealogcs specific fields
-    # RAW_NAME_1 = "raw_name_1"
-    # RAW_NAME_2 = "raw_name_2"
-    # wikitree specific fields
     DISPLAY_NAME = "display_name"
     ALIASES = "aliases"
     DEPRECATED_NAMES = "deprecated_names"
+    DEPRECATED_DESC = 'deprecated_desc'
 
     FIND_A_GRAVE_ID = "findagrave_id"
 
@@ -49,6 +46,7 @@ NAME_FIELDS = {
     Field.DISPLAY_NAME,
     Field.ALIASES,
     Field.DEPRECATED_NAMES,
+    Field.DEPRECATED_DESC,
 }
 IDENTIFIER_FIELDS = {
     Field.FIND_A_GRAVE_ID,

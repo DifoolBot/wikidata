@@ -159,8 +159,15 @@ class WikidataUpdater:
             self.date_service = DateCalendarService(
                 country_qid=self.locale.resolve(), country_lookup=self.country_lookup
             )
+
+        is_julian = False
+        year = value.year
+        if value.alt_year and value.year:
+            if value.alt_year == value.year + 1:
+                is_julian = True
+                year = value.alt_year
         wb_time = self.date_service.get_wbtime(
-            year=value.year, month=value.month, day=value.day
+            year=year, month=value.month, day=value.day, is_julian = is_julian
         )
         date = cwd.Date.create_from_WbTime(wb_time)
         if date.calendar == cwd.CALENDAR_ASSUMED_GREGORIAN:
@@ -200,9 +207,11 @@ class WikidataUpdater:
 
         if match:
             date_range = match.group(0)
-            return date_range
-        else:
-            return None
+            if date_range.startswith('(') and date_range.endswith(')'):
+                return date_range
+            if description.endswith(f', {date_range}'):
+                return f', {date_range}'       
+        return None
 
     # def work_wikitree(self, wt_id: str, mode: str):
     #     data = wtp.fetch_wikitree_profiles(wt_id)
@@ -562,10 +571,13 @@ class WikidataUpdater:
         # Default: skip
         return True
 
+    def get_raw_value(self, source: rules.Source, field: rules.Field):
+        return self.raw_data_sources.get(source, {}).get(field)
+
     def work_fields(self, fields: List[rules.Field], sources):
         for field in fields:
             for source in sources:
-                raw_value = self.raw_data_sources.get(source, {}).get(field)
+                raw_value = self.get_raw_value(source, field)
                 if not raw_value:
                     continue
 
@@ -579,9 +591,8 @@ class WikidataUpdater:
                     if self.has_wikidata_field(field):
                         continue
                     # Skip Genealogics if Wikitree has a place
-                    if source == rules.Source.GENEALOGICS and self.raw_data_sources.get(
-                        rules.Source.WIKITREE, {}
-                    ).get(field):
+                    if source == rules.Source.GENEALOGICS and self.get_raw_value(
+                        rules.Source.WIKITREE, field):
                         continue
                 # Use source-specific parser if available
                 parser = self.get_parser(field, source)
@@ -606,7 +617,7 @@ class WikidataUpdater:
 
         def do_deprecate() -> bool:
             for source in sources:
-                deprecated_names = self.raw_data_sources.get(source, {}).get(
+                deprecated_names = self.get_raw_value(source, 
                     rules.Field.DEPRECATED_NAMES
                 )
                 if deprecated_names:
@@ -615,12 +626,8 @@ class WikidataUpdater:
                             return True
             return False
 
-        wikitree_name = self.raw_data_sources.get(rules.Source.WIKITREE, {}).get(
-            rules.Field.DISPLAY_NAME
-        )
-        genealogics_name = self.raw_data_sources.get(rules.Source.GENEALOGICS, {}).get(
-            rules.Field.DISPLAY_NAME
-        )
+        wikitree_name = self.get_raw_value(rules.Source.WIKITREE, rules.Field.DISPLAY_NAME)
+        genealogics_name = self.get_raw_value(rules.Source.GENEALOGICS, rules.Field.DISPLAY_NAME)
         if wikitree_name or genealogics_name:
             pref_name = wikitree_name or genealogics_name
             if do_deprecate():
@@ -636,24 +643,34 @@ class WikidataUpdater:
             )
 
         for source in sources:
-            aliases = self.raw_data_sources.get(source, {}).get(rules.Field.ALIASES)
+            aliases = self.get_raw_value(source, rules.Field.ALIASES)
             if aliases:
                 for alias in aliases:
                     self.page.add_statement(
                         cwd.Label(alias, language="en"), reference=None
                     )
 
-    def work_description(self):
+    def work_description(self, sources):
         if "en" not in self.page.item.descriptions:
             return
 
         current_desc = self.page.item.descriptions["en"]
         print(f"Current desc: {current_desc}")
-        wiki_tree_span = self.get_wiki_tree_span(current_desc)
-        if wiki_tree_span:
-            self.deprecated_desc_date = wiki_tree_span
-        elif is_year_span(current_desc):
-            self.deprecated_desc_date = current_desc
+        #deprecated_descs = []
+        for source in sources:
+            deprecated_desc = self.get_raw_value(source, rules.Field.DEPRECATED_DESC)
+            if deprecated_desc:
+                if current_desc == deprecated_desc:
+                    self.deprecated_desc_date = deprecated_desc
+                    break        
+                #deprecated_descs.append(deprecated_desc)
+
+        if not self.deprecated_desc_date:
+            wiki_tree_span = self.get_wiki_tree_span(current_desc)
+            if wiki_tree_span:
+                self.deprecated_desc_date = wiki_tree_span
+            elif is_year_span(current_desc):
+                self.deprecated_desc_date = current_desc
 
         if not self.deprecated_desc_date:
             if current_desc and is_only_spaces_and_dashes(current_desc):
@@ -718,7 +735,7 @@ class WikidataUpdater:
             list(rules.ALL_EXCEPT_NAME_FIELDS - rules.PLACE_FIELDS), sources
         )
         self.work_names(sources)
-        self.work_description()
+        self.work_description(sources)
 
         if self.deprecated_desc_date:
             print(f"Deprecating description: {self.deprecated_desc_date}")

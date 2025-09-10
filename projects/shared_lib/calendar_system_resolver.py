@@ -175,11 +175,20 @@ class DateCalendarService:
         )
         return resolver.get_calendar_url(year, month, day)
 
-    def get_wbtime(self, year, month, day) -> pwb.WbTime:
+    def get_wbtime(self, year, month, day, is_julian: bool = False) -> pwb.WbTime:
         resolver = CalendarSystemResolver(
             self.last_julian_date, self.first_gregorian_date
         )
         calendarmodel = resolver.get_calendar_url(year, month, day)
+        if is_julian:
+            if calendarmodel == wd.URL_PROLEPTIC_JULIAN_CALENDAR:
+                    pass
+            elif calendarmodel == wd.URL_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+                # switch 
+                calendarmodel = wd.URL_PROLEPTIC_JULIAN_CALENDAR
+            else:
+                raise RuntimeError(f'Unexpected {calendarmodel} with is_julian flag')
+  
         date = pwb.WbTime(
             year=year, month=month, day=day, calendarmodel=calendarmodel
         ).normalize()

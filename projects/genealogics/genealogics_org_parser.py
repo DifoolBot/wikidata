@@ -2,15 +2,16 @@ import re
 import time
 from pathlib import Path
 from typing import List, cast
+import re
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
-
-BACKOFF_SECS = 5 * 60
 from genealogics.rules import Field
 import genealogics.nameparser as np
 
+BACKOFF_SECS = 5 * 60
 
 CACHE_DIR = Path("genealogics_cache")
 CACHE_DIR.mkdir(exist_ok=True)
@@ -43,17 +44,6 @@ _month_map = {
     "dec": 12,
 }
 
-
-import re
-from typing import Optional
-
-# Expect these to exist in your module:
-# _mod_map = {"abt": "about", "bef": "before", "aft": "after", "circa": "circa", "ca": "circa", ...}
-# _month_map = {"jan": 1, "feb": 2, ..., "dec": 12}
-
-# Example:
-# _mod_map = {k: k for k in ["abt","about","bef","before","aft","after","circa","ca","bet","between","est","estimated"]}
-# _month_map = {"jan":1,"feb":2,"mar":3,"apr":4,"may":5,"jun":6,"jul":7,"aug":8,"sep":9,"oct":10,"nov":11,"dec":12}
 
 
 def _strip_modifier(text: str) -> tuple[Optional[DateModifier], str]:
@@ -312,6 +302,8 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
             else:
                 # treat as date
                 date = parse_genealogics_date(td_text)
+                if date.place:
+                    place = date.place
         return {"date": date, "place": place, "modifiers": modifiers}
 
     def get_str_field(field_text: str):
@@ -343,11 +335,17 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
             residence = f"{names.location}"
     else:
         residence = None
+    dob = birth.get("date") if birth else None
+    dod = death.get("date") if death else None
+    if dob and dod:
+        depr_desc = f"{dob.raw} - {dod.raw}"
+    else:
+        depr_desc = None
     return {
         Field.DISPLAY_NAME: names.cleaned_name,
-        Field.DATE_OF_BIRTH: birth.get("date") if birth else None,
+        Field.DATE_OF_BIRTH: dob,
         Field.PLACE_OF_BIRTH: birth.get("place") if birth else None,
-        Field.DATE_OF_DEATH: death.get("date") if death else None,
+        Field.DATE_OF_DEATH: dod,
         Field.PLACE_OF_DEATH: death.get("place") if death else None,
         Field.PLACE_OF_RESIDENCE: residence,
         Field.DATE_OF_BAPTISM: christening.get("date") if christening else None,
@@ -355,6 +353,7 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
         Field.DATE_OF_PROBATE: probate.get("date") if probate else None,
         Field.GENDER: get_str_field("Gender"),
         Field.PREFIX: get_str_field("Honorific"),
+        Field.DEPRECATED_DESC: depr_desc,
     }
 
 

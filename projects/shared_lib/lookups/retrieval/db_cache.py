@@ -22,6 +22,7 @@ class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
         return None
 
     def normalized_place_text(self, text: str) -> str:
+        text = text.replace(";", ",")
         text = text.replace(",", ", ")
         text = text.replace("  ", " ")
         return text.strip(" ,")
