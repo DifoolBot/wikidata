@@ -7,6 +7,7 @@ import genealogics.genealogics_org_parser as gap
 import genealogics.nameparser as np
 import genealogics.prefix_suffix_utils as psu
 import genealogics.rules as rules
+import genealogics.titles as titles
 import genealogics.wikitree_parser as wtp
 import pywikibot as pwb
 
@@ -100,7 +101,13 @@ class WikidataUpdater:
         self.locale = LocaleResolver(place_lookup)
         self.date_service = None
 
-    def parse_gender(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+    def parse_title(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+        lived_in = self.get_raw_value(source, rules.Field.LIVED_IN)
+        if not lived_in:
+            lived_in = ""
+        return titles.analyze_title(self.place_lookup, value, lived_in)
+
+    def parse_gender(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
         if value == "Male":
             gender_qid = wd.QID_MALE
         elif value == "Female":
@@ -111,7 +118,7 @@ class WikidataUpdater:
         statement = cwd.SexOrGender(qid=gender_qid)
         return [statement]
 
-    def parse_prefix(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+    def parse_prefix(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
         result = []
         arr = psu.analyze_prefix(value)
         for item in arr:
@@ -119,7 +126,7 @@ class WikidataUpdater:
             result.append(cls(qid=qid))
         return result
 
-    def parse_suffix(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+    def parse_suffix(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
         result = []
         arr = psu.analyze_suffix(value)
         for item in arr:
@@ -127,7 +134,7 @@ class WikidataUpdater:
             result.append(cls(qid=qid))
         return result
 
-    def parse_external_id(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+    def parse_external_id(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
         if field == rules.Field.FIND_A_GRAVE_ID:
             statement = cwd.ExternalIDStatement(
                 prop=wd.PID_FIND_A_GRAVE_MEMORIAL_ID, external_id=value
@@ -136,7 +143,7 @@ class WikidataUpdater:
 
         raise RuntimeError(f"parse_external_id: Unexpected field {field}")
 
-    def parse_place(self, field: rules.Field, value) -> list[cwd.Statement]:
+    def parse_place(self, field: rules.Field, source: rules.Source, value) -> list[cwd.Statement]:
         location_qid = self.place_lookup.get_place_qid_by_desc(value)
         if not location_qid:
             raise RuntimeError(f"Location not found: {value}")
@@ -151,7 +158,7 @@ class WikidataUpdater:
         return [statement]
 
     def parse_date(
-        self, field: rules.Field, value: gd.GenealogicsDate
+        self, field: rules.Field, source: rules.Source, value: gd.GenealogicsDate
     ) -> list[cwd.Statement]:
         cls = STATEMENT_CLASS_FOR_FIELD[field]
         earliest = latest = None
@@ -219,244 +226,6 @@ class WikidataUpdater:
                 return f", {date_range}"
         return None
 
-    # def work_wikitree(self, wt_id: str, mode: str):
-    #     data = wtp.fetch_wikitree_profiles(wt_id)
-    #     pprint(data, sort_dicts=False)
-
-    #     if mode == "full" or wd.PID_SEX_OR_GENDER not in self.page.claims:
-    #         if gender := data.get(rules.Field.GENDER):
-    #             if gender == "Male":
-    #                 gender_qid = wd.QID_MALE
-    #             elif gender == "Female":
-    #                 gender_qid = wd.QID_FEMALE
-    #                 raise RuntimeError("Need to check")
-    #             else:
-    #                 raise ValueError(f"Unexpected gender {gender}")
-    #             if wd.PID_SEX_OR_GENDER not in self.page.claims:
-    #                 self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
-    #                 self.data_from[rules.Source.WIKITREE] = True
-
-    #     if mode == "full" or wd.PID_PLACE_OF_BIRTH not in self.page.claims:
-    #         if birth_location := data.get(rules.Field.PLACE_OF_BIRTH):
-    #             location_qid = self.place_lookup.get_place_qid_by_desc(birth_location)
-    #             if not location_qid:
-    #                 raise RuntimeError(f"Location not found: {birth_location}")
-    #             self.page.add_statement(
-    #                 cwd.PlaceOfBirth(qid=location_qid),
-    #                 reference=StateInWikiTree(wt_id),
-    #             )
-    #             self.locale.add_place_of_birth(location_qid)
-    #             self.data_from[rules.Source.WIKITREE] = True
-
-    #     if mode == "full" or wd.PID_PLACE_OF_DEATH not in self.page.claims:
-    #         if death_location := data.get(rules.Field.PLACE_OF_DEATH):
-    #             location_qid = self.place_lookup.get_place_qid_by_desc(death_location)
-    #             if not location_qid:
-    #                 raise RuntimeError(f"Location not found: {death_location}")
-    #             self.page.add_statement(
-    #                 cwd.PlaceOfDeath(qid=location_qid),
-    #                 reference=StateInWikiTree(wt_id),
-    #             )
-    #             self.locale.add_place_of_death(location_qid)
-    #             self.data_from[rules.Source.WIKITREE] = True
-
-    #     if mode == "full" or wd.PID_DATE_OF_BIRTH not in self.page.claims:
-    #         if birth_date := data.get(rules.Field.DATE_OF_BIRTH):
-    #             self.page.add_statement(
-    #                 self.create_date(cwd.DateOfBirth, birth_date),
-    #                 reference=StateInWikiTree(wt_id),
-    #             )
-    #             self.data_from[rules.Source.WIKITREE] = True
-
-    #     if mode == "full" or wd.PID_DATE_OF_DEATH not in self.page.claims:
-    #         if death_date := data.get(rules.Field.DATE_OF_DEATH):
-    #             self.page.add_statement(
-    #                 self.create_date(cwd.DateOfDeath, death_date),
-    #                 reference=StateInWikiTree(wt_id),
-    #             )
-    #             self.data_from[rules.Source.WIKITREE] = True
-
-    #     if findagrave_id := data.get(rules.Field.findagrave_id):
-    #         self.page.add_statement(
-    #             cwd.ExternalIDStatement(
-    #                 prop=wd.PID_FIND_A_GRAVE_MEMORIAL_ID, external_id=findagrave_id
-    #             ),
-    #             reference=StateInWikiTree(wt_id),
-    #         )
-    #         self.data_from[rules.Source.WIKITREE] = True
-
-    #     # Update label and description
-    #     if display_name := data.get(rules.Field.display_name):
-    #         if "en" in self.page.item.labels:
-    #             current_label = self.page.item.labels["en"]
-    #         elif "mul" in self.page.item.labels:
-    #             raise RuntimeError("Need to check")
-    #             current_label = self.page.item.labels["mul"]
-    #         else:
-    #             raise RuntimeError("Need to check")
-    #             current_label = None
-    #         print(f"Current label: {current_label}")
-    #         did_deprecate = False
-    #         if mode in ["full", "wikitree"]:
-    #             for name in data.get(rules.Field.deprecated_names, []):
-    #                 if current_label == name:
-    #                     print(
-    #                         f"Deprecating label: {current_label} -> {display_name}"
-    #                     )
-    #                     self.page.deprecate_label(current_label, display_name)
-    #                     self.data_from[rules.Source.WIKITREE] = True
-    #                     did_deprecate = True
-    #                     break
-    #         if not did_deprecate:
-    #             self.page.add_statement(cwd.Label(display_name, language="en"), reference=None)
-    #     if "en" in self.page.item.descriptions:
-    #         current_desc = self.page.item.descriptions["en"]
-    #         print(f"Current desc: {current_desc}")
-    #         wiki_tree_span = self.get_wiki_tree_span(current_desc)
-    #         if wiki_tree_span:
-    #             self.deprecated_desc_date = wiki_tree_span
-    #         elif is_year_span(current_desc):
-    #             self.deprecated_desc_date = current_desc
-
-    #     if not self.deprecated_desc_date:
-    #         if "en" in self.page.item.descriptions:
-    #             current_desc = self.page.item.descriptions["en"]
-    #             if current_desc and is_only_spaces_and_dashes(current_desc):
-    #                 self.deprecated_desc_date = current_desc
-
-    #     if prefix := data.get(rules.Field.PREFIX):
-    #         norm_prefix = normalize_prefix(prefix)
-    #         mapping = PREFIX_TO_CLASS_QID.get(norm_prefix)
-    #         if mapping:
-    #             cls, qid = mapping
-    #             self.page.add_statement(
-    #                 cls(qid=qid),
-    #                 reference=None,
-    #             )
-    #             self.data_from[rules.Source.WIKITREE] = True
-    #         elif norm_prefix in PREFIX_TO_CLASS_QID:
-    #             # Known but intentionally not mapped
-    #             pass
-    #         else:
-    #             raise NotImplementedError(f"Prefix not implemented yet: {prefix} (normalized: {norm_prefix})")
-
-    # def work_genealogics(self, id: str, mode: str):
-    #     data = gap.fetch_genealogics(id)
-    #     pprint(data, sort_dicts=False)
-    #     label_parts = data.get(rules.Field.label_parts)
-    #     if not label_parts:
-    #         raise RuntimeError("No label parts found")
-    #     if len(label_parts) not in [1, 2]:
-    #         raise RuntimeError("Unexpected label parts")
-    #     names = np.NameParser(label_parts[0])
-    #     print(names)
-    #     if not names.cleaned_name:
-    #         raise RuntimeError("No cleaned name found")
-    #     if gender := data.get(rules.Field.GENDER):
-    #         if gender == "Male":
-    #             gender_qid = wd.QID_MALE
-    #         elif gender == "Female":
-    #             gender_qid = wd.QID_FEMALE
-    #         else:
-    #             raise ValueError(f"Unexpected gender {gender}")
-    #         if wd.PID_SEX_OR_GENDER not in self.page.claims:
-    #             self.page.add_statement(cwd.SexOrGender(qid=gender_qid), reference=None)
-    #             self.data_from[rules.Source.GENEALOGICS] = True
-
-    #     if birth := data.get(rules.Field.DATE_OF_BIRTH):
-    #         if mode in ["full", "wikitree"]:
-
-    #             if birth_date := birth.get("date"):
-    #                 self.page.add_statement(
-    #                     self.create_date(cwd.DateOfBirth, birth_date),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
-    #             if birth_place := birth.get("place"):
-    #                 location_qid = self.place_lookup.get_place_qid_by_desc(birth_place)
-    #                 if not location_qid:
-    #                     raise RuntimeError(f"Location not found: {birth_place}")
-    #                 self.page.add_statement(
-    #                     cwd.PlaceOfBirth(qid=location_qid),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-    #                 self.locale.add_place_of_birth(location_qid)
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-    #     if wd.PID_DATE_OF_BAPTISM not in self.page.claims:
-    #         if christening := data.get(rules.Field.DATE_OF_BAPTISM):
-    #             if christening_date := christening.get("date"):
-    #                 self.page.add_statement(
-    #                     self.create_date(cwd.DateOfBaptism, christening_date),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
-    #     if death := data.get(rules.Field.DATE_OF_DEATH):
-    #         if mode in ["full", "wikitree"]:
-
-    #             if death_date := death.get("date"):
-    #                 self.page.add_statement(
-    #                     self.create_date(cwd.DateOfDeath, death_date),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
-    #             if death_place := death.get("place"):
-    #                 location_qid = self.place_lookup.get_place_qid_by_desc(death_place)
-    #                 if not location_qid:
-    #                     raise RuntimeError(f"Location not found: {death_place}")
-    #                 self.page.add_statement(
-    #                     cwd.PlaceOfDeath(qid=location_qid),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
-    #     if wd.PID_DATE_OF_BURIAL_OR_CREMATION not in self.page.claims:
-    #         if burial := data.get(rules.Field.DATE_OF_BURIAL):
-    #             if burial_date := burial.get("date"):
-    #                 self.page.add_statement(
-    #                     self.create_date(cwd.DateOfBurialOrCremation, burial_date),
-    #                     reference=StateInGenealogicsOrg(id),
-    #                 )
-
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
-    #     if mode in ["full", "wikitree"]:
-    #         if names.location:
-    #             location = names.location
-    #             lived_in = data.get(rules.Field.LIVED_IN)
-    #             if lived_in:
-    #                 location = f"{location}; {lived_in}"
-    #             location_qid = self.place_lookup.get_place_qid_by_desc(location)
-    #             if not location_qid:
-    #                 raise RuntimeError(f"Location not found: {location}")
-    #             self.page.add_statement(cwd.Residence(qid=location_qid), reference=None)
-    #             self.locale.add_place(location_qid)
-    #             self.data_from[rules.Source.GENEALOGICS] = True
-
-    #     if mode in ["full", "wikitree"]:
-    #         if "en" in self.page.item.labels:
-    #             current_label = self.page.item.labels["en"]
-    #             if len(label_parts) == 2:
-    #                 title = label_parts[1]
-    #                 raw_text = f"{label_parts[0]}, {title}"
-    #                 cleaned_name = f"{names.cleaned_name}, {title}"
-    #             else:
-    #                 raw_text = label_parts[0]
-    #                 cleaned_name = names.cleaned_name
-    #             if names.cleaned_name and (current_label == raw_text):
-    #                 if raw_text != cleaned_name:
-    #                     self.page.deprecate_label(current_label, cleaned_name)
-    #                     self.data_from[rules.Source.GENEALOGICS] = True
-
-    #             for name in names.variants:
-    #                 self.page.add_statement(
-    #                     cwd.Label(name, language="en"), reference=None
-    #                 )
-    #                 self.data_from[rules.Source.GENEALOGICS] = True
-
     def get_parser(self, field: rules.Field, source: rules.Source):
         if field in rules.DATE_FIELDS:
             return self.parse_date
@@ -470,6 +239,8 @@ class WikidataUpdater:
             return self.parse_external_id
         elif field in rules.PLACE_FIELDS:
             return self.parse_place
+        elif field == rules.Field.TITLE:
+            return self.parse_title
         return None
 
     def get_pid(self, field: rules.Field) -> str:
@@ -515,6 +286,9 @@ class WikidataUpdater:
             wd.PID_SEX_OR_GENDER,
             wd.PID_HONORIFIC_PREFIX,
             wd.PID_HONORIFIC_SUFFIX,
+            wd.PID_OCCUPATION,
+            wd.PID_WORK_LOCATION,
+            wd.PID_RESIDENCE,
         ]:
             return None
         else:
@@ -620,7 +394,7 @@ class WikidataUpdater:
                 parser = self.get_parser(field, source)
                 if not parser:
                     raise RuntimeError(f"No parser for {field}")
-                statements = parser(field, raw_value)
+                statements = parser(field, source, raw_value)
                 if statements:
                     for statement in statements:
                         reference = self.create_reference_for_pid(
@@ -717,6 +491,8 @@ class WikidataUpdater:
         if not self.deprecated_desc_date:
             if current_desc and is_only_spaces_and_dashes(current_desc):
                 self.deprecated_desc_date = current_desc
+
+
 
     def work(self):
         identifiers = {}

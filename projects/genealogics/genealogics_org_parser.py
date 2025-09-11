@@ -387,6 +387,7 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
         Field.PREFIX: get_str_field("Honorific"),
         Field.DEPRECATED_NAMES: depr_names,
         Field.DEPRECATED_DESCS: depr_descs,
+        Field.LIVED_IN: lived_in,
     }
 
 

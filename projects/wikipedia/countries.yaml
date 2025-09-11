@@ -994,3 +994,16 @@ Q750:
         year: 1582
         month: 10
         day: 15
+
+Q27:
+    code: IRL
+    description: Ireland
+    # 1752	2 Sept	14 Sept
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+    first_gregorian_date:
+        year: 1752  
+        month: 9
+        day: 14
