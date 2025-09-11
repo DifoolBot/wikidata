@@ -129,13 +129,20 @@ def do_item(qid: str, test: bool = True):
     )
 
 
+# todo:
+#  Q110278575 - Ensign Daniel Livermore of Weston, Connecticut
+#  Q99767934  - Deacon Daniel Denison
+#  Q101440947 - Armistead Churchill, Esq.
+#  Q101488046 - Anna Hubbard (Warner)
+
+
 def main():
     # query_loop()
     # fill()
     # calc()
     # do_sandbox2("Q18747311")
 
-    todo(test=False)
+    # todo(test=False)
     todo(test=True)
 
     # do_item("Q101247401")

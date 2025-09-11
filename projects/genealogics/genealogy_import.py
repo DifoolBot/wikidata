@@ -100,40 +100,43 @@ class WikidataUpdater:
         self.locale = LocaleResolver(place_lookup)
         self.date_service = None
 
-    def parse_gender(self, field: rules.Field, value: str) -> cwd.Statement:
+    def parse_gender(self, field: rules.Field, value: str) -> list[cwd.Statement]:
         if value == "Male":
             gender_qid = wd.QID_MALE
-        if value == "Female":
+        elif value == "Female":
             gender_qid = wd.QID_FEMALE
             raise RuntimeError("Need to check - Female")
-
-        return cwd.SexOrGender(qid=gender_qid)
-
-    def parse_prefix(self, field: rules.Field, value: str) -> Optional[cwd.Statement]:
-        cls, qid = psu.analyze_prefix(value)
-        if cls and qid:
-            return cls(qid=qid)
         else:
-            return None
+            raise RuntimeError(f"Unexpected gender {value}")
+        statement = cwd.SexOrGender(qid=gender_qid)
+        return [statement]
 
-    def parse_suffix(self, field: rules.Field, value: str) -> Optional[cwd.Statement]:
-        cls, qid = psu.analyze_suffix(value)
-        if cls and qid:
-            return cls(qid=qid)
-        else:
-            return None
+    def parse_prefix(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+        result = []
+        arr = psu.analyze_prefix(value)
+        for item in arr:
+            cls, qid = item
+            result.append(cls(qid=qid))
+        return result
 
-    def parse_external_id(
-        self, field: rules.Field, value: str
-    ) -> Optional[cwd.Statement]:
+    def parse_suffix(self, field: rules.Field, value: str) -> list[cwd.Statement]:
+        result = []
+        arr = psu.analyze_suffix(value)
+        for item in arr:
+            cls, qid = item
+            result.append(cls(qid=qid))
+        return result
+
+    def parse_external_id(self, field: rules.Field, value: str) -> list[cwd.Statement]:
         if field == rules.Field.FIND_A_GRAVE_ID:
-            return cwd.ExternalIDStatement(
+            statement = cwd.ExternalIDStatement(
                 prop=wd.PID_FIND_A_GRAVE_MEMORIAL_ID, external_id=value
             )
+            return [statement]
 
         raise RuntimeError(f"parse_external_id: Unexpected field {field}")
 
-    def parse_place(self, field: rules.Field, value) -> cwd.Statement:
+    def parse_place(self, field: rules.Field, value) -> list[cwd.Statement]:
         location_qid = self.place_lookup.get_place_qid_by_desc(value)
         if not location_qid:
             raise RuntimeError(f"Location not found: {value}")
@@ -145,11 +148,11 @@ class WikidataUpdater:
             self.locale.add_place_of_death(location_qid)
         else:
             self.locale.add_place(location_qid)
-        return statement
+        return [statement]
 
     def parse_date(
         self, field: rules.Field, value: gd.GenealogicsDate
-    ) -> cwd.Statement:
+    ) -> list[cwd.Statement]:
         cls = STATEMENT_CLASS_FOR_FIELD[field]
         earliest = latest = None
         is_circa = False
@@ -190,13 +193,14 @@ class WikidataUpdater:
             pass
         else:
             raise ValueError(f"Unexpected date modifier {value.modifier}")
-        return cls(
+        statement = cls(
             date=date,
             earliest=earliest,
             latest=latest,
             is_circa=is_circa,
             remove_old_claims=True,
         )
+        return [statement]
 
     def get_wiki_tree_span(self, description: str) -> Optional[str]:
         date_pattern = (
@@ -495,16 +499,28 @@ class WikidataUpdater:
         has = pid in self.page.item.claims
         return has
 
-    def create_reference(self, source: rules.Source, field: rules.Field = None, always_create: bool = False):
-        if field:
-            if field == rules.Field.GENDER:
-                return None
-            if field == rules.Field.PREFIX:
-                return None
-            if field == rules.Field.SUFFIX:
-                return None
-        elif not always_create:
+    def create_reference_for_pid(self, pid: Optional[str], source: rules.Source):
+        if pid in [
+            wd.PID_ACADEMIC_DEGREE,
+            wd.PID_DATE_OF_BAPTISM,
+            wd.PID_DATE_OF_BIRTH,
+            wd.PID_DATE_OF_BURIAL_OR_CREMATION,
+            wd.PID_DATE_OF_DEATH,
+            wd.PID_PLACE_OF_BIRTH,
+            wd.PID_PLACE_OF_DEATH,
+            wd.PID_FIND_A_GRAVE_MEMORIAL_ID,
+        ]:
+            return self.create_reference(source)
+        elif pid in [
+            wd.PID_SEX_OR_GENDER,
+            wd.PID_HONORIFIC_PREFIX,
+            wd.PID_HONORIFIC_SUFFIX,
+        ]:
             return None
+        else:
+            raise RuntimeError(f"Unknown PID {pid}")
+
+    def create_reference(self, source: rules.Source) -> cwd.Reference:
         if source == rules.Source.GENEALOGICS:
             return cwd.StateInReference(
                 wd.QID_GENEALOGICS,
@@ -604,10 +620,13 @@ class WikidataUpdater:
                 parser = self.get_parser(field, source)
                 if not parser:
                     raise RuntimeError(f"No parser for {field}")
-                statement = parser(field, raw_value)
-                reference = self.create_reference(field=field, source=source)
-                if statement:
-                    self.page.add_statement(statement, reference=reference)
+                statements = parser(field, raw_value)
+                if statements:
+                    for statement in statements:
+                        reference = self.create_reference_for_pid(
+                            statement.get_prop(), source=source
+                        )
+                        self.page.add_statement(statement, reference=reference)
                     self.data_from[source] = True
 
     def work_names(self, sources):
@@ -673,14 +692,20 @@ class WikidataUpdater:
 
         current_desc = self.page.item.descriptions["en"]
         print(f"Current desc: {current_desc}")
-        # deprecated_descs = []
+
+        deprecated_descs = []
         for source in sources:
-            deprecated_desc = self.get_raw_value(source, rules.Field.DEPRECATED_DESC)
-            if deprecated_desc:
+            src_deprecated_descs = self.get_raw_value(
+                source, rules.Field.DEPRECATED_DESCS
+            )
+            if src_deprecated_descs:
+                deprecated_descs = deprecated_descs + src_deprecated_descs
+
+        if deprecated_descs:
+            for deprecated_desc in deprecated_descs:
                 if current_desc == deprecated_desc:
                     self.deprecated_desc_date = deprecated_desc
                     break
-                # deprecated_descs.append(deprecated_desc)
 
         if not self.deprecated_desc_date:
             wiki_tree_span = self.get_wiki_tree_span(current_desc)
@@ -723,6 +748,7 @@ class WikidataUpdater:
             wd.PID_FIND_A_GRAVE_MEMORIAL_ID,
             wd.PID_GENI_COM_PROFILE_ID,
             wd.PID_SAR_ANCESTOR_ID,
+            wd.PID_CAMBRIDGE_ALUMNI_DATABASE_ID,
         }
         self.more_ids_case = len(self.ids) > 2 or (
             self.ids - {wd.PID_WIKITREE_PERSON_ID, wd.PID_GENEALOGICS_ORG_PERSON_ID}
@@ -748,8 +774,9 @@ class WikidataUpdater:
                 # self.work_wikitree(id, mode)
 
         if rules.Source.WIKITREE in sources and rules.Source.GENEALOGICS in sources:
-            wktr_ref = self.create_reference(source = rules.Source.WIKITREE, always_create= True) 
-            gen_ref = self.create_reference(source = rules.Source.GENEALOGICS, always_create= True) 
+            wktr_ref = self.create_reference(source=rules.Source.WIKITREE)
+            gen_ref = self.create_reference(source=rules.Source.GENEALOGICS)
+
             self.page.pref_date_statements([wktr_ref, gen_ref])
         self.work_fields(list(rules.PLACE_FIELDS), sources)
         self.work_fields(

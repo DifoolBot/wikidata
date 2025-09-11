@@ -50,7 +50,7 @@ PREFIX_ENTRIES = [
     },
     {"variants": ["Judge"], "normalized": "Judge", "class": None, "qid": None},
     {
-        "variants": ["Lieut.", "Lieut", "Lt", "Lt."],
+        "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant"],
         "normalized": "Lieutenant",
         "class": None,
         "qid": None,
@@ -63,7 +63,13 @@ PREFIX_ENTRIES = [
     },
     {"variants": ["Maj."], "normalized": "Major", "class": None, "qid": None},
     {"variants": ["Mr", "Mr."], "normalized": "Mr", "class": None, "qid": None},
-    {"variants": ["Professor"], "normalized": "Professor", "class": None, "qid": None},
+    {
+        "variants": ["Prof.", "Professor"],
+        "normalized": "Professor",
+        "class": None,
+        "qid": None,
+    },
+    {"variants": ["Prof. Dr."], "compound": ["Prof.", "Dr."]},
     {
         "variants": ["Rabbi"],
         "normalized": "Rabbi",
@@ -89,6 +95,18 @@ PREFIX_ENTRIES = [
 
 SUFFIX_ENTRIES = [
     {
+        "variants": ["Jr", "Jr."],
+        "normalized": "Jr.",
+        "class": None,
+        "qid": None,
+    },
+    {
+        "variants": ["Sr", "Sr."],
+        "normalized": "Sr.",
+        "class": None,
+        "qid": None,
+    },
+    {
         "variants": ["I"],
         "normalized": "I",
         "class": None,
@@ -106,20 +124,70 @@ SUFFIX_ENTRIES = [
         "class": None,
         "qid": None,
     },
+    {
+        "variants": ["MD"],
+        "normalized": "Doctor of Medicine",
+        "class": cwd.AcademicDegree,
+        "qid": wd.QID_DOCTOR_OF_MEDICINE,
+    },
 ]
 
 
 def analyze_prefix(prefix: str):
+    """
+    Given a prefix string, return a list [class, qid] if mapped, or an empty list if not mapped.
+    Handles compound prefixes recursively.
+    Raises ValueError if prefix is unknown.
+    """
     for entry in PREFIX_ENTRIES:
         if prefix in entry["variants"]:
-            return entry["class"], entry["qid"]
+            # Handle compound prefixes (e.g., "Prof. Dr.")
+            if "compound" in entry:
+                result = []
+                for sub in entry["compound"]:
+                    sub_result = analyze_prefix(sub)
+                    if sub_result:
+                        result.extend(sub_result)
+                return result
+
+            clss = entry.get("class")
+            qid = entry.get("qid")
+            if clss and qid:
+                item = (
+                    clss,
+                    qid,
+                )
+                return [item]
+            return []
     raise ValueError(f"Unknown prefix: {prefix}")
 
 
 def analyze_suffix(suffix: str):
+    """
+    Given a suffix string, return a list [class, qid] if mapped, or an empty list if not mapped.
+    Handles compound suffixes recursively.
+    Raises ValueError if suffix is unknown.
+    """
     for entry in SUFFIX_ENTRIES:
         if suffix in entry["variants"]:
-            return entry["class"], entry["qid"]
+            # Handle compound suffixes (e.g., "Prof. Dr.")
+            if "compound" in entry:
+                result = []
+                for sub in entry["compound"]:
+                    sub_result = analyze_suffix(sub)
+                    if sub_result:
+                        result.extend(sub_result)
+                return result
+
+            clss = entry.get("class")
+            qid = entry.get("qid")
+            if clss and qid:
+                item = (
+                    clss,
+                    qid,
+                )
+                return [item]
+            return []
     raise ValueError(f"Unknown suffix: {suffix}")
 
 
@@ -131,25 +199,25 @@ def get_suffixes():
     return [variant for entry in SUFFIX_ENTRIES for variant in entry["variants"]]
 
 
-# Maps normalized prefix to (class, qid) or None if not mapped
-PREFIX_TO_CLASS_QID = {
-    "Brigadier General": None,
-    "Captain": None,
-    "Colonel": None,
-    "Count": (cwd.NobleTitle, wd.QID_COUNT),
-    "Deacon": None,
-    "Dr": None,
-    "General": None,
-    "Honorable": (cwd.HonorificPrefix, wd.QID_THE_HONOURABLE),
-    "Jonkheer": (cwd.NobleTitle, wd.QID_JONKHEER),
-    "Judge": None,
-    "Lieutenant": None,
-    "Lieutenant Deacon": None,
-    "Major": None,
-    "Mr": None,
-    "Professor": None,
-    "Rabbi": (cwd.HonorificPrefix, wd.QID_RABBI),
-    "Reverend": (cwd.HonorificPrefix, wd.QID_REVEREND),
-    "Sergeant": None,
-    "Sir": (cwd.HonorificPrefix, wd.QID_SIR),
-}
+# # Maps normalized prefix to (class, qid) or None if not mapped
+# PREFIX_TO_CLASS_QID = {
+#     "Brigadier General": None,
+#     "Captain": None,
+#     "Colonel": None,
+#     "Count": (cwd.NobleTitle, wd.QID_COUNT),
+#     "Deacon": None,
+#     "Dr": None,
+#     "General": None,
+#     "Honorable": (cwd.HonorificPrefix, wd.QID_THE_HONOURABLE),
+#     "Jonkheer": (cwd.NobleTitle, wd.QID_JONKHEER),
+#     "Judge": None,
+#     "Lieutenant": None,
+#     "Lieutenant Deacon": None,
+#     "Major": None,
+#     "Mr": None,
+#     "Professor": None,
+#     "Rabbi": (cwd.HonorificPrefix, wd.QID_RABBI),
+#     "Reverend": (cwd.HonorificPrefix, wd.QID_REVEREND),
+#     "Sergeant": None,
+#     "Sir": (cwd.HonorificPrefix, wd.QID_SIR),
+# }

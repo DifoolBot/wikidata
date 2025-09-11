@@ -160,7 +160,7 @@ class NameBuilder:
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
         allowed_suffixes = {"Jr.", "Sr.", "I", "II", "III", "IV", "V"}
-        not_allowed_suffixes = {}
+        not_allowed_suffixes = {"MD"}
         if not suffix:
             return ""
         suffix = suffix.strip()
@@ -471,6 +471,7 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         Field.PLACE_OF_DEATH: death_location,
         Field.GENDER: profile.get("Gender"),
         Field.FIND_A_GRAVE_ID: findagrave_id,
+        Field.TITLE: name_builder.get_title(),
         # "deprecated_desc_dates": list(deprecated_desc_dates),
         "first_name": profile.get("FirstName"),
         "middle_name": profile.get("MiddleName"),

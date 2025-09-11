@@ -807,6 +807,7 @@ class MoveReferences(Action):
     def get_action_kind(self) -> Set[Action.ActionKind]:
         return {"change_claim"}
 
+
 class PrefDateStatements(Action):
     def __init__(self, wd_page: "WikiDataPage", prop: str, references):
         self.wd_page = wd_page
@@ -826,7 +827,7 @@ class PrefDateStatements(Action):
 
         if len(groups) <= 1:
             return
-        
+
         best_groups = []
         ref_index = None
 
@@ -839,7 +840,7 @@ class PrefDateStatements(Action):
                             best_index = index
                         break
             return best_index
-        
+
         for group in groups:
             ref_index = get_ref_index(group)
             if ref_index is None:
@@ -854,7 +855,9 @@ class PrefDateStatements(Action):
             best_group = best_groups[0]
             claim = best_group[0]
             claim.rank = "preferred"
-            qualifier = pwb.Claim(REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
+            qualifier = pwb.Claim(
+                REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True
+            )
             target = pwb.ItemPage(REPO, wd.QID_BEST_REFERENCED_VALUE)
             qualifier.setTarget(target)
             claim.qualifiers.setdefault(wd.PID_REASON_FOR_PREFERRED_RANK, []).append(
@@ -875,6 +878,7 @@ class PrefDateStatements(Action):
 
     def post_apply(self):
         pass
+
 
 class CheckDateStatements(Action):
     def __init__(self, wd_page: "WikiDataPage", prop: str):
@@ -934,7 +938,7 @@ class CheckDateStatements(Action):
             try:
                 self.process_property(self.wd_page.claims[self.prop])
             except RuntimeError as e:
-                print(f"Runtime error: {e}")
+                print(f"CheckDateStatements {self.prop} failed: {e}")
                 pass
 
     def post_apply(self):
@@ -1677,6 +1681,14 @@ class ReligionOrWorldview(ItemStatement):
         return "Religion or worldview"
 
 
+class AcademicDegree(ItemStatement):
+    def get_prop(self) -> Optional[str]:
+        return wd.PID_ACADEMIC_DEGREE
+
+    def get_description(self) -> str:
+        return "academic degree"
+
+
 class HonorificPrefix(ItemStatement):
     def get_prop(self) -> Optional[str]:
         return wd.PID_HONORIFIC_PREFIX
@@ -1834,6 +1846,7 @@ class WikiDataPage:
             wd.PID_DATE_OF_PROBATE,
         ]:
             self._add_action(PrefDateStatements(self, prop, references))
+
     def check_date_statements(self):
         for prop in [
             wd.PID_DATE_OF_BIRTH,

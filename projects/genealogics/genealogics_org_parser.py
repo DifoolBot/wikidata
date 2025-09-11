@@ -321,12 +321,20 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
             # keep death as is, date is in the form 'before' probate date
     burial = get_date_place_field("Burial")
     if len(name_parts) not in [1, 2]:
-        raise RuntimeError("Unexpected name parts")
+        raise RuntimeError("Unexpected name parts length")
+    depr_names = []
+    depr_descs = []
     names = np.NameParser(name_parts[0], psu.get_prefixes(), psu.get_suffixes())
+    depr_names.append(name_parts[0])
+    if len(name_parts) == 2:
+        title = name_parts[1]
+        depr_names.append(f"{name_parts[0]}, {title}")
+    else:
+        title = None
     if not names.cleaned_name:
         raise RuntimeError("No cleaned name found")
+    lived_in = get_str_field("Lived In")
     if names.location:
-        lived_in = (get_str_field("Lived In"),)
         if lived_in:
             residence = f"{names.location}, {lived_in}"
         else:
@@ -335,23 +343,50 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
         residence = None
     dob = birth.get("date") if birth else None
     dod = death.get("date") if death else None
-    if dob and dod:
-        depr_desc = f"{dob.raw} - {dod.raw}"
-    else:
-        depr_desc = None
+    pob = birth.get("place") if birth else None
+    pod = death.get("place") if death else None
+    if dob or dod:
+        sdob = dob.raw if dob else ""
+        sdod = dod.raw if dod else ""
+        spob = pob if pob else ""
+        spod = pod if pod else ""
+        sbirth = sdob.strip()
+        sdeath = sdod.strip()
+        desc = f"{sbirth} - {sdeath}".strip()
+        depr_descs.append(desc)
+        if spob or spod:
+            sbirth = f"{sdob} {spob}".strip()
+            sdeath = f"{sdod} {spod}".strip()
+            desc = f"{sbirth} - {sdeath}".strip()
+            if desc not in depr_descs:
+                depr_descs.append(desc)
+
+    if pob and lived_in:
+        pob = f"{pob}, {lived_in}"
+    if pod and lived_in:
+        pod = f"{pod}, {lived_in}"
+
+    if christening:
+        raise RuntimeError("Need to check: christening")
+    if burial:
+        raise RuntimeError("Need to check: burial")
+    if probate:
+        raise RuntimeError("Need to check: probate")
     return {
         Field.DISPLAY_NAME: names.cleaned_name,
+        Field.TITLE: title,
         Field.DATE_OF_BIRTH: dob,
-        Field.PLACE_OF_BIRTH: birth.get("place") if birth else None,
+        Field.PLACE_OF_BIRTH: pob,
         Field.DATE_OF_DEATH: dod,
-        Field.PLACE_OF_DEATH: death.get("place") if death else None,
+        Field.PLACE_OF_DEATH: pod,
         Field.PLACE_OF_RESIDENCE: residence,
         Field.DATE_OF_BAPTISM: christening.get("date") if christening else None,
         Field.DATE_OF_BURIAL: burial.get("date") if burial else None,
         Field.DATE_OF_PROBATE: probate.get("date") if probate else None,
         Field.GENDER: get_str_field("Gender"),
         Field.PREFIX: get_str_field("Honorific"),
-        Field.DEPRECATED_DESC: depr_desc,
+        Field.DEPRECATED_NAMES: depr_names,
+        Field.DEPRECATED_DESCS: depr_descs,
     }
 
 

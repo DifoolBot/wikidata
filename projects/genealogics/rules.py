@@ -15,9 +15,10 @@ class Field(Enum):
     PLACE_OF_RESIDENCE = "place_of_residence"
     GENDER = "gender"
     DISPLAY_NAME = "display_name"
+    TITLE = "title"
     ALIASES = "aliases"
     DEPRECATED_NAMES = "deprecated_names"
-    DEPRECATED_DESC = 'deprecated_desc'
+    DEPRECATED_DESCS = "deprecated_descs"
 
     FIND_A_GRAVE_ID = "findagrave_id"
 
@@ -46,7 +47,8 @@ NAME_FIELDS = {
     Field.DISPLAY_NAME,
     Field.ALIASES,
     Field.DEPRECATED_NAMES,
-    Field.DEPRECATED_DESC,
+    Field.DEPRECATED_DESCS,
+    Field.TITLE,
 }
 IDENTIFIER_FIELDS = {
     Field.FIND_A_GRAVE_ID,
