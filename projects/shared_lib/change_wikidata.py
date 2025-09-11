@@ -807,6 +807,74 @@ class MoveReferences(Action):
     def get_action_kind(self) -> Set[Action.ActionKind]:
         return {"change_claim"}
 
+class PrefDateStatements(Action):
+    def __init__(self, wd_page: "WikiDataPage", prop: str, references):
+        self.wd_page = wd_page
+        self.prop = prop
+        self.references = references
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"read_claims", "change_claim"}
+
+    def process_property(self, claims):
+        claims = self.wd_page.exclude_deleted_claims(claims)
+        """Group statements by normalized date using a precision-to-claims map."""
+        if any(claim.rank == "preferred" for claim in claims):
+            return  # Skip if any statement is already preferred
+
+        groups = get_date_groups(claims)
+
+        if len(groups) <= 1:
+            return
+        
+        best_groups = []
+        ref_index = None
+
+        def get_ref_index(group):
+            best_index = None
+            for claim in group:
+                for index, ref in enumerate(self.references):
+                    if ref.has_equal_reference(claim):
+                        if not best_index or index < best_index:
+                            best_index = index
+                        break
+            return best_index
+        
+        for group in groups:
+            ref_index = get_ref_index(group)
+            if ref_index is None:
+                return
+            if not best_groups or (best_group_index > ref_index):
+                best_groups = [group]
+                best_group_index = ref_index
+            elif best_group_index == ref_index:
+                best_groups.append(group)
+
+        if best_groups and len(best_groups) == 1:
+            best_group = best_groups[0]
+            claim = best_group[0]
+            claim.rank = "preferred"
+            qualifier = pwb.Claim(REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
+            target = pwb.ItemPage(REPO, wd.QID_BEST_REFERENCED_VALUE)
+            qualifier.setTarget(target)
+            claim.qualifiers.setdefault(wd.PID_REASON_FOR_PREFERRED_RANK, []).append(
+                qualifier
+            )
+            self.wd_page.claim_changed(claim)
+
+    def prepare(self):
+        pass
+
+    def apply(self):
+        if self.prop in self.wd_page.claims:
+            try:
+                self.process_property(self.wd_page.claims[self.prop])
+            except RuntimeError as e:
+                print(f"Runtime error: {e}")
+                pass
+
+    def post_apply(self):
+        pass
 
 class CheckDateStatements(Action):
     def __init__(self, wd_page: "WikiDataPage", prop: str):
@@ -1757,12 +1825,22 @@ class WikiDataPage:
     def recalc_date_span(self, language: str, current_str: str):
         self._add_action(RecalcDateSpan(self, language, current_str))
 
+    def pref_date_statements(self, references):
+        for prop in [
+            wd.PID_DATE_OF_BIRTH,
+            wd.PID_DATE_OF_BURIAL_OR_CREMATION,
+            wd.PID_DATE_OF_DEATH,
+            wd.PID_DATE_OF_BAPTISM,
+            wd.PID_DATE_OF_PROBATE,
+        ]:
+            self._add_action(PrefDateStatements(self, prop, references))
     def check_date_statements(self):
         for prop in [
             wd.PID_DATE_OF_BIRTH,
             wd.PID_DATE_OF_BURIAL_OR_CREMATION,
             wd.PID_DATE_OF_DEATH,
             wd.PID_DATE_OF_BAPTISM,
+            wd.PID_DATE_OF_PROBATE,
         ]:
             self._add_action(CheckDateStatements(self, prop))
 

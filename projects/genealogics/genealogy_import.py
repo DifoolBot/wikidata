@@ -495,12 +495,15 @@ class WikidataUpdater:
         has = pid in self.page.item.claims
         return has
 
-    def create_reference(self, field, source):
-        if field == rules.Field.GENDER:
-            return None
-        if field == rules.Field.PREFIX:
-            return None
-        if field == rules.Field.SUFFIX:
+    def create_reference(self, source: rules.Source, field: rules.Field = None, always_create: bool = False):
+        if field:
+            if field == rules.Field.GENDER:
+                return None
+            if field == rules.Field.PREFIX:
+                return None
+            if field == rules.Field.SUFFIX:
+                return None
+        elif not always_create:
             return None
         if source == rules.Source.GENEALOGICS:
             return cwd.StateInReference(
@@ -602,7 +605,7 @@ class WikidataUpdater:
                 if not parser:
                     raise RuntimeError(f"No parser for {field}")
                 statement = parser(field, raw_value)
-                reference = self.create_reference(field, source)
+                reference = self.create_reference(field=field, source=source)
                 if statement:
                     self.page.add_statement(statement, reference=reference)
                     self.data_from[source] = True
@@ -744,6 +747,10 @@ class WikidataUpdater:
                 sources = sources + [rules.Source.WIKITREE]
                 # self.work_wikitree(id, mode)
 
+        if rules.Source.WIKITREE in sources and rules.Source.GENEALOGICS in sources:
+            wktr_ref = self.create_reference(source = rules.Source.WIKITREE, always_create= True) 
+            gen_ref = self.create_reference(source = rules.Source.GENEALOGICS, always_create= True) 
+            self.page.pref_date_statements([wktr_ref, gen_ref])
         self.work_fields(list(rules.PLACE_FIELDS), sources)
         self.work_fields(
             list(rules.ALL_EXCEPT_NAME_FIELDS - rules.PLACE_FIELDS), sources
