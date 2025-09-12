@@ -1010,3 +1010,16 @@ Q781:
 Q252:
     code: IDN
     description: Indonesia
+
+Q27:
+    code: IRL
+    description: Ireland
+    # 1752	2 Sept	14 Sept
+    last_julian_date:
+        year: 1752
+        month: 9
+        day: 2
+    first_gregorian_date:
+        year: 1752  
+        month: 9
+        day: 14

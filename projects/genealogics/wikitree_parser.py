@@ -9,6 +9,7 @@ from genealogics.genealogics_date import DateModifier, GenealogicsDate
 from genealogics.rules import Field
 
 from shared_lib.rate_limiter import rate_limit
+import genealogics.titles as titles
 
 BACKOFF_SECS = 5 * 60
 
@@ -64,30 +65,7 @@ def parse_wikitree_date(
 
 
 class NameBuilder:
-    TITLE_STRINGS = [
-        "Baronet",
-        "Duchess",
-        # Add more as needed
-    ]
 
-    ORDINAL_PATTERN = r"^(\d+(?:st|nd|rd|th))"
-
-    def _extract_title(self, nicknames):
-        if not nicknames:
-            return None
-        import re
-
-        for title in self.TITLE_STRINGS:
-            # Accepts either ordinal+title or bare title (possibly with 'of ...')
-            ordinal_pattern = rf"{self.ORDINAL_PATTERN} {title}"
-            bare_pattern = rf"^{title}(?: of .*)?$"
-            if re.match(ordinal_pattern, nicknames) or re.match(
-                bare_pattern, nicknames
-            ):
-                return nicknames
-        raise RuntimeError(
-            f"Nicknames field does not start with ordinal+title or bare title: {nicknames}"
-        )
 
     def add_alias(self, alias):
         # Check for comma in alias
@@ -187,7 +165,9 @@ class NameBuilder:
         suffix = p.get("Suffix") or ""
 
         if nicknames:
-            self.title = self._extract_title(nicknames)
+            self.title = titles.extract_title(nicknames)
+            if not self.title:
+                raise RuntimeError(f"Unexpected nickname format: {nicknames}")
 
         # Display name: for female, use married name if present, else birth name
         if (

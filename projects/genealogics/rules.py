@@ -19,16 +19,14 @@ class Field(Enum):
     ALIASES = "aliases"
     DEPRECATED_NAMES = "deprecated_names"
     DEPRECATED_DESCS = "deprecated_descs"
-
     FIND_A_GRAVE_ID = "findagrave_id"
+    LIVED_IN = "lived_in"
 
 
 class Source(Enum):
     WIKITREE = "wikitree"
     GENEALOGICS = "genealogics"
 
-
-IGNORED_IDENTIFIERS = {"findmygrave"}
 
 ALL_FIELDS = set(item for item in Field)
 DATE_FIELDS = {
@@ -48,10 +46,12 @@ NAME_FIELDS = {
     Field.ALIASES,
     Field.DEPRECATED_NAMES,
     Field.DEPRECATED_DESCS,
-    Field.TITLE,
 }
 IDENTIFIER_FIELDS = {
     Field.FIND_A_GRAVE_ID,
 }
+# helper fields
+IGNORE_FIELDS = {
+    Field.LIVED_IN,}
 OTHER_FIELDS = ALL_FIELDS - DATE_FIELDS - PLACE_FIELDS - NAME_FIELDS - IDENTIFIER_FIELDS
-ALL_EXCEPT_NAME_FIELDS = ALL_FIELDS - NAME_FIELDS
+ALL_EXCEPT_NAME_FIELDS = ALL_FIELDS - NAME_FIELDS - IGNORE_FIELDS
