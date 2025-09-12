@@ -101,13 +101,17 @@ class WikidataUpdater:
         self.locale = LocaleResolver(place_lookup)
         self.date_service = None
 
-    def parse_title(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+    def parse_title(
+        self, field: rules.Field, source: rules.Source, value: str
+    ) -> list[cwd.Statement]:
         lived_in = self.get_raw_value(source, rules.Field.LIVED_IN)
         if not lived_in:
             lived_in = ""
         return titles.analyze_title(self.place_lookup, value, lived_in)
 
-    def parse_gender(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+    def parse_gender(
+        self, field: rules.Field, source: rules.Source, value: str
+    ) -> list[cwd.Statement]:
         if value == "Male":
             gender_qid = wd.QID_MALE
         elif value == "Female":
@@ -118,7 +122,9 @@ class WikidataUpdater:
         statement = cwd.SexOrGender(qid=gender_qid)
         return [statement]
 
-    def parse_prefix(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+    def parse_prefix(
+        self, field: rules.Field, source: rules.Source, value: str
+    ) -> list[cwd.Statement]:
         result = []
         arr = psu.analyze_prefix(value)
         for item in arr:
@@ -126,7 +132,9 @@ class WikidataUpdater:
             result.append(cls(qid=qid))
         return result
 
-    def parse_suffix(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+    def parse_suffix(
+        self, field: rules.Field, source: rules.Source, value: str
+    ) -> list[cwd.Statement]:
         result = []
         arr = psu.analyze_suffix(value)
         for item in arr:
@@ -134,7 +142,9 @@ class WikidataUpdater:
             result.append(cls(qid=qid))
         return result
 
-    def parse_external_id(self, field: rules.Field, source: rules.Source, value: str) -> list[cwd.Statement]:
+    def parse_external_id(
+        self, field: rules.Field, source: rules.Source, value: str
+    ) -> list[cwd.Statement]:
         if field == rules.Field.FIND_A_GRAVE_ID:
             statement = cwd.ExternalIDStatement(
                 prop=wd.PID_FIND_A_GRAVE_MEMORIAL_ID, external_id=value
@@ -143,7 +153,9 @@ class WikidataUpdater:
 
         raise RuntimeError(f"parse_external_id: Unexpected field {field}")
 
-    def parse_place(self, field: rules.Field, source: rules.Source, value) -> list[cwd.Statement]:
+    def parse_place(
+        self, field: rules.Field, source: rules.Source, value
+    ) -> list[cwd.Statement]:
         location_qid = self.place_lookup.get_place_qid_by_desc(value)
         if not location_qid:
             raise RuntimeError(f"Location not found: {value}")
@@ -174,6 +186,8 @@ class WikidataUpdater:
             if value.alt_year == value.year + 1:
                 is_julian = True
                 year = value.alt_year
+        if value.is_decade:
+            raise RuntimeError("Need to check this variant: decade")
         wb_time = self.date_service.get_wbtime(
             year=year, month=value.month, day=value.day, is_julian=is_julian
         )
@@ -213,8 +227,14 @@ class WikidataUpdater:
         date_pattern = (
             r"(?:certain|uncertain|est\.)? ?(?:\d{1,2})? ?(?:[A-Za-z]{3})? ?\d{4}"
         )
-        pattern = rf"\(?{date_pattern} - {date_pattern}\)?"
-        match = re.search(pattern, description)
+        pattern1 = rf"\(?{date_pattern} - {date_pattern}\)?"
+        pattern2 = rf"\(?{date_pattern} - \)?"
+        pattern3 = rf"\(? - {date_pattern}\)?"
+        match = (
+            re.search(pattern1, description)
+            or re.search(pattern2, description)
+            or re.search(pattern3, description)
+        )
 
         if match:
             date_range = match.group(0)
@@ -289,6 +309,9 @@ class WikidataUpdater:
             wd.PID_OCCUPATION,
             wd.PID_WORK_LOCATION,
             wd.PID_RESIDENCE,
+            wd.PID_MEMBER_OF,
+            wd.PID_AWARD_RECEIVED,
+            wd.PID_NOBLE_TITLE,
         ]:
             return None
         else:
@@ -307,6 +330,17 @@ class WikidataUpdater:
             )
         else:
             raise RuntimeError("Unexpected source {source}")
+
+    def has_wikidata_pid_qid(self, pid: str, qid: str) -> bool:
+        if pid not in self.page.item.claims:
+            return False
+
+        for claim in self.page.item.claims[pid]:
+            t = claim.getTarget()
+            if t:
+                if t.id == qid:
+                    return True
+        return False
 
     def get_wikidata_date_precision(self, field):
         pid = self.get_pid(field)
@@ -335,6 +369,17 @@ class WikidataUpdater:
             return 8
         else:
             return None
+
+    def should_skip_statement(self, statement):
+        pid = statement.get_prop()
+        if pid in [wd.PID_MEMBER_OF, wd.PID_AWARD_RECEIVED]:
+            qid = statement.qid
+            if not qid:
+                return False
+
+            return self.has_wikidata_pid_qid(pid, qid)
+
+        return False
 
     def should_skip(self, field, source, raw_value):
         """
@@ -397,6 +442,9 @@ class WikidataUpdater:
                 statements = parser(field, source, raw_value)
                 if statements:
                     for statement in statements:
+                        # skip some statements if they are already in wikidata
+                        if self.should_skip_statement(statement):
+                            continue
                         reference = self.create_reference_for_pid(
                             statement.get_prop(), source=source
                         )
@@ -408,11 +456,21 @@ class WikidataUpdater:
             current_label = self.page.item.labels["en"]
         elif "mul" in self.page.item.labels:
             current_label = self.page.item.labels["mul"]
-            raise RuntimeError("Need to check this variant")
+            raise RuntimeError("Need to check this variant; work_names only mul")
         else:
             return
 
         print(f"Current name: {current_label}")
+
+        if wd.PID_PSEUDONYM in self.page.claims:
+            for claim in self.page.claims[wd.PID_PSEUDONYM]:
+                pseudonym = claim.getTarget()
+                if pseudonym == current_label:
+                    print("Current name is a pseudonym")
+                    return
+            raise RuntimeError(
+                "Need to check this variant; pseudonym diff current-name"
+            )
 
         def do_deprecate() -> bool:
             for source in sources:
@@ -424,11 +482,9 @@ class WikidataUpdater:
                         if same_name(depr_name, current_label):
                             return True
 
-                names = np.NameParser(
-                    current_label, psu.get_prefixes(), psu.get_suffixes()
-                )
-                if names.extracted_prefixes or names.extracted_suffixes:
-                    return True
+            names = np.NameParser(current_label, psu.get_prefixes(), psu.get_suffixes())
+            if names.extracted_prefixes or names.extracted_suffixes:
+                return True
 
             return False
 
@@ -492,8 +548,6 @@ class WikidataUpdater:
             if current_desc and is_only_spaces_and_dashes(current_desc):
                 self.deprecated_desc_date = current_desc
 
-
-
     def work(self):
         identifiers = {}
 
@@ -525,6 +579,7 @@ class WikidataUpdater:
             wd.PID_GENI_COM_PROFILE_ID,
             wd.PID_SAR_ANCESTOR_ID,
             wd.PID_CAMBRIDGE_ALUMNI_DATABASE_ID,
+            wd.PID_PRABOOK_ID,
         }
         self.more_ids_case = len(self.ids) > 2 or (
             self.ids - {wd.PID_WIKITREE_PERSON_ID, wd.PID_GENEALOGICS_ORG_PERSON_ID}

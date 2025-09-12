@@ -5,90 +5,139 @@ import shared_lib.constants as wd
 PREFIX_ENTRIES = [
     {
         "variants": ["Brig. Gen."],
-        "normalized": "Brigadier General",
-        "class": None,
-        "qid": None,
+        "long": "Brigadier General",
     },
     {
         "variants": ["Capt", "Capt.", "Captain"],
-        "normalized": "Captain",
-        "class": None,
-        "qid": None,
+        "long": "Captain",
     },
     {
         "variants": ["Ensign"],
-        "normalized": "Ensign",
-        "class": None,
-        "qid": None,
+        "long": "Ensign",
     },
     {
-        "variants": ["Col.", "Col", "Colonel"],
-        "normalized": "Colonel",
-        "class": None,
-        "qid": None,
+        "variants": ["Col.", "Col", "Colonel", "Col. (USA)", "Col. (USA),"],
+        "long": "Colonel",
     },
     {
         "variants": ["Count"],
-        "normalized": "Count",
-        "class": cwd.NobleTitle,
-        "qid": wd.QID_COUNT,
+        "statements": [
+            {
+                "class": cwd.NobleTitle,
+                "qid": wd.QID_COUNT,
+            }
+        ],
     },
-    {"variants": ["Deacon"], "normalized": "Deacon", "class": None, "qid": None},
-    {"variants": ["Dr.", "Dr"], "normalized": "Dr", "class": None, "qid": None},
-    {"variants": ["Gen."], "normalized": "General", "class": None, "qid": None},
+    {
+        "variants": ["Deacon"],
+        "long": "Deacon",
+    },
+    {
+        "variants": ["Dr.", "Dr"],
+    },
+    {
+        "variants": ["Gen."],
+        "long": "General",
+    },
+    {
+        "variants": ["Pvt."],
+        "long": "Private",
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_PRIVATE,
+            }
+        ],
+    },
     {
         "variants": ["Hon", "Hon."],
-        "normalized": "Honorable",
-        "class": cwd.HonorificPrefix,
-        "qid": wd.QID_THE_HONOURABLE,
+        "long": "Honorable",
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_THE_HONOURABLE,
+            }
+        ],
     },
     {
-        "variants": ["Jonkheer"],
-        "normalized": "Jonkheer",
-        "class": cwd.NobleTitle,
-        "qid": wd.QID_JONKHEER,
+        "variants": ["Jonkheer", "Jhr.", "Jhr"],
+        "long": "Jonkheer",
+        "statements": [
+            {
+                "class": cwd.NobleTitle,
+                "qid": wd.QID_JONKHEER,
+            }
+        ],
     },
-    {"variants": ["Judge"], "normalized": "Judge", "class": None, "qid": None},
+    {
+        "variants": ["Judge"],
+        "long": "Judge",
+    },
     {
         "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant"],
-        "normalized": "Lieutenant",
-        "class": None,
-        "qid": None,
+        "long": "Lieutenant",
     },
     {
         "variants": ["Lt. Deacon"],
-        "normalized": "Lieutenant Deacon",
-        "class": None,
-        "qid": None,
+        "long": "Lieutenant Deacon",
     },
-    {"variants": ["Maj."], "normalized": "Major", "class": None, "qid": None},
-    {"variants": ["Mr", "Mr."], "normalized": "Mr", "class": None, "qid": None},
+    {
+        "variants": ["Lt.-Col.", "Lt. Col."],
+        "long": "Lieutenant Colonel",
+    },
+    {
+        "variants": ["Maj."],
+        "long": "Major",
+    },
+    {
+        "variants": ["Mr", "Mr."],
+    },
     {
         "variants": ["Prof.", "Professor"],
-        "normalized": "Professor",
-        "class": None,
-        "qid": None,
+        "long": "Professor",
     },
-    {"variants": ["Prof. Dr."], "compound": ["Prof.", "Dr."]},
+    {
+        "variants": ["Prof. Dr."],
+        "compound": ["Prof.", "Dr."],
+    },
     {
         "variants": ["Rabbi"],
-        "normalized": "Rabbi",
-        "class": cwd.HonorificPrefix,
-        "qid": wd.QID_RABBI,
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_RABBI,
+            }
+        ],
     },
     {
         "variants": ["Rev.", "Rev", "Reverend"],
-        "normalized": "Reverend",
-        "class": cwd.HonorificPrefix,
-        "qid": wd.QID_REVEREND,
+        "long": "Reverend",
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_REVEREND,
+            }
+        ],
     },
-    {"variants": ["Sgt", "Sgt."], "normalized": "Sergeant", "class": None, "qid": None},
-    {"variants": ["Mrs."], "normalized": "Mrs.", "class": None, "qid": None},
+    {
+        "variants": ["Sgt", "Sgt."],
+        "long": "Sergeant",
+    },
+    {
+        "variants": ["Mrs."],
+    },
+    {
+        "variants": ["Jhr. Mr. Dr."],
+        "compound": ["Jhr.", "Mr.", "Dr."],
+    },
     {
         "variants": ["Sir"],
-        "normalized": "Sir",
-        "class": cwd.HonorificPrefix,
-        "qid": wd.QID_SIR,
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_SIR,
+            }
+        ],
     },
     # Add more as needed
 ]
@@ -97,38 +146,46 @@ SUFFIX_ENTRIES = [
     {
         "variants": ["Jr", "Jr."],
         "normalized": "Jr.",
-        "class": None,
-        "qid": None,
     },
     {
         "variants": ["Sr", "Sr."],
         "normalized": "Sr.",
-        "class": None,
-        "qid": None,
     },
     {
         "variants": ["I"],
-        "normalized": "I",
-        "class": None,
-        "qid": None,
     },
     {
         "variants": ["II"],
-        "normalized": "II",
-        "class": None,
-        "qid": None,
     },
     {
         "variants": ["III"],
-        "normalized": "III",
-        "class": None,
-        "qid": None,
+    },
+    {
+        "variants": ["V"],
     },
     {
         "variants": ["MD"],
-        "normalized": "Doctor of Medicine",
-        "class": cwd.AcademicDegree,
-        "qid": wd.QID_DOCTOR_OF_MEDICINE,
+        "long": "Doctor of Medicine",
+        "statements": [
+            {
+                "class": cwd.AcademicDegree,
+                "qid": wd.QID_DOCTOR_OF_MEDICINE,
+            }
+        ],
+    },
+    {
+        "variants": ["FASG"],
+        "long": "Fellow of the American Society of Genealogists",
+        "statements": [
+            {
+                "class": cwd.MemberOf,
+                "qid": wd.QID_AMERICAN_SOCIETY_OF_GENEALOGISTS,
+            },
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_FELLOW_OF_THE_AMERICAN_SOCIETY_OF_GENEALOGISTS,
+            },
+        ],
     },
 ]
 
@@ -140,25 +197,29 @@ def analyze_prefix(prefix: str):
     Raises ValueError if prefix is unknown.
     """
     for entry in PREFIX_ENTRIES:
-        if prefix in entry["variants"]:
-            # Handle compound prefixes (e.g., "Prof. Dr.")
-            if "compound" in entry:
-                result = []
-                for sub in entry["compound"]:
-                    sub_result = analyze_prefix(sub)
-                    if sub_result:
-                        result.extend(sub_result)
-                return result
+        if prefix not in entry["variants"]:
+            continue
 
-            clss = entry.get("class")
-            qid = entry.get("qid")
-            if clss and qid:
-                item = (
-                    clss,
-                    qid,
-                )
-                return [item]
-            return []
+        # Handle compound prefixes (e.g., "Prof. Dr.")
+        result = []
+        if "compound" in entry:
+            for sub in entry["compound"]:
+                sub_result = analyze_prefix(sub)
+                if sub_result:
+                    result.extend(sub_result)
+        else:
+            statements = entry.get("statements")
+            if statements:
+                for statement in statements:
+                    clss = statement.get("class")
+                    qid = statement.get("qid")
+                    if clss and qid:
+                        item = (
+                            clss,
+                            qid,
+                        )
+                        result.append(item)
+        return result
     raise ValueError(f"Unknown prefix: {prefix}")
 
 
@@ -169,25 +230,29 @@ def analyze_suffix(suffix: str):
     Raises ValueError if suffix is unknown.
     """
     for entry in SUFFIX_ENTRIES:
-        if suffix in entry["variants"]:
-            # Handle compound suffixes (e.g., "Prof. Dr.")
-            if "compound" in entry:
-                result = []
-                for sub in entry["compound"]:
-                    sub_result = analyze_suffix(sub)
-                    if sub_result:
-                        result.extend(sub_result)
-                return result
+        if suffix not in entry["variants"]:
+            continue
 
-            clss = entry.get("class")
-            qid = entry.get("qid")
-            if clss and qid:
-                item = (
-                    clss,
-                    qid,
-                )
-                return [item]
-            return []
+        # Handle compound suffixes (e.g., "Prof. Dr.")
+        result = []
+        if "compound" in entry:
+            for sub in entry["compound"]:
+                sub_result = analyze_suffix(sub)
+                if sub_result:
+                    result.extend(sub_result)
+        else:
+            statements = entry.get("statements")
+            if statements:
+                for statement in statements:
+                    clss = statement.get("class")
+                    qid = statement.get("qid")
+                    if clss and qid:
+                        item = (
+                            clss,
+                            qid,
+                        )
+                        result.append(item)
+        return result
     raise ValueError(f"Unknown suffix: {suffix}")
 
 
@@ -199,7 +264,7 @@ def get_suffixes():
     return [variant for entry in SUFFIX_ENTRIES for variant in entry["variants"]]
 
 
-# # Maps normalized prefix to (class, qid) or None if not mapped
+# # Maps long prefix to (class, qid) or None if not mapped
 # PREFIX_TO_CLASS_QID = {
 #     "Brigadier General": None,
 #     "Captain": None,

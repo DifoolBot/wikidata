@@ -1737,6 +1737,14 @@ class MemberOf(ItemStatement):
         return "Member of"
 
 
+class AwardReceived(ItemStatement):
+    def get_prop(self) -> Optional[str]:
+        return wd.PID_AWARD_RECEIVED
+
+    def get_description(self) -> str:
+        return "Award received"
+
+
 def ensure_loaded(item: pwb.ItemPage):
     try:
         qid = item.title()

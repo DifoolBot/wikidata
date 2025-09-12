@@ -1023,3 +1023,19 @@ Q27:
         year: 1752  
         month: 9
         day: 14
+
+Q854:
+    code: LKA
+    description: Sri Lanka
+
+Q664:
+    code: NZL
+    description: New Zealand
+
+Q188161:
+    code: None
+    description: Dutch East Indies
+
+Q114:
+    code: KEN
+    description: Kenya

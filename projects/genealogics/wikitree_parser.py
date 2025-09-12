@@ -66,7 +66,6 @@ def parse_wikitree_date(
 
 class NameBuilder:
 
-
     def add_alias(self, alias):
         # Check for comma in alias
         if "," in alias:
@@ -138,7 +137,7 @@ class NameBuilder:
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
         allowed_suffixes = {"Jr.", "Sr.", "I", "II", "III", "IV", "V"}
-        not_allowed_suffixes = {"MD"}
+        not_allowed_suffixes = {"MD", "FASG"}
         if not suffix:
             return ""
         suffix = suffix.strip()
