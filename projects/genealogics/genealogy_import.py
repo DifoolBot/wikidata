@@ -451,6 +451,38 @@ class WikidataUpdater:
                         self.page.add_statement(statement, reference=reference)
                     self.data_from[source] = True
 
+    def check_placeholders(self, text: str):
+        placeholders = [
+            "unknown",
+            "Unknown",
+            "Unkown",
+            "Unknowm",
+            "Unkownn",
+            "Unkownnn",
+            "NN",
+            "?",
+            "_",
+        ]
+        for placeholder in placeholders:
+            if placeholder in text:
+                raise RuntimeError(f"Need to check this variant; placeholder {placeholder}")
+            
+        if '"' in text or "’" in text:
+            raise RuntimeError("Need to check this variant; quote in name")
+        if '|' in text:
+            raise RuntimeError("Need to check this variant; pipe in name")
+        if ', of ' in text:
+            raise RuntimeError("Need to check this variant; , of in name")
+        if ' gen.' in text:
+            raise RuntimeError("Need to check this variant; gen. in name")
+        if '(' in text or ')' in text:
+            raise RuntimeError("Need to check this variant; parentheses () in name")
+        if '[' in text or ']' in text:
+            raise RuntimeError("Need to check this variant; parentheses [] in name")
+        if ',' in text:
+            raise RuntimeError("Need to check this variant; , in name")
+        if ' ap ' in text:
+            raise RuntimeError("Need to check this variant; ap in name")
     def work_names(self, sources):
         if "en" in self.page.item.labels:
             current_label = self.page.item.labels["en"]
@@ -461,6 +493,7 @@ class WikidataUpdater:
             return
 
         print(f"Current name: {current_label}")
+        self.check_placeholders(current_label)
 
         if wd.PID_PSEUDONYM in self.page.claims:
             for claim in self.page.claims[wd.PID_PSEUDONYM]:
@@ -496,6 +529,7 @@ class WikidataUpdater:
         )
         if wikitree_name or genealogics_name:
             pref_name = wikitree_name or genealogics_name
+            self.check_placeholders(pref_name)
             if do_deprecate():
                 if current_label != pref_name:
                     self.page.deprecate_label(current_label, pref_name)
@@ -518,6 +552,8 @@ class WikidataUpdater:
 
     def work_description(self, sources):
         if "en" not in self.page.item.descriptions:
+            if not self.more_ids_case:
+                self.page.recalc_date_span("en", '')
             return
 
         current_desc = self.page.item.descriptions["en"]
@@ -575,11 +611,12 @@ class WikidataUpdater:
         self.ids = set(identifiers.keys())
         # remove ignore
         self.ids = self.ids - {
+            wd.PID_CAMBRIDGE_ALUMNI_DATABASE_ID,
             wd.PID_FIND_A_GRAVE_MEMORIAL_ID,
             wd.PID_GENI_COM_PROFILE_ID,
-            wd.PID_SAR_ANCESTOR_ID,
-            wd.PID_CAMBRIDGE_ALUMNI_DATABASE_ID,
+            wd.PID_GOOGLE_KNOWLEDGE_GRAPH_ID,
             wd.PID_PRABOOK_ID,
+            wd.PID_SAR_ANCESTOR_ID,
         }
         self.more_ids_case = len(self.ids) > 2 or (
             self.ids - {wd.PID_WIKITREE_PERSON_ID, wd.PID_GENEALOGICS_ORG_PERSON_ID}

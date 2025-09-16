@@ -74,7 +74,7 @@ PREFIX_ENTRIES = [
         "long": "Judge",
     },
     {
-        "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant"],
+        "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant", "Lieu."],
         "long": "Lieutenant",
     },
     {

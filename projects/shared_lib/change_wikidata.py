@@ -763,17 +763,20 @@ class RecalcDateSpan(Action):
         pass
 
     def apply(self):
-        if self.language not in self.wd_page.item.descriptions:
-            return
-        current_description = self.wd_page.item.descriptions[self.language]
-        if self.current_span_str not in current_description:
-            return
+        current_description = ""
+        if self.language in self.wd_page.item.descriptions:
+            current_description = self.wd_page.item.descriptions[self.language]
+            if current_description and self.current_span_str not in current_description:
+                return
 
         new_span_str = self.wd_page.calculate_date_span_description()
         if new_span_str and new_span_str != self.current_span_str:
-            new_description = current_description.replace(
-                self.current_span_str, new_span_str
-            )
+            if current_description:
+                new_description = current_description.replace(
+                    self.current_span_str, new_span_str
+                )
+            else:
+                new_description = new_span_str
             self.wd_page.save_description(self.language, new_description)
             print_color(
                 f" {self.language} description changed to '{new_description}'",
@@ -2054,6 +2057,9 @@ class WikiDataPage:
     def save_alias(self, language: str, value: str):
         if "aliases" not in self.data:
             self.data["aliases"] = {}
+        if language not in self.data["aliases"]:
+            if language in self.item.aliases:
+                self.data["aliases"][language] = self.item.aliases[language]
         self.data["aliases"].setdefault(language, []).append(value)
 
     def save_changed_claim(self, claim: pwb.Claim):
