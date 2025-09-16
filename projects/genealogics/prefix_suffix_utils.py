@@ -12,7 +12,7 @@ PREFIX_ENTRIES = [
         "long": "Captain",
     },
     {
-        "variants": ["Ensign"],
+        "variants": ["Ensign", "Ens."],
         "long": "Ensign",
     },
     {
@@ -29,7 +29,7 @@ PREFIX_ENTRIES = [
         ],
     },
     {
-        "variants": ["Deacon"],
+        "variants": ["Deacon", "Dea."],
         "long": "Deacon",
     },
     {
@@ -91,6 +91,9 @@ PREFIX_ENTRIES = [
     },
     {
         "variants": ["Mr", "Mr."],
+    },
+    {
+        "variants": ["Mevr."],
     },
     {
         "variants": ["Prof.", "Professor"],
