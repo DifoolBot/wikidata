@@ -33,7 +33,7 @@ PREFIX_ENTRIES = [
         "long": "Deacon",
     },
     {
-        "variants": ["Dr.", "Dr"],
+        "variants": ["Dr.", "Dr", "dr."],
     },
     {
         "variants": ["Gen."],
@@ -90,7 +90,7 @@ PREFIX_ENTRIES = [
         "long": "Major",
     },
     {
-        "variants": ["Mr", "Mr."],
+        "variants": ["Mr", "Mr.", "mr."],
     },
     {
         "variants": ["Mevr."],
@@ -123,11 +123,28 @@ PREFIX_ENTRIES = [
         ],
     },
     {
+        "variants": ["Rt. Rev."],
+        "long": "Right Reverend",
+        "statements": [
+            {
+                "class": cwd.HonorificPrefix,
+                "qid": wd.QID_THE_RIGHT_REVEREND,
+            }
+        ],
+    },
+    {
+        "variants": ["Surg.-Capt."],
+        "long": "Surgeon Captain",
+    },
+    {
         "variants": ["Sgt", "Sgt."],
         "long": "Sergeant",
     },
     {
         "variants": ["Mrs."],
+    },
+    {
+        "variants": ["Gov."],
     },
     {
         "variants": ["Jhr. Mr. Dr."],

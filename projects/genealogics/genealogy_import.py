@@ -54,8 +54,12 @@ class GenealogicsStatusTracker(ABC):
 
 
 def is_year_span(text: str) -> bool:
-    pattern = r"^(?:\()?\d{3,4}\s?[–—-]\s?\d{3,4}(?:\))?$"
-    return re.fullmatch(pattern, text) is not None
+    pattern1 = r"^(?:\()?(?:\d{3,4})?\s?[–—-]\s?(?:\d{3,4})?(?:\))?$"
+    pattern2 = r"^\d{4}$"
+    return (
+        re.fullmatch(pattern1, text) is not None
+        or re.fullmatch(pattern2, text) is not None
+    )
 
 
 def is_only_spaces_and_dashes(s):
@@ -465,24 +469,27 @@ class WikidataUpdater:
         ]
         for placeholder in placeholders:
             if placeholder in text:
-                raise RuntimeError(f"Need to check this variant; placeholder {placeholder}")
-            
+                raise RuntimeError(
+                    f"Need to check this variant; placeholder {placeholder}"
+                )
+
         if '"' in text or "’" in text:
             raise RuntimeError("Need to check this variant; quote in name")
-        if '|' in text:
+        if "|" in text:
             raise RuntimeError("Need to check this variant; pipe in name")
-        if ', of ' in text:
+        if ", of " in text:
             raise RuntimeError("Need to check this variant; , of in name")
-        if ' gen.' in text:
+        if " gen." in text:
             raise RuntimeError("Need to check this variant; gen. in name")
-        if '(' in text or ')' in text:
+        if "(" in text or ")" in text:
             raise RuntimeError("Need to check this variant; parentheses () in name")
-        if '[' in text or ']' in text:
+        if "[" in text or "]" in text:
             raise RuntimeError("Need to check this variant; parentheses [] in name")
-        if ',' in text:
+        if "," in text:
             raise RuntimeError("Need to check this variant; , in name")
-        if ' ap ' in text:
+        if " ap " in text:
             raise RuntimeError("Need to check this variant; ap in name")
+
     def work_names(self, sources):
         if "en" in self.page.item.labels:
             current_label = self.page.item.labels["en"]
@@ -553,7 +560,7 @@ class WikidataUpdater:
     def work_description(self, sources):
         if "en" not in self.page.item.descriptions:
             if not self.more_ids_case:
-                self.page.recalc_date_span("en", '')
+                self.page.recalc_date_span("en", "")
             return
 
         current_desc = self.page.item.descriptions["en"]
@@ -617,6 +624,7 @@ class WikidataUpdater:
             wd.PID_GOOGLE_KNOWLEDGE_GRAPH_ID,
             wd.PID_PRABOOK_ID,
             wd.PID_SAR_ANCESTOR_ID,
+            wd.PID_FREEBASE_ID,
         }
         self.more_ids_case = len(self.ids) > 2 or (
             self.ids - {wd.PID_WIKITREE_PERSON_ID, wd.PID_GENEALOGICS_ORG_PERSON_ID}
@@ -681,10 +689,10 @@ def update_wikidata_from_sources(
     if check_already_done:
         if tracker.is_done(item.id):
             print(f"Item {item.id} already processed.")
-            return
+            return "processed"
         if tracker.is_error(item.id):
             print(f"Item {item.id} already processed.")
-            return
+            return "processed"
 
     try:
         print(f"-- {item.id} --")
@@ -698,15 +706,26 @@ def update_wikidata_from_sources(
             page.check_date_statements()
             changed = page.apply()
 
-        if not test:
+        if test:
+            if changed:
+                print(f"Item {item.id} would be changed.")
+                return "would change"
+            else:
+                print(f"Item {item.id} would not change.")
+                return "would not change"
+        else:
             if changed:
                 tracker.mark_done(page.item.id, "changed")
+                return "changed"
             else:
                 tracker.mark_done(page.item.id, "nothing changed")
+                return "nothing changed"
 
     except RuntimeError as e:
         print(f"Error processing item {item.id}: {e}")
         tracker.mark_error(item.id, f" {str(e)}".strip())
+        return "error"
     except ValueError as e:
         print(f"Value error for item {item.id}: {e}")
         tracker.mark_error(item.id, f" {str(e)}".strip())
+        return "error"
