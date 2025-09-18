@@ -7,6 +7,7 @@ from typing import Optional, Set
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
 from genealogics.rules import Field
+import genealogics.prefix_suffix_utils as psu
 
 from shared_lib.rate_limiter import rate_limit
 import genealogics.titles as titles
@@ -136,6 +137,7 @@ class NameBuilder:
         return set(variants)
 
     def get_allowed_suffix(self, suffix: str) -> Optional[str]:
+        return psu.get_allowed_suffix(suffix) or ""
         allowed_suffixes = {"Jr.", "Sr.", "I", "II", "III", "IV", "V"}
         not_allowed_suffixes = {"MD", "FASG"}
         if not suffix:

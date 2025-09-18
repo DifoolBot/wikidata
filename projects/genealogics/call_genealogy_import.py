@@ -171,6 +171,8 @@ def do_item(qid: str, test: bool = True):
 #  Q101488046 - Anna Hubbard (Warner)
 #  Q136009292 - Anna Judith, Barones van Imhoff
 #  Q121397188 - Lt Cyprian Collins, Rev. War Vet.
+#  Q106705141 - Charles Maclean, younger of Boreray
+#  Q108409553 - Lijsbet Claes(dochter) Boelensf
 
 
 def main():
@@ -182,7 +184,7 @@ def main():
     # todo(test=False)
     todo(ask=True)
 
-    # do_item("Q21549024", test=True)
+    #do_item("Q107484804", test=True)
 
 
 if __name__ == "__main__":

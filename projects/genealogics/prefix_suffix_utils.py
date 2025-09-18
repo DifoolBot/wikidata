@@ -1,5 +1,6 @@
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from typing import Optional, Set
 
 
 PREFIX_ENTRIES = [
@@ -36,6 +37,10 @@ PREFIX_ENTRIES = [
         "variants": ["Dr.", "Dr", "dr."],
     },
     {
+        "variants": ["Brig Gen", "BRIG GEN"],
+        "long": "Brigadier General",
+    },
+    {
         "variants": ["Gen."],
         "long": "General",
     },
@@ -50,7 +55,7 @@ PREFIX_ENTRIES = [
         ],
     },
     {
-        "variants": ["Hon", "Hon."],
+        "variants": ["Hon", "Hon.", "Honorable"],
         "long": "Honorable",
         "statements": [
             {
@@ -60,7 +65,7 @@ PREFIX_ENTRIES = [
         ],
     },
     {
-        "variants": ["Jonkheer", "Jhr.", "Jhr"],
+        "variants": ["Jonkheer", "Jhr.", "Jhr", "Jhvr.", "Jhvr"],
         "long": "Jonkheer",
         "statements": [
             {
@@ -82,7 +87,7 @@ PREFIX_ENTRIES = [
         "long": "Lieutenant Deacon",
     },
     {
-        "variants": ["Lt.-Col.", "Lt. Col."],
+        "variants": ["Lt.-Col.", "Lt. Col.", "Lt Col", "LtCol", "Lieut-Col", "Lt.Col"],
         "long": "Lieutenant Colonel",
     },
     {
@@ -90,18 +95,55 @@ PREFIX_ENTRIES = [
         "long": "Major",
     },
     {
+        "variants": ["Maj Gen", "Maj-Gen"],
+        "long": "Major General",
+    },
+    {
         "variants": ["Mr", "Mr.", "mr."],
+    },
+    {
+        "variants": ["Dr.-Ing."],
+        "long": "Doctor of Engineering",
+    },
+    {
+        "variants": ["Dr. iur.", "Dr. jur."],
+        "long": "Doctor of Law",
+    },
+    
+    {
+        "variants": ["Mr. Dr."],
+        "sequence": ["Mr.", "Dr."],
+    },
+    {
+        "variants": ["Rev. Dr."],
+        "sequence": ["Rev.", "Dr."],
+    },
+    {
+        "variants": ["Prof. Dr.-Ing."],
+        "sequence": ["Prof.", "Dr.-Ing."],
+    },
+    {
+        "variants": ["Prof. Ds."],
+        "sequence": ["Prof.", "Ds."],
+    },
+    {
+        "variants": ["Prof. Jhr. Dr."],
+        "sequence": ["Prof.", "Jhr.", "Dr."],
+    },
+    {
+        "variants": ["Prof. Mr."],
+        "sequence": ["Prof.", "Mr."],
     },
     {
         "variants": ["Mevr."],
     },
     {
-        "variants": ["Prof.", "Professor"],
+        "variants": ["Prof.", "Professor", "Prof"],
         "long": "Professor",
     },
     {
         "variants": ["Prof. Dr."],
-        "compound": ["Prof.", "Dr."],
+        "sequence": ["Prof.", "Dr."],
     },
     {
         "variants": ["Rabbi"],
@@ -137,7 +179,7 @@ PREFIX_ENTRIES = [
         "long": "Surgeon Captain",
     },
     {
-        "variants": ["Sgt", "Sgt."],
+        "variants": ["Sgt", "Sgt.", "SGT", "Sergeant"],
         "long": "Sergeant",
     },
     {
@@ -147,8 +189,22 @@ PREFIX_ENTRIES = [
         "variants": ["Gov."],
     },
     {
+        "variants": ["Ds."],
+    },
+    {
+        "variants": ["Ir."],
+    },
+    {
         "variants": ["Jhr. Mr. Dr."],
-        "compound": ["Jhr.", "Mr.", "Dr."],
+        "sequence": ["Jhr.", "Mr.", "Dr."],
+    },
+    {
+        "variants": ["Jhr. Mr."],
+        "sequence": ["Jhr.", "Mr."],
+    },
+    {
+        "variants": ["Jhr. Ir."],
+        "sequence": ["Jhr.", "Ir."],
     },
     {
         "variants": ["Sir"],
@@ -159,32 +215,35 @@ PREFIX_ENTRIES = [
             }
         ],
     },
-    # Add more as needed
 ]
 
 SUFFIX_ENTRIES = [
     {
         "variants": ["Jr", "Jr."],
-        "normalized": "Jr.",
+        "allowed": "Jr.",
     },
     {
         "variants": ["Sr", "Sr."],
-        "normalized": "Sr.",
+        "allowed": "Sr.",
     },
     {
         "variants": ["I"],
+        "allowed": "I",
     },
     {
         "variants": ["II"],
+        "allowed": "II",
     },
     {
         "variants": ["III"],
+        "allowed": "III",
     },
     {
         "variants": ["V"],
+        "allowed": "V",
     },
     {
-        "variants": ["MD"],
+        "variants": ["MD", "M.D."],
         "long": "Doctor of Medicine",
         "statements": [
             {
@@ -207,6 +266,45 @@ SUFFIX_ENTRIES = [
             },
         ],
     },
+    {
+        "variants": ["OBE", "O.B.E."],
+        "long": "Order of the British Empire",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_OFFICER_OF_THE_ORDER_OF_THE_BRITISH_EMPIRE,
+            },
+        ],
+    },
+    {
+        "variants": ["D.D."],
+        "long": "Doctor of Divinity",
+        "statements": [
+            {
+                "class": cwd.AcademicDegree,
+                "qid": wd.QID_DOCTOR_OF_DIVINITY,
+            },
+        ],
+    },
+    {
+        "variants": ["RN"],
+        "long": "Doctor of Divinity",
+        "statements": [
+            {
+                "class": cwd.MilitaryBranch,
+                "qid": wd.QID_ROYAL_NAVY,
+            },
+        ],
+    },
+    {
+        "variants": ["Esq", "Esq."],
+        "statements": [
+            {
+                "class": cwd.HonorificSuffix,
+                "qid": wd.QID_ESQUIRE,
+            }
+        ],
+    },
 ]
 
 
@@ -222,8 +320,8 @@ def analyze_prefix(prefix: str):
 
         # Handle compound prefixes (e.g., "Prof. Dr.")
         result = []
-        if "compound" in entry:
-            for sub in entry["compound"]:
+        if "sequence" in entry:
+            for sub in entry["sequence"]:
                 sub_result = analyze_prefix(sub)
                 if sub_result:
                     result.extend(sub_result)
@@ -255,8 +353,8 @@ def analyze_suffix(suffix: str):
 
         # Handle compound suffixes (e.g., "Prof. Dr.")
         result = []
-        if "compound" in entry:
-            for sub in entry["compound"]:
+        if "sequence" in entry:
+            for sub in entry["sequence"]:
                 sub_result = analyze_suffix(sub)
                 if sub_result:
                     result.extend(sub_result)
@@ -273,6 +371,17 @@ def analyze_suffix(suffix: str):
                         )
                         result.append(item)
         return result
+    raise ValueError(f"Unknown suffix: {suffix}")
+
+def get_allowed_suffix(suffix: str) -> Optional[str]:
+    """
+    Given a suffix string, return the allowed normalized suffix if known
+    """
+    if not suffix:
+        return None
+    for entry in SUFFIX_ENTRIES:
+        if suffix in entry["variants"]:
+            return entry.get("allowed")
     raise ValueError(f"Unknown suffix: {suffix}")
 
 

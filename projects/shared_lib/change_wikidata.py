@@ -1691,6 +1691,12 @@ class AcademicDegree(ItemStatement):
     def get_description(self) -> str:
         return "academic degree"
 
+class MilitaryBranch(ItemStatement):
+    def get_prop(self) -> Optional[str]:
+        return wd.PID_MILITARY_BRANCH
+
+    def get_description(self) -> str:
+        return "military branch"
 
 class HonorificPrefix(ItemStatement):
     def get_prop(self) -> Optional[str]:
