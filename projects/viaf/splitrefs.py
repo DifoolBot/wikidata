@@ -304,7 +304,7 @@ class Treccani(ChangeSourceStrategy):
         url = "https://www.treccani.it/enciclopedia/" + treccani_id
 
         if wd.PID_REFERENCE_URL in src:
-            raise RuntimeError("Unexpeced reference URL")
+            raise RuntimeError("Unexpected reference URL")
         new_source = OrderedDict()
         for prop in src:
             if prop == wd.PID_STATED_IN:
@@ -1246,6 +1246,7 @@ class MultipleStatedIn(ChangeSourceStrategy):
         TYPE_OF_REFERENCE_IDS (List[str]): A list of QIDs that are considered types of references.
         QIDS (Dict[str, str]): A dictionary mapping QIDs to their corresponding PIDs.
     """
+
     TYPE_OF_REFERENCE_IDS = [
         wd.QID_OFFICIAL_WEBSITE,
         wd.QID_CURRICULUM_VITAE,

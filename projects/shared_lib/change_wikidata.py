@@ -616,7 +616,7 @@ class Date:
         if self.precision == PRECISION_YEAR:
             return self.year == other.year + 1
         else:
-            raise RuntimeError("Unexpeced precision")
+            raise RuntimeError("Unexpected precision")
 
     def get_calendarmodel(self) -> str:
         calendar = self.calendar
@@ -878,6 +878,98 @@ class PrefDateStatements(Action):
             except RuntimeError as e:
                 print(f"Runtime error: {e}")
                 pass
+
+    def post_apply(self):
+        pass
+
+
+class CheckAliases(Action):
+    def __init__(self, wd_page: "WikiDataPage"):
+        self.wd_page = wd_page
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"read_labels", "change_labels"}
+
+    def prepare(self):
+        pass
+
+    def get_all_alias_languages(self):
+        languages = set(self.wd_page.item.aliases.keys())
+        if "aliases" in self.wd_page.data:
+            for lang in self.wd_page.data["aliases"].keys():
+                languages.add(lang)
+        return languages
+
+    def normalize_alias(self, alias: str) -> str:
+        norm_alias = alias.strip()
+        norm_alias = " ".join(norm_alias.split())
+        return norm_alias
+
+    def apply(self):
+        languages = self.get_all_alias_languages()
+        if not languages:
+            return
+        for language in languages:
+            if (
+                "aliases" in self.wd_page.data
+                and language in self.wd_page.data["aliases"]
+            ):
+                aliases = self.wd_page.data["aliases"][language]
+            elif language in self.wd_page.item.aliases:
+                aliases = self.wd_page.item.aliases[language]
+            else:
+                continue
+            new_aliases = []
+            changed = False
+            for alias in aliases:
+                norm_alias = self.normalize_alias(alias)
+                if norm_alias != alias:
+                    print_color(
+                        f" {language} alias: {alias} normalized to {norm_alias}",
+                        TextColor.WARNING,
+                    )
+                    changed = True
+                    # not continue; keep normalized alias
+                if not norm_alias:
+                    changed = True
+                    # do not add empty
+                    continue
+                if norm_alias in new_aliases:
+                    print_color(
+                        f" {language} alias: {alias} duplicate removed (duplicate alias)",
+                        TextColor.WARNING,
+                    )
+                    changed = True
+                    # do not add duplicate
+                    continue
+                if self.wd_page.has_label(language, norm_alias):
+                    print_color(
+                        f" {language} alias: {alias} duplicate removed (same label)",
+                        TextColor.WARNING,
+                    )
+                    changed = True
+                    # do not add duplicate
+                    continue
+                if language != "mul":
+                    if self.wd_page.has_label("mul", norm_alias):
+                        print_color(
+                            f" {language} alias: {alias} duplicate removed (same mul label)",
+                            TextColor.WARNING,
+                        )
+                        changed = True
+                        # do not add duplicate
+                        continue
+                    if self.wd_page.has_alias("mul", norm_alias):
+                        print_color(
+                            f" {language} alias: {alias} duplicate removed (same mul alias)",
+                            TextColor.WARNING,
+                        )
+                        changed = True
+                        # do not add duplicate
+                        continue
+                new_aliases.append(norm_alias)
+            if changed:
+                self.wd_page.save_aliases(language, new_aliases)
 
     def post_apply(self):
         pass
@@ -1691,12 +1783,14 @@ class AcademicDegree(ItemStatement):
     def get_description(self) -> str:
         return "academic degree"
 
+
 class MilitaryBranch(ItemStatement):
     def get_prop(self) -> Optional[str]:
         return wd.PID_MILITARY_BRANCH
 
     def get_description(self) -> str:
         return "military branch"
+
 
 class HonorificPrefix(ItemStatement):
     def get_prop(self) -> Optional[str]:
@@ -1874,6 +1968,9 @@ class WikiDataPage:
         ]:
             self._add_action(CheckDateStatements(self, prop))
 
+    def check_aliases(self):
+        self._add_action(CheckAliases(self))
+
     def _prepare_entity(
         self, statement: WikidataEntity, reference: Optional[Reference] = None
     ):
@@ -2021,8 +2118,7 @@ class WikiDataPage:
         # already saved?
         if "labels" in self.data:
             if language in self.data["labels"]:
-                if self.data["labels"][language] == text:
-                    return True
+                return self.data["labels"][language] == text
 
         # already on the page?
         if language not in self.item.labels:
@@ -2033,8 +2129,7 @@ class WikiDataPage:
         # already saved?
         if "aliases" in self.data:
             if language in self.data["aliases"]:
-                if text in self.data["aliases"][language]:
-                    return True
+                return text in self.data["aliases"][language]
 
         # already on the page?
         if language not in self.item.aliases:
@@ -2059,6 +2154,12 @@ class WikiDataPage:
                     self.data["aliases"].pop(language)
                     if not self.data["aliases"]:
                         self.data.pop("aliases")
+
+    def save_aliases(self, language: str, values: List[str]):
+        if "aliases" not in self.data:
+            self.data["aliases"] = {}
+        # overwrite existing aliases
+        self.data["aliases"][language] = values
 
     def save_alias(self, language: str, value: str):
         if "aliases" not in self.data:

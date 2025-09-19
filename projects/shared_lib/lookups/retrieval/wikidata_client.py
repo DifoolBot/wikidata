@@ -26,9 +26,13 @@ class WikidataClient(PlaceLookupInterface, CountryLookupInterface):
         payload = query_object.query(query=query)
         if payload:
             for row in payload["results"]["bindings"]:
-                country_qid = row["country"]["value"].split("/")[-1]
+                if row["country"]["type"] == "uri":
+                    # unknown; for example for 'at sea'
+                    country_qid = None
+                else:
+                    country_qid = row["country"]["value"].split("/")[-1]
                 place_label = row["placeLabel"]["value"]
-                #country_label = row["countryLabel"]["value"]
+                # country_label = row["countryLabel"]["value"]
                 return place_qid, country_qid, place_label
 
         return None

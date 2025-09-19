@@ -9,15 +9,31 @@ PREFIX_ENTRIES = [
         "long": "Brigadier General",
     },
     {
-        "variants": ["Capt", "Capt.", "Captain"],
+        "variants": ["Capt", "Capt.", "Captain", "Cpt.", "Capt ."],
         "long": "Captain",
     },
     {
-        "variants": ["Ensign", "Ens."],
+        "variants": ["Ensign", "Ens.", "Ens"],
         "long": "Ensign",
     },
     {
-        "variants": ["Col.", "Col", "Colonel", "Col. (USA)", "Col. (USA),"],
+        "variants": ["Col Hon"],
+        "sequence": ["Col", "Hon."],
+    },
+    {
+        "variants": ["Col. Sir"],
+        "sequence": ["Col", "Sir"],
+    },
+    {
+        "variants": [
+            "Col.",
+            "Col",
+            "Colonel",
+            "Col. (USA)",
+            "Col. (USA),",
+            "Cpl",
+            "Cpl.",
+        ],
         "long": "Colonel",
     },
     {
@@ -65,7 +81,7 @@ PREFIX_ENTRIES = [
         ],
     },
     {
-        "variants": ["Jonkheer", "Jhr.", "Jhr", "Jhvr.", "Jhvr"],
+        "variants": ["Jonkheer", "Jhr.", "Jhr", "Jhvr.", "Jhvr", "Jkvr."],
         "long": "Jonkheer",
         "statements": [
             {
@@ -79,7 +95,15 @@ PREFIX_ENTRIES = [
         "long": "Judge",
     },
     {
-        "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant", "Lieu."],
+        "variants": ["1st Lt."],
+        "long": "First Lieutenant",
+    },
+    {
+        "variants": ["2nd Lieut.", "2nd Lt."],
+        "long": "Second Lieutenant",
+    },
+    {
+        "variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant", "Lieu.", "LT."],
         "long": "Lieutenant",
     },
     {
@@ -87,7 +111,18 @@ PREFIX_ENTRIES = [
         "long": "Lieutenant Deacon",
     },
     {
-        "variants": ["Lt.-Col.", "Lt. Col.", "Lt Col", "LtCol", "Lieut-Col", "Lt.Col"],
+        "variants": [
+            "Lt.-Col.",
+            "Lt. Col.",
+            "Lt Col",
+            "LtCol",
+            "Lieut-Col",
+            "Lt.Col",
+            "Lieut-Col.",
+            "Lieut.-Col.",
+            "Lt Colonel",
+            "Lt.Col.",
+        ],
         "long": "Lieutenant Colonel",
     },
     {
@@ -95,7 +130,7 @@ PREFIX_ENTRIES = [
         "long": "Major",
     },
     {
-        "variants": ["Maj Gen", "Maj-Gen"],
+        "variants": ["Maj Gen", "Maj-Gen", "MajGen"],
         "long": "Major General",
     },
     {
@@ -109,7 +144,14 @@ PREFIX_ENTRIES = [
         "variants": ["Dr. iur.", "Dr. jur."],
         "long": "Doctor of Law",
     },
-    
+    {
+        "variants": ["Dr. Med."],
+        "long": "Doctor of Medicine",
+    },
+    {
+        "variants": ["Fr."],
+        "long": "Father/Friar",
+    },
     {
         "variants": ["Mr. Dr."],
         "sequence": ["Mr.", "Dr."],
@@ -165,7 +207,7 @@ PREFIX_ENTRIES = [
         ],
     },
     {
-        "variants": ["Rt. Rev."],
+        "variants": ["Rt. Rev.", "Rt.Rev", "Rt.Rev."],
         "long": "Right Reverend",
         "statements": [
             {
@@ -239,6 +281,10 @@ SUFFIX_ENTRIES = [
         "allowed": "III",
     },
     {
+        "variants": ["IV"],
+        "allowed": "IV",
+    },
+    {
         "variants": ["V"],
         "allowed": "V",
     },
@@ -277,6 +323,46 @@ SUFFIX_ENTRIES = [
         ],
     },
     {
+        "variants": ["CBE", "C.B.E."],
+        "long": "Commander of the Order of the British Empire",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_COMMANDER_OF_THE_ORDER_OF_THE_BRITISH_EMPIRE,
+            },
+        ],
+    },
+    {
+        "variants": ["MBE", "M.B.E."],
+        "long": "Commander of the Order of the British Empire",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_MEMBER_OF_THE_ORDER_OF_THE_BRITISH_EMPIRE,
+            },
+        ],
+    },
+    {
+        "variants": ["FRS"],
+        "long": "Fellow of the Royal Society",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_FELLOW_OF_THE_ROYAL_SOCIETY,
+            },
+        ],
+    },
+    {
+        "variants": ["CMG"],
+        "long": "Companion of the Order of St Michael and St George",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_COMPANION_OF_THE_ORDER_OF_ST_MICHAEL_AND_ST_GEORGE,
+            },
+        ],
+    },
+    {
         "variants": ["D.D."],
         "long": "Doctor of Divinity",
         "statements": [
@@ -287,8 +373,22 @@ SUFFIX_ENTRIES = [
         ],
     },
     {
+        "variants": ["M.A.", "MA"],
+        "long": "Master of Arts",
+    },
+    {
+        "variants": ["LL.D."],
+        "long": "Legum Doctor (Doctor of Laws)",
+        "statements": [
+            {
+                "class": cwd.AwardReceived,
+                "qid": wd.QID_LEGUM_DOCTOR,
+            },
+        ],
+    },
+    {
         "variants": ["RN"],
-        "long": "Doctor of Divinity",
+        "long": "Royal Navy",
         "statements": [
             {
                 "class": cwd.MilitaryBranch,
@@ -372,6 +472,7 @@ def analyze_suffix(suffix: str):
                         result.append(item)
         return result
     raise ValueError(f"Unknown suffix: {suffix}")
+
 
 def get_allowed_suffix(suffix: str) -> Optional[str]:
     """

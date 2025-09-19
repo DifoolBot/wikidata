@@ -271,6 +271,7 @@ class WikidataUpdater:
         DICT = {
             rules.Field.PREFIX: None,
             rules.Field.SUFFIX: None,
+            rules.Field.TITLE: None,
             rules.Field.DATE_OF_BIRTH: wd.PID_DATE_OF_BIRTH,
             rules.Field.DATE_OF_DEATH: wd.PID_DATE_OF_DEATH,
             rules.Field.DATE_OF_BAPTISM: wd.PID_DATE_OF_BAPTISM,
@@ -285,7 +286,7 @@ class WikidataUpdater:
         if field in DICT:
             return DICT[field]
         else:
-            raise RuntimeError("Unexpeced field")
+            raise RuntimeError(f"Unexpected field {field}")
 
     def has_wikidata_field(self, field: rules.Field) -> bool:
         pid = self.get_pid(field)
@@ -704,6 +705,7 @@ def update_wikidata_from_sources(
         changed = False
         if len(page.actions) > 0:
             page.check_date_statements()
+            page.check_aliases()
             changed = page.apply()
 
         if test:

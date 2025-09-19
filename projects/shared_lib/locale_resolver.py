@@ -59,26 +59,30 @@ class LocaleResolver:
         if not data:
             raise RuntimeError(f"Country QID not found for place of birth {place_qid}")
         place_qid, country_qid, place_label = data
-        self.birth_country_qids.add(country_qid)
-        self.country_qids.add(country_qid)
+        if country_qid:
+            self.birth_country_qids.add(country_qid)
+            self.country_qids.add(country_qid)
 
     def add_place_of_death(self, place_qid: str):
         data = self.place_lookup.get_place_by_qid(place_qid)
         if not data:
             raise RuntimeError(f"Country QID not found for place of death {place_qid}")
         place_qid, country_qid, place_label = data
-        self.death_country_qids.add(country_qid)
-        self.country_qids.add(country_qid)
+        if country_qid:
+            self.death_country_qids.add(country_qid)
+            self.country_qids.add(country_qid)
 
     def add_place(self, place_qid: str):
         data = self.place_lookup.get_place_by_qid(place_qid)
         if not data:
             raise RuntimeError(f"Country QID not found for place {place_qid}")
         place_qid, country_qid, place_label = data
-        self.country_qids.add(country_qid)
+        if country_qid:
+            self.country_qids.add(country_qid)
 
     def add_country(self, country_qid: str):
-        self.country_qids.add(country_qid)
+        if country_qid:
+            self.country_qids.add(country_qid)
 
     def get_country(self) -> Optional[str]:
         sorted_countries = self.get_weighted_countries()
