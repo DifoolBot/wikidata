@@ -901,7 +901,11 @@ class CheckAliases(Action):
         return languages
 
     def normalize_alias(self, alias: str) -> str:
-        norm_alias = alias.strip()
+        norm_alias = alias.replace("\u2010", "-")  # hyphen
+        norm_alias = norm_alias.replace("\u00a0", " ")  # no-break space
+        # strip start and end spaces and commas
+        norm_alias = norm_alias.strip(", ")
+        # replace multiple spaces with single space
         norm_alias = " ".join(norm_alias.split())
         return norm_alias
 
