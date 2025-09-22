@@ -42,7 +42,7 @@ class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
         if not normalized:
             return None
         self.execute_procedure(sql, (normalized, normalized))
-        sql = "SELECT FIRST 1 PLACE_QID FROM place_external_descriptions WHERE UPPER(external_text)=UPPER(?)"
+        sql = "SELECT FIRST 1 PLACE_QID FROM place_external_descriptions WHERE UPPER(external_text)=UPPER(?) and not has_error"
         for row in self.execute_query(sql, (normalized,)):
             return row[0]
         return None

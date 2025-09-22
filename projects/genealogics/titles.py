@@ -8,6 +8,15 @@ TITLE_ENTRIES = [
      "occupation": wd.QID_CHRISTIAN_MINISTER,
      "place_class": cwd.WorkLocation,
      "error_if_number": True
+    },
+    {"variants": ["Rector"], 
+     # can be academic or religious
+     #"occupation": wd.QID_CHRISTIAN_MINISTER,
+     "place_class": cwd.WorkLocation,
+     "error_if_number": True
+    },
+    {"variants": ["Heer"], 
+     "error_if_number": True
     }
 ]
 
