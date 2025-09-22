@@ -69,6 +69,15 @@ def is_only_spaces_and_dashes(s):
 def same_name(name1: str, name2: str) -> bool:
     return name1 == name2
 
+def has_word(text: str, word: str) -> bool:
+    """
+    Check if `word` appears as a whole word in `text`, case-insensitive.
+    Word boundaries are respected to avoid partial matches.
+    """
+    pattern = rf'\b{re.escape(word)}\b'
+    return re.search(pattern, text, re.IGNORECASE) is not None
+
+
 
 STATEMENT_CLASS_FOR_FIELD = {
     rules.Field.DATE_OF_BIRTH: cwd.DateOfBirth,
@@ -130,7 +139,7 @@ class WikidataUpdater:
         self, field: rules.Field, source: rules.Source, value: str
     ) -> list[cwd.Statement]:
         result = []
-        arr = psu.analyze_prefix(value)
+        arr = psu.analyze_prefix(value, include_full=True)
         for item in arr:
             cls, qid = item
             result.append(cls(qid=qid))
@@ -456,7 +465,7 @@ class WikidataUpdater:
                         self.page.add_statement(statement, reference=reference)
                     self.data_from[source] = True
 
-    def check_placeholders(self, text: str):
+    def check_placeholders(self, text: str, strict: bool = True):
         placeholders = [
             "unknown",
             "Unknown",
@@ -486,10 +495,16 @@ class WikidataUpdater:
             raise RuntimeError("Need to check this variant; parentheses () in name")
         if "[" in text or "]" in text:
             raise RuntimeError("Need to check this variant; parentheses [] in name")
-        if "," in text:
-            raise RuntimeError("Need to check this variant; , in name")
+        if strict:
+            if "," in text:
+                raise RuntimeError("Need to check this variant; , in name")
+            if has_word(text, "baron"):
+                raise RuntimeError("Need to check this variant; baron in name")
+            if "," in text:
+                raise RuntimeError("Need to check this variant; , in name")
         if " ap " in text:
             raise RuntimeError("Need to check this variant; ap in name")
+        
 
     def work_names(self, sources):
         if "en" in self.page.item.labels:
@@ -501,7 +516,6 @@ class WikidataUpdater:
             return
 
         print(f"Current name: {current_label}")
-        self.check_placeholders(current_label)
 
         if wd.PID_PSEUDONYM in self.page.claims:
             for claim in self.page.claims[wd.PID_PSEUDONYM]:
@@ -535,12 +549,17 @@ class WikidataUpdater:
         genealogics_name = self.get_raw_value(
             rules.Source.GENEALOGICS, rules.Field.DISPLAY_NAME
         )
+        replaced = False
         if wikitree_name or genealogics_name:
             pref_name = wikitree_name or genealogics_name
             self.check_placeholders(pref_name)
             if do_deprecate():
                 if current_label != pref_name:
                     self.page.deprecate_label(current_label, pref_name)
+                    replaced = True
+
+        self.check_placeholders(current_label, strict=not replaced)
+
         if wikitree_name:
             self.page.add_statement(
                 cwd.Label(wikitree_name, language="en"), reference=None

@@ -173,6 +173,10 @@ def do_item(qid: str, test: bool = True):
 #  Q121397188 - Lt Cyprian Collins, Rev. War Vet.
 #  Q106705141 - Charles Maclean, younger of Boreray
 #  Q108409553 - Lijsbet Claes(dochter) Boelensf
+#  Q123508271 - Private Eleazer Packard, Sr.
+#  Q110354679 - Theodora Sautijn, Vrouwe van Stockum
+#  Q110423975 - Johann Maurits, Edler van Pabst, Vrijheer van Wolfsweerd
+#  Q123445322 - Briggs ALDEN
 
 
 def main():
@@ -184,7 +188,7 @@ def main():
     # todo(test=False)
     todo(ask=True)
 
-    # do_item("Q107484804", test=True)
+    # do_item("Q107274900", test=True)
 
 
 if __name__ == "__main__":

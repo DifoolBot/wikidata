@@ -1010,6 +1010,7 @@ Q781:
 Q252:
     code: IDN
     description: Indonesia
+    no_julian_calendar: true
 
 Q27:
     code: IRL
@@ -1027,6 +1028,7 @@ Q27:
 Q854:
     code: LKA
     description: Sri Lanka
+    no_julian_calendar: true
 
 Q664:
     code: NZL
@@ -1043,3 +1045,7 @@ Q114:
 Q763:
     code: KNA
     description: Saint Kitts and Nevis
+
+Q8680:
+    code: None
+    description: British Empire
