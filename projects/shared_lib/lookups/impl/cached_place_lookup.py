@@ -1,6 +1,8 @@
+from typing import Optional
+
 from shared_lib.lookups.interfaces.place_lookup_interface import (
-    PlaceLookupInterface,
     CountryLookupInterface,
+    PlaceLookupInterface,
 )
 
 
@@ -10,12 +12,12 @@ class CachedPlaceLookup(PlaceLookupInterface):
         cache: PlaceLookupInterface,
         source: PlaceLookupInterface,
         country: CountryLookupInterface,
-    ):
+    ) -> None:
         self.cache = cache
         self.source = source
         self.country = country
 
-    def get_place_by_qid(self, place_qid: str):
+    def get_place_by_qid(self, place_qid: str) -> Optional[tuple[str, str, str]]:
         result = self.cache.get_place_by_qid(place_qid)
         if result:
             return result
@@ -25,10 +27,10 @@ class CachedPlaceLookup(PlaceLookupInterface):
             self.set_place(place_qid, country_qid, place_label)
         return result
 
-    def get_place_qid_by_desc(self, desc: str) -> str:
+    def get_place_qid_by_desc(self, desc: str) -> Optional[str]:
         return self.cache.get_place_qid_by_desc(desc)
 
-    def set_place(self, place_qid: str, country_qid: str, place_label: str):
+    def set_place(self, place_qid: str, country_qid: str, place_label: str) -> None:
         # ensure the country exists in the cache
         self.country.get_country_by_qid(country_qid)
         # cache the place

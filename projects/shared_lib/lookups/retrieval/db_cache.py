@@ -4,8 +4,8 @@ from typing import Optional, Tuple
 from shared_lib.database_handler import DatabaseHandler
 from shared_lib.lookups.interfaces.place_lookup_interface import (
     CountryLookupInterface,
-    PlaceLookupInterface,
     LanguageLookupInterface,
+    PlaceLookupInterface,
 )
 
 
@@ -21,7 +21,7 @@ class DBCache(
         super().__init__(file_path, create_script)
 
     def get_place_by_qid(self, qid: str) -> Optional[Tuple[str, str, str]]:
-        sql = f"SELECT FIRST 1 PLACE_QID, COUNTRY_QID, PLACE_LABEL FROM PLACES WHERE PLACE_QID=?"
+        sql = "SELECT FIRST 1 place_qid, country_qid, place_label FROM places WHERE place_qid=?"
         for row in self.execute_query(sql, (qid,)):
             return row[0], row[1], row[2]
         return None
@@ -36,7 +36,7 @@ class DBCache(
         sql = """
                 INSERT INTO place_external_descriptions (external_text)
                 SELECT ?
-                FROM RDB$DATABASE
+                FROM rdb$database
                 WHERE NOT EXISTS (
                     SELECT *
                     FROM place_external_descriptions
@@ -47,7 +47,7 @@ class DBCache(
         if not normalized:
             return None
         self.execute_procedure(sql, (normalized, normalized))
-        sql = "SELECT FIRST 1 PLACE_QID FROM place_external_descriptions WHERE UPPER(external_text)=UPPER(?) and not has_error"
+        sql = "SELECT FIRST 1 place_qid FROM place_external_descriptions WHERE UPPER(external_text)=UPPER(?) AND NOT has_error"
         for row in self.execute_query(sql, (normalized,)):
             return row[0]
         return None
@@ -56,14 +56,14 @@ class DBCache(
         if not place_qid:
             raise RuntimeError("No place qid")
         sql = (
-            f"INSERT INTO PLACES (PLACE_QID, COUNTRY_QID, PLACE_LABEL) VALUES (?, ?, ?)"
+            "INSERT INTO places (place_qid, country_qid, place_label) VALUES (?, ?, ?)"
         )
         self.execute_procedure(sql, (place_qid, country_qid, place_label))
 
     def get_country_by_qid(self, qid: str) -> Optional[Tuple[str, str, str]]:
         if not qid:
             return None
-        sql = "SELECT FIRST 1 COUNTRY_QID, COUNTRY_CODE, COUNTRY_LABEL FROM COUNTRIES WHERE COUNTRY_QID=?"
+        sql = "SELECT FIRST 1 country_qid, country_code, country_label FROM countries WHERE country_qid=?"
         for row in self.execute_query(sql, (qid,)):
             return row[0], row[1], row[2]
         return None
@@ -71,7 +71,7 @@ class DBCache(
     def get_country_by_code(self, code: str) -> Optional[Tuple[str, str, str]]:
         if not code:
             return None
-        sql = "SELECT FIRST 1 COUNTRY_QID, COUNTRY_CODE, COUNTRY_LABEL FROM COUNTRIES WHERE COUNTRY_CODE=?"
+        sql = "SELECT FIRST 1 country_qid, country_code, country_label FROM countries WHERE country_code=?"
         for row in self.execute_query(sql, (code,)):
             return row[0], row[1], row[2]
         return None
@@ -83,12 +83,12 @@ class DBCache(
             raise RuntimeError("No country qid")
         if not country_code:
             country_code = None
-        sql = f"INSERT INTO COUNTRIES (COUNTRY_QID, COUNTRY_CODE, COUNTRY_LABEL) VALUES (?, ?, ?)"
+        sql = "INSERT INTO countries (country_qid, country_code, country_label) VALUES (?, ?, ?)"
         self.execute_procedure(sql, (country_qid, country_code, country_label))
 
     def get_languages_for_country(self, country_qid: str) -> list[str]:
         rows = self.execute_query(
-            "SELECT LANGUAGE FROM GET_LANGUAGES(?)", (country_qid,)
+            "SELECT language FROM get_languages(?)", (country_qid,)
         )
         results = []
         for row in rows:
@@ -97,9 +97,18 @@ class DBCache(
 
     def get_sorted_languages(self) -> list[str]:
         rows = self.execute_query(
-            "SELECT language FROM WIKIS where sort_order is not null order by sort_order"
+            "SELECT language FROM wikis WHERE sort_order IS NOT NULL ORDER BY sort_order"
         )
         result = []
         for row in rows:
             result.append(row[0])
         return result
+
+    def get_wikipedia_qid(self, lang: str) -> Optional[str]:
+        rows = self.execute_query(
+            "SELECT wikipedia FROM wikis WHERE language=?", (lang,)
+        )
+        for row in rows:
+            return row[0]
+
+        return None

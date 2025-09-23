@@ -223,15 +223,6 @@ where w.language is null"""
         finally:
             conn.close()
 
-    def get_wikipedia_qid(self, lang: str):
-        rows = self.execute_query(
-            "SELECT wikipedia FROM wiki where language=?", (lang,)
-        )
-        for row in rows:
-            return row[0]
-
-        return None
-
     def add_mismatch(
         self, qid: str, lang: str, kind: str, wikidata_dates, wikipedia_dates, url
     ):

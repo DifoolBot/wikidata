@@ -1,6 +1,4 @@
-from shared_lib.lookups.interfaces.place_lookup_interface import (
-    CountryLookupInterface,
-)
+from shared_lib.lookups.interfaces.place_lookup_interface import CountryLookupInterface
 
 
 class CachedCountryLookup(CountryLookupInterface):

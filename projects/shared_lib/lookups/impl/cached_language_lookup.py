@@ -1,6 +1,8 @@
+from typing import Optional
+
 from shared_lib.lookups.interfaces.place_lookup_interface import (
-    LanguageLookupInterface,
     CountryLookupInterface,
+    LanguageLookupInterface,
 )
 
 
@@ -15,11 +17,14 @@ class CachedLanguageLookup(LanguageLookupInterface):
         # self.source = source
         self.country = country
 
-    def get_languages_for_country(self, country_qid: str):
+    def get_languages_for_country(self, country_qid: str) -> list[str]:
         result = self.cache.get_languages_for_country(country_qid)
         if not result:
             self.country.get_country_by_qid(country_qid)  # Ensure country exists
         return result
 
-    def get_sorted_languages(self):
+    def get_sorted_languages(self) -> list[str]:
         return self.cache.get_sorted_languages()
+
+    def get_wikipedia_qid(self, lang: str) -> Optional[str]:
+        return self.cache.get_wikipedia_qid(lang)

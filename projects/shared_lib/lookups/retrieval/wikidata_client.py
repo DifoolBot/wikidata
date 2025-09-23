@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
 
 from pywikibot.data import sparql
+
 from shared_lib.lookups.interfaces.place_lookup_interface import (
     CountryLookupInterface,
     PlaceLookupInterface,

@@ -435,6 +435,8 @@ class PersonLocale:
             raise RuntimeError("No most relevant Wikipedia page")
         self.sitelink = self.item.sitelinks[self.sitekey]
         self.language = self.sitelink.site.lang
+        if not self.language:
+            raise RuntimeError("No language code for Wikipedia page")
         self.url = f":{self.sitelink.site.code}:{self.sitelink.title}"
 
         self.lang_config = tde.LanguageConfig(
@@ -471,7 +473,7 @@ class PersonLocale:
         #     )
         # if not self.date_service.first_gregorian_date:
         #     raise RuntimeError(f"No first_gregorian_date for {self.country}")
-        self.wikipedia_qid = self.tracker.get_wikipedia_qid(self.language)
+        self.wikipedia_qid = self.language_lookup.get_wikipedia_qid(self.language)
         if not self.wikipedia_qid:
             raise RuntimeError(f"No qid for language {self.language}")
 

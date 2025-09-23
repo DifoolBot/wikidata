@@ -55,3 +55,10 @@ class LanguageLookupInterface(Protocol):
         Returns a list of language codes.
         """
         ...
+
+    def get_wikipedia_qid(self, lang: str) -> Optional[str]:
+        """
+        Retrieve the Wikipedia QID for a given language code.
+        Returns the Wikipedia QID or None if not found.
+        """
+        ...
