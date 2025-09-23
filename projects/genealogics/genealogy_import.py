@@ -69,14 +69,14 @@ def is_only_spaces_and_dashes(s):
 def same_name(name1: str, name2: str) -> bool:
     return name1 == name2
 
+
 def has_word(text: str, word: str) -> bool:
     """
     Check if `word` appears as a whole word in `text`, case-insensitive.
     Word boundaries are respected to avoid partial matches.
     """
-    pattern = rf'\b{re.escape(word)}\b'
+    pattern = rf"\b{re.escape(word)}\b"
     return re.search(pattern, text, re.IGNORECASE) is not None
-
 
 
 STATEMENT_CLASS_FOR_FIELD = {
@@ -504,7 +504,6 @@ class WikidataUpdater:
                 raise RuntimeError("Need to check this variant; , in name")
         if " ap " in text:
             raise RuntimeError("Need to check this variant; ap in name")
-        
 
     def work_names(self, sources):
         if "en" in self.page.item.labels:

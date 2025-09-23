@@ -1,16 +1,21 @@
 from pathlib import Path
 from typing import Optional, Tuple
 
-from pywikibot.data import sparql
 from shared_lib.database_handler import DatabaseHandler
 from shared_lib.lookups.interfaces.place_lookup_interface import (
     CountryLookupInterface,
     PlaceLookupInterface,
+    LanguageLookupInterface,
 )
 
 
-class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
-    def __init__(self):
+class DBCache(
+    DatabaseHandler,
+    PlaceLookupInterface,
+    CountryLookupInterface,
+    LanguageLookupInterface,
+):
+    def __init__(self) -> None:
         file_path = Path(__file__).parent / "wd_cache.json"
         create_script = Path("schemas/wikidata_cache.sql")
         super().__init__(file_path, create_script)
@@ -27,7 +32,7 @@ class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
         text = text.replace("  ", " ")
         return text.strip(" ,")
 
-    def get_place_qid_by_desc(self, desc: str) -> Optional[Tuple[str, str, str]]:
+    def get_place_qid_by_desc(self, desc: str) -> Optional[str]:
         sql = """
                 INSERT INTO place_external_descriptions (external_text)
                 SELECT ?
@@ -47,7 +52,7 @@ class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
             return row[0]
         return None
 
-    def set_place(self, place_qid: str, country_qid: str, place_label: str):
+    def set_place(self, place_qid: str, country_qid: str, place_label: str) -> None:
         if not place_qid:
             raise RuntimeError("No place qid")
         sql = (
@@ -73,10 +78,28 @@ class DBCache(DatabaseHandler, PlaceLookupInterface, CountryLookupInterface):
 
     def set_country(
         self, country_qid: str, country_code: Optional[str], country_label: str
-    ):
+    ) -> None:
         if not country_qid:
             raise RuntimeError("No country qid")
         if not country_code:
             country_code = None
         sql = f"INSERT INTO COUNTRIES (COUNTRY_QID, COUNTRY_CODE, COUNTRY_LABEL) VALUES (?, ?, ?)"
         self.execute_procedure(sql, (country_qid, country_code, country_label))
+
+    def get_languages_for_country(self, country_qid: str) -> list[str]:
+        rows = self.execute_query(
+            "SELECT LANGUAGE FROM GET_LANGUAGES(?)", (country_qid,)
+        )
+        results = []
+        for row in rows:
+            results.append(row[0])
+        return results
+
+    def get_sorted_languages(self) -> list[str]:
+        rows = self.execute_query(
+            "SELECT language FROM WIKIS where sort_order is not null order by sort_order"
+        )
+        result = []
+        for row in rows:
+            result.append(row[0])
+        return result

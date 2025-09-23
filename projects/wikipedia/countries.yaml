@@ -1049,3 +1049,31 @@ Q763:
 Q8680:
     code: None
     description: British Empire
+
+Q117:
+    code: GHA
+    description: Ghana
+
+Q215530:
+    code: 
+    description: Kingdom of Ireland
+
+Q55599391:
+    code: 
+    description: Kingdom of Sardinia
+
+Q80702:
+    code: 
+    description: Spanish Empire
+
+Q153136:
+    code: 
+    description: Habsburg monarchy
+
+Q33296:
+    code: 
+    description: Mughal Empire
+
+Q217196:
+    code: None
+    description: Crown of Castile

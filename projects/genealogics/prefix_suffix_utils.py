@@ -3,32 +3,41 @@ import shared_lib.constants as wd
 from typing import Optional, Set
 
 PREFIX_ENTRIES = [
-    # Sorted by "long" or "full" alphabetically, then all "sequence" entries at the end
-
-    # ---- Sorted by "long" or "full" ----
     {"full": "Admiral"},
-    {"variants": ["Baron"], "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_BARON}]},
+    {
+        "variants": ["Baron"],
+        "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_BARON}],
+    },
     {"full": "Bishop"},
     {"variants": ["Brig. Gen."], "long": "Brigadier General"},
     {"variants": ["Brig Gen", "BRIG GEN"], "long": "Brigadier General"},
     {"full": "Brigadier"},
-    {"variants": ["Capt", "Capt.", "Captain", "Cpt.", "Capt .", "Cpt", "Cptn."], "long": "Captain"},
+    {
+        "variants": ["Capt", "Capt.", "Captain", "Cpt.", "Capt .", "Cpt", "Cptn."],
+        "long": "Captain",
+    },
     {"full": "Capitain"},
     {"full": "Cannon"},
-    {"variants": [
-        "Col.",
-        "Col",
-        "Colonel",
-        "Col. (USA)",
-        "Col. (USA),",
-        "Cpl",
-        "Cpl.",
-    ], "long": "Colonel"},
+    {
+        "variants": [
+            "Col.",
+            "Col",
+            "Colonel",
+            "Col. (USA)",
+            "Col. (USA),",
+            "Cpl",
+            "Cpl.",
+        ],
+        "long": "Colonel",
+    },
     {"full": "Commander"},
     {"full": "Commodore"},
     {"full": "Conte"},
     {"full": "Corporal"},
-    {"variants": ["Count"], "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_COUNT}]},
+    {
+        "variants": ["Count"],
+        "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_COUNT}],
+    },
     {"variants": ["Dea."], "long": "Deacon", "full": "Deacon"},
     {"variants": ["Dr.", "Dr", "dr."]},
     {"variants": ["Dr.-Ing."], "long": "Doctor of Engineering"},
@@ -44,28 +53,54 @@ PREFIX_ENTRIES = [
     {"variants": ["Fr."], "long": "Father/Friar"},
     {"full": "Don"},
     {"variants": ["Gov", "Gov."], "full": "Governor"},
+    {"variants": ["Gen."], "full": "General"},
     {"full": "Graf"},
-    {"variants": ["Hon", "Hon.", "Honorable"], "long": "Honorable", "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_THE_HONOURABLE}]},
+    {
+        "variants": ["Hon", "Hon.", "Honorable"],
+        "long": "Honorable",
+        "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_THE_HONOURABLE}],
+    },
+    {"variants": ["Ir."], "long": "Engineer"},
     {"variants": ["Ing.", "Ing"], "long": "Engineer"},
     {"full": "Kolonel"},
+    {"variants": ["Corp."], "long": "Corporal"},
     {"variants": ["Judge"], "long": "Judge"},
-    {"variants": ["Jonkheer", "Jhr.", "Jhr", "Jhvr.", "Jhvr", "Jkvr."], "long": "Jonkheer", "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_JONKHEER}]},
-    {"variants": ["Lieut.", "Lieut", "Lt", "Lt.", "Lieutenant", "Lieu.", "LT."], "long": "Lieutenant"},
+    {
+        "variants": ["Jonkheer", "Jhr.", "Jhr", "Jhvr.", "Jhvr", "Jkvr."],
+        "long": "Jonkheer",
+        "statements": [{"class": cwd.NobleTitle, "qid": wd.QID_JONKHEER}],
+    },
+    {
+        "variants": [
+            "Lieut.",
+            "Lieut",
+            "Lt",
+            "Lt.",
+            "Lieutenant",
+            "Lieu.",
+            "LT.",
+            "Liet.",
+        ],
+        "long": "Lieutenant",
+    },
     {"variants": ["Lt. Deacon"], "long": "Lieutenant Deacon"},
     {"variants": ["Lt.-Gen."], "long": "Lieutenant General"},
     {"variants": ["Lt.-Gen.", "Lt.-Gen"], "long": "Lieutenant General"},
-    {"variants": [
-        "Lt.-Col.",
-        "Lt. Col.",
-        "Lt Col",
-        "LtCol",
-        "Lieut-Col",
-        "Lt.Col",
-        "Lieut-Col.",
-        "Lieut.-Col.",
-        "Lt Colonel",
-        "Lt.Col.",
-    ], "long": "Lieutenant Colonel"},
+    {
+        "variants": [
+            "Lt.-Col.",
+            "Lt. Col.",
+            "Lt Col",
+            "LtCol",
+            "Lieut-Col",
+            "Lt.Col",
+            "Lieut-Col.",
+            "Lieut.-Col.",
+            "Lt Colonel",
+            "Lt.Col.",
+        ],
+        "long": "Lieutenant Colonel",
+    },
     {"variants": ["Maj."], "long": "Major", "full": "Major"},
     {"variants": ["Maj Gen", "Maj-Gen", "Maj-Gen.", "MajGen"], "long": "Major General"},
     {"variants": ["Maj-Gen.", "Maj Gen", "Maj-Gen", "MajGen"], "long": "Major General"},
@@ -77,21 +112,40 @@ PREFIX_ENTRIES = [
     {"variants": ["Nob.", "Nob. Huomo"], "long": "Noble"},
     # misspelling of Mr.
     {"variants": ["Nr."]},
-    {"variants": ["Pvt.", "Pvt"], "long": "Private", "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_PRIVATE}]},
+    {
+        "variants": ["Pvt.", "Pvt"],
+        "long": "Private",
+        "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_PRIVATE}],
+    },
     {"full": "Prince"},
     {"variants": ["Prof.", "Professor", "Prof"], "long": "Professor"},
-    {"variants": ["Rabbi"], "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_RABBI}]},
-    {"variants": ["Rev.", "Rev", "Reverend"], "long": "Reverend", "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_REVEREND}]},
-    {"variants": ["Rt. Rev.", "Rt.Rev", "Rt.Rev."], "long": "Right Reverend", "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_THE_RIGHT_REVEREND}]},
+    {
+        "variants": ["Rabbi"],
+        "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_RABBI}],
+    },
+    {
+        "variants": ["Rev.", "Rev", "Reverend"],
+        "long": "Reverend",
+        "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_REVEREND}],
+    },
+    {
+        "variants": ["Rt. Rev.", "Rt.Rev", "Rt.Rev."],
+        "long": "Right Reverend",
+        "statements": [
+            {"class": cwd.HonorificPrefix, "qid": wd.QID_THE_RIGHT_REVEREND}
+        ],
+    },
     {"variants": ["Sgt", "Sgt.", "SGT", "Sergeant"], "long": "Sergeant"},
-    {"variants": ["Sir"], "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_SIR}]},
+    {
+        "variants": ["Sir"],
+        "statements": [{"class": cwd.HonorificPrefix, "qid": wd.QID_SIR}],
+    },
     {"variants": ["Surg.-Capt."], "long": "Surgeon Captain"},
     {"full": "Sheriff"},
     {"variants": ["Rep."], "long": "Representative"},
     {"variants": ["R Adm", "Rear Adm"], "long": "Rear Admiral"},
     {"variants": ["Rt-Hon."], "long": "Right Honourable"},
     {"variants": ["Sen."], "long": "Senator"},
-
     # ---- All "sequence" entries at the end ----
     {"variants": ["Prof. Dr.-Ing."], "sequence": ["Prof.", "Dr.-Ing."]},
     {"variants": ["Prof. Ds."], "sequence": ["Prof.", "Ds."]},
@@ -302,7 +356,9 @@ SUFFIX_ENTRIES = [
 ]
 
 
-def _analyze_affix(affix: str, entries, include_full: bool = False, affix_type: str = "affix"):
+def _analyze_affix(
+    affix: str, entries, include_full: bool = False, affix_type: str = "affix"
+):
     """
     Generic function to analyze a prefix or suffix.
     """
@@ -315,7 +371,9 @@ def _analyze_affix(affix: str, entries, include_full: bool = False, affix_type: 
         result = []
         if "sequence" in entry:
             for sub in entry["sequence"]:
-                sub_result = _analyze_affix(sub, entries, include_full=True, affix_type=affix_type)
+                sub_result = _analyze_affix(
+                    sub, entries, include_full=True, affix_type=affix_type
+                )
                 if sub_result:
                     result.extend(sub_result)
         else:
@@ -337,7 +395,9 @@ def analyze_prefix(prefix: str, include_full: bool = False):
     Handles compound prefixes recursively.
     Raises ValueError if prefix is unknown.
     """
-    return _analyze_affix(prefix, PREFIX_ENTRIES, include_full=include_full, affix_type="prefix")
+    return _analyze_affix(
+        prefix, PREFIX_ENTRIES, include_full=include_full, affix_type="prefix"
+    )
 
 
 def analyze_suffix(suffix: str, include_full: bool = False):
@@ -346,7 +406,21 @@ def analyze_suffix(suffix: str, include_full: bool = False):
     Handles compound suffixes recursively.
     Raises ValueError if suffix is unknown.
     """
-    return _analyze_affix(suffix, SUFFIX_ENTRIES, include_full=include_full, affix_type="suffix")
+    return _analyze_affix(
+        suffix, SUFFIX_ENTRIES, include_full=include_full, affix_type="suffix"
+    )
+
+
+def get_prefixes():
+    return [
+        variant for entry in PREFIX_ENTRIES for variant in entry.get("variants", [])
+    ]
+
+
+def get_suffixes():
+    return [
+        variant for entry in SUFFIX_ENTRIES for variant in entry.get("variants", [])
+    ]
 
 
 def get_allowed_suffix(suffix: str, include_full: bool = False) -> Optional[str]:
@@ -361,105 +435,43 @@ def get_allowed_suffix(suffix: str, include_full: bool = False) -> Optional[str]
     raise ValueError(f"Unknown suffix: {suffix}")
 
 
-def get_prefixes():
-    return [variant for entry in PREFIX_ENTRIES for variant in entry.get("variants", [])]
-
-
-def get_suffixes():
-    return [variant for entry in SUFFIX_ENTRIES for variant in entry.get("variants", [])]
-
-
-
-
-def _analyze_affix(affix: str, entries, include_full: bool = False, affix_type: str = "affix"):
-    """
-    Generic function to analyze a prefix or suffix.
-    """
-    for entry in entries:
-        if include_full and "full" in entry and affix == entry["full"]:
-            pass
-        elif affix not in entry.get("variants", []):
-            continue
-
-        result = []
-        if "sequence" in entry:
-            for sub in entry["sequence"]:
-                sub_result = _analyze_affix(sub, entries, include_full=True, affix_type=affix_type)
-                if sub_result:
-                    result.extend(sub_result)
+def prefixes_to_json():
+    result = {}
+    for entry in PREFIX_ENTRIES:
+        if "full" in entry:
+            key = entry["full"]
+        elif "long" in entry:
+            key = entry["long"]
+        elif "variants" in entry and entry["variants"]:
+            key = entry["variants"][0]
         else:
-            statements = entry.get("statements")
-            if statements:
-                for statement in statements:
-                    clss = statement.get("class")
-                    qid = statement.get("qid")
-                    if clss and qid:
-                        item = (clss, qid)
-                        result.append(item)
-        return result
-    raise ValueError(f"Unknown {affix_type}: {affix}")
+            raise ValueError(f"Invalid prefix entry: {entry}")
+        existing = result.get(key)
+        if existing:
+            if "full" in entry and "full" in existing:
+                if entry["full"] != existing["full"]:
+                    raise ValueError(f"Duplicate prefix full: {entry['full']}")
+            if "long" in entry and "long" in existing:
+                if entry["long"] != existing["long"]:
+                    raise ValueError(f"Duplicate prefix long: {entry['long']}")
+            if "allowed" in entry and "allowed" in existing:
+                if entry["allowed"] != existing["allowed"]:
+                    raise ValueError(f"Duplicate prefix allowed: {entry['allowed']}")
+            if "sequence" in entry and "sequence" in existing:
+                if entry["sequence"] != existing["sequence"]:
+                    raise ValueError(f"Duplicate prefix sequence: {entry['sequence']}")
+            variants = set(existing.get("variants", []))
+            variants.update(entry.get("variants", []))
+
+            existing["full"] = existing.get("full") or entry.get("full")
+            existing["long"] = existing.get("long") or entry.get("long")
+            existing["allowed"] = existing.get("allowed") or entry.get("allowed")
+            existing["sequence"] = existing.get("sequence") or entry.get("sequence")
+            existing["variants"] = sorted(variants)
+            # statements
+
+    return result
 
 
-def analyze_prefix(prefix: str, include_full: bool = False):
-    """
-    Given a prefix string, return a list [class, qid] if mapped, or an empty list if not mapped.
-    Handles compound prefixes recursively.
-    Raises ValueError if prefix is unknown.
-    """
-    return _analyze_affix(prefix, PREFIX_ENTRIES, include_full=include_full, affix_type="prefix")
-
-
-def analyze_suffix(suffix: str, include_full: bool = False):
-    """
-    Given a suffix string, return a list [class, qid] if mapped, or an empty list if not mapped.
-    Handles compound suffixes recursively.
-    Raises ValueError if suffix is unknown.
-    """
-    return _analyze_affix(suffix, SUFFIX_ENTRIES, include_full=include_full, affix_type="suffix")
-
-
-def get_allowed_suffix(suffix: str, include_full: bool = False) -> Optional[str]:
-    """
-    Given a suffix string, return the allowed normalized suffix if known
-    """
-    if not suffix:
-        return None
-    for entry in SUFFIX_ENTRIES:
-        if suffix in entry["variants"]:
-            return entry.get("allowed")
-    raise ValueError(f"Unknown suffix: {suffix}")
-
-
-def get_prefixes():
-    return [variant for entry in PREFIX_ENTRIES for variant in entry.get("variants", [])]
-
-
-def get_suffixes():
-    return [variant for entry in SUFFIX_ENTRIES for variant in entry.get("variants", [])]
-
-
-# # Maps long prefix to (class, qid) or None if not mapped
-# PREFIX_TO_CLASS_QID = {
-#     "Brigadier General": None,
-#     "Captain": None,
-#     "Colonel": None,
-#     "Count": (cwd.NobleTitle, wd.QID_COUNT),
-#     "Deacon": None,
-#     "Dr": None,
-#     "General": None,
-#     "Honorable": (cwd.HonorificPrefix, wd.QID_THE_HONOURABLE),
-#     "Jonkheer": (cwd.NobleTitle, wd.QID_JONKHEER),
-#     "Judge": None,
-#     "Lieutenant": None,
-#     "Lieutenant Deacon": None,
-#     "Major": None,
-#     "Mr": None,
-#     "Professor": None,
-#     "Rabbi": (cwd.HonorificPrefix, wd.QID_RABBI),
-#     "Reverend": (cwd.HonorificPrefix, wd.QID_REVEREND),
-#     "Sergeant": None,
-#     "Sir": (cwd.HonorificPrefix, wd.QID_SIR),
-# }
-#     "Sergeant": None,
-#     "Sir": (cwd.HonorificPrefix, wd.QID_SIR),
-# }
+def main():
+    print(prefixes_to_json())

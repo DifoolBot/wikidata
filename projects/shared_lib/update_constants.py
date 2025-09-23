@@ -1,10 +1,10 @@
-
 from pywikibot.data import sparql
 from pathlib import Path
 
 CONST_DIR = Path("projects\\shared_lib\\")
 CONST_FILENAME = "constants.py"
 CONST_PATH = CONST_DIR / CONST_FILENAME
+
 
 def get_info_for_qid(qid: str):
     query = f"""
@@ -34,6 +34,8 @@ def get_info_for_qid(qid: str):
             instance_description = row["instanceDescription"]["value"]
             return (item_label, item_description, instance_label, instance_description)
     return None
+
+
 def get_info_for_property(pid: str):
     query = f"""
             SELECT ?propertyLabel ?propertyDescription ?instanceLabel ?instanceDescription WHERE {{
@@ -60,7 +62,12 @@ def get_info_for_property(pid: str):
             property_description = row["propertyDescription"]["value"]
             instance_label = row["instanceLabel"]["value"]
             instance_description = row["instanceDescription"]["value"]
-            return (property_label, property_description, instance_label, instance_description)
+            return (
+                property_label,
+                property_description,
+                instance_label,
+                instance_description,
+            )
     return None
 
 
@@ -78,7 +85,8 @@ def get_constant_name_for_id(entity_id: str, description: str) -> str:
     else:
         raise ValueError("ID must start with Q or P")
 
-def contains_file_consts(entity_id: str) -> bool:
+
+def contains_file_consts(entity_id: str):
     """
     Check if the given entity_id already exists in the specified file.
     """
@@ -94,18 +102,20 @@ def contains_file_consts(entity_id: str) -> bool:
                 return section, line
     return None
 
+
 def remove_line(line_to_remove: str):
     """
     Remove a specific line from a file.
     """
     with open(CONST_PATH, "r", encoding="utf-8-sig") as f:
-        lines = f.readlines()   
+        lines = f.readlines()
     with open(CONST_PATH, "w", encoding="utf-8") as f:
         for line in lines:
             if line == line_to_remove:
                 print(f"Removed line: {line.strip()}")
             else:
                 f.write(line)
+
 
 def get_info_for_entity(entity_id: str):
     """
@@ -119,7 +129,7 @@ def get_info_for_entity(entity_id: str):
         data = get_info_for_property(entity_id)
     else:
         raise ValueError("ID must start with Q or P")
-    
+
     if not data:
         return None
 
@@ -130,12 +140,16 @@ def get_info_for_entity(entity_id: str):
         new_line = f'{const_name} = "{entity_id}"\n'
         return section, new_line
     elif entity_id.startswith("P"):
-        property_label, property_description, instance_label, instance_description = data
-        section = instance_label        
+        property_label, property_description, instance_label, instance_description = (
+            data
+        )
+        section = instance_label
         const_name = get_constant_name_for_id(entity_id, property_label)
         new_line = f'{const_name} = "{entity_id}"\n'
         return section, new_line
-    return None    
+    return None
+
+
 def add_constant_to_file(section: str, new_line: str):
     """
     Add a new constant definition to the specified file.
@@ -144,7 +158,7 @@ def add_constant_to_file(section: str, new_line: str):
         lines = f.readlines()
     new_lines = []
     section_found = False
-    added = False      
+    added = False
     for line in lines:
         if not added:
             if section_found and line.startswith("#"):
@@ -152,8 +166,8 @@ def add_constant_to_file(section: str, new_line: str):
                 added = True
             elif line == f"# {section}\n":
                 section_found = True
-        new_lines.append(line)            
-            
+        new_lines.append(line)
+
     if not section_found:
         new_lines.append(f"# {section}\n")
     if not added:
@@ -165,9 +179,11 @@ def add_constant_to_file(section: str, new_line: str):
 
     print(f"Added line: {new_line.strip()} in section: {section}")
 
+
 def ask():
     entity_id = input("Enter a string: ")
     work(entity_id)
+
 
 def work(entity_id: str):
     line_info = contains_file_consts(entity_id)
@@ -183,7 +199,7 @@ def work(entity_id: str):
         section, new_line = data
         remove_line(line)
         add_constant_to_file(section, new_line)
-    else:        
+    else:
         data = get_info_for_entity(entity_id)
         if not data:
             print(f"Could not find info for {entity_id}")
@@ -191,9 +207,11 @@ def work(entity_id: str):
         section, new_line = data
         add_constant_to_file(section, new_line)
 
+
 def test_prop():
     qid = "Q6518699"
     print(get_info_for_qid(qid))
-    
+
+
 if __name__ == "__main__":
     ask()

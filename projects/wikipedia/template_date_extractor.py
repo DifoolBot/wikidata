@@ -1,10 +1,10 @@
 import re
-from calendar import monthrange
 from datetime import datetime
 from typing import Optional
-import constants as wd
 
+import constants as wd
 import pywikibot as pwb
+from calendar_system_resolver import DateCalendarService
 from dateutil.parser import parse as date_parse
 
 
@@ -29,7 +29,7 @@ def build_wbtime(
     y,
     m,
     d,
-    calendarmodel=URL_UNSPECIFIED_CALENDAR,
+    calendarmodel=wd.URL_UNSPECIFIED_CALENDAR,
 ):
     try:
         y, m, d = int(y), int(m) if m else None, int(d) if d else None
@@ -140,7 +140,7 @@ class TemplateDateExtractor:
         tpl_cfg: dict,
         tpl,
         lang_config: LanguageConfig,
-        country_config: CountryConfig,
+        date_service: DateCalendarService,
     ):
         self.tpl_cfg = tpl_cfg
         self.param_names = tpl_cfg.get("param_names", {})
@@ -152,7 +152,7 @@ class TemplateDateExtractor:
         self.death_values = {}
         self.results = []
         self.lang_config = lang_config
-        self.country_config = country_config
+        self.date_service = date_service
         # Handle param_names (dictionary mapping)
         if self.param_names:
             param_map = get_param_name_map(tpl)
@@ -172,7 +172,7 @@ class TemplateDateExtractor:
                     names.append(name)
                     for tpl_cfg in self.lang_config.get_tpl_cfg(name):
                         extractor = TemplateDateExtractor(
-                            tpl_cfg, inner_tpl, self.lang_config, self.country_config
+                            tpl_cfg, inner_tpl, self.lang_config, self.date_service
                         )
                         for res in extractor.get_all_dates():
                             dates.append(res)
@@ -185,7 +185,7 @@ class TemplateDateExtractor:
                         )
                     self.values[normalized_meaning] = val.strip_code().strip()
 
-        self.default_calendar_url = URL_UNSPECIFIED_CALENDAR
+        self.default_calendar_url = wd.URL_UNSPECIFIED_CALENDAR
         if "calendar" in self.values:
             raise NotImplementedError(
                 "The 'calendar' parameter is not supported in this version."
@@ -221,7 +221,7 @@ class TemplateDateExtractor:
         self,
         date_str: str,
         dayfirst: Optional[bool],
-        calendar_url: str = URL_UNSPECIFIED_CALENDAR,
+        calendar_url: str = wd.URL_UNSPECIFIED_CALENDAR,
         typ: Optional[str] = None,
     ):
         """
@@ -246,8 +246,8 @@ class TemplateDateExtractor:
         d = dt1.day if dt1.day == dt2.day else 0
         if y == 0:
             return None
-        if calendar_url == URL_UNSPECIFIED_CALENDAR:
-            calendar_url = self.country_config.get_calendar_model(y, m, d)
+        if calendar_url == wd.URL_UNSPECIFIED_CALENDAR:
+            calendar_url = self.date_service.get_calendar_url(y, m, d)
         if not typ:
             typ = self.typ if self.typ else None
         # if not typ:
@@ -261,7 +261,7 @@ class TemplateDateExtractor:
         self,
         date_str: str,
         dayfirst: Optional[bool] = None,
-        calendar_url: str = URL_UNSPECIFIED_CALENDAR,
+        calendar_url: str = wd.URL_UNSPECIFIED_CALENDAR,
         typ: Optional[str] = None,
     ):
         result = self.__parse_date_string(date_str, dayfirst, calendar_url, typ)
@@ -306,7 +306,7 @@ class TemplateDateExtractor:
             g_day = self.get_value(typ, "day gregorian")
             if g_year:
                 if has_julian:
-                    cal_model = URL_PROLEPTIC_GREGORIAN_CALENDAR
+                    cal_model = wd.URL_PROLEPTIC_GREGORIAN_CALENDAR
                 else:
                     # without julian, it can be julian or gregorian
                     # so we use the default calendar URL
@@ -322,7 +322,7 @@ class TemplateDateExtractor:
                     j_day,
                     j_month,
                     j_year,
-                    URL_PROLEPTIC_JULIAN_CALENDAR,
+                    wd.URL_PROLEPTIC_JULIAN_CALENDAR,
                     typ=typ if typ else None,
                 )
 

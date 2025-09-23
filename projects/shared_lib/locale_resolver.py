@@ -2,12 +2,20 @@ from collections import defaultdict
 from typing import Optional
 
 import shared_lib.constants as wd
-from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
+from shared_lib.lookups.interfaces.place_lookup_interface import (
+    LanguageLookupInterface,
+    PlaceLookupInterface,
+)
 
 
 class LocaleResolver:
-    def __init__(self, place_lookup: PlaceLookupInterface):
+    def __init__(
+        self,
+        place_lookup: PlaceLookupInterface,
+        language_lookup: Optional[LanguageLookupInterface] = None,
+    ):
         self.place_lookup = place_lookup
+        self.language_lookup = language_lookup
         self.birth_country_qids = set()
         self.death_country_qids = set()
         self.country_qids = set()
@@ -91,6 +99,14 @@ class LocaleResolver:
         else:
             return None
 
+    def get_countries(self):
+        sorted_countries = self.get_weighted_countries()
+        return sorted_countries
+
+    def get_languages(self):
+        sorted_languages = self.get_weighted_languages()
+        return sorted_languages
+
     def get_weighted_countries(self):
         weights = {
             3: self.birth_country_qids,
@@ -114,29 +130,32 @@ class LocaleResolver:
         country_qid = self.get_country()
         return country_qid
 
-    # def get_weighted_languages(self):
-    #     weights = {
-    #         3: self.birth_country_qids,
-    #         2: self.death_country_qids,
-    #         1: self.country_qids,
-    #     }
+    def get_weighted_languages(self):
+        weights = {
+            3: self.birth_country_qids,
+            2: self.death_country_qids,
+            1: self.country_qids,
+        }
 
-    #     language_scores = defaultdict(int)
+        if not self.language_lookup:
+            raise RuntimeError("Language lookup service not provided")
 
-    #     for weight, qid_set in weights.items():
-    #         for country_qid in qid_set:
-    #             langs = self.place_lookup.get_languages_for_country(country_qid)
-    #             if not langs:
-    #                 self.place_lookup.ensure_country_info(qid=country_qid)
+        language_scores = defaultdict(int)
 
-    #                 raise RuntimeError(
-    #                     f"No languages found for country QID {country_qid} in item {self.item.id}"
-    #                 )
-    #             for lang_qid in langs:
-    #                 language_scores[lang_qid] += weight
+        for weight, qid_set in weights.items():
+            for country_qid in qid_set:
+                langs = self.language_lookup.get_languages_for_country(country_qid)
+                if not langs:
+                    # self.place_lookup.ensure_country_info(qid=country_qid)
 
-    #     # Sort by score descending
-    #     sorted_language_qids = [
-    #         lang for lang, _ in sorted(language_scores.items(), key=lambda x: -x[1])
-    #     ]
-    #     return sorted_language_qids
+                    raise RuntimeError(
+                        f"No languages found for country QID {country_qid}"
+                    )
+                for lang_qid in langs:
+                    language_scores[lang_qid] += weight
+
+        # Sort by score descending
+        sorted_language_qids = [
+            lang for lang, _ in sorted(language_scores.items(), key=lambda x: -x[1])
+        ]
+        return sorted_language_qids

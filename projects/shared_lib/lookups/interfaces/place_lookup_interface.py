@@ -9,14 +9,16 @@ class PlaceLookupInterface(Protocol):
         """
         ...
 
-    def get_place_qid_by_desc(self, text: str) -> str:
+    def get_place_qid_by_desc(self, text: str) -> Optional[str]:
         """
         Retrieve place data by qid.
         Returns (place_qid, country_qid, place label) or None if not found.
         """
         ...
 
-    def set_place(self, place_qid: str, country_qid: str, place_description: str): ...
+    def set_place(
+        self, place_qid: str, country_qid: str, place_description: str
+    ) -> None: ...
 
 
 class CountryLookupInterface(Protocol):
@@ -34,4 +36,22 @@ class CountryLookupInterface(Protocol):
         """
         ...
 
-    def set_country(self, country_qid: str, country_code: str, country_label: str): ...
+    def set_country(
+        self, country_qid: str, country_code: str, country_label: str
+    ) -> None: ...
+
+
+class LanguageLookupInterface(Protocol):
+    def get_languages_for_country(self, country_qid: str) -> list[str]:
+        """
+        Retrieve language QIDs for a given country QID.
+        Returns a set of language QIDs or None if not found.
+        """
+        ...
+
+    def get_sorted_languages(self) -> list[str]:
+        """
+        Retrieve a sorted list of language codes.
+        Returns a list of language codes.
+        """
+        ...

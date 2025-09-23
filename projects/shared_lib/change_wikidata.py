@@ -260,8 +260,9 @@ class StateInReference(Reference):
 
 
 class WikipediaReference(Reference):
-    def __init__(self, wikipedia_qid: str):
+    def __init__(self, wikipedia_qid: str, url: str):
         self.wikipedia_qid = wikipedia_qid
+        self.url = url
 
     def is_equal_reference(self, src) -> bool:
         if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in src:
@@ -278,7 +279,12 @@ class WikipediaReference(Reference):
             REPO, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT, is_reference=True
         )
         imported_from_claim.setTarget(pwb.ItemPage(REPO, self.wikipedia_qid))
+
+        url_claim = pwb.Claim(REPO, wd.PID_WIKIMEDIA_IMPORT_URL, is_reference=True)
+        url_claim.setTarget(self.url)
+
         source[wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT] = [imported_from_claim]
+        source[wd.PID_WIKIMEDIA_IMPORT_URL] = [url_claim]
 
         return source
 
@@ -963,7 +969,7 @@ class CheckAliases(Action):
                         changed = True
                         # do not add duplicate
                         continue
-                    if self.wd_page.has_alias("mul", norm_alias):
+                    if language != "en" and self.wd_page.has_alias("mul", norm_alias):
                         print_color(
                             f" {language} alias: {alias} duplicate removed (same mul alias)",
                             TextColor.WARNING,

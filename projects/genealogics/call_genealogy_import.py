@@ -177,6 +177,7 @@ def do_item(qid: str, test: bool = True):
 #  Q110354679 - Theodora Sautijn, Vrouwe van Stockum
 #  Q110423975 - Johann Maurits, Edler van Pabst, Vrijheer van Wolfsweerd
 #  Q123445322 - Briggs ALDEN
+#  Q130760340 - Honorable Josiah Stone, Esq
 
 
 def main():
@@ -188,7 +189,7 @@ def main():
     # todo(test=False)
     todo(ask=True)
 
-    # do_item("Q107274900", test=True)
+    # do_item("Q116469245", test=True)
 
 
 if __name__ == "__main__":

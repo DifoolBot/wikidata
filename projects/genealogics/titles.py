@@ -4,20 +4,20 @@ import shared_lib.change_wikidata as cwd
 from shared_lib.lookups.interfaces.place_lookup_interface import PlaceLookupInterface
 
 TITLE_ENTRIES = [
-    {"variants": ["Minister"], 
-     "occupation": wd.QID_CHRISTIAN_MINISTER,
-     "place_class": cwd.WorkLocation,
-     "error_if_number": True
+    {
+        "variants": ["Minister"],
+        "occupation": wd.QID_CHRISTIAN_MINISTER,
+        "place_class": cwd.WorkLocation,
+        "error_if_number": True,
     },
-    {"variants": ["Rector"], 
-     # can be academic or religious
-     #"occupation": wd.QID_CHRISTIAN_MINISTER,
-     "place_class": cwd.WorkLocation,
-     "error_if_number": True
+    {
+        "variants": ["Rector"],
+        # can be academic or religious
+        # "occupation": wd.QID_CHRISTIAN_MINISTER,
+        "place_class": cwd.WorkLocation,
+        "error_if_number": True,
     },
-    {"variants": ["Heer"], 
-     "error_if_number": True
-    }
+    {"variants": ["Heer"], "error_if_number": True},
 ]
 
 TITLE_STRINGS = [
@@ -28,14 +28,15 @@ TITLE_STRINGS = [
 
 
 def parse_title_text(text: str):
-    pattern = r'(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)\s*(?:of\s+(.+))?'
+    pattern = r"(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)\s*(?:of\s+(.+))?"
     match = re.match(pattern, text)
     if match:
         number = match.group(1)  # May be None
         title = match.group(2)
-        place = match.group(3)   # May be None
+        place = match.group(3)  # May be None
         return number, title, place
     return None
+
 
 def extract_title(text):
     info = parse_title_text(text)
@@ -43,12 +44,13 @@ def extract_title(text):
         return text
     return None
 
+
 def analyze_title(place_lookup: PlaceLookupInterface, text: str, lived_in: str):
     result = []
     info = parse_title_text(text)
     if not info:
-        return []
-    
+        raise ValueError(f"Unknown title: {text}")
+
     number, title, place = info
     for entry in TITLE_ENTRIES:
         if title not in entry["variants"]:
@@ -70,5 +72,3 @@ def analyze_title(place_lookup: PlaceLookupInterface, text: str, lived_in: str):
         return result
 
     raise ValueError(f"Unknown title: {text}")
-    
-

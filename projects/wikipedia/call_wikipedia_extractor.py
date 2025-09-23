@@ -11,6 +11,12 @@ from wikipedia.wikipedia_extractor import (
 )
 import wikipedia.template_date_extractor as tde
 from shared_lib.database_handler import DatabaseHandler
+import shared_lib.constants as wd
+from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
+from shared_lib.lookups.impl.cached_country_lookup import CachedCountryLookup
+from shared_lib.lookups.impl.cached_language_lookup import CachedLanguageLookup
+from shared_lib.lookups.retrieval.db_cache import DBCache
+from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
 
 PAGE_TITLE = "User:Difool/date_mismatches"
 WIKI_FILE = "wiki.txt"
@@ -18,8 +24,8 @@ WIKI_FILE = "wiki.txt"
 
 def date_str(date: pwb.WbTime) -> str:
     calendar_map = {
-        tde.URL_PROLEPTIC_GREGORIAN_CALENDAR: "G",
-        tde.URL_PROLEPTIC_JULIAN_CALENDAR: "J",
+        wd.URL_PROLEPTIC_GREGORIAN_CALENDAR: "G",
+        wd.URL_PROLEPTIC_JULIAN_CALENDAR: "J",
     }
     cm = calendar_map.get(str(date.calendarmodel), "")
 
@@ -41,7 +47,7 @@ def assume_gregorian(wbt: pwb.WbTime) -> pwb.WbTime:
         month=wbt.month,
         day=wbt.day,
         precision=wbt.precision,
-        calendarmodel=tde.URL_PROLEPTIC_GREGORIAN_CALENDAR,
+        calendarmodel=wd.URL_PROLEPTIC_GREGORIAN_CALENDAR,
     ).normalize()
 
 
@@ -53,7 +59,7 @@ def julian_to_gregorian(wbt: pwb.WbTime) -> pwb.WbTime:
         month=g_month,
         day=g_day,
         precision=wbt.precision,
-        calendarmodel=tde.URL_PROLEPTIC_GREGORIAN_CALENDAR,
+        calendarmodel=wd.URL_PROLEPTIC_GREGORIAN_CALENDAR,
     ).normalize()
 
 
@@ -70,7 +76,7 @@ def change_precision(wbt: pwb.WbTime, precision: int) -> pwb.WbTime:
 
 def date_difference_characteristic(wd_date: pwb.WbTime, wp_date: pwb.WbTime) -> str:
     # Gregorian-Julian diff
-    if wp_date.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR:
+    if wp_date.calendarmodel == wd.URL_UNSPECIFIED_CALENDAR:
         wp_date.calendarmodel = wd_date.calendarmodel
     if wd_date.precision == 11 and wp_date.precision == 11:
         if julian_to_gregorian(wd_date) == assume_gregorian(wp_date):
@@ -132,43 +138,34 @@ class FirebirdStatusTracker(DatabaseHandler, WikidataStatusTracker):
         sql = "EXECUTE PROCEDURE add_done(?, ?, ?)"
         self.execute_procedure(sql, (qid, language, shortened_msg))
 
-    def add_country(self, qid: str, description: str):
-        shortened_desc = description[:255]
-        sql = "EXECUTE PROCEDURE add_country(?, NULL, ?)"
-        self.execute_procedure(sql, (qid, shortened_desc))
+    # def add_country(self, qid: str, description: str):
+    #     shortened_desc = description[:255]
+    #     sql = "EXECUTE PROCEDURE add_country(?, NULL, ?)"
+    #     self.execute_procedure(sql, (qid, shortened_desc))
 
-    def add_language(self, qid: str, language: str):
-        sql = "EXECUTE PROCEDURE add_language(?, ?)"
-        self.execute_procedure(sql, (qid, language))
+    # def add_language(self, qid: str, language: str):
+    #     sql = "EXECUTE PROCEDURE add_language(?, ?)"
+    #     self.execute_procedure(sql, (qid, language))
 
-    def get_country_qid(self, place_qid: str):
-        rows = self.execute_query(
-            "SELECT QCOUNTRY FROM PLACE where QPLACE=?", (place_qid,)
-        )
-        for row in rows:
-            return row[0]
+    # def get_country_qid(self, place_qid: str):
+    #     rows = self.execute_query(
+    #         "SELECT QCOUNTRY FROM PLACE where QPLACE=?", (place_qid,)
+    #     )
+    #     for row in rows:
+    #         return row[0]
 
-        return None
+    #     return None
 
-    def set_country_qid(
-        self, place_qid: str, place_label: str, country_qid: str, country_label: str
-    ):
-        shortened_place_label = place_label[:255]
-        shortened_country_label = country_label[:255]
-        sql = "EXECUTE PROCEDURE add_place(?, ?, ?, ?)"
-        self.execute_procedure(
-            sql,
-            (place_qid, shortened_place_label, country_qid, shortened_country_label),
-        )
-
-    def get_languages_for_country(self, country_qid: str):
-        rows = self.execute_query(
-            "SELECT LANGUAGE FROM GET_LANGUAGES(?)", (country_qid,)
-        )
-        results = []
-        for row in rows:
-            results.append(row[0])
-        return results
+    # def set_country_qid(
+    #     self, place_qid: str, place_label: str, country_qid: str, country_label: str
+    # ):
+    #     shortened_place_label = place_label[:255]
+    #     shortened_country_label = country_label[:255]
+    #     sql = "EXECUTE PROCEDURE add_place(?, ?, ?, ?)"
+    #     self.execute_procedure(
+    #         sql,
+    #         (place_qid, shortened_place_label, country_qid, shortened_country_label),
+    #     )
 
     def get_todo(self):
         rows = self.execute_query("SELECT QCODE FROM qtodo order by 1")
@@ -186,32 +183,32 @@ where w.language is null"""
         for row in rows:
             yield row[0]
 
-    def set_country_info(self, country_qid: str, country_code: str, country_desc: str):
-        country_code = country_code.upper()
-        if not country_code:
-            country_code = ""
-        shortened_desc = country_desc[:255]
-        sql = "EXECUTE PROCEDURE add_country(?, ?, ?)"
-        self.execute_procedure(sql, (country_qid, country_code, shortened_desc))
+    # def set_country_info(self, country_qid: str, country_code: str, country_desc: str):
+    #     country_code = country_code.upper()
+    #     if not country_code:
+    #         country_code = ""
+    #     shortened_desc = country_desc[:255]
+    #     sql = "EXECUTE PROCEDURE add_country(?, ?, ?)"
+    #     self.execute_procedure(sql, (country_qid, country_code, shortened_desc))
 
-    def get_country_info(self, country_qid: str):
-        rows = self.execute_query(
-            "SELECT countrycode,description FROM country where qcountry=?",
-            (country_qid,),
-        )
-        for row in rows:
-            return country_qid, row[0], row[1]
+    # def get_country_info(self, country_qid: str):
+    #     rows = self.execute_query(
+    #         "SELECT countrycode,description FROM country where qcountry=?",
+    #         (country_qid,),
+    #     )
+    #     for row in rows:
+    #         return country_qid, row[0], row[1]
 
-        return None
+    #     return None
 
-    def get_sorted_languages(self):
-        rows = self.execute_query(
-            "SELECT language FROM WIKI where sort_order is not null order by sort_order"
-        )
-        result = []
-        for row in rows:
-            result.append(row[0])
-        return result
+    # def get_sorted_languages(self):
+    #     rows = self.execute_query(
+    #         "SELECT language FROM WIKI where sort_order is not null order by sort_order"
+    #     )
+    #     result = []
+    #     for row in rows:
+    #         result.append(row[0])
+    #     return result
 
     def add_lead_sentence(self, qid: str, lang: str, lead_sentence: str):
         sql = """
@@ -366,33 +363,83 @@ def get_country_languages(country_qid: str):
     return results
 
 
+class Lookups:
+    def __init__(self):
+        db = DBCache()
+        wc = WikidataClient()
+        self.country_lookup = CachedCountryLookup(cache=db, source=wc)
+        self.place_lookup = CachedPlaceLookup(
+            cache=db, source=wc, country=self.country_lookup
+        )
+        self.language_lookup = CachedLanguageLookup(
+            cache=db, country=self.country_lookup
+        )
+
+
 def query_loop():
+    lookups = Lookups()
     tracker = FirebirdStatusTracker()
     for item in iterate_query():
-        reconcile_dates(item, tracker)
+        reconcile_dates(
+            item,
+            lookups.country_lookup,
+            lookups.place_lookup,
+            lookups.language_lookup,
+            tracker,
+        )
 
 
 def todo(test: bool = True):
+    lookups = Lookups()
     tracker = FirebirdStatusTracker()
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-        reconcile_dates(item, tracker, test=test)
+        reconcile_dates(
+            item,
+            lookups.country_lookup,
+            lookups.place_lookup,
+            lookups.language_lookup,
+            tracker,
+            test=test,
+        )
 
 
 def do_item(qid: str):
     tracker = FirebirdStatusTracker()
     item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-    reconcile_dates(item, tracker, check_already_done=False)
+    lookups = Lookups()
+    reconcile_dates(
+        item,
+        lookups.country_lookup,
+        lookups.place_lookup,
+        lookups.language_lookup,
+        tracker,
+        check_already_done=False,
+    )
 
 
 def do_sandbox2(qid: str):
     tracker = FirebirdStatusTracker()
     sandbox_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), "Q13406268")
     real_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-    locale = PersonLocale(real_item, tracker)
+    lookups = Lookups()
+    locale = PersonLocale(
+        real_item,
+        lookups.country_lookup,
+        lookups.place_lookup,
+        lookups.language_lookup,
+        tracker,
+    )
     locale.load()
     reconcile_dates(
-        sandbox_item, tracker, check_already_done=False, locale=locale, test=True
+        sandbox_item,
+        lookups.country_lookup,
+        lookups.place_lookup,
+        lookups.language_lookup,
+        tracker,
+        check_already_done=False,
+        locale=locale,
+        test=True,
     )
 
 
@@ -400,22 +447,36 @@ def do_sandbox3(qid: str):
     tracker = FirebirdStatusTracker()
     sandbox_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), "Q15397819")
     real_item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
-    locale = PersonLocale(real_item, tracker)
+    lookups = Lookups()
+    locale = PersonLocale(
+        real_item,
+        lookups.country_lookup,
+        lookups.place_lookup,
+        lookups.language_lookup,
+        tracker,
+    )
     locale.load()
     reconcile_dates(
-        sandbox_item, tracker, check_already_done=False, locale=locale, test=False
+        sandbox_item,
+        lookups.country_lookup,
+        lookups.place_lookup,
+        lookups.language_lookup,
+        tracker,
+        check_already_done=False,
+        locale=locale,
+        test=False,
     )
 
 
-def fill():
-    tracker = FirebirdStatusTracker()
-    for qid in tracker.get_empty_countries():
-        rows = get_country_languages(qid)
-        for row in rows:
-            country_qid, country_desc, lang = row
-            tracker.add_country(qid, country_desc)
-            tracker.add_language(qid, lang)
-            print(f"Added {country_desc} ({lang}) to {qid}")
+# def fill():
+#     tracker = FirebirdStatusTracker()
+#     for qid in tracker.get_empty_countries():
+#         rows = get_country_languages(qid)
+#         for row in rows:
+#             country_qid, country_desc, lang = row
+#             tracker.add_country(qid, country_desc)
+#             tracker.add_language(qid, lang)
+#             print(f"Added {country_desc} ({lang}) to {qid}")
 
 
 def make_wikitext():
@@ -465,11 +526,11 @@ def generate_report():
 
 
 def main():
-    todo(test=False)
+    todo(test=True)
     # query_loop()
     # fill()
     # calc()
-    do_sandbox2("Q18747311")
+    # do_sandbox2("Q18747311")
     # do_item("Q3071923")
     # generate_report()
 

@@ -1,7 +1,5 @@
 import os
-import re
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -15,6 +13,17 @@ from mwparserfromhell.nodes import Template, Wikilink
 from pywikibot.data import sparql
 
 import shared_lib.change_wikidata as cwd
+import shared_lib.constants as wd
+from shared_lib.calendar_system_resolver import (
+    DateCalendarService,
+    load_template_config,
+)
+from shared_lib.locale_resolver import LocaleResolver
+from shared_lib.lookups.interfaces.place_lookup_interface import (
+    CountryLookupInterface,
+    LanguageLookupInterface,
+    PlaceLookupInterface,
+)
 
 # TODO
 # - Q3290522: 'July 28, 2008 (aged 87)' -> date parse error
@@ -65,44 +74,44 @@ class WikidataStatusTracker(ABC):
         """Return True if the item is marked as errored."""
         pass
 
-    @abstractmethod
-    def get_country_qid(self, place_qid: str):
-        """Return the QID of the country for a given place QID."""
-        pass
+    # @abstractmethod
+    # def get_country_qid(self, place_qid: str):
+    #     """Return the QID of the country for a given place QID."""
+    #     pass
 
-    @abstractmethod
-    def set_country_info(
-        self, country_qid: str, country_code: Optional[str], country_desc: str
-    ):
-        pass
+    # @abstractmethod
+    # def set_country_info(
+    #     self, country_qid: str, country_code: Optional[str], country_desc: str
+    # ):
+    #     pass
 
-    @abstractmethod
-    def get_country_info(self, country_qid: str) -> Optional[Tuple]:
-        pass
+    # @abstractmethod
+    # def get_country_info(self, country_qid: str) -> Optional[Tuple]:
+    #     pass
 
-    @abstractmethod
-    def set_country_qid(
-        self, place_qid: str, place_label: str, country_qid: str, country_label: str
-    ):
-        """Set the country QID for a given place QID."""
-        pass
+    # @abstractmethod
+    # def set_country_qid(
+    #     self, place_qid: str, place_label: str, country_qid: str, country_label: str
+    # ):
+    #     """Set the country QID for a given place QID."""
+    #     pass
 
-    @abstractmethod
-    def get_languages_for_country(self, country_qid: str) -> List[str]:
-        """Return a list of languages for a given country QID."""
-        pass
+    # @abstractmethod
+    # def get_languages_for_country(self, country_qid: str) -> List[str]:
+    #     """Return a list of languages for a given country QID."""
+    #     pass
 
-    @abstractmethod
-    def get_sorted_languages(self) -> List[str]:
-        pass
+    # @abstractmethod
+    # def get_sorted_languages(self) -> List[str]:
+    #     pass
 
     @abstractmethod
     def add_lead_sentence(self, qid: str, lang: str, lead_sentence: str):
         pass
 
-    @abstractmethod
-    def get_wikipedia_qid(self, lang: Optional[str]):
-        pass
+    # @abstractmethod
+    # def get_wikipedia_qid(self, lang: Optional[str]):
+    #     pass
 
     @abstractmethod
     def add_mismatch(
@@ -110,38 +119,38 @@ class WikidataStatusTracker(ABC):
     ):
         pass
 
-    def ensure_country_info(
-        self,
-        qid: Optional[str] = None,
-        code: Optional[str] = None,
-    ):
-        if not qid:
-            qid = get_country_qid_from_yaml(code, "countries.yaml")
-        if not qid:
-            info = lookup_country_info_by_code(code)
-            if not info:
-                raise RuntimeError(f"No country info for country code {code}")
-            qid, code, description = info
-            if qid:
-                if not self.get_country_info(qid):
-                    self.set_country_info(qid, code, description)
-            return info
+    # def ensure_country_info(
+    #     self,
+    #     qid: Optional[str] = None,
+    #     code: Optional[str] = None,
+    # ):
+    #     if not qid:
+    #         qid = get_country_qid_from_yaml(code, "countries.yaml")
+    #     if not qid:
+    #         info = lookup_country_info_by_code(code)
+    #         if not info:
+    #             raise RuntimeError(f"No country info for country code {code}")
+    #         qid, code, description = info
+    #         if qid:
+    #             if not self.get_country_info(qid):
+    #                 self.set_country_info(qid, code, description)
+    #         return info
 
-        # load from database
-        info = self.get_country_info(qid)
-        if info:
-            qid, code, description = info
-            if not code or not description:
-                # reload from wikidata
-                info = None
-        if not info:
-            info = lookup_country_info_by_qid(qid)
-            if info:
-                qid, code, description = info
-                self.set_country_info(qid, code, description)
-        if not info:
-            raise RuntimeError(f"No country info for {qid}")
-        return info
+    #     # load from database
+    #     info = self.get_country_info(qid)
+    #     if info:
+    #         qid, code, description = info
+    #         if not code or not description:
+    #             # reload from wikidata
+    #             info = None
+    #     if not info:
+    #         info = lookup_country_info_by_qid(qid)
+    #         if info:
+    #             qid, code, description = info
+    #             self.set_country_info(qid, code, description)
+    #     if not info:
+    #         raise RuntimeError(f"No country info for {qid}")
+    #     return info
 
 
 def wbtime_key(w: pwb.WbTime):
@@ -158,7 +167,7 @@ def wbtime_key(w: pwb.WbTime):
 def wbtime_key_flexible(w: pwb.WbTime):
     # Returns a tuple, but with calendarmodel set to None if unspecified
     w_norm = w.normalize()
-    if w_norm.calendarmodel == tde.URL_UNSPECIFIED_CALENDAR:
+    if w_norm.calendarmodel == wd.URL_UNSPECIFIED_CALENDAR:
         return (w_norm.year, w_norm.month, w_norm.day, w_norm.precision, None)
     return (
         w_norm.year,
@@ -253,9 +262,9 @@ class PersonDates:
 
 def print_dates(dates: List[pwb.WbTime]) -> str:
     CALENDAR_LABELS = {
-        tde.URL_PROLEPTIC_JULIAN_CALENDAR: "Julian",
-        tde.URL_PROLEPTIC_GREGORIAN_CALENDAR: "Gregorian",
-        tde.URL_UNSPECIFIED_CALENDAR: "Unspecified",
+        wd.URL_PROLEPTIC_JULIAN_CALENDAR: "Julian",
+        wd.URL_PROLEPTIC_GREGORIAN_CALENDAR: "Gregorian",
+        wd.URL_UNSPECIFIED_CALENDAR: "Unspecified",
     }
 
     def describe(date: pwb.WbTime) -> str:
@@ -305,12 +314,6 @@ def fetch_page(site, title):
     return page.text  # raw wikitext
 
 
-def load_template_config(filename: str):
-    path = YAML_DIR / filename
-    with path.open(encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
 def get_country_qid_from_yaml(
     country_code: Optional[str], filename: str
 ) -> Optional[str]:
@@ -326,25 +329,15 @@ def get_country_qid_from_yaml(
     return None
 
 
-def ensure_qid_in_yaml(filename, qid, tracker: WikidataStatusTracker):
-    path = YAML_DIR / filename
-    with path.open("r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    # Check if any line starts with the QID followed by a colon
-    qid_present = any(re.match(rf"^{re.escape(qid)}\s*:", line) for line in lines)
-
-    if not qid_present:
-        info = tracker.ensure_country_info(qid=qid)
-        qid, code, description = info
-
-        block = f"\n{qid}:\n    code: {code}\n    description: {description}\n"
-        with path.open("a", encoding="utf-8") as f:
-            f.write(block)
-
-
 class PersonLocale:
-    def __init__(self, item: pwb.ItemPage, tracker: WikidataStatusTracker):
+    def __init__(
+        self,
+        item: pwb.ItemPage,
+        country_lookup: CountryLookupInterface,
+        place_lookup: PlaceLookupInterface,
+        language_lookup: LanguageLookupInterface,
+        tracker: WikidataStatusTracker,
+    ):
         self.item = item
         self.tracker = tracker
         self.birth_country_qids = set()
@@ -355,83 +348,88 @@ class PersonLocale:
         self.wikipedia_qid: Optional[str] = None
         self.url: Optional[str] = None
         self.sitelink = None
+        self.locale = LocaleResolver(place_lookup, language_lookup)
+        self.country_lookup = country_lookup
+        # self.place_lookup = place_lookup
+        self.language_lookup = language_lookup
 
     def load(self):
         cwd.ensure_loaded(self.item)
 
-        # Helper to filter claims by rank
-        def filter_claims_by_rank(claims):
-            preferred_claims = [
-                c for c in claims if getattr(c, "rank", "").lower() == "preferred"
-            ]
-            if preferred_claims:
-                return preferred_claims
-            # If no preferred, use normal (or any non-deprecated)
-            return [
-                c
-                for c in claims
-                if getattr(c, "rank", "").lower() not in ("deprecated",)
-            ]
+        self.locale.load_from_claims(self.item.claims)
+        # # Helper to filter claims by rank
+        # def filter_claims_by_rank(claims):
+        #     preferred_claims = [
+        #         c for c in claims if getattr(c, "rank", "").lower() == "preferred"
+        #     ]
+        #     if preferred_claims:
+        #         return preferred_claims
+        #     # If no preferred, use normal (or any non-deprecated)
+        #     return [
+        #         c
+        #         for c in claims
+        #         if getattr(c, "rank", "").lower() not in ("deprecated",)
+        #     ]
 
-        # Place of birth
-        if self.item.claims.get("P19"):
-            claims = filter_claims_by_rank(self.item.claims["P19"])
-            for claim in claims:
-                target = claim.getTarget()
-                if not target:
-                    continue
-                place_qid = target.id
-                country_qid = self.tracker.get_country_qid(place_qid)
-                if not country_qid:
-                    result = lookup_country_qid(place_qid)
-                    if result:
-                        country_qid, place_label, country_label = result
-                        self.tracker.set_country_qid(
-                            place_qid, place_label, country_qid, country_label
-                        )
-                if not country_qid:
-                    raise RuntimeError(
-                        f"Country QID not found for place of birth claim in self.item {self.item.id}"
-                    )
-                self.birth_country_qids.add(country_qid)
-                self.country_qids.add(country_qid)
+        # # Place of birth
+        # if self.item.claims.get("P19"):
+        #     claims = filter_claims_by_rank(self.item.claims["P19"])
+        #     for claim in claims:
+        #         target = claim.getTarget()
+        #         if not target:
+        #             continue
+        #         place_qid = target.id
+        #         country_qid = self.tracker.get_country_qid(place_qid)
+        #         if not country_qid:
+        #             result = lookup_country_qid(place_qid)
+        #             if result:
+        #                 country_qid, place_label, country_label = result
+        #                 self.tracker.set_country_qid(
+        #                     place_qid, place_label, country_qid, country_label
+        #                 )
+        #         if not country_qid:
+        #             raise RuntimeError(
+        #                 f"Country QID not found for place of birth claim in self.item {self.item.id}"
+        #             )
+        #         self.birth_country_qids.add(country_qid)
+        #         self.country_qids.add(country_qid)
 
-        # Place of death
-        if self.item.claims.get("P20"):
-            claims = filter_claims_by_rank(self.item.claims["P20"])
-            for claim in claims:
-                target = claim.getTarget()
-                if not target:
-                    continue
-                place_qid = target.id
-                country_qid = self.tracker.get_country_qid(place_qid)
-                if not country_qid:
-                    result = lookup_country_qid(place_qid)
-                    if result:
-                        country_qid, place_label, country_label = result
-                        self.tracker.set_country_qid(
-                            place_qid, place_label, country_qid, country_label
-                        )
-                if not country_qid:
-                    raise RuntimeError(
-                        f"Country QID not found for place of death claim in self.item {self.item.id}"
-                    )
-                self.death_country_qids.add(country_qid)
-                self.country_qids.add(country_qid)
+        # # Place of death
+        # if self.item.claims.get("P20"):
+        #     claims = filter_claims_by_rank(self.item.claims["P20"])
+        #     for claim in claims:
+        #         target = claim.getTarget()
+        #         if not target:
+        #             continue
+        #         place_qid = target.id
+        #         country_qid = self.tracker.get_country_qid(place_qid)
+        #         if not country_qid:
+        #             result = lookup_country_qid(place_qid)
+        #             if result:
+        #                 country_qid, place_label, country_label = result
+        #                 self.tracker.set_country_qid(
+        #                     place_qid, place_label, country_qid, country_label
+        #                 )
+        #         if not country_qid:
+        #             raise RuntimeError(
+        #                 f"Country QID not found for place of death claim in self.item {self.item.id}"
+        #             )
+        #         self.death_country_qids.add(country_qid)
+        #         self.country_qids.add(country_qid)
 
-        # Country of citizenship
-        if self.item.claims.get("P27"):
-            claims = filter_claims_by_rank(self.item.claims["P27"])
-            for claim in claims:
-                country_qid = claim.getTarget().id
-                if not country_qid:
-                    raise RuntimeError(
-                        f"Country QID not found for citizenship claim in self.item {self.item.id}"
-                    )
-                self.country_qids.add(country_qid)
+        # # Country of citizenship
+        # if self.item.claims.get("P27"):
+        #     claims = filter_claims_by_rank(self.item.claims["P27"])
+        #     for claim in claims:
+        #         country_qid = claim.getTarget().id
+        #         if not country_qid:
+        #             raise RuntimeError(
+        #                 f"Country QID not found for citizenship claim in self.item {self.item.id}"
+        #             )
+        #         self.country_qids.add(country_qid)
 
-        self.sorted_countries = self.get_weighted_countries()
-        self.sorted_languages = self.get_weighted_languages()
+        # self.locale.sorted_countries = self.get_weighted_countries()
+        # self.locale.sorted_languages = self.get_weighted_languages()
         self.sitekey = self.get_preferred_sitekey()
         if not self.sitekey:
             raise RuntimeError("No most relevant Wikipedia page")
@@ -446,27 +444,33 @@ class PersonLocale:
             if self.language != "en":
                 raise RuntimeError(f"No month_map for language {self.language}")
 
-        if self.sorted_countries:
-            self.country = self.sorted_countries[0]
-        else:
+        self.country = self.locale.get_country()
+        if not self.country:
             country_code = self.lang_config.fallback_countrycode
             if not country_code:
                 raise RuntimeError(
                     f"Language {self.language} has no fallback_countrycode"
                 )
-            info = self.tracker.ensure_country_info(code=country_code)
-            qid, code, desc = info
-            self.country = qid
+            info = self.country_lookup.get_country_by_code(country_code)
+            if not info:
+                raise RuntimeError(
+                    f"Country code {country_code} not found in database for language {self.language}"
+                )
+            country_qid, country_code, country_label = info
+            self.country = country_qid
 
-        self.country_config = tde.CountryConfig(
-            self.country, load_template_config("countries.yaml")
+        self.date_service = DateCalendarService(
+            country_qid=self.country, country_lookup=self.country_lookup
         )
-        if not self.country_config.first_gregorian_date:
-            ensure_qid_in_yaml(
-                qid=self.country, filename="countries.yaml", tracker=self.tracker
-            )
-        if not self.country_config.first_gregorian_date:
-            raise RuntimeError(f"No first_gregorian_date for {self.country}")
+        # CountryConfig(
+        #     self.country, load_template_config("countries.yaml")
+        # )
+        # if not self.date_service.first_gregorian_date:
+        #     ensure_qid_in_yaml(
+        #         qid=self.country, filename="countries.yaml", tracker=self.tracker
+        #     )
+        # if not self.date_service.first_gregorian_date:
+        #     raise RuntimeError(f"No first_gregorian_date for {self.country}")
         self.wikipedia_qid = self.tracker.get_wikipedia_qid(self.language)
         if not self.wikipedia_qid:
             raise RuntimeError(f"No qid for language {self.language}")
@@ -487,64 +491,67 @@ class PersonLocale:
             sitekey = next(iter(usable_sitelinks.keys()))
             return sitekey
 
-        for lang in self.sorted_languages:
+        for lang in self.locale.get_languages():
             sitekey = f"{lang}wiki"
             if sitekey in usable_sitelinks:
                 return sitekey
 
         # Tracker returns a list of wikis sorted by active users
-        for lang in self.tracker.get_sorted_languages():
-            sitekey = f"{lang}wiki"
-            if sitekey in usable_sitelinks:
-                return sitekey
+        if self.language_lookup:
+            languages = self.language_lookup.get_sorted_languages()
+            if languages:
+                for lang in languages:
+                    sitekey = f"{lang}wiki"
+                    if sitekey in usable_sitelinks:
+                        return sitekey
 
         return None
 
-    def get_weighted_countries(self):
-        weights = {
-            3: self.birth_country_qids,
-            2: self.death_country_qids,
-            1: self.country_qids,
-        }
+    # def get_weighted_countries(self):
+    #     weights = {
+    #         3: self.birth_country_qids,
+    #         2: self.death_country_qids,
+    #         1: self.country_qids,
+    #     }
 
-        country_scores = defaultdict(int)
+    #     country_scores = defaultdict(int)
 
-        for weight, qid_set in weights.items():
-            for country_qid in qid_set:
-                country_scores[country_qid] += weight
+    #     for weight, qid_set in weights.items():
+    #         for country_qid in qid_set:
+    #             country_scores[country_qid] += weight
 
-        # Sort by score descending and return only the QIDs
-        sorted_country_qids = [
-            qid for qid, _ in sorted(country_scores.items(), key=lambda x: -x[1])
-        ]
-        return sorted_country_qids
+    #     # Sort by score descending and return only the QIDs
+    #     sorted_country_qids = [
+    #         qid for qid, _ in sorted(country_scores.items(), key=lambda x: -x[1])
+    #     ]
+    #     return sorted_country_qids
 
-    def get_weighted_languages(self):
-        weights = {
-            3: self.birth_country_qids,
-            2: self.death_country_qids,
-            1: self.country_qids,
-        }
+    # def get_weighted_languages(self):
+    #     weights = {
+    #         3: self.birth_country_qids,
+    #         2: self.death_country_qids,
+    #         1: self.country_qids,
+    #     }
 
-        language_scores = defaultdict(int)
+    #     language_scores = defaultdict(int)
 
-        for weight, qid_set in weights.items():
-            for country_qid in qid_set:
-                langs = self.tracker.get_languages_for_country(country_qid)
-                if not langs:
-                    self.tracker.ensure_country_info(qid=country_qid)
+    #     for weight, qid_set in weights.items():
+    #         for country_qid in qid_set:
+    #             langs = self.tracker.get_languages_for_country(country_qid)
+    #             if not langs:
+    #                 self.tracker.ensure_country_info(qid=country_qid)
 
-                    raise RuntimeError(
-                        f"No languages found for country QID {country_qid} in item {self.item.id}"
-                    )
-                for lang_qid in langs:
-                    language_scores[lang_qid] += weight
+    #                 raise RuntimeError(
+    #                     f"No languages found for country QID {country_qid} in item {self.item.id}"
+    #                 )
+    #             for lang_qid in langs:
+    #                 language_scores[lang_qid] += weight
 
-        # Sort by score descending
-        sorted_language_qids = [
-            lang for lang, _ in sorted(language_scores.items(), key=lambda x: -x[1])
-        ]
-        return sorted_language_qids
+    #     # Sort by score descending
+    #     sorted_language_qids = [
+    #         lang for lang, _ in sorted(language_scores.items(), key=lambda x: -x[1])
+    #     ]
+    #     return sorted_language_qids
 
 
 def walk_templates(wikicode, parent=None, graph=None):
@@ -597,7 +604,7 @@ class EntityDateReconciler:
 
             for tpl_cfg in self.locale.lang_config.template_map[name]:
                 extractor = tde.TemplateDateExtractor(
-                    tpl_cfg, child, self.locale.lang_config, self.locale.country_config
+                    tpl_cfg, child, self.locale.lang_config, self.locale.date_service
                 )
                 for typ, wbt in extractor.get_all_dates():
                     if typ == "birth":
@@ -697,16 +704,20 @@ class EntityDateReconciler:
         if not self.locale.wikipedia_qid:
             raise RuntimeError(f"No qid for language {self.locale.language}")
 
-        return cwd.WikipediaReference(self.locale.wikipedia_qid)
+        return cwd.WikipediaReference(self.locale.wikipedia_qid, self.permalink)
 
     def reconcile_sitelink_dates(self):
         if not self.sitelink:
             raise RuntimeError("No sitelink")
-        wikitext = fetch_page(self.sitelink.site, self.sitelink.title)
+        page = pwb.Page(self.sitelink.site, self.sitelink.title)
+        if not page.exists():
+            raise RuntimeError("Page does not exists")
+        wikitext = page.text
         if not wikitext:
             raise RuntimeError("Wikipedia content not found")
         if wikitext.lstrip().upper().startswith("#REDIRECT"):
             raise RuntimeError("Page is a redirect")
+        self.permalink = page.permalink(percent_encoded=False, with_protocol=True)
         self.wikicode = mwparserfromhell.parse(wikitext)
 
         wikipedia_dates = self.extract_distinct_dates()
@@ -1021,6 +1032,9 @@ def extract_lead_sentence(wikitext: str) -> str:
 
 def reconcile_dates(
     item: pwb.ItemPage,
+    country_lookup: CountryLookupInterface,
+    place_lookup: PlaceLookupInterface,
+    language_lookup: LanguageLookupInterface,
     tracker: WikidataStatusTracker,
     check_already_done: bool = True,
     locale: Optional[PersonLocale] = None,
@@ -1039,14 +1053,16 @@ def reconcile_dates(
             return
 
     try:
-        print(f"--{item.id}--")
+        print(f"-- {item.id} --")
         page = cwd.WikiDataPage(item, test=test)
 
         if not item.sitelinks:
             tracker.mark_done(item.id, None, "no sitelinks")
             return
         if not locale:
-            locale = PersonLocale(item, tracker)
+            locale = PersonLocale(
+                item, country_lookup, place_lookup, language_lookup, tracker
+            )
             locale.load()
             lang = locale.sitekey
 
