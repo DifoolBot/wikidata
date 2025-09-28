@@ -55,6 +55,19 @@ class DBCache(
     def set_place(self, place_qid: str, country_qid: str, place_label: str) -> None:
         if not place_qid:
             raise RuntimeError("No place qid")
+
+        data = self.get_place_by_qid(place_qid)
+        if data:
+            # because of an error, the data in the database might not have a country_qid
+            if not country_qid:
+                return
+            data_place_qid, data_country_qid, data_place_label = data
+            if data_country_qid:
+                return
+            sql = "UPDATE places SET country_qid=? WHERE place_qid=?"
+            self.execute_procedure(sql, (country_qid, place_qid))
+            return
+
         sql = (
             "INSERT INTO places (place_qid, country_qid, place_label) VALUES (?, ?, ?)"
         )

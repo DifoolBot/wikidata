@@ -20,7 +20,9 @@ class CachedPlaceLookup(PlaceLookupInterface):
     def get_place_by_qid(self, place_qid: str) -> Optional[tuple[str, str, str]]:
         result = self.cache.get_place_by_qid(place_qid)
         if result:
-            return result
+            place_qid, country_qid, place_label = result
+            if country_qid:
+                return result
         result = self.source.get_place_by_qid(place_qid)
         if result:
             place_qid, country_qid, place_label = result

@@ -714,11 +714,11 @@ class EntityDateReconciler:
         page = pwb.Page(self.sitelink.site, self.sitelink.title)
         if not page.exists():
             raise RuntimeError("Page does not exists")
+        if page.isRedirectPage():
+            raise RuntimeError("Page is a redirect")
         wikitext = page.text
         if not wikitext:
             raise RuntimeError("Wikipedia content not found")
-        if wikitext.lstrip().upper().startswith("#REDIRECT"):
-            raise RuntimeError("Page is a redirect")
         self.permalink = page.permalink(percent_encoded=False, with_protocol=True)
         self.wikicode = mwparserfromhell.parse(wikitext)
 
