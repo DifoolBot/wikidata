@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Type
 import genealogics.genealogics_date as gd
 import genealogics.genealogics_org_parser as gap
 import genealogics.nameparser as np
-import genealogics.prefix_suffix_utils as psu
+from genealogics.prefix_suffix_utils import get_prefix_suffix_lookup as prefix_suffix_lookup
 import genealogics.rules as rules
 import genealogics.titles as titles
 import genealogics.wikitree_parser as wtp
@@ -139,7 +139,7 @@ class WikidataUpdater:
         self, field: rules.Field, source: rules.Source, value: str
     ) -> list[cwd.Statement]:
         result = []
-        arr = psu.analyze_prefix(value, include_full=True)
+        arr = prefix_suffix_lookup().analyze_prefix(value, include_full=True)
         for item in arr:
             cls, qid = item
             result.append(cls(qid=qid))
@@ -149,7 +149,7 @@ class WikidataUpdater:
         self, field: rules.Field, source: rules.Source, value: str
     ) -> list[cwd.Statement]:
         result = []
-        arr = psu.analyze_suffix(value)
+        arr = prefix_suffix_lookup().analyze_suffix(value)
         for item in arr:
             cls, qid = item
             result.append(cls(qid=qid))
@@ -536,7 +536,7 @@ class WikidataUpdater:
                         if same_name(depr_name, current_label):
                             return True
 
-            names = np.NameParser(current_label, psu.get_prefixes(), psu.get_suffixes())
+            names = np.NameParser(current_label, prefix_suffix_lookup().get_prefixes(), prefix_suffix_lookup().get_suffixes())
             if names.extracted_prefixes or names.extracted_suffixes:
                 return True
 
