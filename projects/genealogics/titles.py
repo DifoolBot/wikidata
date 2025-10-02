@@ -18,17 +18,15 @@ TITLE_ENTRIES = [
         "error_if_number": True,
     },
     {"variants": ["Heer"], "error_if_number": True},
-]
-
-TITLE_STRINGS = [
-    "Baronet",
-    "Duchess",
-    # Add more as needed
+    {
+        "variants": ["Baronet"],
+        "noble_title": wd.QID_BARONET,
+    },
 ]
 
 
 def parse_title_text(text: str):
-    pattern = r"(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)\s*(?:of\s+(.+))?"
+    pattern = r"^(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)\s*(?:of\s+(.+))?$"
     match = re.match(pattern, text)
     if match:
         number = match.group(1)  # May be None
@@ -61,6 +59,9 @@ def analyze_title(place_lookup: PlaceLookupInterface, text: str, lived_in: str):
         occupation = entry.get("occupation")
         if occupation:
             result.append(cwd.Occupation(qid=occupation))
+        noble_title = entry.get("noble_title")
+        if noble_title:
+            result.append(cwd.NobleTitle(qid=noble_title))
         place_class = entry.get("place_class")
         if place_class and place:
             if lived_in:

@@ -87,10 +87,41 @@ class NameBuilder:
         self.title = None
         self._build()
 
-    def _get_base_name(self, last_name, include_suffix: bool = False):
+    def _get_base_name(
+        self, last_name, first_mode: str = "short", include_suffix: bool = False
+    ):
         first = self.profile.get("FirstName") or ""
+        real = self.profile.get("RealName") or ""
         middle = self.profile.get("MiddleName") or ""
         middle_initial = self.profile.get("MiddleInitial") or ""
+
+        # See: https://www.wikitree.com/wiki/Help:Name_Fields
+        # See: https://www.wikitree.com/wiki/Help:Name_Displays
+
+        # Preferred First Name = RealName
+        # Formal First Name = FirstName
+
+        # Short Name [Preferred First Name] ([Last Name at Birth]) [Current Last Name] [Suffix]
+        # Long Name: [Formal First Name] [Middle Name] ([Last Name at Birth]) [Current Last Name] [Suffix]
+        # used rarely
+        # Long Name - Private: [Preferred First Name] [Middle Initial] ([Last Name at Birth]) [Current Last Name] [Suffix]
+        if first == real:
+            real = ""
+        if first and real:
+            # for example; first = William; real = William S.
+            # raise RuntimeError(f"Both FirstName and RealName present: {first}, {real}")
+            pass
+        if not first and real:
+            raise RuntimeError(f"No FirstName but RealName: {real}")
+        # if real and middle:
+        #     raise RuntimeError(
+        #         f"Both RealName and MiddleName present: {real}, {middle}"
+        #     )
+        # if real and middle_initial:
+        #     raise RuntimeError(
+        #         f"Both RealName and MiddleInitial present: {real}, {middle_initial}"
+        #     )
+
         # Check for commas in used values (except LastNameOther)
         for val, label in [
             (first, "FirstName"),
@@ -100,11 +131,30 @@ class NameBuilder:
         ]:
             if label != "LastNameOther" and "," in val:
                 raise RuntimeError(f"Comma found in {label}: {val}")
-        parts = [first]
-        if middle:
-            parts.append(middle)
-        elif middle_initial:
-            parts.append(middle_initial)
+
+        parts = []
+        if first_mode == "short":
+            if real:
+                parts.append(real)
+            elif first:
+                parts.append(first)
+        elif first_mode == "long":
+            if first:
+                parts.append(first)
+            elif real:
+                parts.append(real)
+            if middle:
+                parts.append(middle)
+            elif middle_initial:
+                parts.append(middle_initial)
+        elif first_mode == "nickname":
+            nicknames = self.profile.get("FirstName") or ""
+            nicknames = self.normalize_initials(nicknames)
+            if nicknames:
+                parts.append(nicknames)
+        else:
+            raise RuntimeError(f"Unknown first_mode: {first_mode}")
+
         parts.append(last_name)
         name = " ".join(p for p in parts if p).strip()
         if include_suffix:
@@ -153,6 +203,40 @@ class NameBuilder:
         elif suffix not in not_allowed_suffixes:
             raise RuntimeError(f"Unexpected suffix: {suffix}")
 
+    def normalize_initials(self, text: str) -> str:
+        # Normalize acronyms by ensuring proper spacing and periods
+        # allowed: JRR and J. R. R.
+        if not text:
+            return ""
+        if self.is_initials(text):
+            parts = text.replace(".", ". ").split()
+            normalized_parts = []
+            for part in parts:
+                if len(part) > 1 and all(c.isupper() or c == "." for c in part):
+                    # Add periods between letters if missing
+                    letters = [c for c in part if c.isalpha()]
+                    normalized_part = ". ".join(letters) + "."
+                    normalized_parts.append(normalized_part)
+                else:
+                    normalized_parts.append(part)
+            return " ".join(normalized_parts).strip()
+        return text.strip()
+
+    def is_initials(self, text: str) -> bool:
+        # Check if text is an acronym (e.g., "J.R.R." or "J. R. R.")
+        # split after dots and spaces
+
+        # Check for JRR -> raise error so we can check it
+        if len(text) > 1 and all(c.isupper() for c in text):
+            raise RuntimeError(f"Unexpected acronym {text}")
+
+        parts = text.replace(".", ". ").split()
+        for part in parts:
+            if len(part) > 1 and all(c.isupper() or c == "." for c in part):
+                continue
+            return False
+        return True
+
     def _build(self):
         p = self.profile
         nicknames = p.get("Nicknames")
@@ -164,11 +248,15 @@ class NameBuilder:
         last_name_other = p.get("LastNameOther") or ""
         prefix = p.get("Prefix") or ""
         suffix = p.get("Suffix") or ""
+        has_initials_nickname = False
 
         if nicknames:
-            self.title = titles.extract_title(nicknames)
-            if not self.title:
-                raise RuntimeError(f"Unexpected nickname format: {nicknames}")
+            if self.is_initials(nicknames):
+                has_initials_nickname = True
+            else:
+                self.title = titles.extract_title(nicknames)
+                if not self.title:
+                    raise RuntimeError(f"Unexpected nickname format: {nicknames}")
 
         # Display name: for female, use married name if present, else birth name
         if (
@@ -178,19 +266,28 @@ class NameBuilder:
             and last_name_current != last_name_at_birth
         ):
             self.display_name = self._get_base_name(
-                last_name_current, include_suffix=True
+                last_name_current, first_mode="long", include_suffix=True
             )
             self.bare_display_name = self._get_base_name(
-                last_name_current, include_suffix=False
+                last_name_current, first_mode="long", include_suffix=False
             )
-            alias = self._get_base_name(last_name_at_birth)
+            if has_initials_nickname:
+                alias = self._get_base_name(
+                    last_name_current, first_mode="nickname", include_suffix=True
+                )
+                self.add_alias(alias)
+            alias = self._get_base_name(last_name_at_birth, first_mode="long")
             self.add_alias(alias)
         else:
             self.display_name = self._get_base_name(
-                last_name_current or last_name_at_birth, include_suffix=True
+                last_name_current or last_name_at_birth,
+                first_mode="long",
+                include_suffix=True,
             )
             self.bare_display_name = self._get_base_name(
-                last_name_current or last_name_at_birth, include_suffix=False
+                last_name_current or last_name_at_birth,
+                first_mode="long",
+                include_suffix=False,
             )
 
         # Aliases from LastNameOther (comma separated, preserve order)
@@ -198,7 +295,8 @@ class NameBuilder:
             for alt_last in [
                 n.strip() for n in last_name_other.split(",") if n.strip()
             ]:
-                alias = self._get_base_name(alt_last)
+                # suffix?
+                alias = self._get_base_name(alt_last, first_mode="long")
                 self.add_alias(alias)
 
         # Deprecated names: display_name with prefix, suffix, or both
@@ -250,7 +348,7 @@ def get_fields() -> str:
     return ",".join(
         [
             "IsPerson",  # 1 for Person profiles
-            "FirstName",
+            "FirstName",  # name(s) at birth
             "MiddleName",
             "MiddleInitial",
             "LastNameAtBirth",
@@ -259,7 +357,7 @@ def get_fields() -> str:
             "Nicknames",  # 4th Baronet Musgrave of Eden Hall, Duchess of Lancaster
             # comma separated list
             "LastNameOther",  # de Roet, Ruet, Rueth, Roelt, Swynford
-            "RealName",  # The "Preferred" first name of the profile
+            "RealName",  # The "Preferred" first name of the profile; current name
             "Prefix",  # Lieutenant, Sir
             "Suffix",  # MP
             "ColloquialName",
@@ -273,6 +371,11 @@ def get_fields() -> str:
             "IsLiving",  # 1 if the person is considered "living", 0 otherwise
             "DataStatus",
             "Templates",
+            "Derived.ShortName",
+            "Derived.BirthName",
+            "Derived.BirthNamePrivate",
+            "Derived.LongName",
+            "Derived.LongNamePrivate",
         ]
     )
 
@@ -357,9 +460,6 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         else:
             death_date = date_value
 
-    first_name = profile.get("FirstName")
-    real_name = profile.get("RealName")
-
     is_date_guess = False
     findagrave_ids = set()
     for template in profile.get("Templates", []):
@@ -385,6 +485,8 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
         if template_name == "DateGuess":
             is_date_guess = True
     if len(findagrave_ids) > 1:
+        for id in findagrave_ids:
+            print("Found FindAGrave ID:", id)
         raise RuntimeError("Multiple FindAGrave IDs found, unexpected")
     if len(findagrave_ids) > 0:
         findagrave_id = next(iter(findagrave_ids))
@@ -472,8 +574,8 @@ def fetch_wikitree_profiles(wt_id: str, use_cache: bool = True):
 
 
 # Example:
-def test(wt_id: str):
-    profile_data = fetch_wikitree_profiles(wt_id, use_cache=True)
+def test(wt_id: str, use_cache: bool = True):
+    profile_data = fetch_wikitree_profiles(wt_id, use_cache=use_cache)
     pprint(profile_data, sort_dicts=False)
 
 
@@ -490,4 +592,5 @@ if __name__ == "__main__":
     # test("Hutton-1476")  # prefix = sir, suffix = MP
     # test("Musgrave-741")  # prefix = sir, suffix = MP; nicknames
     # test("Roet-3")
-    test("Roet-18")  # realname
+    # test("Huntsman-89", use_cache=True)  # realname
+    test("Peters-20746", use_cache=True)  # realname
