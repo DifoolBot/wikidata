@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional, cast
 
 import genealogics.nameparser as np
-import genealogics.prefix_suffix_utils as psu
+from genealogics.prefix_suffix_utils import get_prefix_suffix_lookup as prefix_suffix_lookup
 import requests
 from bs4 import BeautifulSoup, Tag
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
@@ -324,7 +324,7 @@ def fetch_genealogics(p1819_id: str, use_cache: bool = True):
         raise RuntimeError("Unexpected name parts length")
     depr_names = []
     depr_descs = []
-    names = np.NameParser(name_parts[0], psu.get_prefixes(), psu.get_suffixes())
+    names = np.NameParser(name_parts[0], prefix_suffix_lookup.get_prefixes(), prefix_suffix_lookup.get_suffixes())
     depr_names.append(name_parts[0])
     if len(name_parts) == 2:
         title = name_parts[1]
