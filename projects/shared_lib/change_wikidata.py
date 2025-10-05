@@ -1067,13 +1067,13 @@ class ItemStatement(Statement):
         # PID_END_TIME
         self.end_date = end_date
         # PID_SUBJECT_NAMED_AS
-        self.subject_named_as = None
+        self.subject_named_as: Optional[str] = None
         # PID_VOLUME
-        self.volume = None
+        self.volume: Optional[str] = None
         # PID_PAGES
-        self.pages = None
+        self.pages: Optional[str] = None
         # PID_URL
-        self.url = None
+        self.url: Optional[str] = None
 
     def __repr__(self):
         attributes = [

@@ -5,7 +5,9 @@ from typing import List, Optional, Tuple, Type
 import genealogics.genealogics_date as gd
 import genealogics.genealogics_org_parser as gap
 import genealogics.nameparser as np
-from genealogics.prefix_suffix_utils import get_prefix_suffix_lookup as prefix_suffix_lookup
+from genealogics.prefix_suffix_utils import (
+    get_prefix_suffix_lookup as prefix_suffix_lookup,
+)
 import genealogics.rules as rules
 import genealogics.titles as titles
 import genealogics.wikitree_parser as wtp
@@ -536,7 +538,11 @@ class WikidataUpdater:
                         if same_name(depr_name, current_label):
                             return True
 
-            names = np.NameParser(current_label, prefix_suffix_lookup().get_prefixes(), prefix_suffix_lookup().get_suffixes())
+            names = np.NameParser(
+                current_label,
+                prefix_suffix_lookup().get_prefixes(),
+                prefix_suffix_lookup().get_suffixes(),
+            )
             if names.extracted_prefixes or names.extracted_suffixes:
                 return True
 
@@ -644,6 +650,7 @@ class WikidataUpdater:
             wd.PID_PRABOOK_ID,
             wd.PID_SAR_ANCESTOR_ID,
             wd.PID_FREEBASE_ID,
+            wd.PID_KINDRED_BRITAIN_ID,
         }
         self.more_ids_case = len(self.ids) > 2 or (
             self.ids - {wd.PID_WIKITREE_PERSON_ID, wd.PID_GENEALOGICS_ORG_PERSON_ID}

@@ -19,6 +19,7 @@ class DBCache(
         file_path = Path(__file__).parent / "wd_cache.json"
         create_script = Path("schemas/wikidata_cache.sql")
         super().__init__(file_path, create_script)
+        self.ask = True
 
     def get_place_by_qid(self, qid: str) -> Optional[Tuple[str, str, str]]:
         sql = "SELECT FIRST 1 place_qid, country_qid, place_label FROM places WHERE place_qid=?"
@@ -49,7 +50,15 @@ class DBCache(
         self.execute_procedure(sql, (normalized, normalized))
         sql = "SELECT FIRST 1 place_qid FROM place_external_descriptions WHERE UPPER(external_text)=UPPER(?) AND NOT has_error"
         for row in self.execute_query(sql, (normalized,)):
-            return row[0]
+            qid = row[0]
+            if qid and qid.startswith("Q"):
+                return qid
+        if self.ask:
+            qid = input("Enter qid for place description: " + desc + ": ")
+            if qid and qid.startswith("Q"):
+                sql = "UPDATE place_external_descriptions SET place_qid=? WHERE UPPER(external_text)=UPPER(?)"
+                self.execute_procedure(sql, (qid, normalized))
+                return qid
         return None
 
     def set_place(self, place_qid: str, country_qid: str, place_label: str) -> None:

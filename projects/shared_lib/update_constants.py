@@ -8,21 +8,22 @@ CONST_PATH = CONST_DIR / CONST_FILENAME
 
 def get_info_for_qid(qid: str):
     query = f"""
-            SELECT ?itemLabel ?itemDescription ?instanceLabel ?instanceDescription WHERE {{
-            VALUES ?item {{ wd:{qid} }}
+    SELECT ?itemLabel ?itemDescription ?relatedLabel ?relatedDescription WHERE {{
+                VALUES ?item {{ wd:{qid} }}
+                VALUES ?property {{ wdt:P31 wdt:P279 }}
 
-            ?item wdt:P31 ?instance .
-
-            SERVICE wikibase:label {{
-                bd:serviceParam wikibase:language "en".
-                ?item rdfs:label ?itemLabel .
-                ?item schema:description ?itemDescription .
-                ?instance rdfs:label ?instanceLabel .
-                ?instance schema:description ?instanceDescription .
-            }}
-            }}
-            LIMIT 1
-        """
+                ?item ?property ?related .
+    
+                SERVICE wikibase:label {{
+                    bd:serviceParam wikibase:language "en".
+                    ?item rdfs:label ?itemLabel .
+                    ?item schema:description ?itemDescription .
+                    ?related rdfs:label ?relatedLabel .
+                    ?related schema:description ?relatedDescription .
+                }}
+                }}
+                LIMIT 1
+    """
 
     query_object = sparql.SparqlQuery()
     payload = query_object.query(query=query)
@@ -30,9 +31,9 @@ def get_info_for_qid(qid: str):
         for row in payload["results"]["bindings"]:
             item_label = row["itemLabel"]["value"]
             item_description = row["itemDescription"]["value"]
-            instance_label = row["instanceLabel"]["value"]
-            instance_description = row["instanceDescription"]["value"]
-            return (item_label, item_description, instance_label, instance_description)
+            related_label = row["relatedLabel"]["value"]
+            related_description = row["relatedDescription"]["value"]
+            return (item_label, item_description, related_label, related_description)
     return None
 
 
@@ -181,8 +182,11 @@ def add_constant_to_file(section: str, new_line: str):
 
 
 def ask():
-    entity_id = input("Enter a string: ")
-    work(entity_id)
+    while True:
+        entity_id = input("Enter a string: ")
+        if not entity_id:
+            break
+        work(entity_id)
 
 
 def work(entity_id: str):
