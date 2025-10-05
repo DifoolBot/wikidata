@@ -7,7 +7,9 @@ from typing import Optional, Set
 import requests
 from genealogics.genealogics_date import DateModifier, GenealogicsDate
 from genealogics.rules import Field
-from genealogics.prefix_suffix_utils import get_prefix_suffix_lookup as prefix_suffix_lookup
+from genealogics.prefix_suffix_utils import (
+    get_prefix_suffix_lookup as prefix_suffix_lookup,
+)
 
 from shared_lib.rate_limiter import rate_limit
 import genealogics.titles as titles
@@ -302,8 +304,9 @@ class NameBuilder:
         # Deprecated names: display_name with prefix, suffix, or both
         if "," in prefix:
             raise RuntimeError(f"Comma found in Prefix: {prefix}")
-        if "," in suffix:
-            raise RuntimeError(f"Comma found in Suffix: {suffix}")
+        # for example sequences like AO, CMG
+        # if "," in suffix:
+        #     raise RuntimeError(f"Comma found in Suffix: {suffix}")
 
         # Build prefix and suffix variants
         prefix_variants = self.get_prefix_suffix_variants(prefix)

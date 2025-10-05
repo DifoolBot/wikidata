@@ -24,7 +24,9 @@ qid_dict = {
     "QID_BARON": wd.QID_BARON,
     "QID_BARONET": wd.QID_BARONET,
     "QID_COMMANDER_OF_THE_ORDER_OF_THE_BRITISH_EMPIRE": wd.QID_COMMANDER_OF_THE_ORDER_OF_THE_BRITISH_EMPIRE,
+    "QID_COMPANION_OF_HONOUR": wd.QID_COMPANION_OF_HONOUR,
     "QID_COMPANION_OF_THE_ORDER_OF_ST_MICHAEL_AND_ST_GEORGE": wd.QID_COMPANION_OF_THE_ORDER_OF_ST_MICHAEL_AND_ST_GEORGE,
+    "QID_COMPANION_OF_THE_ORDER_OF_THE_BATH": wd.QID_COMPANION_OF_THE_ORDER_OF_THE_BATH,
     "QID_COUNT": wd.QID_COUNT,
     "QID_DOCTOR_OF_DIVINITY": wd.QID_DOCTOR_OF_DIVINITY,
     "QID_DOCTOR_OF_MEDICINE": wd.QID_DOCTOR_OF_MEDICINE,
@@ -78,7 +80,7 @@ class PrefixSuffixLookup:
 
     def _analyze_affix(
         self, affix: str, include_full: bool = False, affix_type: str = "prefix"
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[type[cwd.ItemStatement], str]]:
         """
         Generalized method for analyzing prefix or suffix.
         """
@@ -96,38 +98,51 @@ class PrefixSuffixLookup:
             entry = variant_lookup.get(affix)
         if not entry:
             raise ValueError(f"Unknown {affix_type}: {affix}")
-        is_affix = entry.get(affix_type, False)
-        if not is_affix:
-            raise ValueError(f"Not a {affix_type}: {affix}")
 
         result = []
         # Handle sequence recursively
         if "sequence" in entry:
             for sub in entry["sequence"]:
-                result.extend(self._analyze_affix(sub, include_full=True, affix_type=affix_type))
+                result.extend(
+                    self._analyze_affix(sub, include_full=True, affix_type=affix_type)
+                )
         elif "statements" in entry:
             for statement in entry["statements"]:
-                clss = statement.get("class")
-                qid = statement.get("qid")
-                if clss and qid:
-                    result.append((clss, qid))
+                class_str = statement.get("class")
+                qid_str = statement.get("qid")
+                if class_str and qid_str:
+                    class_obj = class_dict.get(class_str)
+                    if not class_obj:
+                        raise ValueError(f"Unknown class: {class_str}")
+                    qid = qid_dict.get(qid_str)
+                    if not qid:
+                        raise ValueError(f"Unknown QID: {qid_str}")
+                    result.append((class_obj, qid))
         return result
 
-    def analyze_prefix(self, prefix: str, include_full: bool = False) -> list[tuple[str, str]]:
+    def analyze_prefix(
+        self, prefix: str, include_full: bool = False
+    ) -> list[tuple[type[cwd.ItemStatement], str]]:
         """
         Given a prefix string, return a list of (class, qid) if mapped, or an empty list if not mapped.
         Handles compound prefixes recursively.
         Raises ValueError if prefix is unknown.
         """
-        return self._analyze_affix(prefix, include_full=include_full, affix_type="prefix")
+        return self._analyze_affix(
+            prefix, include_full=include_full, affix_type="prefix"
+        )
 
-    def analyze_suffix(self, suffix: str, include_full: bool = False) -> list[tuple[str, str]]:
+    def analyze_suffix(
+        self, suffix: str, include_full: bool = False
+    ) -> list[tuple[type[cwd.ItemStatement], str]]:
         """
         Given a suffix string, return a list of (class, qid) if mapped, or an empty list if not mapped.
         Handles compound suffixes recursively.
         Raises ValueError if suffix is unknown.
         """
-        return self._analyze_affix(suffix, include_full=include_full, affix_type="suffix")
+        return self._analyze_affix(
+            suffix, include_full=include_full, affix_type="suffix"
+        )
 
     def get_prefixes(self):
         """
@@ -143,7 +158,9 @@ class PrefixSuffixLookup:
         variants = set(self._suffix_variant_lookup.keys())
         return sorted(variants)
 
-    def get_allowed_suffix(self, suffix: str, include_full: bool = False) -> Optional[str]:
+    def get_allowed_suffix(
+        self, suffix: str, include_full: bool = False
+    ) -> Optional[str]:
         """
         Given a suffix string, return the allowed normalized suffix if known.
         Checks both variant and full lookups for suffix entries.
@@ -156,10 +173,11 @@ class PrefixSuffixLookup:
         if entry and "allowed" in entry:
             return entry["allowed"]
         return None
-    
+
 
 # Singleton/global instance for PrefixSuffixLookup
 _prefix_suffix_lookup_instance = None
+
 
 def get_prefix_suffix_lookup() -> PrefixSuffixLookup:
     """
@@ -171,9 +189,8 @@ def get_prefix_suffix_lookup() -> PrefixSuffixLookup:
         _prefix_suffix_lookup_instance = PrefixSuffixLookup()
     return _prefix_suffix_lookup_instance
 
+
 # Example usage:
 # p = get_prefix_suffix_lookup()
-print("Known prefixes:", get_prefix_suffix_lookup().get_prefixes())
-print("Known suffixes:", get_prefix_suffix_lookup().get_suffixes())
-
-
+# print("Known prefixes:", get_prefix_suffix_lookup().get_prefixes())
+# print("Known suffixes:", get_prefix_suffix_lookup().get_suffixes())
