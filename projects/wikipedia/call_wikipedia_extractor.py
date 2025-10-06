@@ -15,7 +15,7 @@ import shared_lib.constants as wd
 from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
 from shared_lib.lookups.impl.cached_country_lookup import CachedCountryLookup
 from shared_lib.lookups.impl.cached_language_lookup import CachedLanguageLookup
-from shared_lib.lookups.retrieval.db_cache import DBCache
+from lookups.retrieval.wikidata_cache import WikidataCache
 from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
 
 PAGE_TITLE = "User:Difool/date_mismatches"
@@ -356,7 +356,7 @@ def get_country_languages(country_qid: str):
 
 class Lookups:
     def __init__(self):
-        db = DBCache()
+        db = WikidataCache()
         wc = WikidataClient()
         self.country_lookup = CachedCountryLookup(cache=db, source=wc)
         self.place_lookup = CachedPlaceLookup(
@@ -430,7 +430,7 @@ def do_sandbox2(qid: str):
         tracker,
         check_already_done=False,
         locale=locale,
-        test=True,
+        test=False,
     )
 
 
@@ -517,13 +517,16 @@ def generate_report():
 
 
 def main():
-    todo(test=True)
+    # todo(test=False)
     # query_loop()
     # fill()
     # calc()
-    # do_sandbox2("Q18747311")
-    # do_item("Q3071923")
+    # do_sandbox2("Q1504843")
+    do_item("Q7273838")
     # generate_report()
+
+    # lookups = Lookups()
+    # print(lookups.place_lookup.get_place_by_qid("Q3931"))
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from shared_lib.lookups.interfaces.place_lookup_interface import (
 )
 
 
-class DBCache(
+class WikidataCache(
     DatabaseHandler,
     PlaceLookupInterface,
     CountryLookupInterface,

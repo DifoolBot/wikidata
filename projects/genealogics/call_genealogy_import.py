@@ -1,18 +1,16 @@
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import pywikibot as pwb
 from genealogics.genealogy_import import (
     GenealogicsStatusTracker,
     update_wikidata_from_sources,
 )
-from pywikibot.data import sparql
 from pywikibot.pagegenerators import WikidataSPARQLPageGenerator
 
 from shared_lib.database_handler import DatabaseHandler
-from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
 from shared_lib.lookups.impl.cached_country_lookup import CachedCountryLookup
-from shared_lib.lookups.retrieval.db_cache import DBCache
+from shared_lib.lookups.impl.cached_place_lookup import CachedPlaceLookup
+from lookups.retrieval.wikidata_cache import WikidataCache
 from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
 
 
@@ -43,7 +41,9 @@ class FirebirdStatusTracker(DatabaseHandler, GenealogicsStatusTracker):
         self.execute_procedure("DELETE FROM TODO WHERE qid=?", (qid,))
 
     def get_todo(self):
-        rows = self.execute_query("SELECT qid FROM todo order by id")
+        rows = self.execute_query(
+            "SELECT qid FROM todo order by cast(substring(qid from 2) as integer) desc"
+        )
         for row in rows:
             yield row[0]
 
@@ -86,11 +86,11 @@ def iterate_query():
 def query_loop():
     tracker = FirebirdStatusTracker()
     country_lookup = CachedCountryLookup(
-        cache=DBCache(),
+        cache=WikidataCache(),
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(), source=WikidataClient(), country=country_lookup
+        cache=WikidataCache(), source=WikidataClient(), country=country_lookup
     )
     for item in iterate_query():
         update_wikidata_from_sources(item, country_lookup, place_lookup, tracker)
@@ -101,11 +101,11 @@ def todo(test: bool = True, ask: bool = False):
         test = True
     tracker = FirebirdStatusTracker()
     country_lookup = CachedCountryLookup(
-        cache=DBCache(),
+        cache=WikidataCache(),
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(), source=WikidataClient(), country=country_lookup
+        cache=WikidataCache(), source=WikidataClient(), country=country_lookup
     )
     for qid in tracker.get_todo():
         item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
@@ -152,11 +152,11 @@ def todo(test: bool = True, ask: bool = False):
 def do_item(qid: str, test: bool = True):
     tracker = FirebirdStatusTracker()
     country_lookup = CachedCountryLookup(
-        cache=DBCache(),
+        cache=WikidataCache(),
         source=WikidataClient(),
     )
     place_lookup = CachedPlaceLookup(
-        cache=DBCache(), source=WikidataClient(), country=country_lookup
+        cache=WikidataCache(), source=WikidataClient(), country=country_lookup
     )
     item = pwb.ItemPage(pwb.Site("wikidata", "wikidata"), qid)
     update_wikidata_from_sources(
@@ -188,8 +188,11 @@ def main():
 
     # todo(test=False)
     todo(ask=True)
+    # todo(test=True)
 
-    # do_item("Q116469245", test=True)
+    # do_item("Q31178", test=True)
+
+    # nakijken; Q11607; Wikipedia: Jon Huntsman Jr./Jon M. Huntsman real name is not picked up
 
 
 if __name__ == "__main__":
