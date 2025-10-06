@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 # import re
-import change_wikidata as cwd
+import shared_lib.change_wikidata as cwd
 import ecartico.impl_ecartico_data as impl_ecartico_data
 import pywikibot as pwb
 import requests

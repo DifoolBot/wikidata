@@ -2354,7 +2354,7 @@ class WikiDataPage:
 
     def check_url_redirect(self, pid: Optional[str], external_id: Optional[str]):
         # ignore for now
-        if pid == wd.PID_VIAF_ID and False:
+        if pid == wd.PID_VIAF_CLUSTER_ID and False:
             url = f"https://viaf.org/viaf/{external_id}"
             headers = {"Accept": "application/json"}
             is_valid, actual_url = self.base_check_url_redirect(url, headers)

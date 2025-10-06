@@ -3,11 +3,14 @@ import re
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 
-import change_wikidata as cwd
+import shared_lib.change_wikidata as cwd
 from bs4 import BeautifulSoup, Tag
 from ecartico.interface_ecartico_data import IEcartico
+import pywikibot as pwb
+from collections import OrderedDict
 
 import shared_lib.constants as wd
+from datetime import datetime, timezone
 
 SOURCE_RKD_IMAGES = "1987"
 SOURCE_RKD_PORTRAITS = "3416"
@@ -15,6 +18,11 @@ SOURCE_RIJKSMUSEUM_AMSTERDAM = "3174"
 SOURCE_LE_DICTIONNAIRE_DES_PEINTRES_BELGES = "326"
 
 MAX_EXPECTED_LIFE_SPAN = 100
+
+SITE = pwb.Site("wikidata", "wikidata")
+SITE.login()
+SITE.get_tokens("csrf")
+REPO = SITE.data_repository()
 
 
 def _get_href(url_elem) -> str:
@@ -61,8 +69,28 @@ class EcarticoReference(cwd.Reference):
         return actual == self.id
 
     def create_source(self):
-        # todo
-        pass
+        source = OrderedDict()
+
+        stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN, is_reference=True)
+        stated_in_claim.setTarget(pwb.ItemPage(REPO, wd.QID_ECARTICO))
+
+        ecartico_claim = pwb.Claim(REPO, wd.PID_ECARTICO_PERSON_ID, is_reference=True)
+        ecartico_claim.setTarget(self.id)
+
+        today = datetime.now(timezone.utc)
+        dateCre = pwb.WbTime(
+            year=int(today.strftime("%Y")),
+            month=int(today.strftime("%m")),
+            day=int(today.strftime("%d")),
+        )
+        retr_claim = pwb.Claim(REPO, wd.PID_RETRIEVED, is_reference=True)
+        retr_claim.setTarget(dateCre)        
+
+        source[wd.PID_STATED_IN] = [stated_in_claim]
+        source[wd.PID_ECARTICO_PERSON_ID] = [ecartico_claim]
+        source[wd.PID_RETRIEVED] = [retr_claim]
+
+        return source
 
 
 class FindYear:
@@ -1661,7 +1689,47 @@ class EcarticoStructure:
 
             prefix = "https://id.rijksmuseum.nl/310"
             if url.startswith(prefix):
-                prop = "P7444"
+                prop = wd.PID_RIJKSMUSEUM_RESEARCH_LIBRARY_AUTHORITY_ID
+                external_id = url[len(prefix) :]
+                wikidata.add_statement(
+                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
+                    EcarticoReference(self.ecartico_id),
+                )
+                continue
+
+            prefix = "http://viaf.org/viaf/"
+            if url.startswith(prefix):
+                prop = wd.PID_VIAF_CLUSTER_ID
+                external_id = url[len(prefix) :]
+                wikidata.add_statement(
+                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
+                    EcarticoReference(self.ecartico_id),
+                )
+                continue
+
+            prefix = "http://vocab.getty.edu/page/ulan/"
+            if url.startswith(prefix):
+                prop = wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID
+                external_id = url[len(prefix) :]
+                wikidata.add_statement(
+                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
+                    EcarticoReference(self.ecartico_id),
+                )
+                continue
+
+            prefix = "http://www.biografischportaal.nl/persoon/"
+            if url.startswith(prefix):
+                prop = wd.PID_BIOGRAFISCH_PORTAAL_VAN_NEDERLAND_ID
+                external_id = url[len(prefix) :]
+                wikidata.add_statement(
+                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
+                    EcarticoReference(self.ecartico_id),
+                )
+                continue
+
+            prefix = "https://rkd.nl/artists/48382"
+            if url.startswith(prefix):
+                prop = wd.PID_RKDARTISTS_ID
                 external_id = url[len(prefix) :]
                 wikidata.add_statement(
                     cwd.ExternalIDStatement(prop=prop, external_id=external_id),
@@ -1674,6 +1742,7 @@ class EcarticoStructure:
             if "urn:rijksmuseum:people" in url:
                 continue
 
+            raise RuntimeError(f"unrecognized url: {url}")
             wikidata.add_statement(
                 cwd.ExternalIDStatement(url), EcarticoReference(self.ecartico_id)
             )
