@@ -1,16 +1,15 @@
 import abc
 import re
-from datetime import datetime
+from collections import OrderedDict
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
-import shared_lib.change_wikidata as cwd
+import pywikibot as pwb
 from bs4 import BeautifulSoup, Tag
 from ecartico.interface_ecartico_data import IEcartico
-import pywikibot as pwb
-from collections import OrderedDict
 
+import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-from datetime import datetime, timezone
 
 SOURCE_RKD_IMAGES = "1987"
 SOURCE_RKD_PORTRAITS = "3416"
@@ -84,7 +83,7 @@ class EcarticoReference(cwd.Reference):
             day=int(today.strftime("%d")),
         )
         retr_claim = pwb.Claim(REPO, wd.PID_RETRIEVED, is_reference=True)
-        retr_claim.setTarget(dateCre)        
+        retr_claim.setTarget(dateCre)
 
         source[wd.PID_STATED_IN] = [stated_in_claim]
         source[wd.PID_ECARTICO_PERSON_ID] = [ecartico_claim]

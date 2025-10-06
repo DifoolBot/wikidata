@@ -1,12 +1,8 @@
 import os.path
 import re
-import time
-from functools import wraps
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-# import re
-import shared_lib.change_wikidata as cwd
 import ecartico.impl_ecartico_data as impl_ecartico_data
 import pywikibot as pwb
 import requests
@@ -16,6 +12,7 @@ from ecartico.interface_ecartico_data import IEcartico, IEcarticoData
 from pywikibot import pagegenerators
 from pywikibot.data import sparql
 
+import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.rate_limiter import rate_limit
 
