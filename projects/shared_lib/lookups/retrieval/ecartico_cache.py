@@ -9,38 +9,32 @@ from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
 
 class EcarticoCache(DatabaseHandler, EcarticoLookupAddInterface):
     def __init__(self):
-        file_path = Path(__file__).parent / "ecartico.json"
+        file_path = Path("databases/ecartico.json")
         create_script = Path("schemas/ecartico.sql")
         super().__init__(file_path, create_script)
 
-    def get_person_qid(self, ecartico_id: str) -> Optional[str]:
-        sql = f"SELECT QID FROM PERSONS WHERE ECARTICO_ID=?"
+    def get_person(self, ecartico_id: str) -> Optional[tuple[str, str]]:
+        sql = f"SELECT QID,DESCRIPTION FROM PERSONS WHERE ECARTICO_ID=?"
         for row in self.execute_query(sql, (ecartico_id,)):
-            return row[0]
+            return row[0], row[1]
         return None
 
-    def get_place_qid(self, place_id: str) -> Optional[str]:
-        sql = f"SELECT QID FROM PLACES WHERE PLACE_ID=?"
+    def get_place(self, place_id: str) -> Optional[tuple[str, str]]:
+        sql = f"SELECT QID,DESCRIPTION FROM PLACES WHERE PLACE_ID=?"
         for row in self.execute_query(sql, (place_id,)):
-            return row[0]
+            return row[0], row[1]
         return None
 
-    def get_occupation_qid(self, occupation_id: str) -> Optional[str]:
-        sql = f"SELECT QID FROM OCCUPATIONS WHERE OCCUPATION_ID=?"
+    def get_occupation(self, occupation_id: str) -> Optional[tuple[str, str]]:
+        sql = f"SELECT QID,DESCRIPTION FROM OCCUPATIONS WHERE OCCUPATION_ID=?"
         for row in self.execute_query(sql, (occupation_id,)):
-            return row[0]
+            return row[0], row[1]
         return None
 
-    def get_occupation(self, occupation_id: str) -> tuple[Optional[str], str]:
-        sql = f"SELECT QID FROM OCCUPATIONS WHERE OCCUPATION_ID=?"
-        for row in self.execute_query(sql, (occupation_id,)):
-            return row[0]
-        return None
-
-    def get_source_qid(self, source_id: str) -> Optional[str]:
-        sql = f"SELECT QID FROM SOURCES WHERE SOURCE_ID=?"
+    def get_source(self, source_id: str) -> Optional[tuple[str, str]]:
+        sql = f"SELECT QID,DESCRIPTION FROM SOURCES WHERE SOURCE_ID=?"
         for row in self.execute_query(sql, (source_id,)):
-            return row[0]
+            return row[0], row[1]
         return None
 
     def get_religion_qid(self, text: str) -> Optional[str]:
@@ -99,7 +93,7 @@ class EcarticoCache(DatabaseHandler, EcarticoLookupAddInterface):
 
         self.execute_procedure(sql, t)
 
-    def add_person_qid(
+    def add_person(
         self, ecartico_id: Optional[str], description: Optional[str], qid: Optional[str]
     ):
 
@@ -155,9 +149,7 @@ class EcarticoCache(DatabaseHandler, EcarticoLookupAddInterface):
             return row[0]
         return None
 
-    def add_rijksmuseum_inventory_number_qid(
-        self, inventory_number: str, qid: str
-    ) -> None:
+    def add_rijksmuseum_qid(self, inventory_number: str, qid: str) -> None:
 
         sql = "execute procedure add_inventorynr(?, ?)"
         t = (inventory_number, qid)
@@ -238,12 +230,6 @@ class EcarticoCache(DatabaseHandler, EcarticoLookupAddInterface):
             break
         return b
 
-    def get_place(self, place_id: str) -> tuple[Optional[str], str]:
-        pass
-
-    def get_source(self, source_id: str) -> tuple[Optional[str], str]:
-        pass
-
     def get_gutenberg_qid(self, ebook_id: Optional[str]):
         pass
 
@@ -251,3 +237,9 @@ class EcarticoCache(DatabaseHandler, EcarticoLookupAddInterface):
         self, url: str, inventory_number: Optional[str]
     ) -> Optional[str]:
         pass
+
+    def get_description(self, qid: str) -> Optional[str]:
+        raise NotImplemented
+
+    def get_is(self, qid: str, query: str) -> bool:
+        raise NotImplemented

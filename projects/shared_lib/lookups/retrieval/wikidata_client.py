@@ -1,14 +1,25 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 from pywikibot.data import sparql
 
+from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
+    EcarticoLookupInterface,
+)
 from shared_lib.lookups.interfaces.place_lookup_interface import (
     CountryLookupInterface,
     PlaceLookupInterface,
 )
 
+WD = "http://www.wikidata.org/entity/"
 
-class WikidataClient(PlaceLookupInterface, CountryLookupInterface):
+SKIP = "SKIP"
+LEEG = "LEEG"
+MULTIPLE = "MULTIPLE"
+
+
+class WikidataClient(
+    PlaceLookupInterface, CountryLookupInterface, EcarticoLookupInterface
+):
     """Low-level client for querying Wikidata."""
 
     def get_place_by_qid(self, place_qid: str):
@@ -109,3 +120,158 @@ class WikidataClient(PlaceLookupInterface, CountryLookupInterface):
 
     def set_place(self, place_qid: str, country_qid: str, place_description: str):
         raise NotImplementedError("WikidataClient does not support setting place data.")
+
+    def get_occupation(self, occupation_id: str) -> tuple[Optional[str], str]:
+        raise NotImplementedError
+
+    def get_place(self, place_id: str) -> tuple[Optional[str], str]:
+        raise NotImplementedError
+
+    def get_source(self, source_id: str) -> tuple[Optional[str], str]:
+        raise NotImplementedError
+
+    def get_patronym_qid(self, text: Optional[str]) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_religion_qid(self, text: Optional[str]) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_rkdimage_qid(self, rkdimage_id: str) -> Optional[str]:
+        if not rkdimage_id:
+            return None
+
+        qry = f'SELECT DISTINCT ?item WHERE {{ ?item wdt:P350 "{rkdimage_id}". }}'
+        qids = []
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=qry)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                qid = row.get("item", {}).get("value", "").replace(WD, "")
+                qids.append(qid)
+
+        if len(qids) > 1:
+            qid = MULTIPLE
+        elif len(qids) == 1:
+            qid = qids[0]
+        else:
+            qid = None
+        return qid
+
+    def get_genre_qid(
+        self, attribute: Optional[str], value: Optional[str]
+    ) -> Optional[str]:
+        raise NotImplementedError
+
+    def get_person(self, ecartico_id: Optional[str]) -> Optional[tuple[str, str]]:
+        qry = f'SELECT DISTINCT ?item WHERE {{ ?item wdt:P2915 "{ecartico_id}". }}'
+        qids = []
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=qry)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                qid = row.get("item", {}).get("value", "").replace(WD, "")
+                qids.append(qid)
+
+        if len(qids) > 1:
+            return MULTIPLE, ""
+        elif len(qids) == 1:
+            return qids[0], "?"
+        else:
+            return None
+
+    def get_gutenberg_qid(self, ebook_id: Optional[str]) -> Optional[str]:
+        if not ebook_id:
+            return None
+
+        qry = f"""SELECT DISTINCT ?item WHERE {{
+            ?item p:P2034 ?statement0.
+            ?statement0 ps:P2034 "{ebook_id}".
+            }}
+            LIMIT 2"""
+
+        qids = []
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=qry)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                qid = row.get("item", {}).get("value", "").replace(WD, "")
+                qids.append(qid)
+
+        if len(qids) > 1:
+            qid = MULTIPLE
+        elif len(qids) == 1:
+            qid = qids[0]
+        else:
+            qid = None
+        return qid
+
+    def get_rijksmuseum_qid(
+        self, url: str, inventory_number: Optional[str]
+    ) -> Optional[str]:
+        if not inventory_number:
+            return None
+
+        qry = f"""SELECT DISTINCT ?item WHERE {{
+            ?item p:P217 ?statement0.
+            ?statement0 ps:P217 "{inventory_number}".
+            ?item p:P195 ?statement1.
+            ?statement1 ps:P195 wd:Q190804.
+            }}
+            LIMIT 2"""
+        qids = []
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=qry)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                qid = row.get("item", {}).get("value", "").replace(WD, "")
+                qids.append(qid)
+
+        if len(qids) > 1:
+            qid = MULTIPLE
+        elif len(qids) == 1:
+            qid = qids[0]
+        else:
+            qid = None
+        return qid
+
+    def get_occupation_type(self, qid: str) -> Optional[str]:
+        raise NotImplementedError
+
+    def is_possible(self, ecartico_id: Optional[str], qid: str) -> bool:
+        raise NotImplementedError
+
+    def get_description(self, qid: str) -> Optional[str]:
+        query = f"""
+            SELECT ?item ?itemLabel WHERE {{
+            VALUES ?item {{wd:{qid}}}
+            SERVICE wikibase:label {{ bd:serviceParam wikibase:language "nl,en,mul". }}
+            }}
+            """
+        description = None
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=query)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                description = row.get("itemLabel", {}).get("value", "").replace(WD, "")
+                break
+
+        return description
+
+    def get_is(self, qid: str, query: str) -> bool:
+        qry = f"""
+            SELECT DISTINCT ?item WHERE {{
+            values ?item {{wd:{qid}}}
+            ?item p:P31 ?statement0.
+            ?statement0 (ps:P31/(wdt:P279*)) wd:{query}.
+            }}
+            """
+        res = False
+        query_object = sparql.SparqlQuery()
+        payload = query_object.query(query=qry)
+        if payload:
+            for row in payload["results"]["bindings"]:
+                found = row.get("item", {}).get("value", "").replace(WD, "")
+                res = found == qid
+                break
+
+        return res

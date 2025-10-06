@@ -21,6 +21,7 @@ from shared_lib.lookups.impl.cached_ecartico_lookup import CachedEcarticoLookup
 from shared_lib.lookups.retrieval.ecartico_cache import EcarticoCache
 from shared_lib.lookups.retrieval.ecartico_client import EcarticoClient
 from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
+from shared_lib.database_handler import DatabaseHandler
 
 
 WD = "http://www.wikidata.org/entity/"
@@ -212,7 +213,7 @@ class EcarticoBot:
 
             self.structure.ecartico_id = self.ecartico_id
             if self.structure.qid != "Q13406268":
-                self.lookup_add.add_person_qid(
+                self.lookup_add.add_person(
                     self.structure.ecartico_id, None, self.structure.qid
                 )
             print("")
@@ -220,7 +221,7 @@ class EcarticoBot:
             print("")
             self.load()
             if self.structure.qid != "Q13406268":
-                self.lookup_add.add_person_qid(
+                self.lookup_add.add_person(
                     self.structure.ecartico_id,
                     self.structure.names[0],
                     self.structure.qid,
@@ -797,6 +798,40 @@ def sync_place(lookup_add: EcarticoLookupAddInterface):
                 elif code.startswith("Q"):
                     lookup_add.add_place(id, "", code)
                     print(f"{id} -> {code}")
+
+
+class FirebirdStatusTracker(DatabaseHandler, EcarticoStatusTracker):
+
+    def __init__(self):
+        file_path = Path("databases/ecartico.json")
+        create_script = Path("schemas/ecartico.sql")
+        super().__init__(file_path, create_script)
+
+    def is_error(self, qid: str) -> bool:
+        return self.has_record("ERRORS", "qid=? AND NOT RETRY", (qid,))
+
+    def is_done(self, qid: str) -> bool:
+        return self.has_record("DONE", "qid=?", (qid,))
+
+    def mark_error(self, qid: str, error: str):
+        shortened_msg = error[:255]
+        sql = "EXECUTE PROCEDURE add_error(?, ?)"
+        self.execute_procedure(sql, (qid, shortened_msg))
+
+    def mark_done(self, qid: str, message: str):
+        shortened_msg = message[:255]
+        sql = "EXECUTE PROCEDURE add_done(?)"
+        self.execute_procedure(sql, (qid,))
+
+    def remove_todo(self, qid: str):
+        self.execute_procedure("DELETE FROM TODO WHERE qid=?", (qid,))
+
+    def get_todo(self):
+        rows = self.execute_query(
+            "SELECT qid FROM todo order by cast(substring(qid from 2) as integer) desc"
+        )
+        for row in rows:
+            yield row[0]
 
 
 def main():

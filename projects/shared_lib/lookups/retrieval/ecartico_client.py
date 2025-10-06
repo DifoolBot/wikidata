@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -87,7 +87,7 @@ class EcarticoClient(EcarticoLookupInterface):
         return self.extract_qid_from_ecartico_page(complete_url)
 
     def get_patronym_qid(self, text: str) -> Optional[str]:
-        return None
+        raise NotImplemented
 
     def get_place(self, place_id: str) -> tuple[Optional[str], str]:
         complete_url = f"https://ecartico.org/places/{place_id}"
@@ -104,21 +104,27 @@ class EcarticoClient(EcarticoLookupInterface):
         return self.extract_qid_from_ecartico_page(complete_url)
 
     def get_genre_qid(self, attribute: str, value: str) -> Optional[str]:
-        return None
+        raise NotImplemented
 
-    def get_person_qid(self, ecartico_id: Optional[str]) -> Optional[str]:
-        pass
+    def get_person(self, ecartico_id: Optional[str]) -> Optional[str]:
+        raise NotImplemented
 
     def get_gutenberg_qid(self, ebook_id: Optional[str]) -> Optional[str]:
-        pass
+        raise NotImplemented
 
     def get_rijksmuseum_qid(
         self, url: str, inventory_number: Optional[str]
     ) -> Optional[str]:
-        pass
+        raise NotImplemented
 
     def get_occupation_type(self, qid: str) -> Optional[str]:
-        pass
+        raise NotImplemented
 
     def is_possible(self, ecartico_id: Optional[str], qid: str) -> bool:
-        pass
+        raise NotImplemented
+
+    def get_description(self, qid: str) -> Optional[str]:
+        raise NotImplemented
+
+    def get_is(self, qid: str, query: str) -> bool:
+        raise NotImplemented

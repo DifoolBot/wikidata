@@ -127,10 +127,10 @@ class EcarticoElement:
     structure: "EcarticoStructure"
     is_ignore: bool = False
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         pass
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         pass
 
     def find_year(self, query: FindYear):
@@ -157,7 +157,7 @@ class Marriage(EcarticoElement):
     def find_year(self, query: FindYear):
         query.add(construct_date(self.date), self.is_circa)
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.spouse_qid = lookup.get_person_qid(self.ecartico_id)
 
     def apply(self, lookup_add: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
@@ -190,7 +190,7 @@ class Person(EcarticoElement):
         self.text = text
         self.person_qid = None
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.person_qid = lookup.get_person_qid(self.ecartico_id)
 
     def __repr__(self):
@@ -198,7 +198,7 @@ class Person(EcarticoElement):
 
 
 class Child(Person):
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.ecartico_id:
             return
         if self.person_qid:
@@ -227,7 +227,7 @@ class Child(Person):
 
 
 class Father(Person):
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.person_qid:
             wikidata.add_statement(
                 cwd.Father(self.person_qid),
@@ -240,7 +240,7 @@ class Father(Person):
 
 
 class Mother(Person):
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.person_qid:
             wikidata.add_statement(
                 cwd.Mother(self.person_qid),
@@ -260,7 +260,7 @@ class Gender(EcarticoElement):
     def __repr__(self):
         return f"Gender(text='{self.text}')"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         if self.text == "male":
             self.qid = wd.QID_MALE
         elif self.text == "female":
@@ -271,7 +271,7 @@ class Gender(EcarticoElement):
         else:
             raise RuntimeError(f"Unexpected gender {self.text}")
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         wikidata.add_statement(
             cwd.SexOrGender(self.qid), EcarticoReference(self.structure.ecartico_id)
         )
@@ -284,10 +284,10 @@ class Patronym(EcarticoElement):
     def __repr__(self):
         return f"Patronym(text='{self.text}')"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.qid = lookup.get_patronym_qid(self.text)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.Patronym(self.qid), EcarticoReference(self.structure.ecartico_id)
@@ -321,7 +321,7 @@ class Occupation(EcarticoElement):
         query.add(construct_date(self.start_date))
         query.add(construct_date(self.end_date))
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.occupation_qid = lookup.get_occupation_qid(self.occupation_id)
         if self.occupation_qid:
             self.occupation_type = lookup.get_occupation_type(self.occupation_qid)
@@ -337,7 +337,7 @@ class Occupation(EcarticoElement):
 
         return False
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.occupation_qid:
             return
 
@@ -391,10 +391,10 @@ class OccupationalAddresses(EcarticoElement):
 
         return False
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.place_qid = lookup.get_place_qid(self.place_id)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.place_qid:
             return
 
@@ -453,7 +453,7 @@ class SingleDate(EcarticoElement):
     def get_date_class(self) -> type[cwd.DateStatement]:
         pass
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.date and self.earliest and self.latest:
             if self.is_or:
                 if self.latest.follows(self.earliest):
@@ -559,12 +559,12 @@ class Place(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(place_id={self.place_id})"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.place_qid = lookup.get_place_qid(self.place_id)
 
 
 class PlaceOfBirth(Place):
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.place_qid:
             wikidata.add_statement(
                 cwd.PlaceOfBirth(
@@ -576,7 +576,7 @@ class PlaceOfBirth(Place):
 
 
 class PlaceOfDeath(Place):
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.place_qid:
             wikidata.add_statement(
                 cwd.PlaceOfDeath(
@@ -598,10 +598,10 @@ class SubjectOfPainting(EcarticoElement):
             f"{self.__class__.__name__}(attribute={self.attribute}, value={self.value})"
         )
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.qid = lookup.get_genre_qid(self.attribute, self.value)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.Genre(self.qid), EcarticoReference(self.structure.ecartico_id)
@@ -627,15 +627,15 @@ class Attribute(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(text={self.text}, start_date={self.start_date}, end_date={self.end_date})"
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         pass
 
 
 class ReligionDenomination(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.qid = lookup.get_religion_qid(self.text)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.ReligionOrWorldview(
@@ -649,7 +649,7 @@ class ReligionDenomination(Attribute):
 
 class Bentvueghels(Attribute):
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             statement = cwd.MemberOf(
                 self.qid,
@@ -663,27 +663,27 @@ class Bentvueghels(Attribute):
 
 
 class Nickname(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected Nickname {self.text}")
 
 
 class PenName(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected PenName {self.text}")
 
 
 class ReligiousName(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected ReligiousName {self.text}")
 
 
 class Pseudonym(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected Pseudonym {self.text}")
 
 
 class Language(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         qid_mapping = {
             "Dutch": wd.QID_DUTCH,
             "Frisian": wd.QID_FRISIAN,
@@ -700,7 +700,7 @@ class Language(Attribute):
         else:
             raise RuntimeError(f"unexpected Language {self.text}")
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.LanguagesSpokenWrittenOrSigned(self.qid),
@@ -709,7 +709,7 @@ class Language(Attribute):
 
 
 class PhysicalHandicap(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         qid_mapping = {
             "Blindness": wd.QID_BLINDNESS,
             "Deafness": wd.QID_DEAFNESS,
@@ -722,7 +722,7 @@ class PhysicalHandicap(Attribute):
         else:
             raise RuntimeError(f"unexpected PhysicalHandicap {self.text}")
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.MedicalCondition(self.qid),
@@ -731,12 +731,12 @@ class PhysicalHandicap(Attribute):
 
 
 class NaturalizedAs(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected NaturalizedAs {self.text}")
 
 
 class PaternityExtramarital(Attribute):
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         raise RuntimeError(f"unexpected PaternityExtramarital {self.text}")
 
 
@@ -748,7 +748,7 @@ class RKDImageID(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(url={self.url})"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         # https://rkd.nl/explore/images/237243
         prefix1 = "http://explore.rkd.nl/explore/images/"
         prefix2 = "https://rkd.nl/explore/images/"
@@ -760,7 +760,7 @@ class RKDImageID(EcarticoElement):
             raise RuntimeError(f"Unexpected rkdimage url {self.url}")
         self.qid = lookup.get_rkdimage_qid(id)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             wikidata.add_statement(
                 cwd.DepictedBy(self.qid), EcarticoReference(self.structure.ecartico_id)
@@ -776,10 +776,10 @@ class Rijksmuseum(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(url={self.url})"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.qid = lookup.get_rijksmuseum_qid(self.url, self.inventory_number)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             statement = cwd.DepictedBy(self.qid)
             wikidata.add_statement(
@@ -799,10 +799,10 @@ class Gutenberg(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(ebook_id={self.ebook_id})"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.qid = lookup.get_gutenberg_qid(self.ebook_id)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.qid:
             statement = cwd.DescribedBySource(self.qid)
             statement.volume = self.volume
@@ -828,10 +828,10 @@ class DescribedBySource(EcarticoElement):
     def __repr__(self):
         return f"{self.__class__.__name__}(source_id={self.source_id}, book_url={self.book_url}, volume={self.volume}, pagination={self.page})"
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.source_qid = lookup.get_source_qid(self.source_id)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.source_qid:
             statement = cwd.DescribedBySource(self.source_qid)
             statement.volume = self.volume
@@ -861,14 +861,14 @@ class Relation(EcarticoElement):
         query.add(self.start_date)
         query.add(self.end_date)
 
-    def resolve(self, lookup: EcarticoLookupInterface):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
         self.person_qid = lookup.get_person_qid(self.ecartico_id)
 
     @abc.abstractmethod
     def get_relation_class(self):
         pass
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.person_qid:
             return
         relation_class = self.get_relation_class()
@@ -907,8 +907,8 @@ class EcarticoStructure:
         self.qid = qid
         self.ecartico_id = ecartico_id
         self.names = []
-        self.statements = []
-        self.same_as_urls = []
+        self.statements: list[EcarticoElement] = []
+        self.same_as_urls: list[str] = []
 
     def add_statement(self, statement: EcarticoElement):
         statement.structure = self
@@ -1623,6 +1623,8 @@ class EcarticoStructure:
                     self.add_statement(statement)
                 elif source_id == SOURCE_LE_DICTIONNAIRE_DES_PEINTRES_BELGES:
                     # balat.kikirpa.be
+                    if not book_url:
+                        raise RuntimeError("No book url")
                     self.same_as_urls.append(book_url)
                 else:
                     statement = DescribedBySource(
@@ -1676,7 +1678,7 @@ class EcarticoStructure:
         for statement in self.statements:
             print(statement)
 
-    def apply(self, lookup: EcarticoLookupInterface, wikidata: cwd.WikiDataPage):
+    def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         for name in self.names:
             wikidata.add_statement(cwd.Label(name, language="nl"), reference=None)
         for statement in self.statements:
