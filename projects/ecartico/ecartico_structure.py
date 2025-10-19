@@ -1,17 +1,19 @@
 import abc
 import re
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set
 
+import ecartico.external_pages as external_pages
 import pywikibot as pwb
 from bs4 import BeautifulSoup, Tag
-from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
-    EcarticoLookupInterface,
-    EcarticoLookupAddInterface,
-)
+
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
+    EcarticoLookupAddInterface,
+)
 
 SOURCE_RKD_IMAGES = "1987"
 SOURCE_RKD_PORTRAITS = "3416"
@@ -56,6 +58,34 @@ def construct_date(date_str: Optional[str]) -> Optional[cwd.Date]:
     return cwd.Date(year, month, day)
 
 
+def is_rkd_source(src):
+    if wd.PID_STATED_IN in src:
+        for claim in src[wd.PID_STATED_IN]:
+            id = claim.getTarget().getID()
+            if id == wd.QID_RKDARTISTS:
+                return True
+    if wd.PID_RKDARTISTS_ID in src:
+        return True
+
+    return False
+
+
+def has_rkd_work_location(claims):
+    if wd.PID_WORK_LOCATION not in claims:
+        return False
+
+    claims = claims[wd.PID_WORK_LOCATION]
+    claims = cwd.filter_claims_by_rank(claims)
+    for claim in claims:
+        if claim.getRank() == "deprecated":
+            continue
+        srcs = claim.getSources()
+        for src in srcs:
+            if is_rkd_source(src):
+                return True
+    return False
+
+
 class EcarticoReference(cwd.Reference):
     def __init__(self, ecartico_id):
         self.pid = wd.PID_ECARTICO_PERSON_ID
@@ -68,6 +98,9 @@ class EcarticoReference(cwd.Reference):
             raise RuntimeError("Multiple ecartico ids")
         actual = src[self.pid][0].getTarget()
         return actual == self.id
+
+    def is_strong_reference(self) -> bool:
+        return True
 
     def create_source(self):
         source = OrderedDict()
@@ -97,9 +130,9 @@ class EcarticoReference(cwd.Reference):
 class FindYear:
     def __init__(self):
         self.earliest = None
-        self.earliest_is_circa = False
+        self.is_earliest_circa = False
         self.latest = None
-        self.latest_is_circa = None
+        self.is_latest_circa = None
 
     def has_found(self) -> bool:
         return bool(self.earliest or self.latest)
@@ -111,16 +144,16 @@ class FindYear:
 
         if self.earliest is None or year < self.earliest:
             self.earliest = year
-            self.earliest_is_circa = is_circa
+            self.is_earliest_circa = is_circa
         if self.latest is None or year > self.latest:
             self.latest = year
-            self.latest_is_circa = is_circa
+            self.is_latest_circa = is_circa
 
     def get_earliest(self):
-        return self.earliest, self.earliest_is_circa
+        return self.earliest, self.is_earliest_circa
 
     def get_latest(self):
-        return self.latest, self.latest_is_circa
+        return self.latest, self.is_latest_circa
 
 
 class EcarticoElement:
@@ -272,8 +305,11 @@ class Gender(EcarticoElement):
             raise RuntimeError(f"Unexpected gender {self.text}")
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
+        config = cwd.StatementConfig()
+        config.skip_if_strong_refs = True
         wikidata.add_statement(
-            cwd.SexOrGender(self.qid), EcarticoReference(self.structure.ecartico_id)
+            cwd.SexOrGender(self.qid, config=config),
+            EcarticoReference(self.structure.ecartico_id),
         )
 
 
@@ -423,9 +459,9 @@ class SingleDate(EcarticoElement):
         is_baptism_burial: bool = False,
         is_or: bool = False,
     ):
-        self.date = construct_date(date)
-        self.earliest = construct_date(earliest)
-        self.latest = construct_date(latest)
+        self.date: Optional[cwd.Date] = construct_date(date)
+        self.earliest: Optional[cwd.Date] = construct_date(earliest)
+        self.latest: Optional[cwd.Date] = construct_date(latest)
         self.is_circa = is_circa
         self.is_baptism_burial = is_baptism_burial
         self.is_or = is_or
@@ -454,6 +490,7 @@ class SingleDate(EcarticoElement):
         pass
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
+
         if not self.date and self.earliest and self.latest:
             if self.is_or:
                 if self.latest.follows(self.earliest):
@@ -476,6 +513,16 @@ class SingleDate(EcarticoElement):
             if self.latest:
                 raise RuntimeError("Unexpected date and latest date")
             statement = date_class(date=self.date, is_circa=self.is_circa)
+            if self.get_date_class() == cwd.DateOfBaptism:
+                wikidata.remove_references(
+                    wd.PID_DATE_OF_BIRTH, EcarticoReference(self.structure.ecartico_id)
+                )
+                wikidata.deprecate_date(pid=wd.PID_DATE_OF_BIRTH, date=self.date)
+            if self.get_date_class() == cwd.DateOfBurialOrCremation:
+                wikidata.remove_references(
+                    wd.PID_DATE_OF_DEATH, EcarticoReference(self.structure.ecartico_id)
+                )
+                wikidata.deprecate_date(pid=wd.PID_DATE_OF_DEATH, date=self.date)
         else:
             calc_earliest = self.earliest
             calc_latest = self.latest
@@ -489,24 +536,24 @@ class SingleDate(EcarticoElement):
                     if isinstance(self, DateOfDeath):
                         if not self.latest:
                             year, use_circa = query.get_earliest()
-                            if not year or not use_circa:
+                            if not year or use_circa is None:
                                 raise RuntimeError("No earliest year found")
                             calc_latest = cwd.Date(year=year + MAX_EXPECTED_LIFE_SPAN)
                         else:
                             year, use_circa = query.get_latest()
-                            if not year or not use_circa:
-                                raise RuntimeError("No earliest year found")
+                            if not year or use_circa is None:
+                                raise RuntimeError("No latest year found")
                             calc_earliest = cwd.Date(year=year)
                         calc_is_circa = calc_is_circa or use_circa
                     elif isinstance(self, DateOfBirth):
                         if not self.latest:
                             year, use_circa = query.get_earliest()
-                            if not year or not use_circa:
+                            if not year or use_circa is None:
                                 raise RuntimeError("No earliest year found")
                             calc_latest = cwd.Date(year=year)
                         else:
                             year, use_circa = query.get_latest()
-                            if not year or not use_circa:
+                            if not year or use_circa is None:
                                 raise RuntimeError("No latest year found")
                             calc_earliest = cwd.Date(year=year - MAX_EXPECTED_LIFE_SPAN)
                         calc_is_circa = calc_is_circa or use_circa
@@ -516,12 +563,17 @@ class SingleDate(EcarticoElement):
                 calc_latest,
                 do_strict=not self.earliest or not self.latest,
             )
+            print(f"Calculated middle date {middle} for {self}")
 
             statement = date_class(middle, self.earliest, self.latest, calc_is_circa)
         wikidata.add_statement(statement, EcarticoReference(self.structure.ecartico_id))
 
 
 class DateOfBirth(SingleDate):
+
+    def resolve(self, lookup: EcarticoLookupAddInterface):
+        if not self.structure.config.include_date_of_birth:
+            self.is_ignore = True
 
     def get_date_class(self) -> type[cwd.DateStatement]:
         if self.is_baptism_burial:
@@ -531,6 +583,10 @@ class DateOfBirth(SingleDate):
 
 
 class DateOfDeath(SingleDate):
+    def resolve(self, lookup: EcarticoLookupAddInterface):
+        if not self.structure.config.include_date_of_death:
+            self.is_ignore = True
+
     def get_date_class(self) -> type[cwd.DateStatement]:
         if self.is_baptism_burial:
             return cwd.DateOfBurialOrCremation
@@ -542,6 +598,7 @@ def get_place_alternative(qid: str) -> Optional[str]:
     alternatives = {}
     pairs = [
         ("Q803", "Q39297398"),
+        ("Q10001", "Q26296883"),  # deventer
         # Add more pairs here
     ]
 
@@ -902,13 +959,27 @@ def elem_to_circa(elem) -> bool:
         return False
 
 
+@dataclass
+class EcarticoConfig:
+    # include_viaf even if there is already a viaf id in wikidata
+    always_include_viaf: bool = False
+    include_date_of_birth: bool = True
+    include_date_of_death: bool = True
+
+
 class EcarticoStructure:
-    def __init__(self, qid: Optional[str] = None, ecartico_id: Optional[str] = None):
+    def __init__(
+        self,
+        qid: Optional[str] = None,
+        ecartico_id: Optional[str] = None,
+        config: EcarticoConfig = EcarticoConfig(),
+    ):
         self.qid = qid
         self.ecartico_id = ecartico_id
         self.names = []
         self.statements: list[EcarticoElement] = []
         self.same_as_urls: list[str] = []
+        self.config = config
 
     def add_statement(self, statement: EcarticoElement):
         statement.structure = self
@@ -1678,7 +1749,77 @@ class EcarticoStructure:
         for statement in self.statements:
             print(statement)
 
+    def geturl_prop_id(self, url: str):
+        if url.startswith("http://www.wikidata.org/entity/"):
+            return None
+
+        prefix = "https://id.rijksmuseum.nl/310"
+        if url.startswith(prefix):
+            prop = wd.PID_RIJKSMUSEUM_RESEARCH_LIBRARY_AUTHORITY_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://viaf.org/viaf/"
+        if url.startswith(prefix):
+            prop = wd.PID_VIAF_CLUSTER_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://vocab.getty.edu/page/ulan/"
+        if url.startswith(prefix):
+            prop = wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://www.biografischportaal.nl/persoon/"
+        if url.startswith(prefix):
+            prop = wd.PID_BIOGRAFISCH_PORTAAL_VAN_NEDERLAND_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "https://rkd.nl/artists/"
+        if url.startswith(prefix):
+            prop = wd.PID_RKDARTISTS_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://data.bibliotheken.nl/id/dbnla/"
+        if url.startswith(prefix):
+            prop = wd.PID_DIGITALE_BIBLIOTHEEK_VOOR_DE_NEDERLANDSE_LETTEREN_AUTHOR_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://balat.kikirpa.be/peintres/Detail_notice.php?id="
+        if url.startswith(prefix):
+            prop = wd.PID_DICTIONNAIRE_DES_PEINTRES_BELGES_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://ta.sandrart.net/-person-"
+        if url.startswith(prefix):
+            prop = wd.PID_SANDRARTNET_PERSON_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        prefix = "http://data.bibliotheken.nl/id/thes/p"
+        if url.startswith(prefix):
+            prop = wd.PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
+        if "data.deutsche-biographie.de/Person/" in url:
+            raise RuntimeError("url = data.deutsche-biographie.de/Person/")
+        if "urn:rijksmuseum:people" in url:
+            return None
+
+        raise RuntimeError(f"unrecognized url: {url}")
+
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
+        if has_rkd_work_location(wikidata.claims):
+            for statement in self.statements:
+                if isinstance(statement, OccupationalAddresses):
+                    statement.is_ignore = True
+
         for name in self.names:
             wikidata.add_statement(cwd.Label(name, language="nl"), reference=None)
         for statement in self.statements:
@@ -1686,70 +1827,53 @@ class EcarticoStructure:
         for statement in self.statements:
             if not statement.is_ignore:
                 statement.apply(lookup, wikidata)
+        ids = {}
         for url in self.same_as_urls:
-            if url.startswith("http://www.wikidata.org/entity/"):
-                continue
+            t = self.geturl_prop_id(url)
+            if t:
+                prop, external_id = t
+                if not prop in ids:
+                    ids[prop] = []
+                if external_id not in ids[prop]:
+                    ids[prop].append(external_id)
+        for prop in ids:
+            if prop == wd.PID_VIAF_CLUSTER_ID:
+                # ignore VIAF if already added; contains redirects
+                if (
+                    not self.config.always_include_viaf
+                    and wd.PID_VIAF_CLUSTER_ID in wikidata.claims
+                ):
+                    continue
+            if prop == wd.PID_BIOGRAFISCH_PORTAAL_VAN_NEDERLAND_ID:
+                if len(ids[prop]) > 1:
+                    pages = []
+                    for external_id in ids[prop]:
+                        page = external_pages.PageFactory.create_page(prop, external_id)
+                        page.load()
+                        if not page.is_redirect():
+                            pages.append(page)
 
-            prefix = "https://id.rijksmuseum.nl/310"
-            if url.startswith(prefix):
-                prop = wd.PID_RIJKSMUSEUM_RESEARCH_LIBRARY_AUTHORITY_ID
-                external_id = url[len(prefix) :]
+                    for page in pages:
+                        wikidata.add_statement(
+                            cwd.ExternalIDStatement(
+                                prop=prop,
+                                external_id=external_id,
+                                subject_named_as=(
+                                    page.get_name() if len(pages) > 1 else None
+                                ),
+                            ),
+                            EcarticoReference(self.ecartico_id),
+                        )
+                    continue
+
+            for external_id in ids[prop]:
                 wikidata.add_statement(
                     cwd.ExternalIDStatement(prop=prop, external_id=external_id),
                     EcarticoReference(self.ecartico_id),
                 )
-                continue
 
-            prefix = "http://viaf.org/viaf/"
-            if url.startswith(prefix):
-                prop = wd.PID_VIAF_CLUSTER_ID
-                external_id = url[len(prefix) :]
-                wikidata.add_statement(
-                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
-                    EcarticoReference(self.ecartico_id),
-                )
-                continue
-
-            prefix = "http://vocab.getty.edu/page/ulan/"
-            if url.startswith(prefix):
-                prop = wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID
-                external_id = url[len(prefix) :]
-                wikidata.add_statement(
-                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
-                    EcarticoReference(self.ecartico_id),
-                )
-                continue
-
-            prefix = "http://www.biografischportaal.nl/persoon/"
-            if url.startswith(prefix):
-                prop = wd.PID_BIOGRAFISCH_PORTAAL_VAN_NEDERLAND_ID
-                external_id = url[len(prefix) :]
-                wikidata.add_statement(
-                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
-                    EcarticoReference(self.ecartico_id),
-                )
-                continue
-
-            prefix = "https://rkd.nl/artists/48382"
-            if url.startswith(prefix):
-                prop = wd.PID_RKDARTISTS_ID
-                external_id = url[len(prefix) :]
-                wikidata.add_statement(
-                    cwd.ExternalIDStatement(prop=prop, external_id=external_id),
-                    EcarticoReference(self.ecartico_id),
-                )
-                continue
-
-            if "data.deutsche-biographie.de/Person/" in url:
-                raise RuntimeError("url = data.deutsche-biographie.de/Person/")
-            if "urn:rijksmuseum:people" in url:
-                continue
-
-            raise RuntimeError(f"unrecognized url: {url}")
-            wikidata.add_statement(
-                cwd.ExternalIDStatement(url), EcarticoReference(self.ecartico_id)
-            )
         # wikidata.print()
+        wikidata.summary = "from ecartico.org"
         wikidata.apply()
 
     def extract_ecartico_id_from_url(self, url: Optional[str]) -> Optional[str]:

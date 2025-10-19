@@ -1,34 +1,34 @@
 import os.path
 import re
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, List, Optional, Set
-from abc import ABC, abstractmethod
 
 import pywikibot as pwb
 import requests
 from bs4 import BeautifulSoup, Tag
-from ecartico.ecartico_structure import EcarticoStructure
+from ecartico.ecartico_structure import EcarticoStructure, EcarticoConfig
 from pywikibot import pagegenerators
-from pywikibot.data import sparql
 
+import shared_lib.change_wikidata as cwd
+import shared_lib.constants as wd
+from shared_lib.database_handler import DatabaseHandler
+from shared_lib.lookups.impl.cached_ecartico_lookup import CachedEcarticoLookup
 from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
     EcarticoLookupAddInterface,
 )
-import shared_lib.change_wikidata as cwd
-import shared_lib.constants as wd
-from shared_lib.rate_limiter import rate_limit
-from shared_lib.lookups.impl.cached_ecartico_lookup import CachedEcarticoLookup
 from shared_lib.lookups.retrieval.ecartico_cache import EcarticoCache
 from shared_lib.lookups.retrieval.ecartico_client import EcarticoClient
 from shared_lib.lookups.retrieval.wikidata_client import WikidataClient
-from shared_lib.database_handler import DatabaseHandler
-
+from shared_lib.rate_limiter import rate_limit
 
 WD = "http://www.wikidata.org/entity/"
 
 SKIP = "SKIP"
 LEEG = "LEEG"
 MULTIPLE = "MULTIPLE"
+
+SANDBOX2 = "Q13406268"
 
 CACHE_DIR = Path("ecartico_cache")
 CACHE_DIR.mkdir(exist_ok=True)
@@ -40,12 +40,11 @@ SITE.get_tokens("csrf")
 REPO = SITE.data_repository()
 
 
-# @rate_limit
+@rate_limit(30)
 def get_html_content_from_url(url: str) -> str:
     response = requests.get(url)
     if response.status_code == 200:
         return response.text
-        # Continue with extraction as shown above...
     else:
         raise RuntimeError(
             f"Failed to retrieve the webpage. Status code: {response.status_code}"
@@ -86,7 +85,7 @@ class EcarticoStatusTracker(ABC):
         pass
 
     @abstractmethod
-    def mark_done(self, qid: str, message: str):
+    def mark_done(self, qid: str, message: str, test: bool):
         """Mark the item as done."""
         pass
 
@@ -107,8 +106,10 @@ class EcarticoBot:
         generator,
         lookup_add: EcarticoLookupAddInterface,
         tracker: EcarticoStatusTracker,
+        config: EcarticoConfig,
         ignore_done_list: bool = False,
         ignore_error_list: bool = False,
+        test: bool = True,
     ):
         self.generator = pagegenerators.PreloadingEntityGenerator(generator)
         self.lookup_add = lookup_add
@@ -116,7 +117,8 @@ class EcarticoBot:
         self.ignore_done_list = ignore_done_list
         self.ignore_error_list = ignore_error_list
         self.structure: Optional[EcarticoStructure] = None
-        self.test = True
+        self.test = test
+        self.config = config
 
     def run(self):
         """
@@ -148,60 +150,38 @@ class EcarticoBot:
         return ecartico_id in ignore
 
     def examine_item(self):
-        self.structure = EcarticoStructure(qid=self.item.title())
+        qid = self.item.title()
+        self.structure = EcarticoStructure(qid=qid, config=self.config)
 
-        if not self.ignore_error_list and self.tracker.is_error(
-            self.structure.qid or ""
-        ):
-            print(f"{self.structure.qid}: skipped, in error list")
+        if not self.ignore_error_list and self.tracker.is_error(qid):
+            print(f"{qid}: skipped, in error list")
             return
 
-        if not self.ignore_done_list and self.tracker.is_done(self.structure.qid or ""):
-            print(f"{self.structure.qid}: skipped, in done list")
+        if not self.ignore_done_list and self.tracker.is_done(qid):
+            print(f"{qid}: skipped, in done list")
             return
-
-        if not self.item.exists():
-            # mark this page as done and remove old errors from the log
-            self.tracker.mark_done(self.structure.qid or "", "Does not exists")
-            return
-
-        if self.item.isRedirectPage():
-            # mark this page as done and remove old errors from the log
-            self.tracker.mark_done(self.structure.qid or "", "redirect")
-            return
-
-        claims = self.item.get().get("claims")
-        if not claims:
-            raise RuntimeError(
-                f"Skipping {self.structure.qid} because it has no claims"
-            )
-
-        if not self.item.botMayEdit():
-            raise RuntimeError(
-                f"Skipping {self.structure.qid} because it cannot be edited by bots"
-            )
 
         try:
-            if self.ecartico_id is None:
-                if wd.PID_ECARTICO_PERSON_ID not in claims:
-                    self.tracker.mark_done(
-                        self.structure.qid or "", "No ecartico person id"
-                    )
-                    return
+            wikidata = cwd.WikiDataPage(self.item, test=self.test)
 
-                self.ecartico_id = None
-                for claim in claims[wd.PID_ECARTICO_PERSON_ID]:
-                    if claim.getRank() == "deprecated":
-                        continue
-                    current_target_id = claim.getTarget()
-                    if (
-                        self.ecartico_id
-                        and current_target_id
-                        and self.ecartico_id != current_target_id
-                    ):
-                        raise RuntimeError("Multiple ecartico ids")
-                    if current_target_id:
-                        self.ecartico_id = current_target_id
+            if not self.ecartico_id:
+                ids = set()
+                if wd.PID_ECARTICO_PERSON_ID in wikidata.claims:
+                    claims = wikidata.claims[wd.PID_ECARTICO_PERSON_ID]
+                    claims = cwd.filter_claims_by_rank(claims)
+                    for claim in claims:
+                        if claim.getRank() == "deprecated":
+                            continue
+                        id = claim.getTarget()
+                        if id:
+                            ids.add(id)
+
+                if len(ids) == 0:
+                    self.tracker.mark_done(qid, "No ecartico person id", test=False)
+                    return
+                if len(ids) != 1:
+                    raise RuntimeError("Multiple ecartico ids")
+                self.ecartico_id = next(iter(ids))
 
             if not self.ecartico_id:
                 raise RuntimeError("No ecartico id")
@@ -212,34 +192,30 @@ class EcarticoBot:
                 )
 
             self.structure.ecartico_id = self.ecartico_id
-            if self.structure.qid != "Q13406268":
-                self.lookup_add.add_person(
-                    self.structure.ecartico_id, None, self.structure.qid
-                )
+            if qid != SANDBOX2:
+                self.lookup_add.add_person(self.structure.ecartico_id, None, qid)
             print("")
-            print(f"== {self.structure.qid} - {self.structure.ecartico_id} ==")
+            print(f"== {qid} - {self.structure.ecartico_id} ==")
             print("")
             self.load()
-            if self.structure.qid != "Q13406268":
+            if qid != SANDBOX2:
                 self.lookup_add.add_person(
                     self.structure.ecartico_id,
                     self.structure.names[0],
-                    self.structure.qid,
+                    qid,
                 )
             self.structure.print()
-
-            wikidata = cwd.WikiDataPage(self.item, test=self.test)
 
             print("--")
             self.structure.apply(self.lookup_add, wikidata)
 
-            self.tracker.mark_done(self.structure.qid or "", "done")
+            self.tracker.mark_done(qid, "done", self.test)
         except RuntimeError as e:
-            print(f"{self.structure.qid}: Runtime error: {e}")
-            self.tracker.mark_error(self.structure.qid or "", e.__repr__())
+            print(f"{qid}: Runtime error: {e}")
+            self.tracker.mark_error(qid, f" {str(e)}".strip())
         except Exception as e:
-            print(f"{self.structure.qid}: Error: {e}")
-            self.tracker.mark_error(self.structure.qid or "", e.__repr__())
+            print(f"{qid}: Error: {e}")
+            self.tracker.mark_error(qid, f" {str(e)}".strip())
 
     def get_url(self) -> str:
         if not self.structure or not self.structure.ecartico_id:
@@ -592,13 +568,13 @@ class EcarticoBot:
 
     #     raise RuntimeError(f"unrecognized genre qid: {attribute} {value} -> {qid}")
 
-    def get_redirect_url(self, url):
-        try:
-            response = requests.head(url, allow_redirects=True)
-            return response.url
-        except requests.RequestException as e:
-            print(f"Error: {e}")
-            return None
+    # def get_redirect_url(self, url):
+    #     try:
+    #         response = requests.head(url, allow_redirects=True)
+    #         return response.url
+    #     except requests.RequestException as e:
+    #         print(f"Error: {e}")
+    #         return None
 
     # def get_rijksmuseum_inventory_number(self, url: str) -> str:
     #     match = re.search(
@@ -697,10 +673,18 @@ def try_one(
     lookup_add: EcarticoLookupAddInterface,
     tracker: EcarticoStatusTracker,
     qid: str,
+    config: EcarticoConfig,
     ecartico_id: Optional[str] = None,
+    test: bool = True,
 ):
     bot = EcarticoBot(
-        None, lookup_add, tracker, ignore_done_list=True, ignore_error_list=True
+        None,
+        lookup_add,
+        tracker,
+        ignore_done_list=True,
+        ignore_error_list=True,
+        test=test,
+        config=config,
     )
     bot.examine(qid, ecartico_id=ecartico_id)
 
@@ -713,7 +697,7 @@ def iterate_all(lookup_add: EcarticoLookupAddInterface, tracker: EcarticoStatusT
     p = pagegenerators.WikidataSPARQLPageGenerator(qry, site=REPO)
     generator = pagegenerators.PreloadingEntityGenerator(p)
 
-    bot = EcarticoBot(generator, lookup_add, tracker)
+    bot = EcarticoBot(generator, lookup_add, tracker, config=EcarticoConfig())
     bot.ignore_error_list = True
     bot.ignore_done_list = False
     bot.run()
@@ -808,20 +792,23 @@ class FirebirdStatusTracker(DatabaseHandler, EcarticoStatusTracker):
         super().__init__(file_path, create_script)
 
     def is_error(self, qid: str) -> bool:
-        return self.has_record("ERRORS", "qid=? AND NOT RETRY", (qid,))
+        return self.has_record("QERROR", "qid=? AND NOT RETRY", (qid,))
 
     def is_done(self, qid: str) -> bool:
-        return self.has_record("DONE", "qid=?", (qid,))
+        return self.has_record("QDONE", "qid=?", (qid,))
 
     def mark_error(self, qid: str, error: str):
         shortened_msg = error[:255]
         sql = "EXECUTE PROCEDURE add_error(?, ?)"
         self.execute_procedure(sql, (qid, shortened_msg))
 
-    def mark_done(self, qid: str, message: str):
+    def mark_done(self, qid: str, message: str, test: bool):
         shortened_msg = message[:255]
         sql = "EXECUTE PROCEDURE add_done(?)"
         self.execute_procedure(sql, (qid,))
+        if not test:
+            self.execute_procedure("DELETE FROM QERROR WHERE QCODE=?", (qid,))
+            self.execute_procedure("DELETE FROM todo WHERE qid=?", (qid,))
 
     def remove_todo(self, qid: str):
         self.execute_procedure("DELETE FROM TODO WHERE qid=?", (qid,))
@@ -886,7 +873,13 @@ def main():
     # ecartico = EcarticoBot(data, "")
     # ecartico.get_occupation_qid("../occupations/478")
     # iterate_all(data)
-    try_one(lookup_add, tracker, "Q1876107")
+    config = EcarticoConfig(
+        always_include_viaf=True,
+        include_date_of_birth=False,
+        include_date_of_death=False,
+    )
+    # try_one(lookup_add, tracker, "Q55801505", test=True, config=EcarticoConfig())
+    try_one(lookup_add, tracker, "Q117812280", test=True, config=EcarticoConfig())
     # try_one(data, "Q6163946")
 
     # qid testen
@@ -904,6 +897,8 @@ def main():
     # description by qid items                             TODO
     # Q1876107 dubbele biografischportaal                  TODO
     # TODO: rkdartist inlezen en link toevoegen of eventueel self link toevoegen
+
+    # TODO; skipped; Q89574402 - name includes II?; Double occupation
 
     # sync_occupation(data)
     # sync_place(data)

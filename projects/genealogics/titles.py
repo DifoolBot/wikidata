@@ -22,12 +22,21 @@ TITLE_ENTRIES = [
         "variants": ["Baronet"],
         "noble_title": wd.QID_BARONET,
     },
+    {
+        "variants": ["Duke"],
+        "noble_title": wd.QID_DUKE,
+    },
 ]
 
 
 def parse_title_text(text: str):
+    # english
     pattern = r"^(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)\s*(?:of\s+(.+))?$"
     match = re.match(pattern, text)
+    if not match:
+        # dutch
+        pattern = r"^(?:(\d+(?:st|nd|rd|th))\s+)?([A-Z][a-z]+)(?:\s+van\s+(.+))?$"
+        match = re.match(pattern, text)
     if match:
         number = match.group(1)  # May be None
         title = match.group(2)

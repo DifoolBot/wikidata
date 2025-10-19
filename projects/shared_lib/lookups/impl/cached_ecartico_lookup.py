@@ -1,15 +1,138 @@
 import re
 from typing import Optional
 
+import pywikibot as pwb
+
 import shared_lib.constants as wd
 from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
     EcarticoLookupAddInterface,
     EcarticoLookupInterface,
 )
+import shared_lib.change_wikidata as cwd
 
 SKIP = "SKIP"
 LEEG = "LEEG"
 MULTIPLE = "MULTIPLE"
+
+
+class Patronym:
+    """
+    Normalize and represent Dutch patronyms in a consistent way.
+
+    Behaviour:
+    - Accept variations like "Pieterszoon", "Pietersz.", "Pietersz", "Pietersdochter", "Pietersdr.", "Pietersdr".
+    - Normalize self.patronym to the full form ("...zoon" or "...dochter").
+    - Provide a consistent short form in self.short_patronym ("...z" or "...dr").
+    - Set self.gender to "male" or "female".
+    """
+
+    def __init__(
+        self, patronym: str, name: str, name_qid: str, qid: Optional[str] = None
+    ) -> None:
+        self.qid = qid
+        p = (patronym or "").strip()
+        if not p:
+            raise RuntimeError("Empty patronym")
+
+        # work with a copy for case-insensitive checks
+        lower = p.lower()
+
+        # Determine suffix and base by checking longer suffixes first
+        if lower.endswith("zoon"):
+            base = p[: -len("zoon")]
+            self.gender = "male"
+            full_suffix = "zoon"
+            short_suffix = "z"
+        elif lower.endswith("dochter"):
+            base = p[: -len("dochter")]
+            self.gender = "female"
+            full_suffix = "dochter"
+            short_suffix = "dr"
+        elif lower.endswith("z."):
+            base = p[: -len("z.")]
+            self.gender = "male"
+            full_suffix = "zoon"
+            short_suffix = "z"
+        elif lower.endswith("z"):
+            # avoid misclassifying a name that legitimately ends with 'z' but is intended
+            # as a patronym short form we assume it's a short patronym
+            base = p[: -len("z")]
+            self.gender = "male"
+            full_suffix = "zoon"
+            short_suffix = "z"
+        elif lower.endswith("dr."):
+            base = p[: -len("dr.")]
+            self.gender = "female"
+            full_suffix = "dochter"
+            short_suffix = "dr"
+        elif lower.endswith("dr"):
+            base = p[: -len("dr")]
+            self.gender = "female"
+            full_suffix = "dochter"
+            short_suffix = "dr"
+        else:
+            # If nothing matches, raise to avoid unpredictable behavior
+            raise RuntimeError(f"Unexpected patronym format: {patronym}")
+
+        base = base.strip()
+        if not base:
+            raise RuntimeError(f"Unexpected patronym format (empty base): {patronym}")
+
+        # Normalized forms
+        self.patronym = base + full_suffix
+        self.short_patronym = base + short_suffix
+        self.name = name.strip()
+        self.name_qid = name_qid
+
+    def nl_description(self) -> str:
+        return f"patroniem van {self.name}"
+
+    def en_description(self) -> str:
+        kind = "son" if self.gender == "male" else "daughter"
+        return f"Dutch patronym, meaning {kind} of {self.name}"
+
+    def get_short_dot_patronym(self) -> str:
+        return self.short_patronym + "."
+
+    def create_item(self, site, label_dict):
+        new_item = pwb.ItemPage(site)
+        new_item.editLabels(labels=label_dict, summary="Setting labels")
+        # Add description here or in another function
+        return new_item.getID()
+
+    def get_or_create(self):
+        site = pwb.Site("wikidata", "wikidata")
+        repo = site.data_repository()
+
+        if not self.qid:
+            id = self.create_item(
+                site,
+                label_dict={
+                    "nl": self.patronym,
+                    "en": self.patronym,
+                    "mul": self.patronym,
+                },
+            )
+            if not id:
+                raise RuntimeError("Failed to create patronym item")
+            self.qid = str(id)
+
+        item = pwb.ItemPage(repo, self.qid)
+        page = cwd.WikiDataPage(item, test=False)
+        page.add_statement(cwd.Description(self.en_description(), "en"))
+        page.add_statement(cwd.Description(self.nl_description(), "nl"))
+        page.add_statement(cwd.Label(self.get_short_dot_patronym(), "mul"))
+        page.add_statement(cwd.Label(self.short_patronym, "mul"))
+        page.add_statement(cwd.InstanceOf(wd.QID_PATRONYMIC, based_on=self.name_qid))
+        page.add_statement(cwd.ShortName(self.get_short_dot_patronym(), "nl"))
+        page.add_statement(cwd.WritingSystem(wd.QID_LATIN_SCRIPT))
+        if self.gender == "male":
+            page.add_statement(cwd.HasCharacteristic(wd.QID_MASCULINE))
+        if self.gender == "female":
+            page.add_statement(cwd.HasCharacteristic(wd.QID_FEMININE))
+        page.apply()
+
+        return self.qid
 
 
 class CachedEcarticoLookup(EcarticoLookupAddInterface):
@@ -55,6 +178,27 @@ class CachedEcarticoLookup(EcarticoLookupAddInterface):
             return None
         if qid and qid.startswith("Q"):
             return qid
+
+        choice = pwb.input_choice(
+            f"Unrecognized patronym '{text}' - what to do?",
+            [("Add", "a"), ("Skip/Ignore", "s"), ("Error", "e")],
+            default="e",
+        )
+        if choice == "a":
+            patronyn = input("Enter full patronym text (e.g. Pietersz.): ")
+            name = input('Enter name part (e.g. "Pieter"): ')
+            name_qid = input("Enter QID of the name part: ")
+            p = Patronym(patronyn, name, name_qid)
+            qid = p.get_or_create()
+            if not qid:
+                raise RuntimeError("Failed to create patronym item")
+            qid = str(qid)
+            self.cache.add_patronym(text, qid)
+            return qid
+        elif choice == "s":
+            qid = SKIP
+            self.cache.add_patronym(text, "SKIP")
+            return None
 
         raise RuntimeError(f"unrecognized patronym: {text} -> {qid}")
 
@@ -334,3 +478,12 @@ class CachedEcarticoLookup(EcarticoLookupAddInterface):
 
     def get_is(self, qid: str, query: str) -> bool:
         return self.wikidata_source.get_is(qid, query)
+
+
+# def main():
+#     p = Patronym("Eliasz.", "Elias", "Q11878157", qid="Q136511567")
+#     p.get_or_create()
+
+
+# if __name__ == "__main__":
+#     main()
