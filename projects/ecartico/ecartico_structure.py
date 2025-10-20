@@ -14,6 +14,7 @@ import shared_lib.constants as wd
 from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
     EcarticoLookupAddInterface,
 )
+from shared_lib.date_value import Date
 
 SOURCE_RKD_IMAGES = "1987"
 SOURCE_RKD_PORTRAITS = "3416"
