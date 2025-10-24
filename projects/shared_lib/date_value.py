@@ -50,6 +50,9 @@ class Date:
         else:
             return f"Date(year={self.year}, precision={self.precision}')"
 
+    def __hash__(self):
+        return hash((self.year, self.month, self.day, self.precision, self.calendar))
+
     @classmethod
     def is_equal(cls, item1, item2, ignore_calendar_model: bool):
         if isinstance(item1, Date):

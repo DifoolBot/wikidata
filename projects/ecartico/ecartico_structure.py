@@ -363,26 +363,44 @@ class Occupation(EcarticoElement):
         if self.occupation_qid:
             self.occupation_type = lookup.get_occupation_type(self.occupation_qid)
 
-    def has_double(self) -> bool:
-        occupations = set()
+    def has_double_with_this(self) -> bool:
+        occupations = {}
         for statement in self.structure.statements:
             if isinstance(statement, Occupation):
                 qid = statement.occupation_qid
-                if qid and qid in occupations:
+                if not qid:
+                    continue
+                if qid != self.occupation_qid:
+                    continue
+                occupation_id = statement.occupation_id
+                if qid in occupations:
+                    print(
+                        f"Occupation double: {qid}: {occupation_id} - {occupations[qid]}"
+                    )
                     return True
-                occupations.add(qid)
+                occupations[qid] = occupation_id
 
         return False
+
+    def ignore_this(self):
+        for statement in self.structure.statements:
+            if isinstance(statement, Occupation):
+                if statement.occupation_qid == self.occupation_qid:
+                    print(f"ignore occupation {statement}")
+                    statement.is_ignore = True
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if not self.occupation_qid:
             return
 
         if not self.occupation_type in self.occupation_types:
-            return
+            raise RuntimeError(
+                f"Unknown occupation type {self.occupation_type} for {self.occupation_qid} - {self.occupation_id}"
+            )
 
-        if self.has_double():
-            raise RuntimeError("Double occupation")
+        if self.has_double_with_this():
+            self.ignore_this()
+            return
 
         occupation_class = self.occupation_types[self.occupation_type]
         statement = occupation_class(
@@ -412,7 +430,7 @@ class OccupationalAddresses(EcarticoElement):
         query.add(construct_date(self.start_date))
         query.add(construct_date(self.end_date))
 
-    def ignore_worklocations(self):
+    def ignore_all_worklocations(self):
         for statement in self.structure.statements:
             if isinstance(statement, OccupationalAddresses):
                 statement.is_ignore = True
@@ -437,7 +455,7 @@ class OccupationalAddresses(EcarticoElement):
 
         if self.has_double():
             print("Double worklocation")
-            self.ignore_worklocations()
+            self.ignore_all_worklocations()
             return
 
         statement = cwd.WorkLocation(
@@ -490,6 +508,9 @@ class SingleDate(EcarticoElement):
     def get_date_class(self) -> type[cwd.DateStatement]:
         pass
 
+    def get_config(self) -> Optional[cwd.StatementConfig]:
+        return None
+
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
 
         if not self.date and self.earliest and self.latest:
@@ -513,7 +534,9 @@ class SingleDate(EcarticoElement):
                 raise RuntimeError("Unexpected date and earliest date")
             if self.latest:
                 raise RuntimeError("Unexpected date and latest date")
-            statement = date_class(date=self.date, is_circa=self.is_circa)
+            statement = date_class(
+                date=self.date, is_circa=self.is_circa, config=self.get_config()
+            )
             if self.get_date_class() == cwd.DateOfBaptism:
                 wikidata.remove_references(
                     wd.PID_DATE_OF_BIRTH, EcarticoReference(self.structure.ecartico_id)
@@ -566,7 +589,9 @@ class SingleDate(EcarticoElement):
             )
             print(f"Calculated middle date {middle} for {self}")
 
-            statement = date_class(middle, self.earliest, self.latest, calc_is_circa)
+            statement = date_class(
+                middle, self.earliest, self.latest, calc_is_circa, self.get_config()
+            )
         wikidata.add_statement(statement, EcarticoReference(self.structure.ecartico_id))
 
 
@@ -582,6 +607,9 @@ class DateOfBirth(SingleDate):
         else:
             return cwd.DateOfBirth
 
+    def get_config(self) -> Optional[cwd.StatementConfig]:
+        return cwd.StatementConfig(remove_old_claims=True)
+
 
 class DateOfDeath(SingleDate):
     def resolve(self, lookup: EcarticoLookupAddInterface):
@@ -594,12 +622,16 @@ class DateOfDeath(SingleDate):
         else:
             return cwd.DateOfDeath
 
+    def get_config(self) -> Optional[cwd.StatementConfig]:
+        return cwd.StatementConfig(remove_old_claims=True)
+
 
 def get_place_alternative(qid: str) -> Optional[str]:
     alternatives = {}
     pairs = [
         ("Q803", "Q39297398"),
         ("Q10001", "Q26296883"),  # deventer
+        ("Q52101", "Q49280679"),  # middelburg
         # Add more pairs here
     ]
 
@@ -888,6 +920,9 @@ class DescribedBySource(EcarticoElement):
 
     def resolve(self, lookup: EcarticoLookupAddInterface):
         self.source_qid = lookup.get_source_qid(self.source_id)
+        # ignore this url; it is a general link to the book, that is already on De Vroedschap van Amsterdam, 1578-1795 (Q28329667)
+        if self.book_url == "http://resources.huygens.knaw.nl/retroboeken/elias/":
+            self.book_url = ""
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.source_qid:
@@ -1796,6 +1831,12 @@ class EcarticoStructure:
             external_id = url[len(prefix) :]
             return prop, external_id
 
+        prefix = "https://peintres.kikirpa.be/Detail_notice.php?id="
+        if url.startswith(prefix):
+            prop = wd.PID_DICTIONNAIRE_DES_PEINTRES_BELGES_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
         prefix = "http://ta.sandrart.net/-person-"
         if url.startswith(prefix):
             prop = wd.PID_SANDRARTNET_PERSON_ID
@@ -1811,6 +1852,9 @@ class EcarticoStructure:
         if "data.deutsche-biographie.de/Person/" in url:
             raise RuntimeError("url = data.deutsche-biographie.de/Person/")
         if "urn:rijksmuseum:people" in url:
+            return None
+        if url.startswith("http://hdl.handle.net/11259/people."):
+            # Amsterdam Museum; defunct
             return None
 
         raise RuntimeError(f"unrecognized url: {url}")

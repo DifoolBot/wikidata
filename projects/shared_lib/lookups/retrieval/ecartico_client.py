@@ -106,8 +106,9 @@ class EcarticoClient(EcarticoLookupInterface):
     def get_genre_qid(self, attribute: str, value: str) -> Optional[str]:
         raise NotImplemented
 
-    def get_person(self, ecartico_id: Optional[str]) -> Optional[str]:
-        raise NotImplemented
+    def get_person(self, ecartico_id: str) -> tuple[Optional[str], str]:
+        complete_url = f"https://ecartico.org/persons/{ecartico_id}"
+        return self.extract_qid_from_ecartico_page(complete_url)
 
     def get_gutenberg_qid(self, ebook_id: Optional[str]) -> Optional[str]:
         raise NotImplemented

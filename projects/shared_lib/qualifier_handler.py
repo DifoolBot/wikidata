@@ -1,592 +1,495 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
-
-from pywikibot import ItemPage, Site, WbTime
-
-import shared_lib.constants as wd
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Any, OrderedDict as TOrderedDict
+from collections import OrderedDict
 from shared_lib.date_value import Date
-
-# ------------------------------
-# Exceptions
-# ------------------------------
-
-
-class QualifierError(Exception):
-    pass
-
-
-class UnexpectedValueError(QualifierError):
-    pass
-
-
-class PolicyError(QualifierError):
-    pass
-
-
-# ------------------------------
-# QID → PID rules
-# ------------------------------
-
-QID_PID_RULES: Dict[str, Dict[str, Any]] = {
-    # Example: "circa"
-    wd.QID_CIRCA: {
-        "default": wd.PID_SOURCING_CIRCUMSTANCES,  # canonical PID
-        "forbidden": {wd.PID_INSTANCE_OF},  # if found here, remap to default
-    },
-    # Add more QIDs as needed
-}
-
-# ------------------------------
-# Policy configuration
-# ------------------------------
-
-
-@dataclass(frozen=True)
-class PIDPolicy:
-    overwrite: bool = False
-    skip: bool = False
-    prefer_wikidata: bool = True
-    prefer_external: bool = False
-    unique: bool = False
-    ordered: bool = False
-
-
-def default_policies() -> Dict[str, PIDPolicy]:
-    return {
-        wd.PID_SOURCING_CIRCUMSTANCES: PIDPolicy(ordered=True),
-        wd.PID_NATURE_OF_STATEMENT: PIDPolicy(
-            ordered=True
-        ),  # but QID rules remap "circa"
-        wd.PID_START_TIME: PIDPolicy(ordered=True, unique=True),
-        wd.PID_END_TIME: PIDPolicy(ordered=True, unique=True),
-        wd.PID_EARLIEST_DATE: PIDPolicy(ordered=True, unique=True),
-        wd.PID_LATEST_DATE: PIDPolicy(ordered=True, unique=True),
-        wd.PID_URL: PIDPolicy(unique=True),
-        wd.PID_DESCRIBED_BY_SOURCE: PIDPolicy(unique=False),
-        wd.PID_WORK_LOCATION: PIDPolicy(ordered=False),
-    }
-
-
-# ------------------------------
-# Internal value representation
-# ------------------------------
-
-
-@dataclass(frozen=True)
-class QValue:
-    kind: str  # "DATE" | "QID" | "STRING"
-    value: Any
-
-
-@dataclass
-class QualEntry:
-    pid: str
-    qvalue: QValue
-    provenance: str  # "wikidata" | "external"
-    active: bool = True
-
-
-# ------------------------------
-# QualifierHandler
-# ------------------------------
+import shared_lib.constants as wd
 
 
 class QualifierHandler:
+    """
+    Generic qualifier handler:
+    - Stores normalized qualifiers in an OrderedDict[pid -> List[normalized_value]]
+    - Provides equality, merge, and recreation with snak_id preservation
+    - Centralizes QID-centric PID remapping and per-PID merge policies
+    """
+
+    # QID-centric mapping and rules (example defaults; override per instance via __init__)
+    DEFAULT_QID_PID_RULES = {
+        # circa: default under P1480; forbid alternative PIDs (e.g., P5102, P31)
+        wd.QID_CIRCA: {
+            "default": wd.PID_SOURCING_CIRCUMSTANCES,
+            "forbidden": {wd.PID_INSTANCE_OF},
+        },
+    }
+
+    # Per-PID merge policies:
+    # - overwrite: external overwrites WD
+    # - skip: do not merge this PID
+    # - prefer_wikidata: keep WD values if they exist
+    # - prefer_external: overwrite if external provides value
+    # - unique: union of distinct values (dedupe)
+    DEFAULT_PID_POLICIES = {
+        wd.PID_START_TIME: "prefer_wikidata",
+        wd.PID_END_TIME: "prefer_wikidata",
+        wd.PID_EARLIEST_DATE: "prefer_wikidata",
+        wd.PID_LATEST_DATE: "prefer_wikidata",
+        wd.PID_SOURCING_CIRCUMSTANCES: "unique",
+        wd.PID_URL: "unique",  # URL
+    }
+
+    # Semantic ordering across PIDs
+    PID_ORDER = [
+        wd.PID_EARLIEST_DATE,
+        wd.PID_LATEST_DATE,
+        wd.PID_SOURCING_CIRCUMSTANCES,
+        wd.PID_START_TIME,
+        wd.PID_END_TIME,
+    ]
+
     def __init__(
         self,
-        recognized: Optional[Iterable[str]] = None,
-        pid_policies: Optional[Dict[str, PIDPolicy]] = None,
+        recognized: Optional[Dict[str, str]] = None,
+        pid_policies: Optional[Dict[str, str]] = None,
         qid_pid_rules: Optional[Dict[str, Dict[str, Any]]] = None,
     ):
-        self._recognized: Optional[Set[str]] = set(recognized) if recognized else None
-        self._policies: Dict[str, PIDPolicy] = pid_policies or default_policies()
-        self._qid_pid_rules: Dict[str, Dict[str, Any]] = qid_pid_rules or QID_PID_RULES
-        self._quals: Dict[str, List[QualEntry]] = {}
+        self._values: OrderedDict[str, List[Any]] = OrderedDict()
+        self._recognized = recognized or {}
+        self._pid_policies = dict(self.DEFAULT_PID_POLICIES)
+        if pid_policies:
+            self._pid_policies.update(pid_policies)
+        self._qid_pid_rules = dict(self.DEFAULT_QID_PID_RULES)
+        if qid_pid_rules:
+            # merge/override provided rules
+            for q, rule in qid_pid_rules.items():
+                base = self._qid_pid_rules.get(q, {"default": None, "forbidden": set()})
+                merged = {
+                    "default": rule.get("default", base.get("default")),
+                    "forbidden": set(base.get("forbidden", set()))
+                    | set(rule.get("forbidden", set())),
+                }
+                self._qid_pid_rules[q] = merged
 
-    # -------------------------
-    # Normalization
-    # -------------------------
+    # ----- Adders -----
 
-    @staticmethod
-    def _normalize_qid(qid: str) -> str:
-        if not isinstance(qid, str) or not qid.startswith("Q") or not qid[1:].isdigit():
-            raise UnexpectedValueError(f"Invalid QID: {qid!r}")
-        return qid
+    def add_date(self, pid: str, date: Date) -> None:
+        self._assert_pid(pid)
+        self._append(pid, date)
 
-    @staticmethod
-    def _normalize_str(value: str) -> str:
-        if value is None:
-            raise UnexpectedValueError("STRING value cannot be None")
-        return str(value).strip()
+    def add_qid(self, qid: str, pid: Optional[str] = None) -> None:
+        qid = self._normalize_qid(qid)
+        target_pid = self._pid_for_qid(qid, pid)
+        self._append(target_pid, qid)
 
-    @staticmethod
-    def _normalize_date(date: Union[Date, WbTime]) -> Date:
-        if isinstance(date, Date):
-            return date
-        if isinstance(date, WbTime):
-            return Date.create_from_WbTime(date)
-        raise UnexpectedValueError(f"DATE must be Date or WbTime, got {type(date)}")
-
-    def _resolve_pid_for_qid(
-        self, qid: str, pid: Optional[str], provenance: str
-    ) -> str:
-        rules = self._qid_pid_rules.get(qid)
-        if not rules:
-            if pid is None:
-                raise PolicyError(f"External add_qid requires PID for {qid}")
-            return pid
-        default_pid = rules["default"]
-        forbidden = rules.get("forbidden", set())
-        if pid is None:
-            return default_pid
-        if pid in forbidden:
-            return default_pid
-        return pid
-
-    def _check_recognized(self, pid: str):
-        if self._recognized is not None and pid not in self._recognized:
-            raise PolicyError(f"Unrecognized PID in this context: {pid}")
-
-    # -------------------------
-    # Helper add methods
-    # -------------------------
-
-    def add_date(
-        self, pid: str, date: Union[Date, WbTime], provenance: str = "external"
-    ):
-        nd = self._normalize_date(date)
-        self._check_recognized(pid)
-        qv = QValue(kind="DATE", value=nd)
-        self._add(pid, qv, provenance)
-
-    def add_qid(
-        self, qid: str, pid: Optional[str] = None, provenance: str = "external"
-    ):
-        nq = self._normalize_qid(qid)
-        resolved_pid = self._resolve_pid_for_qid(nq, pid, provenance)
-        self._check_recognized(resolved_pid)
-        qv = QValue(kind="QID", value=nq)
-        self._add(resolved_pid, qv, provenance)
-
-    def add_str(self, pid: str, value: str, provenance: str = "external"):
-        ns = self._normalize_str(value)
-        self._check_recognized(pid)
-        qv = QValue(kind="STRING", value=ns)
-        self._add(pid, qv, provenance)
+    def add_str(self, pid: str, value: str) -> None:
+        self._assert_pid(pid)
+        if not isinstance(value, str):
+            raise ValueError(f"STRING qualifier must be str: got {type(value)}")
+        self._append(pid, value)
 
     def has_qid(self, qid: str) -> bool:
-        nq = self._normalize_qid(qid)
-        for pid, entries in self._quals.items():
-            for e in entries:
-                if e.qvalue.kind == "QID" and e.qvalue.value == nq and e.active:
-                    return True
+        qid = self._normalize_qid(qid)
+        for values in self._values.values():
+            if qid in values:
+                return True
         return False
 
-    def remove_qid(self, qid: str):
+    def remove_qid(self, qid: str) -> None:
+        qid = self._normalize_qid(qid)
+        for pid in list(self._values.keys()):
+            self._values[pid] = [v for v in self._values[pid] if v != qid]
+            if not self._values[pid]:
+                del self._values[pid]
+
+    # ----- Normalization from claim -----
+
+    def from_claim(self, claim: Any) -> "QualifierHandler":
         """
-        Mark QID as removed (tombstone) under its PID:
-        - Do not delete Wikidata-sourced entries.
-        - External-only entries may be hard-removed if configured (unique + prefer_wikidata).
+        Parse qualifiers from a pwb.Claim, normalize, and store internally.
+        Applies QID-centric mapping: forbidden PIDs remap to default for that QID.
         """
-        nq = self._normalize_qid(qid)
-        found = False
-        for pid, entries in self._quals.items():
-            for e in entries:
-                if e.qvalue.kind == "QID" and e.qvalue.value == nq:
-                    found = True
-                    if e.provenance == "wikidata":
-                        e.active = False  # tombstone; do not delete
-                    else:
-                        # External: either tombstone or hard-remove if policy allows
-                        pol = self._policies.get(pid, PIDPolicy())
-                        if pol.unique and pol.prefer_wikidata and not pol.overwrite:
-                            # External-only removal can delete
-                            entries.remove(e)
-                        else:
-                            e.active = False
-        if not found:
-            # Nothing to remove, but log as unexpected to audit
-            raise QualifierError(f"Attempted to remove unknown QID: {qid}")
+        self._values.clear()
+        quals = getattr(claim, "qualifiers", {}) or {}
+        for pid, claims in quals.items():
+            for q in claims:
+                val = self._normalize_datavalue(q.getTarget())
+                # Remap QIDs by rules
+                if isinstance(val, str) and self._is_qid(val):
+                    pid = self._pid_for_qid(val, pid)
+                self._append(pid, val)
+        return self
 
-    def _add(self, pid: str, qv: QValue, provenance: str):
-        if provenance not in ("wikidata", "external"):
-            raise PolicyError(f"Invalid provenance: {provenance}")
-        pol = self._policies.get(pid, PIDPolicy())
-        # Initialize list
-        bucket = self._quals.setdefault(pid, [])
-        # Uniqueness handling
-        if pol.unique:
-            # Check for existing active value equal
-            for e in bucket:
-                if e.active and self._qvalue_equal(pid, e.qvalue, qv, strict=True):
-                    # Already present; do not duplicate
-                    return
-            # If overwrite is allowed and provenance is external, we can replace WD
-            if pol.overwrite and provenance == "external":
-                # Remove all existing values and set this one
-                bucket.clear()
-        # Append new entry
-        bucket.append(QualEntry(pid=pid, qvalue=qv, provenance=provenance, active=True))
-        # Apply ordering if configured
-        if pol.ordered:
-            self._order_pid_bucket(pid)
-
-    # -------------------------
-    # Equality and merge
-    # -------------------------
-
-    def from_claim(self, claim: Any):
-        """
-        Extract and normalize qualifiers from a Pywikibot claim.
-        Expected sources:
-        - WbTime -> Date
-        - ItemPage -> item.id (QID string)
-        - others -> str
-        """
-        quals = getattr(claim, "qualifiers", None)
-        if not quals:
-            return
-
-        for pid, snaks in quals.items():
-            for snak in snaks:
-                val = getattr(snak, "target", None)
-
-                if isinstance(val, WbTime):
-                    # Dates: no QID remapping needed
-                    self.add_date(pid, val, provenance="wikidata")
-
-                elif isinstance(val, ItemPage):
-                    # QIDs: resolve PID according to QID rules
-                    qid = val.id
-                    resolved_pid = self._resolve_pid_for_qid(
-                        qid, pid, provenance="wikidata"
-                    )
-                    self.add_qid(qid, pid=resolved_pid, provenance="wikidata")
-
-                elif isinstance(val, str):
-                    self.add_str(pid, val, provenance="wikidata")
-
-                else:
-                    # Fallback: stringify
-                    self.add_str(pid, str(val), provenance="wikidata")
+    # ----- Equality -----
 
     def is_equal(self, other: "QualifierHandler", strict: bool = False) -> bool:
         """
-        strict=True: exact match after normalization (PID + values); order-independent.
-        strict=False: allow mergeable differences:
-            - Missing qualifier on one side is acceptable.
-            - Mapped PID equivalence (P5102 ≡ P1480) treated as equal.
-            - Date equality via Date.is_equal(ignore_calendar_model=True).
+        strict=True: exact PID+value match
+        strict=False: allow mergeable differences (missing qualifiers, PID remaps), but not semantic conflicts
         """
-        # Compare by PID considering mapping equivalences
-        self_view = self._canonical_view()
-        other_view = other._canonical_view()
-
         if strict:
-            return self_view == other_view
+            return self._values == other._values
 
-        # Non-strict: for each PID, every value in the smaller set must be present or mergeable in the larger
-        for pid in set(self_view.keys()).union(other_view.keys()):
-            sv = self_view.get(pid, [])
-            ov = other_view.get(pid, [])
-            # If one side missing, acceptable
-            if not sv or not ov:
-                continue
-            # Compare set containment by relaxed equality
-            if not self._bidi_relaxed_equal(pid, sv, ov):
+        self_canon = self._normalize_temporal_equivalents(self._canonicalized())
+        other_canon = self._normalize_temporal_equivalents(other._canonicalized())
+
+        # Temporal special case
+        if not self._temporal_mergeable(self_canon, other_canon):
+            return False
+
+        # Then check all other PIDs as before
+        for pid in set(self_canon.keys()).union(other_canon.keys()):
+            if pid in {"P580", "P582", "P1319", "P1326", "P585"}:
+                continue  # already handled
+            a = self_canon.get(pid, [])
+            b = other_canon.get(pid, [])
+            if not self._pid_bucket_mergeable(a, b, pid):
                 return False
+
+        if self._has_nonmergeable_modifier_mismatch(self_canon, other_canon):
+            return False
+
         return True
+
+    # ----- Merge -----
 
     def merge(self, other: "QualifierHandler") -> Dict[str, Any]:
         """
-        Merge 'other' into self applying per-PID policies.
-        Returns: {'changed': bool, 'notes': List[str]}
+        Merge qualifiers with per-PID policies and QID rules; return {"changed": bool, "notes": [...]}
+        WD wins; external fills gaps only; non-mergeable QIDs block merging.
         """
-        changed = False
         notes: List[str] = []
+        changed = False
 
-        for pid, o_bucket in other._quals.items():
-            for o_entry in o_bucket:
-                # Resolve PID for QID entries using QID rules
-                if o_entry.qvalue.kind == "QID":
-                    resolved_pid = self._resolve_pid_for_qid(
-                        o_entry.qvalue.value, pid, o_entry.provenance
-                    )
+        self_canon = self._canonicalized()
+        other_canon = other._canonicalized()
+
+        # Block merge if modifier mismatch that changes semantics
+        if self._has_nonmergeable_modifier_mismatch(self_canon, other_canon):
+            notes.append("Non-mergeable QID semantic mismatch (e.g., circa).")
+            return {"changed": False, "notes": notes}
+
+        # Apply per-PID merge policies
+        for pid in set(self_canon.keys()).union(other_canon.keys()):
+            policy = self._pid_policies.get(pid, "unique")
+            a = list(self_canon.get(pid, []))
+            b = list(other_canon.get(pid, []))
+
+            # WD QIDs win: if both have same QID, keep WD’s PID (already canonicalized)
+            if policy == "skip":
+                continue
+            elif policy == "overwrite":
+                if b and a != b:
+                    self_canon[pid] = b
+                    changed = True
+                    notes.append(f"{pid}: overwrite with external.")
+            elif policy == "prefer_wikidata":
+                # keep a; only fill gaps from b
+                merged = self._union_preserve_order(a, b)
+                if merged != a:
+                    self_canon[pid] = merged
+                    changed = True
+                    notes.append(f"{pid}: filled gaps from external.")
+            elif policy == "prefer_external":
+                # external values override if present, else keep a
+                if b:
+                    if a != b:
+                        self_canon[pid] = b
+                        changed = True
+                        notes.append(f"{pid}: prefer external.")
                 else:
-                    resolved_pid = pid
+                    self_canon[pid] = a
+            elif policy == "unique":
+                merged = self._union_preserve_order(a, b)
+                if merged != a:
+                    self_canon[pid] = merged
+                    changed = True
+                    notes.append(f"{pid}: unique union.")
+            else:
+                raise ValueError(f"Unknown merge policy: {policy}")
 
-                pol = self._policies.get(resolved_pid, PIDPolicy())
-                if pol.skip:
-                    notes.append(f"Skip PID {resolved_pid} per policy")
-                    continue
-
-                s_bucket = self._quals.setdefault(resolved_pid, [])
-
-                if o_entry.qvalue.kind == "QID":
-                    changed |= self._merge_qid(
-                        resolved_pid, s_bucket, o_entry, pol, notes
-                    )
-                else:
-                    changed |= self._merge_value(
-                        resolved_pid, s_bucket, o_entry, pol, notes
-                    )
-
-                if pol.ordered:
-                    self._order_pid_bucket(resolved_pid)
+        # Write back to internal store preserving within-PID insertion order
+        self._values.clear()
+        for pid in self._ordered_pids(self_canon):
+            self._values[pid] = list(self_canon.get(pid, []))
 
         return {"changed": changed, "notes": notes}
 
-    def recreate_qualifiers(self, claim: Any):
+    # ----- Recreation -----
+
+    def recreate_qualifiers(self, claim: Any) -> "OrderedDict[str, List[Any]]":
         """
-        Convert internal qualifiers back into Pywikibot objects and set them on the claim.
+        Return OrderedDict[str, List[pwb.Claim]]; reuse existing Claim objects from `claim`
+        when PID+value matches (preserve snak_ids). Create new Claim objects only when needed.
+        Cross-PID semantic ordering; within-PID insertion order preserved.
         """
-        # Clear existing qualifiers on claim and rebuild
-        # This assumes claim.qualifiers is mutable; adjust to your pywikibot usage.
-        setattr(claim, "qualifiers", {})
-        for pid, entries in self._quals.items():
-            active_entries = [e for e in entries if e.active]
-            if not active_entries:
-                continue
-            snaks = []
-            for e in active_entries:
-                if e.qvalue.kind == "DATE":
-                    snaks.append(e.qvalue.value.create_wikidata_item())
-                elif e.qvalue.kind == "QID":
-                    snaks.append(ItemPage(Site(), e.qvalue.value))
-                elif e.qvalue.kind == "STRING":
-                    snaks.append(e.qvalue.value)
+        from pywikibot import Claim, ItemPage, Site
+
+        existing = getattr(claim, "qualifiers", {}) or {}
+        site = claim.repo
+        out: "OrderedDict[str, List[Claim]]" = OrderedDict()
+
+        # Build reverse index: {(pid, normalized_value) -> existing Claim}
+        idx: Dict[Tuple[str, Any], Any] = {}
+        for pid, claims in existing.items():
+            for q in claims:
+                nv = self._normalize_datavalue(q.getTarget())
+                # Apply QID-centric canonicalization
+                if isinstance(nv, str) and self._is_qid(nv):
+                    pid = self._pid_for_qid(nv, pid)
+                idx[(pid, nv)] = q
+
+        # Emit in cross-PID order; within-PID insertion order preserved
+        for pid in self._ordered_pids(self._values):
+            out[pid] = []
+            for nv in self._values[pid]:
+                key = (pid, nv)
+                if key in idx:
+                    out[pid].append(idx[key])  # reuse existing claim (preserve snak_id)
                 else:
-                    raise UnexpectedValueError(f"Unknown kind: {e.qvalue.kind}")
-            claim.qualifiers[pid] = snaks
-
-    # -------------------------
-    # Internal helpers
-    # -------------------------
-
-    def _canonical_view(self) -> Dict[str, List[Tuple[str, Any]]]:
-        """
-        Produce a canonical order-independent view for equality comparison:
-        pid -> list of (kind, canonical_value)
-        Only active entries count.
-        """
-        view: Dict[str, List[Tuple[str, Any]]] = {}
-        for pid, entries in self._quals.items():
-            active = [
-                (e.qvalue.kind, self._canon_value(pid, e.qvalue))
-                for e in entries
-                if e.active
-            ]
-            # Sort for order-independence
-            active.sort(key=lambda kv: (kv[0], str(kv[1])))
-            if active:
-                view[pid] = active
-        return view
-
-    def _canon_value(self, pid: str, qv: QValue) -> Any:
-        if qv.kind == "DATE":
-            # Canonicalize date as tuple for equality (precision-insensitive via Date.is_equal)
-            return qv.value  # keep Date object; compare via is_equal when relaxed
-        elif qv.kind in ("QID", "STRING"):
-            return qv.value
-        else:
-            raise UnexpectedValueError(f"Unknown kind: {qv.kind}")
-
-    def _qvalue_equal(self, pid: str, a: QValue, b: QValue, strict: bool) -> bool:
-        if a.kind != b.kind:
-            return False
-        if strict:
-            # Exact compare
-            if a.kind == "DATE":
-                # Strict uses calendar model-sensitive compare (assume Date equality by identity)
-                return Date.is_equal(a.value, b.value, ignore_calendar_model=False)
-            return a.value == b.value
-        else:
-            # Relaxed equality
-            if a.kind == "DATE":
-                return Date.is_equal(a.value, b.value, ignore_calendar_model=True)
-            return a.value == b.value
-
-    def _bidi_relaxed_equal(
-        self, pid: str, sv: List[Tuple[str, Any]], ov: List[Tuple[str, Any]]
-    ) -> bool:
-        # sv/ov items are (kind, value); for DATE use relaxed compare
-        def contains(all_items: List[Tuple[str, Any]], item: Tuple[str, Any]) -> bool:
-            k, v = item
-            for k2, v2 in all_items:
-                if k2 != k:
-                    continue
-                if k == "DATE":
-                    if Date.is_equal(v, v2, ignore_calendar_model=True):
-                        return True
-                else:
-                    if v == v2:
-                        return True
-            return False
-
-        # Each item in sv must be in ov or vice versa; allow missing
-        # If both sides have values, require overlap; if completely disjoint with conflicts, unequal
-        # Check sv items in ov
-        overlap_sv = any(contains(ov, it) for it in sv)
-        overlap_ov = any(contains(sv, it) for it in ov)
-        return overlap_sv or overlap_ov
-
-    def _merge_value(
-        self,
-        pid: str,
-        s_bucket: List[QualEntry],
-        o_entry: QualEntry,
-        pol: PIDPolicy,
-        notes: List[str],
-    ) -> bool:
-        """
-        Merge non-QID values (DATE, STRING). Default: external fills gaps; do not overwrite WD.
-        """
-        changed = False
-        # Try to find equal value
-        for e in s_bucket:
-            if e.active and self._qvalue_equal(
-                pid, e.qvalue, o_entry.qvalue, strict=False
-            ):
-                # Already present; do not change
-                return False
-
-        # Conflicts (different values in unique PID)
-        if pol.unique and s_bucket:
-            # Decide overwrite vs prefer
-            if pol.overwrite or pol.prefer_external:
-                s_bucket.clear()
-                s_bucket.append(
-                    QualEntry(
-                        pid=pid,
-                        qvalue=o_entry.qvalue,
-                        provenance=o_entry.provenance,
-                        active=True,
-                    )
-                )
-                notes.append(f"Overwrite unique PID {pid} with external value")
-                changed = True
-            elif pol.prefer_wikidata:
-                notes.append(f"Prefer WD for unique PID {pid}; external ignored")
-            else:
-                # Keep both only if policy permits (not unique); but here unique=True
-                notes.append(f"Conflict at unique PID {pid}; keeping WD")
-            return changed
-
-        # Non-unique or empty bucket: append external
-        s_bucket.append(
-            QualEntry(
-                pid=pid,
-                qvalue=o_entry.qvalue,
-                provenance=o_entry.provenance,
-                active=True,
-            )
-        )
-        changed = True
-        return changed
-
-    def _merge_qid(
-        self,
-        pid: str,
-        s_bucket: List[QualEntry],
-        o_entry: QualEntry,
-        pol: PIDPolicy,
-        notes: List[str],
-    ) -> bool:
-        """
-        Merge QID-as-Boolean:
-        - WD QIDs win; external fills gaps only.
-        - If both have same QID, keep WD’s PID and do not duplicate.
-        - Do not overwrite WD with different QID unless overwrite/prefer_external.
-        """
-        changed = False
-        # Check if same QID already present
-        for e in s_bucket:
-            if e.qvalue.kind == "QID" and e.qvalue.value == o_entry.qvalue.value:
-                if e.active:
-                    # Already present: prefer WD provenance, keep existing PID
-                    return False
-                else:
-                    # Tombstoned: revive if external suggests present and policy allows
-                    if (
-                        o_entry.provenance == "wikidata"
-                        or pol.prefer_external
-                        or pol.overwrite
-                    ):
-                        e.active = True
-                        notes.append(
-                            f"Revived tombstoned QID {e.qvalue.value} at PID {pid}"
-                        )
-                        return True
+                    c = Claim(site, pid, is_qualifier=True)
+                    if isinstance(nv, Date):
+                        c.setTarget(nv.create_wikidata_item())
+                    elif isinstance(nv, str) and self._is_qid(nv):
+                        c.setTarget(ItemPage(site, nv))
                     else:
-                        notes.append(
-                            f"External suggested revival of {e.qvalue.value} denied per policy"
-                        )
-                        return False
+                        c.setTarget(nv)  # string or external ID
+                    out[pid].append(c)
 
-        # Different QID conflict under unique PID?
-        if pol.unique and any(e.qvalue.kind == "QID" and e.active for e in s_bucket):
-            if pol.overwrite or pol.prefer_external:
-                # Replace existing (even WD) with external
-                s_bucket[:] = [e for e in s_bucket if not (e.qvalue.kind == "QID")]
-                s_bucket.append(
-                    QualEntry(
-                        pid=pid,
-                        qvalue=o_entry.qvalue,
-                        provenance=o_entry.provenance,
-                        active=True,
-                    )
-                )
-                notes.append(
-                    f"Overwrite unique QID at PID {pid} with {o_entry.qvalue.value}"
-                )
-                changed = True
-            else:
-                notes.append(
-                    f"Prefer WD QID at PID {pid}; external {o_entry.qvalue.value} ignored"
-                )
-            return changed
+        return out
 
-        # Otherwise, external fills gaps
-        s_bucket.append(
-            QualEntry(
-                pid=pid,
-                qvalue=o_entry.qvalue,
-                provenance=o_entry.provenance,
-                active=True,
-            )
-        )
-        changed = True
-        return changed
+    # ----- Internals -----
 
-    def _order_pid_bucket(self, pid: str):
+    def _append(self, pid: str, value: Any) -> None:
+        if pid not in self._values:
+            self._values[pid] = []
+        self._values[pid].append(self._freeze(value))
+
+    def _freeze(self, value: Any) -> Any:
+        # Date is already immutable; strings/QIDs are immutable; no conversion here
+        return value
+
+    def _temporal_mergeable(self, self_vals, other_vals):
+        start_self = self_vals.get("P580")
+        end_self = self_vals.get("P582")
+        start_other = other_vals.get("P580")
+        end_other = other_vals.get("P582")
+
+        # Both sides have start → must match
+        if (
+            start_self
+            and start_other
+            and not Date.is_equal(start_self[0], start_other[0], False)
+        ):
+            return False
+        # Both sides have end → must match
+        if (
+            end_self
+            and end_other
+            and not Date.is_equal(end_self[0], end_other[0], False)
+        ):
+            return False
+        # Complementary only (start vs end) → not mergeable
+        if (start_self and not end_self) and (end_other and not start_other):
+            return False
+        if (end_self and not start_self) and (start_other and not end_other):
+            return False
+        return True
+
+    def _normalize_temporal_equivalents(
+        self, store: dict[str, list]
+    ) -> dict[str, list]:
         """
-        Preserve WD-first, then external; apply semantic ordering within PID:
-        - P580 before P582
-        - P1319 before P1326
+        Normalize temporal qualifiers into a canonical form:
+        - Collapse P580+P582 with identical value into P585 (point in time).
+        - Collapse P1319+P1326 with identical value into P585.
+        - Leave P585 as-is.
+        - Ensure complementary-only cases (start-only vs end-only) are preserved
+        so they can be detected as non-mergeable later.
         """
-        entries = self._quals.get(pid, [])
-        if not entries:
-            return
+        # Copy to avoid mutating caller
+        store = {pid: list(vals) for pid, vals in store.items()}
 
-        # WD first, then external
-        def prov_rank(pv: str) -> int:
-            return 0 if pv == "wikidata" else 1
+        # Helper: collapse start+end into point if identical
+        def collapse_pair(start_pid, end_pid):
+            start = store.get(start_pid)
+            end = store.get(end_pid)
+            if start and end and len(start) == 1 and len(end) == 1:
+                if Date.is_equal(start[0], end[0], ignore_calendar_model=False):
+                    # Collapse to P585
+                    store.pop(start_pid, None)
+                    store.pop(end_pid, None)
+                    store.setdefault("P585", []).append(start[0])
 
-        def semantic_rank(pid: str, e: QualEntry) -> Tuple[int, str]:
-            # Lower rank comes first
-            # Default rank 10; adjust for known sequences
-            r = 10
-            if pid in (wd.PID_START_TIME, wd.PID_END_TIME):
-                r = 0 if pid == wd.PID_START_TIME else 1
-            elif pid in (wd.PID_EARLIEST_DATE, wd.PID_LATEST_DATE):
-                r = 0 if pid == wd.PID_EARLIEST_DATE else 1
-            return (r, e.qvalue.kind)
+        collapse_pair("P580", "P582")
+        collapse_pair("P1319", "P1326")
 
-        entries.sort(
-            key=lambda e: (
-                prov_rank(e.provenance),
-                semantic_rank(pid, e),
-                str(e.qvalue.value),
+        return store
+
+    def _normalize_datavalue(self, v: Any) -> Any:
+        # WbTime -> Date; ItemPage -> id; else str
+        from pywikibot import WbTime, ItemPage
+
+        if isinstance(v, WbTime):
+            return Date.create_from_WbTime(v)
+        if isinstance(v, ItemPage):
+            return v.id
+        if isinstance(v, str):
+            return v
+        # External ID or other to string
+        try:
+            return str(v)
+        except Exception:
+            raise ValueError(f"Unexpected qualifier value type: {type(v)}")
+
+    def _normalize_qid(self, qid: str) -> str:
+        if not isinstance(qid, str):
+            qid = str(qid)
+        qid = qid.strip()
+        if not self._is_qid(qid):
+            raise ValueError(f"Not a QID: {qid}")
+        return qid
+
+    def _is_qid(self, s: str) -> bool:
+        return isinstance(s, str) and s.startswith("Q") and s[1:].isdigit()
+
+    def _pid_for_qid(self, qid: str, pid_hint: Optional[str]) -> str:
+        rules = self._qid_pid_rules.get(qid)
+        if not rules:
+            return (
+                pid_hint
+                or self._recognized.get(qid)
+                or (pid_hint or wd.PID_SOURCING_CIRCUMSTANCES)
             )
+        default = rules.get("default") or pid_hint or wd.PID_SOURCING_CIRCUMSTANCES
+        forbidden = set(rules.get("forbidden", set()))
+        if pid_hint in forbidden:
+            return default
+        return pid_hint or default
+
+    def _ordered_pids(self, store: Dict[str, List[Any]]) -> List[str]:
+        present = list(store.keys())
+
+        # stable sort: first known in PID_ORDER, then others by original order
+        def order_key(pid: str) -> Tuple[int, int]:
+            try:
+                i = self.PID_ORDER.index(pid)
+            except ValueError:
+                i = len(self.PID_ORDER) + 1
+            return (i, present.index(pid))
+
+        return sorted(present, key=order_key)
+
+    def _canonicalized(self) -> Dict[str, List[Any]]:
+        """
+        Canonicalize by remapping QIDs to their default PID if forbidden, preserving insertion order.
+        """
+        out: Dict[str, List[Any]] = {}
+        for pid, values in self._values.items():
+            for v in values:
+                if isinstance(v, str) and self._is_qid(v):
+                    target_pid = self._pid_for_qid(v, pid)
+                else:
+                    target_pid = pid
+                out.setdefault(target_pid, []).append(v)
+        return out
+
+    def _pid_bucket_mergeable(self, a: List[Any], b: List[Any], pid: str) -> bool:
+        """
+        Non-strict equality: treat missing values as mergeable; detect semantic conflicts:
+        - Date: use precision/calendar-aware equality across sets
+        - QIDs and strings: presence mismatches are okay; conflicting duplicates not a blocker
+        """
+        # For Date buckets, ensure each date in min set can be matched in the other
+        a_dates = [x for x in a if isinstance(x, Date)]
+        b_dates = [x for x in b if isinstance(x, Date)]
+        if a_dates or b_dates:
+            # Compare as sets with calendar tolerance
+            for d in a_dates:
+                if not any(
+                    Date.is_equal(d, e, ignore_calendar_model=False) for e in b_dates
+                ):
+                    # Missing date on one side is allowed; only conflict if both present but unequal
+                    continue
+            for d in b_dates:
+                if not any(
+                    Date.is_equal(d, e, ignore_calendar_model=False) for e in a_dates
+                ):
+                    continue
+            # No direct contradictions detected
+            return True
+
+        # For QIDs/strings, bucket is mergeable by default; specific non-mergeable handled separately
+        return True
+
+    def _has_nonmergeable_modifier_mismatch(
+        self,
+        a: Dict[str, List[Any]],
+        b: Dict[str, List[Any]],
+    ) -> bool:
+        """
+        Detect cases like 'date=1870' vs 'circa 1870' (Q5727902 under P1480) that must not merge.
+        Rule: if any non-mergeable QID appears on one side but not the other, block merge/equality.
+        """
+        nonmergeable_qids = set(
+            q
+            for q, r in self._qid_pid_rules.items()
+            if r.get("default") == wd.PID_SOURCING_CIRCUMSTANCES
         )
-        self._quals[pid] = entries
+        a_mod = self._collect_qids(a).intersection(nonmergeable_qids)
+        b_mod = self._collect_qids(b).intersection(nonmergeable_qids)
+        return bool(a_mod) != bool(b_mod)  # presence mismatch blocks
+
+    def _collect_qids(self, store: Dict[str, List[Any]]) -> set:
+        out = set()
+        for vals in store.values():
+            for v in vals:
+                if isinstance(v, str) and self._is_qid(v):
+                    out.add(v)
+        return out
+
+    def _union_preserve_order(self, a: List[Any], b: List[Any]) -> List[Any]:
+        seen = set()
+        out: List[Any] = []
+        for x in a + b:
+            key = self._value_key(x)
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(x)
+        return out
+
+    def _value_key(self, v: Any) -> Tuple:
+        if isinstance(v, Date):
+            return ("date", v.year, v.month, v.day, v.precision, v.calendar)
+        if isinstance(v, str) and self._is_qid(v):
+            return ("qid", v)
+        return ("str", v)
+
+    def _assert_pid(self, pid: str) -> None:
+        if not isinstance(pid, str) or not pid.startswith("P") or not pid[1:].isdigit():
+            raise ValueError(f"Invalid PID: {pid}")
+
+
+def test1():
+    wikidata_q = QualifierHandler()
+    wikidata_q.add_date(wd.PID_POINT_IN_TIME, Date(1900))
+
+    external_q = QualifierHandler()
+    external_q.add_date(wd.PID_START_TIME, Date(1900))
+    external_q.add_date(wd.PID_END_TIME, Date(1900))
+
+    print(wikidata_q.is_equal(external_q, strict=False))
+
+
+def test2():
+    wikidata_q = QualifierHandler()
+    wikidata_q.add_str(wd.PID_SUBJECT_NAMED_AS, "test1")
+
+    external_q = QualifierHandler()
+    external_q.add_str(wd.PID_SUBJECT_NAMED_AS, "test2")
+
+    print(wikidata_q.is_equal(external_q, strict=False))
+
+
+if __name__ == "__main__":
+    test2()

@@ -338,19 +338,25 @@ class CachedEcarticoLookup(EcarticoLookupAddInterface):
         if t:
             qid, description = t
         else:
+            e_description = ""
             t = self.ecartico_source.get_person(ecartico_id)
             if t:
-                qid, description = t
-                if qid and qid.startswith("Q"):
-                    self.cache.add_person(ecartico_id, description, qid)
-                    return qid, description
+                e_qid, e_description = t
+                if e_qid and e_qid.startswith("Q"):
+                    self.cache.add_person(ecartico_id, e_description, e_qid)
+                    return e_qid, e_description
 
             t = self.wikidata_source.get_person(ecartico_id)
             if t:
-                qid, description = t
-                if qid and qid.startswith("Q"):
-                    self.cache.add_person(ecartico_id, description, qid)
-                    return qid, description
+                w_qid, w_description = t
+                if w_qid and w_qid.startswith("Q"):
+                    if w_description == "?":
+                        w_description = None
+                    w_description = w_description or e_description
+                    if not w_description:
+                        w_description = "?"
+                    self.cache.add_person(ecartico_id, w_description, w_qid)
+                    return w_qid, w_description
 
         if qid == SKIP:
             return None

@@ -4,18 +4,7 @@ import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-)
+from typing import Dict, List, Literal, Optional, Set
 
 import pywikibot as pwb
 
@@ -27,6 +16,7 @@ from shared_lib.date_value import (
     PRECISION_YEAR,
     Date,
 )
+from shared_lib.qualifier_handler import QualifierHandler
 
 MAX_LAG_BACKOFF_SECS = 10 * 60
 
@@ -407,8 +397,8 @@ class StatementConfig:
 
 class Statement(WikidataEntity):
 
-    def __init__(self, config: StatementConfig = StatementConfig()):
-        self.config = config
+    def __init__(self, config: Optional[StatementConfig] = None):
+        self.config = config or StatementConfig()
 
     def check_remove_weak_references(self, claim):
         if (
@@ -445,25 +435,28 @@ class Statement(WikidataEntity):
             for claim in self.wd_page.claims[prop]:
                 if self.can_attach_to_claim(claim, strict=False):
                     if claim.rank == "deprecated":
-                        self.print_action("deprecated claim", TextColor.WARNING)
+                        self.print_action(
+                            "skipping deprecated claim", TextColor.WARNING
+                        )
                         return
-                    did_delete_ref = False
-                    if self.reference:
-                        if self.reference.has_equal_reference(claim):
-                            self.print_action("reference deleted")
-                            self.wd_page.delete_reference(
-                                claim, self.reference, is_update=True
-                            )
-                            did_delete_ref = True
-
-                    self.print_action("statement changed", TextColor.OKBLUE)
-                    self.update_statement(claim)
 
                     self.check_remove_weak_references(claim)
 
-                    if self.reference:
-                        self.print_action("reference added")
-                        self.add_reference(claim, is_update=did_delete_ref)
+                    if self.update_statement(claim):
+                        self.print_action("statement changed", TextColor.OKBLUE)
+
+                        did_delete_ref = False
+                        if self.reference:
+                            if self.reference.has_equal_reference(claim):
+                                self.print_action("reference deleted")
+                                self.wd_page.delete_reference(
+                                    claim, self.reference, is_update=True
+                                )
+                                did_delete_ref = True
+
+                        if self.reference:
+                            self.print_action("reference added")
+                            self.add_reference(claim, is_update=did_delete_ref)
                     return
 
         if self.can_add_claim:
@@ -528,7 +521,7 @@ class Statement(WikidataEntity):
                 self.wd_page.reference_deleted(claim)
 
     @abc.abstractmethod
-    def update_statement(self, claim: pwb.Claim):
+    def update_statement(self, claim: pwb.Claim) -> bool:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -1051,7 +1044,7 @@ class MonolingualTextStatement(Statement):
         self,
         text: str,
         language: str,
-        config: StatementConfig = StatementConfig(),
+        config: Optional[StatementConfig] = None,
     ):
         super().__init__(config)
         self.text = text
@@ -1065,9 +1058,8 @@ class MonolingualTextStatement(Statement):
     def can_attach_to_claim(self, claim, strict: bool) -> bool:
         raise NotImplementedError
 
-    def update_statement(self, claim: pwb.Claim):
-        # raise NotImplementedError
-        pass
+    def update_statement(self, claim: pwb.Claim) -> bool:
+        return False
 
     def add_statement(self) -> pwb.Claim:
         pid = self.get_prop()
@@ -1075,8 +1067,10 @@ class MonolingualTextStatement(Statement):
         text = pwb.WbMonolingualText(self.text, self.language)
         claim.setTarget(text)
 
-        self.update_statement(claim)
+        # external_q = self.create_qualifiers()
+        # claim.qualifiers = external_q.recreate_qualifiers(claim)
         self.wd_page.add_claim(pid, claim)
+
         return claim
 
 
@@ -1088,7 +1082,7 @@ class ItemStatement(Statement):
         end_date: Optional[Date] = None,
         qid_alternative: Optional[str] = None,
         based_on: Optional[str] = None,
-        config: StatementConfig = StatementConfig(),
+        config: Optional[StatementConfig] = None,
     ):
         super().__init__(config)
         self.qid = qid
@@ -1133,442 +1127,488 @@ class ItemStatement(Statement):
         if (id != self.qid) and (id != self.qid_alternative):
             return False
 
-        qualifiers = [
-            (wd.PID_START_TIME, self.start_date),
-            (wd.PID_END_TIME, self.end_date),
-            (wd.PID_SUBJECT_NAMED_AS, self.subject_named_as),
-            (wd.PID_VOLUME, self.volume),
-            (wd.PID_PAGES, self.pages),
-            (wd.PID_URL, self.url),
-        ]
+        # build & validate both qualifier‐sets
+        claim_qs = QualifierHandler()
+        claim_qs.from_claim(claim)
+        target_qs = self.create_qualifiers()
 
-        for qualifier, value in qualifiers:
-            if qualifier in claim.qualifiers and value:
-                if not self.has_equal_qualifier(value, claim, qualifier):
-                    return False
-            elif strict and (qualifier in claim.qualifiers or value):
-                return False
-            elif qualifier in claim.qualifiers:
-                # for example URL in Wikitext is not in import data
-                raise RuntimeError(
-                    "Qualifier error: Qualifier in claim but not in data"
-                )
+        return claim_qs.is_equal(target_qs, strict)
 
-        return True
+        # qualifiers = [
+        #     (wd.PID_START_TIME, self.start_date),
+        #     (wd.PID_END_TIME, self.end_date),
+        #     (wd.PID_SUBJECT_NAMED_AS, self.subject_named_as),
+        #     (wd.PID_VOLUME, self.volume),
+        #     (wd.PID_PAGES, self.pages),
+        #     (wd.PID_URL, self.url),
+        # ]
 
-    def update_statement(self, claim: pwb.Claim):
-        qualifiers = [
-            (wd.PID_START_TIME, self.start_date),
-            (wd.PID_END_TIME, self.end_date),
-            (wd.PID_SUBJECT_NAMED_AS, self.subject_named_as),
-            (wd.PID_VOLUME, self.volume),
-            (wd.PID_PAGES, self.pages),
-            (wd.PID_URL, self.url),
-        ]
+        # for qualifier, value in qualifiers:
+        #     if qualifier in claim.qualifiers and value:
+        #         if not self.has_equal_qualifier(value, claim, qualifier):
+        #             return False
+        #     elif strict and (qualifier in claim.qualifiers or value):
+        #         return False
+        #     elif qualifier in claim.qualifiers:
+        #         # for example URL in Wikitext is not in import data
+        #         raise RuntimeError(
+        #             "Qualifier error: Qualifier in claim but not in data"
+        #         )
 
-        for qualifier, value in qualifiers:
-            if value:
-                if not self.has_equal_qualifier(value, claim, qualifier):
-                    qual_claim = pwb.Claim(REPO, qualifier, is_qualifier=True)
-                    if isinstance(value, Date):
-                        target = value.create_wikidata_item()
-                    else:
-                        target = value
-                    qual_claim.setTarget(target)
-                    claim.qualifiers.setdefault(qualifier, []).append(qual_claim)
-        self.wd_page.claim_changed(claim)
+        # return True
+
+    def create_qualifiers(self) -> QualifierHandler:
+        qh = QualifierHandler()
+        if self.start_date:
+            qh.add_date(wd.PID_START_TIME, self.start_date)
+        if self.end_date:
+            qh.add_date(wd.PID_END_TIME, self.end_date)
+        if self.subject_named_as:
+            qh.add_str(wd.PID_SUBJECT_NAMED_AS, self.subject_named_as)
+        if self.volume:
+            qh.add_str(wd.PID_VOLUME, self.volume)
+        if self.pages:
+            qh.add_str(wd.PID_PAGES, self.pages)
+        if self.url:
+            qh.add_str(wd.PID_URL, self.url)
+        return qh
+
+    def update_statement(self, claim: pwb.Claim) -> bool:
+
+        claim_changed = False
+
+        orig_q = QualifierHandler()
+        orig_q.from_claim(claim)
+
+        new_q = QualifierHandler()
+        new_q.from_claim(claim)
+        external_q = self.create_qualifiers()
+        res = new_q.merge(external_q)
+        print(res)
+
+        if not new_q.is_equal(orig_q, strict=True):
+            claim.qualifiers = new_q.recreate_qualifiers(claim)
+            claim_changed = True
+
+        if claim_changed:
+            self.wd_page.claim_changed(claim)
+
+        return claim_changed
+
+        # qualifiers = [
+        #     (wd.PID_START_TIME, self.start_date),
+        #     (wd.PID_END_TIME, self.end_date),
+        #     (wd.PID_SUBJECT_NAMED_AS, self.subject_named_as),
+        #     (wd.PID_VOLUME, self.volume),
+        #     (wd.PID_PAGES, self.pages),
+        #     (wd.PID_URL, self.url),
+        # ]
+
+        # for qualifier, value in qualifiers:
+        #     if value:
+        #         if not self.has_equal_qualifier(value, claim, qualifier):
+        #             qual_claim = pwb.Claim(REPO, qualifier, is_qualifier=True)
+        #             if isinstance(value, Date):
+        #                 target = value.create_wikidata_item()
+        #             else:
+        #                 target = value
+        #             qual_claim.setTarget(target)
+        #             claim.qualifiers.setdefault(qualifier, []).append(qual_claim)
+        # self.wd_page.claim_changed(claim)
 
     def add_statement(self) -> pwb.Claim:
         pid = self.get_prop()
         claim = pwb.Claim(REPO, pid)
         claim.setTarget(pwb.ItemPage(REPO, self.qid))
 
-        self.update_statement(claim)
+        external_q = self.create_qualifiers()
+        claim.qualifiers = external_q.recreate_qualifiers(claim)
+
         self.wd_page.add_claim(pid, claim)
         return claim
 
 
-ParseHandler = Callable[[Iterable[pwb.Claim]], Any]
-CreateHandler = Callable[[Any], List[pwb.Claim]]
-T = TypeVar("T", bound="Qualifiers")
+# ParseHandler = Callable[[Iterable[pwb.Claim]], Any]
+# CreateHandler = Callable[[Any], List[pwb.Claim]]
+# T = TypeVar("T", bound="Qualifiers")
 
 
-class Qualifiers:
-    ALLOWED_PROPS: Set[str] = set()
-    PARSE_HANDLERS: Dict[str, ParseHandler] = {}
-    CREATE_HANDLERS: Dict[str, CreateHandler] = {}
-    PRIORITY_ORDER: List[str] = []
+# class Qualifiers:
+#     ALLOWED_PROPS: Set[str] = set()
+#     PARSE_HANDLERS: Dict[str, ParseHandler] = {}
+#     CREATE_HANDLERS: Dict[str, CreateHandler] = {}
+#     PRIORITY_ORDER: List[str] = []
 
-    def __init__(self):
-        pass
+#     def __init__(self):
+#         pass
 
-    @classmethod
-    def from_claim(cls: Type[T], claim: pwb.Claim) -> T:
-        quals = claim.qualifiers
-        extra = set(quals) - cls.ALLOWED_PROPS
-        if extra:
-            raise RuntimeError(f"Unsupported qualifier props: {extra}")
+#     @classmethod
+#     def from_claim(cls: Type[T], claim: pwb.Claim) -> T:
+#         quals = claim.qualifiers
+#         extra = set(quals) - cls.ALLOWED_PROPS
+#         if extra:
+#             raise RuntimeError(f"Unsupported qualifier props: {extra}")
 
-        inst = cls.__new__(cls)
-        cls.__init__(inst)
+#         inst = cls.__new__(cls)
+#         cls.__init__(inst)
 
-        for prop in cls.ALLOWED_PROPS:
-            handler = cls.PARSE_HANDLERS.get(prop)
-            if handler:
-                value = handler(quals.get(prop, []))
-                setattr(inst, prop, value)
-            else:
-                qlist = quals.get(prop, [])
-                if not qlist:
-                    setattr(inst, prop, None)
-                elif len(qlist) == 1:
-                    setattr(inst, prop, qlist[0].getTarget())
-                else:
-                    raise RuntimeError(f"Multiple {prop} qualifiers")
+#         for prop in cls.ALLOWED_PROPS:
+#             handler = cls.PARSE_HANDLERS.get(prop)
+#             if handler:
+#                 value = handler(quals.get(prop, []))
+#                 setattr(inst, prop, value)
+#             else:
+#                 qlist = quals.get(prop, [])
+#                 if not qlist:
+#                     setattr(inst, prop, None)
+#                 elif len(qlist) == 1:
+#                     setattr(inst, prop, qlist[0].getTarget())
+#                 else:
+#                     raise RuntimeError(f"Multiple {prop} qualifiers")
 
-        return inst
+#         return inst
 
-    def merge(self, other: "Qualifiers"):
-        if type(self) is not type(other):
-            raise TypeError("Can only merge same qualifier types")
-        for prop in self.ALLOWED_PROPS:
-            a = getattr(self, prop, None)
-            b = getattr(other, prop, None)
-            if b is None:
-                continue
-            if a is None:
-                setattr(self, prop, b)
-            else:
-                if a != b:
-                    raise RuntimeError(
-                        f"Can not merge because of difference for {prop}"
-                    )
+#     def merge(self, other: "Qualifiers"):
+#         if type(self) is not type(other):
+#             raise TypeError("Can only merge same qualifier types")
+#         for prop in self.ALLOWED_PROPS:
+#             a = getattr(self, prop, None)
+#             b = getattr(other, prop, None)
+#             if b is None:
+#                 continue
+#             if a is None:
+#                 setattr(self, prop, b)
+#             else:
+#                 if a != b:
+#                     raise RuntimeError(
+#                         f"Can not merge because of difference for {prop}"
+#                     )
 
-    def recreate_qualifiers(
-        self, claim: pwb.Claim
-    ) -> "OrderedDict[str, List[pwb.Claim]]":
-        created: Dict[str, List[pwb.Claim]] = {}
-        for prop, creator in self.CREATE_HANDLERS.items():
-            value = getattr(self, prop, None)
-            if value is None:
-                continue
-            qual_claims = creator(value)
-            if qual_claims:
-                created[prop] = qual_claims
+#     def recreate_qualifiers(
+#         self, claim: pwb.Claim
+#     ) -> "OrderedDict[str, List[pwb.Claim]]":
+#         created: Dict[str, List[pwb.Claim]] = {}
+#         for prop, creator in self.CREATE_HANDLERS.items():
+#             value = getattr(self, prop, None)
+#             if value is None:
+#                 continue
+#             qual_claims = creator(value)
+#             if qual_claims:
+#                 created[prop] = qual_claims
 
-        filtered: Dict[str, List[pwb.Claim]] = {}
-        for pid, qualifiers in claim.qualifiers.items():
-            if pid in self.ALLOWED_PROPS:
-                # do not copy managed props; they will be rebuilt from `created`
-                continue
-            filtered[pid] = list(qualifiers)
+#         filtered: Dict[str, List[pwb.Claim]] = {}
+#         for pid, qualifiers in claim.qualifiers.items():
+#             if pid in self.ALLOWED_PROPS:
+#                 # do not copy managed props; they will be rebuilt from `created`
+#                 continue
+#             filtered[pid] = list(qualifiers)
 
-        custom_pid_order: List[str] = []
-        seen = set()
-        for pid in claim.qualifiers:
-            if pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
-        for pid in self.PRIORITY_ORDER:
-            if pid in created and pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
-        for pid in created:
-            if pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
+#         custom_pid_order: List[str] = []
+#         seen = set()
+#         for pid in claim.qualifiers:
+#             if pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
+#         for pid in self.PRIORITY_ORDER:
+#             if pid in created and pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
+#         for pid in created:
+#             if pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
 
-        ordered = OrderedDict()
-        for pid in custom_pid_order:
-            if pid in filtered:
-                ordered[pid] = filtered[pid]
-            elif pid in created:
-                ordered[pid] = created[pid]
+#         ordered = OrderedDict()
+#         for pid in custom_pid_order:
+#             if pid in filtered:
+#                 ordered[pid] = filtered[pid]
+#             elif pid in created:
+#                 ordered[pid] = created[pid]
 
-        for pid in list(filtered.keys()):
-            if pid not in ordered:
-                ordered[pid] = filtered[pid]
-        for pid in list(created.keys()):
-            if pid not in ordered:
-                ordered[pid] = created[pid]
+#         for pid in list(filtered.keys()):
+#             if pid not in ordered:
+#                 ordered[pid] = filtered[pid]
+#         for pid in list(created.keys()):
+#             if pid not in ordered:
+#                 ordered[pid] = created[pid]
 
-        return ordered
+#         return ordered
 
-    @classmethod
-    def is_equal(cls: Type[T], a: T, b: T, strict: bool) -> bool:
-        if strict:
-            return a.__dict__ == b.__dict__
-        for prop in cls.ALLOWED_PROPS:
-            va = getattr(a, prop, None)
-            vb = getattr(b, prop, None)
-            if va is None and vb is None:
-                continue
-            if va != vb:
-                return False
-        return True
+#     @classmethod
+#     def is_equal(cls: Type[T], a: T, b: T, strict: bool) -> bool:
+#         if strict:
+#             return a.__dict__ == b.__dict__
+#         for prop in cls.ALLOWED_PROPS:
+#             va = getattr(a, prop, None)
+#             vb = getattr(b, prop, None)
+#             if va is None and vb is None:
+#                 continue
+#             if va != vb:
+#                 return False
+#         return True
 
-    def __repr__(self):
-        props = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
-        return f"<{self.__class__.__name__} {props}>"
+#     def __repr__(self):
+#         props = ", ".join(f"{k}={v!r}" for k, v in self.__dict__.items())
+#         return f"<{self.__class__.__name__} {props}>"
 
 
 # assumes Qualifiers base class, wd, REPO, Date, CALENDAR_ASSUMED_GREGORIAN are available
 
 
-class DateQualifiers(Qualifiers):
-    ALLOWED_PROPS = {
-        wd.PID_NATURE_OF_STATEMENT,
-        wd.PID_SOURCING_CIRCUMSTANCES,
-        wd.PID_EARLIEST_DATE,
-        wd.PID_LATEST_DATE,
-        wd.PID_INSTANCE_OF,
-        wd.PID_STATEMENT_DISPUTED_BY,
-        wd.PID_REASON_FOR_PREFERRED_RANK,
-        wd.PID_REASON_FOR_DEPRECATED_RANK,
-    }
+# class DateQualifiers(Qualifiers):
+#     ALLOWED_PROPS = {
+#         wd.PID_NATURE_OF_STATEMENT,
+#         wd.PID_SOURCING_CIRCUMSTANCES,
+#         wd.PID_EARLIEST_DATE,
+#         wd.PID_LATEST_DATE,
+#         wd.PID_INSTANCE_OF,
+#         wd.PID_STATEMENT_DISPUTED_BY,
+#         wd.PID_REASON_FOR_PREFERRED_RANK,
+#         wd.PID_REASON_FOR_DEPRECATED_RANK,
+#     }
 
-    PRIORITY_ORDER = [
-        wd.PID_SOURCING_CIRCUMSTANCES,
-        wd.PID_EARLIEST_DATE,
-        wd.PID_LATEST_DATE,
-    ]
+#     PRIORITY_ORDER = [
+#         wd.PID_SOURCING_CIRCUMSTANCES,
+#         wd.PID_EARLIEST_DATE,
+#         wd.PID_LATEST_DATE,
+#     ]
 
-    def __init__(
-        self,
-        is_circa: bool = False,
-        gregorian_pre_1584: bool = False,
-        assumed_gregorian: bool = False,
-        earliest: Optional[Date] = None,
-        latest: Optional[Date] = None,
-    ):
-        self.is_circa = is_circa
-        self.gregorian_pre_1584 = gregorian_pre_1584
-        self.assumed_gregorian = assumed_gregorian
-        self.earliest = earliest
-        self.latest = latest
+#     def __init__(
+#         self,
+#         is_circa: bool = False,
+#         gregorian_pre_1584: bool = False,
+#         assumed_gregorian: bool = False,
+#         earliest: Optional[Date] = None,
+#         latest: Optional[Date] = None,
+#     ):
+#         self.is_circa = is_circa
+#         self.gregorian_pre_1584 = gregorian_pre_1584
+#         self.assumed_gregorian = assumed_gregorian
+#         self.earliest = earliest
+#         self.latest = latest
 
-    # ----- parsing helpers -----
-    @staticmethod
-    def _parse_date_single(qlist: Iterable[pwb.Claim]) -> Optional[Date]:
-        q = list(qlist)
-        if not q:
-            return None
-        if len(q) > 1:
-            raise RuntimeError("Multiple date qualifiers")
-        t = q[0].getTarget()
-        if not isinstance(t, pwb.WbTime):
-            raise RuntimeError("Date qualifier not a WbTime")
-        return Date.create_from_WbTime(t)
+#     # ----- parsing helpers -----
+#     @staticmethod
+#     def _parse_date_single(qlist: Iterable[pwb.Claim]) -> Optional[Date]:
+#         q = list(qlist)
+#         if not q:
+#             return None
+#         if len(q) > 1:
+#             raise RuntimeError("Multiple date qualifiers")
+#         t = q[0].getTarget()
+#         if not isinstance(t, pwb.WbTime):
+#             raise RuntimeError("Date qualifier not a WbTime")
+#         return Date.create_from_WbTime(t)
 
-    # PARSE_HANDLERS not used for flags because flags can appear on multiple props;
-    # we override from_claim to collect them from nature, sourcing, instance_of
+#     # PARSE_HANDLERS not used for flags because flags can appear on multiple props;
+#     # we override from_claim to collect them from nature, sourcing, instance_of
 
-    PARSE_HANDLERS = {
-        wd.PID_EARLIEST_DATE: _parse_date_single.__func__,
-        wd.PID_LATEST_DATE: _parse_date_single.__func__,
-    }
+#     PARSE_HANDLERS = {
+#         wd.PID_EARLIEST_DATE: _parse_date_single.__func__,
+#         wd.PID_LATEST_DATE: _parse_date_single.__func__,
+#     }
 
-    # ----- creation helper (instance-aware) -----
-    def _create_map(self) -> Dict[str, List[pwb.Claim]]:
-        created: Dict[str, List[pwb.Claim]] = {}
+#     # ----- creation helper (instance-aware) -----
+#     def _create_map(self) -> Dict[str, List[pwb.Claim]]:
+#         created: Dict[str, List[pwb.Claim]] = {}
 
-        def add_qid(pid, qid, condition):
-            if condition:
-                qual = pwb.Claim(REPO, pid, is_qualifier=True)
-                qual.setTarget(pwb.ItemPage(REPO, qid))
-                created.setdefault(pid, []).append(qual)
+#         def add_qid(pid, qid, condition):
+#             if condition:
+#                 qual = pwb.Claim(REPO, pid, is_qualifier=True)
+#                 qual.setTarget(pwb.ItemPage(REPO, qid))
+#                 created.setdefault(pid, []).append(qual)
 
-        def add_date(pid, value: Optional[Date]):
-            if value:
-                qual = pwb.Claim(REPO, pid, is_qualifier=True)
-                qual.setTarget(value.create_wikidata_item())
-                created.setdefault(pid, []).append(qual)
+#         def add_date(pid, value: Optional[Date]):
+#             if value:
+#                 qual = pwb.Claim(REPO, pid, is_qualifier=True)
+#                 qual.setTarget(value.create_wikidata_item())
+#                 created.setdefault(pid, []).append(qual)
 
-        add_qid(wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA, self.is_circa)
-        add_qid(
-            wd.PID_SOURCING_CIRCUMSTANCES,
-            wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584,
-            self.gregorian_pre_1584,
-        )
-        add_qid(
-            wd.PID_SOURCING_CIRCUMSTANCES,
-            wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN,
-            self.assumed_gregorian,
-        )
-        add_date(wd.PID_EARLIEST_DATE, self.earliest)
-        add_date(wd.PID_LATEST_DATE, self.latest)
+#         add_qid(wd.PID_SOURCING_CIRCUMSTANCES, wd.QID_CIRCA, self.is_circa)
+#         add_qid(
+#             wd.PID_SOURCING_CIRCUMSTANCES,
+#             wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584,
+#             self.gregorian_pre_1584,
+#         )
+#         add_qid(
+#             wd.PID_SOURCING_CIRCUMSTANCES,
+#             wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN,
+#             self.assumed_gregorian,
+#         )
+#         add_date(wd.PID_EARLIEST_DATE, self.earliest)
+#         add_date(wd.PID_LATEST_DATE, self.latest)
 
-        return created
+#         return created
 
-    # CREATE_HANDLERS left empty because creation spans multiple props and depends on instance
-    CREATE_HANDLERS = {}
+#     # CREATE_HANDLERS left empty because creation spans multiple props and depends on instance
+#     CREATE_HANDLERS = {}
 
-    # ----- override from_claim to aggregate flags from multiple props -----
-    @classmethod
-    def from_claim(cls, claim: pwb.Claim) -> "DateQualifiers":
-        quals = claim.qualifiers
-        extra = set(quals) - cls.ALLOWED_PROPS
-        if extra:
-            raise RuntimeError(f"Unsupported qualifier props: {extra}")
+#     # ----- override from_claim to aggregate flags from multiple props -----
+#     @classmethod
+#     def from_claim(cls, claim: pwb.Claim) -> "DateQualifiers":
+#         quals = claim.qualifiers
+#         extra = set(quals) - cls.ALLOWED_PROPS
+#         if extra:
+#             raise RuntimeError(f"Unsupported qualifier props: {extra}")
 
-        seen_circa = False
-        seen_gregorian_pre_1584 = False
-        seen_assumed_gregorian = False
+#         seen_circa = False
+#         seen_gregorian_pre_1584 = False
+#         seen_assumed_gregorian = False
 
-        for qualifier_pid in (
-            wd.PID_NATURE_OF_STATEMENT,
-            wd.PID_SOURCING_CIRCUMSTANCES,
-            wd.PID_INSTANCE_OF,
-        ):
-            for qualifier in quals.get(qualifier_pid, []):
-                qid = qualifier.getTarget().getID()
-                if qid == wd.QID_CIRCA:
-                    seen_circa = True
-                elif qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
-                    seen_gregorian_pre_1584 = True
-                elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
-                    seen_assumed_gregorian = True
-                else:
-                    raise RuntimeError(f"Unknown value {qid} for {qualifier_pid}")
+#         for qualifier_pid in (
+#             wd.PID_NATURE_OF_STATEMENT,
+#             wd.PID_SOURCING_CIRCUMSTANCES,
+#             wd.PID_INSTANCE_OF,
+#         ):
+#             for qualifier in quals.get(qualifier_pid, []):
+#                 qid = qualifier.getTarget().getID()
+#                 if qid == wd.QID_CIRCA:
+#                     seen_circa = True
+#                 elif qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
+#                     seen_gregorian_pre_1584 = True
+#                 elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+#                     seen_assumed_gregorian = True
+#                 else:
+#                     raise RuntimeError(f"Unknown value {qid} for {qualifier_pid}")
 
-        earliest = cls._parse_date_single(quals.get(wd.PID_EARLIEST_DATE, []))
-        latest = cls._parse_date_single(quals.get(wd.PID_LATEST_DATE, []))
+#         earliest = cls._parse_date_single(quals.get(wd.PID_EARLIEST_DATE, []))
+#         latest = cls._parse_date_single(quals.get(wd.PID_LATEST_DATE, []))
 
-        return cls(
-            is_circa=seen_circa,
-            gregorian_pre_1584=seen_gregorian_pre_1584,
-            assumed_gregorian=seen_assumed_gregorian,
-            earliest=earliest,
-            latest=latest,
-        )
+#         return cls(
+#             is_circa=seen_circa,
+#             gregorian_pre_1584=seen_gregorian_pre_1584,
+#             assumed_gregorian=seen_assumed_gregorian,
+#             earliest=earliest,
+#             latest=latest,
+#         )
 
-    # ----- recreate_qualifiers reuses base ordering approach but needs instance-aware creators -----
-    def recreate_qualifiers(
-        self, claim: pwb.Claim
-    ) -> "OrderedDict[str, List[pwb.Claim]]":
-        created = self._create_map()
+#     # ----- recreate_qualifiers reuses base ordering approach but needs instance-aware creators -----
+#     def recreate_qualifiers(
+#         self, claim: pwb.Claim
+#     ) -> "OrderedDict[str, List[pwb.Claim]]":
+#         created = self._create_map()
 
-        # Start with a shallow copy of existing qualifiers: keep all props but for the managed ones
-        # only keep individual qualifiers that should remain (e.g., other qids we don't recognize)
-        filtered: Dict[str, List[pwb.Claim]] = {}
-        for pid, qualifiers in claim.qualifiers.items():
-            if pid in {
-                wd.PID_NATURE_OF_STATEMENT,
-                wd.PID_SOURCING_CIRCUMSTANCES,
-                wd.PID_INSTANCE_OF,
-            }:
-                filtered[pid] = []
-                for q in qualifiers:
-                    qid = q.getTarget().getID()
-                    # keep recognized qids only if the instance says so
-                    if qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
-                        if self.gregorian_pre_1584:
-                            filtered[pid].append(q)
-                    elif qid == wd.QID_CIRCA:
-                        if self.is_circa:
-                            filtered[pid].append(q)
-                    elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
-                        if self.assumed_gregorian:
-                            filtered[pid].append(q)
-                    else:
-                        filtered[pid].append(q)
-            else:
-                filtered[pid] = list(qualifiers)
+#         # Start with a shallow copy of existing qualifiers: keep all props but for the managed ones
+#         # only keep individual qualifiers that should remain (e.g., other qids we don't recognize)
+#         filtered: Dict[str, List[pwb.Claim]] = {}
+#         for pid, qualifiers in claim.qualifiers.items():
+#             if pid in {
+#                 wd.PID_NATURE_OF_STATEMENT,
+#                 wd.PID_SOURCING_CIRCUMSTANCES,
+#                 wd.PID_INSTANCE_OF,
+#             }:
+#                 filtered[pid] = []
+#                 for q in qualifiers:
+#                     qid = q.getTarget().getID()
+#                     # keep recognized qids only if the instance says so
+#                     if qid == wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584:
+#                         if self.gregorian_pre_1584:
+#                             filtered[pid].append(q)
+#                     elif qid == wd.QID_CIRCA:
+#                         if self.is_circa:
+#                             filtered[pid].append(q)
+#                     elif qid == wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN:
+#                         if self.assumed_gregorian:
+#                             filtered[pid].append(q)
+#                     else:
+#                         filtered[pid].append(q)
+#             else:
+#                 filtered[pid] = list(qualifiers)
 
-        # Build custom order: preserve original claim order, then PRIORITY_ORDER, then remaining created props
-        custom_pid_order: List[str] = []
-        seen = set()
-        for pid in claim.qualifiers:
-            if pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
-        for pid in self.PRIORITY_ORDER:
-            if pid in created and pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
-        for pid in created:
-            if pid not in seen:
-                custom_pid_order.append(pid)
-                seen.add(pid)
+#         # Build custom order: preserve original claim order, then PRIORITY_ORDER, then remaining created props
+#         custom_pid_order: List[str] = []
+#         seen = set()
+#         for pid in claim.qualifiers:
+#             if pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
+#         for pid in self.PRIORITY_ORDER:
+#             if pid in created and pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
+#         for pid in created:
+#             if pid not in seen:
+#                 custom_pid_order.append(pid)
+#                 seen.add(pid)
 
-        ordered = OrderedDict()
-        for pid in custom_pid_order:
-            if pid in filtered:
-                ordered[pid] = filtered[pid]
-            elif pid in created:
-                ordered[pid] = created[pid]
+#         ordered = OrderedDict()
+#         for pid in custom_pid_order:
+#             if pid in filtered:
+#                 ordered[pid] = filtered[pid]
+#             elif pid in created:
+#                 ordered[pid] = created[pid]
 
-        # append any remaining
-        for pid in list(filtered.keys()):
-            if pid not in ordered:
-                ordered[pid] = filtered[pid]
-        for pid in list(created.keys()):
-            if pid not in ordered:
-                ordered[pid] = created[pid]
+#         # append any remaining
+#         for pid in list(filtered.keys()):
+#             if pid not in ordered:
+#                 ordered[pid] = filtered[pid]
+#         for pid in list(created.keys()):
+#             if pid not in ordered:
+#                 ordered[pid] = created[pid]
 
-        return ordered
+#         return ordered
 
-    # ----- merging and equality -----
-    def merge(self, other: "DateQualifiers"):
-        if not isinstance(other, DateQualifiers):
-            raise TypeError("Can only merge DateQualifiers with DateQualifiers")
-        self.is_circa = self.is_circa or other.is_circa
-        self.gregorian_pre_1584 = self.gregorian_pre_1584 or other.gregorian_pre_1584
-        self.assumed_gregorian = self.assumed_gregorian or other.assumed_gregorian
+#     # ----- merging and equality -----
+#     def merge(self, other: "DateQualifiers"):
+#         if not isinstance(other, DateQualifiers):
+#             raise TypeError("Can only merge DateQualifiers with DateQualifiers")
+#         self.is_circa = self.is_circa or other.is_circa
+#         self.gregorian_pre_1584 = self.gregorian_pre_1584 or other.gregorian_pre_1584
+#         self.assumed_gregorian = self.assumed_gregorian or other.assumed_gregorian
 
-        if other.earliest:
-            if self.earliest:
-                if other.earliest != self.earliest:
-                    raise RuntimeError("Can not merge because of diff earliest")
-            else:
-                self.earliest = other.earliest
-        if other.latest:
-            if self.latest:
-                if other.latest != self.latest:
-                    raise RuntimeError("Can not merge because of diff latest")
-            else:
-                self.latest = other.latest
+#         if other.earliest:
+#             if self.earliest:
+#                 if other.earliest != self.earliest:
+#                     raise RuntimeError("Can not merge because of diff earliest")
+#             else:
+#                 self.earliest = other.earliest
+#         if other.latest:
+#             if self.latest:
+#                 if other.latest != self.latest:
+#                     raise RuntimeError("Can not merge because of diff latest")
+#             else:
+#                 self.latest = other.latest
 
-    def __eq__(self, other):
-        if not isinstance(other, DateQualifiers):
-            return NotImplemented
-        return (
-            self.is_circa == other.is_circa
-            and self.earliest == other.earliest
-            and self.latest == other.latest
-            and self.assumed_gregorian == other.assumed_gregorian
-            and self.gregorian_pre_1584 == other.gregorian_pre_1584
-        )
+#     def __eq__(self, other):
+#         if not isinstance(other, DateQualifiers):
+#             return NotImplemented
+#         return (
+#             self.is_circa == other.is_circa
+#             and self.earliest == other.earliest
+#             and self.latest == other.latest
+#             and self.assumed_gregorian == other.assumed_gregorian
+#             and self.gregorian_pre_1584 == other.gregorian_pre_1584
+#         )
 
-    @classmethod
-    def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
-        assumed_gregorian = (
-            getattr(stmt.date, "calendar", None) == CALENDAR_ASSUMED_GREGORIAN
-        )
-        return cls(
-            is_circa=stmt.is_circa,
-            gregorian_pre_1584=False,
-            assumed_gregorian=assumed_gregorian,
-            earliest=stmt.earliest,
-            latest=stmt.latest,
-        )
+#     @classmethod
+#     def from_statement(cls, stmt: "DateStatement") -> "DateQualifiers":
+#         assumed_gregorian = (
+#             getattr(stmt.date, "calendar", None) == CALENDAR_ASSUMED_GREGORIAN
+#         )
+#         return cls(
+#             is_circa=stmt.is_circa,
+#             gregorian_pre_1584=False,
+#             assumed_gregorian=assumed_gregorian,
+#             earliest=stmt.earliest,
+#             latest=stmt.latest,
+#         )
 
-    @classmethod
-    def is_equal(cls, item1: "DateQualifiers", item2: "DateQualifiers", strict: bool):
-        if strict:
-            return item1 == item2
-        else:
-            return (
-                (item1.is_circa == item2.is_circa)
-                and (
-                    (not item1.earliest and not item2.earliest)
-                    or (item1.earliest == item2.earliest)
-                )
-                and (
-                    (not item1.latest and not item2.latest)
-                    or (item1.latest == item2.latest)
-                )
-            )
+#     @classmethod
+#     def is_equal(cls, item1: "DateQualifiers", item2: "DateQualifiers", strict: bool):
+#         if strict:
+#             return item1 == item2
+#         else:
+#             return (
+#                 (item1.is_circa == item2.is_circa)
+#                 and (
+#                     (not item1.earliest and not item2.earliest)
+#                     or (item1.earliest == item2.earliest)
+#                 )
+#                 and (
+#                     (not item1.latest and not item2.latest)
+#                     or (item1.latest == item2.latest)
+#                 )
+#             )
 
 
 # class DateQualifiers:
@@ -1808,7 +1848,7 @@ class DateStatement(Statement):
         earliest: Optional[Date] = None,
         latest: Optional[Date] = None,
         is_circa: bool = False,
-        config: StatementConfig = StatementConfig(),
+        config: Optional[StatementConfig] = None,
     ):
         super().__init__(config)
         self.date = date
@@ -1840,12 +1880,31 @@ class DateStatement(Statement):
                 return False
 
         # build & validate both qualifier‐sets
-        claim_qs = DateQualifiers.from_claim(claim)  # may raise
-        target_qs = DateQualifiers.from_statement(self)
+        claim_qs = QualifierHandler()
+        claim_qs.from_claim(claim)
+        target_qs = self.create_qualifiers()
 
-        return DateQualifiers.is_equal(claim_qs, target_qs, strict)
+        return claim_qs.is_equal(target_qs, strict)
 
-    def update_statement(self, claim: pwb.Claim):
+    def create_qualifiers(self) -> QualifierHandler:
+        qh = QualifierHandler()
+        if self.is_circa:
+            qh.add_qid(wd.QID_CIRCA, wd.PID_SOURCING_CIRCUMSTANCES)
+        assumed_gregorian = (
+            getattr(self.date, "calendar", None) == CALENDAR_ASSUMED_GREGORIAN
+        )
+        if assumed_gregorian:
+            qh.add_qid(
+                wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN,
+                wd.PID_SOURCING_CIRCUMSTANCES,
+            )
+        if self.earliest:
+            qh.add_date(wd.PID_EARLIEST_DATE, self.earliest)
+        if self.latest:
+            qh.add_date(wd.PID_LATEST_DATE, self.latest)
+        return qh
+
+    def update_statement(self, claim: pwb.Claim) -> bool:
         claim_changed = False
         if self.date:
             new_dt = self.date.create_wikidata_item()
@@ -1858,21 +1917,28 @@ class DateStatement(Statement):
                 claim.setTarget(new_dt)
                 claim_changed = True
 
-        claim_qs = DateQualifiers.from_claim(claim)  # may raise
-        target_qs = DateQualifiers.from_statement(self)
-        target_qs.merge(claim_qs)
+        orig_q = QualifierHandler()
+        orig_q.from_claim(claim)
+
+        new_q = QualifierHandler()
+        new_q.from_claim(claim)
+        external_q = self.create_qualifiers()
+        res = new_q.merge(external_q)
+        print(res)
 
         if self.date:
             if self.date.calendar == CALENDAR_JULIAN:
-                target_qs.gregorian_pre_1584 = False
-                target_qs.assumed_gregorian = False
+                new_q.remove_qid(wd.QID_STATEMENT_WITH_GREGORIAN_DATE_EARLIER_THAN_1584)
+                new_q.remove_qid(wd.QID_UNSPECIFIED_CALENDAR_ASSUMED_GREGORIAN)
 
-        if claim_qs != target_qs:
-            claim.qualifiers = target_qs.recreate_qualifiers(claim)
+        if not new_q.is_equal(orig_q, strict=True):
+            claim.qualifiers = new_q.recreate_qualifiers(claim)
             claim_changed = True
 
         if claim_changed:
             self.wd_page.claim_changed(claim)
+
+        return claim_changed
 
     def add_statement(self) -> Optional[pwb.Claim]:
         pid = self.get_prop()
@@ -1882,67 +1948,67 @@ class DateStatement(Statement):
         else:
             claim.setSnakType("somevalue")
 
-        target_qs = DateQualifiers.from_statement(self)
-        claim.qualifiers = target_qs.recreate_qualifiers(claim)
+        external_q = self.create_qualifiers()
+        claim.qualifiers = external_q.recreate_qualifiers(claim)
         self.wd_page.add_claim(pid, claim)
         return claim
 
 
-class ExternalIDQualifiers(Qualifiers):
-    ALLOWED_PROPS = {wd.PID_SUBJECT_NAMED_AS}
-    PRIORITY_ORDER = [wd.PID_SUBJECT_NAMED_AS]
+# class ExternalIDQualifiers(Qualifiers):
+#     ALLOWED_PROPS = {wd.PID_SUBJECT_NAMED_AS}
+#     PRIORITY_ORDER = [wd.PID_SUBJECT_NAMED_AS]
 
-    def __init__(self, subject_named_as: Optional[str] = None):
-        self.subject_named_as = subject_named_as
+#     def __init__(self, subject_named_as: Optional[str] = None):
+#         self.subject_named_as = subject_named_as
 
-    # parse handler: return plain string or None
-    @staticmethod
-    def _parse_subject_named_as(qlist: Iterable[pwb.Claim]) -> Optional[str]:
-        q = list(qlist)
-        if not q:
-            return None
-        if len(q) > 1:
-            raise RuntimeError(f"Multiple {wd.PID_SUBJECT_NAMED_AS} qualifiers")
-        return q[0].getTarget()
+#     # parse handler: return plain string or None
+#     @staticmethod
+#     def _parse_subject_named_as(qlist: Iterable[pwb.Claim]) -> Optional[str]:
+#         q = list(qlist)
+#         if not q:
+#             return None
+#         if len(q) > 1:
+#             raise RuntimeError(f"Multiple {wd.PID_SUBJECT_NAMED_AS} qualifiers")
+#         return q[0].getTarget()
 
-    # create handler: given a plain string produce a pwb.Claim list with plain string target
-    @staticmethod
-    def _create_subject_named_as(value: str) -> List[pwb.Claim]:
-        qual = pwb.Claim(REPO, wd.PID_SUBJECT_NAMED_AS, is_qualifier=True)
-        qual.setTarget(value)
-        return [qual]
+#     # create handler: given a plain string produce a pwb.Claim list with plain string target
+#     @staticmethod
+#     def _create_subject_named_as(value: str) -> List[pwb.Claim]:
+#         qual = pwb.Claim(REPO, wd.PID_SUBJECT_NAMED_AS, is_qualifier=True)
+#         qual.setTarget(value)
+#         return [qual]
 
-    PARSE_HANDLERS = {wd.PID_SUBJECT_NAMED_AS: _parse_subject_named_as.__func__}
-    CREATE_HANDLERS = {wd.PID_SUBJECT_NAMED_AS: _create_subject_named_as.__func__}
+#     PARSE_HANDLERS = {wd.PID_SUBJECT_NAMED_AS: _parse_subject_named_as.__func__}
+#     CREATE_HANDLERS = {wd.PID_SUBJECT_NAMED_AS: _create_subject_named_as.__func__}
 
-    @classmethod
-    def from_statement(cls, stmt: "ExternalIDStatement") -> "ExternalIDQualifiers":
-        return cls(subject_named_as=stmt.subject_named_as)
+#     @classmethod
+#     def from_statement(cls, stmt: "ExternalIDStatement") -> "ExternalIDQualifiers":
+#         return cls(subject_named_as=stmt.subject_named_as)
 
-    def merge(self, other: "ExternalIDQualifiers"):
-        if not isinstance(other, ExternalIDQualifiers):
-            raise TypeError(
-                "Can only merge ExternalIDQualifiers with ExternalIDQualifiers"
-            )
-        if other.subject_named_as:
-            if self.subject_named_as:
-                if other.subject_named_as != self.subject_named_as:
-                    raise RuntimeError("Can not merge because of diff subject_named_as")
-            else:
-                self.subject_named_as = other.subject_named_as
+#     def merge(self, other: "ExternalIDQualifiers"):
+#         if not isinstance(other, ExternalIDQualifiers):
+#             raise TypeError(
+#                 "Can only merge ExternalIDQualifiers with ExternalIDQualifiers"
+#             )
+#         if other.subject_named_as:
+#             if self.subject_named_as:
+#                 if other.subject_named_as != self.subject_named_as:
+#                     raise RuntimeError("Can not merge because of diff subject_named_as")
+#             else:
+#                 self.subject_named_as = other.subject_named_as
 
-    def __eq__(self, other):
-        if not isinstance(other, ExternalIDQualifiers):
-            return NotImplemented
-        return self.subject_named_as == other.subject_named_as
+#     def __eq__(self, other):
+#         if not isinstance(other, ExternalIDQualifiers):
+#             return NotImplemented
+#         return self.subject_named_as == other.subject_named_as
 
-    @classmethod
-    def is_equal(
-        cls, a: "ExternalIDQualifiers", b: "ExternalIDQualifiers", strict: bool
-    ) -> bool:
-        if strict:
-            return a == b
-        return a.subject_named_as == b.subject_named_as
+#     @classmethod
+#     def is_equal(
+#         cls, a: "ExternalIDQualifiers", b: "ExternalIDQualifiers", strict: bool
+#     ) -> bool:
+#         if strict:
+#             return a == b
+#         return a.subject_named_as == b.subject_named_as
 
 
 class ExternalIDStatement(Statement):
@@ -1972,10 +2038,11 @@ class ExternalIDStatement(Statement):
             return False
 
         # build & validate both qualifier‐sets
-        claim_qs = ExternalIDQualifiers.from_claim(claim)  # may raise
-        target_qs = ExternalIDQualifiers.from_statement(self)
+        claim_qs = QualifierHandler()
+        claim_qs.from_claim(claim)
+        target_qs = self.create_qualifiers()
 
-        return ExternalIDQualifiers.is_equal(claim_qs, target_qs, strict)
+        return claim_qs.is_equal(target_qs, strict)
 
     def can_add(self):
         if self.url and (not self.prop or not self.external_id):
@@ -2012,25 +2079,39 @@ class ExternalIDStatement(Statement):
     def get_prop(self) -> Optional[str]:
         return self.prop
 
-    def update_statement(self, claim: pwb.Claim):
+    def create_qualifiers(self) -> QualifierHandler:
+        qh = QualifierHandler()
+        if self.subject_named_as:
+            qh.add_str(wd.PID_SUBJECT_NAMED_AS, self.subject_named_as)
+        return qh
 
-        claim_qs = ExternalIDQualifiers.from_claim(claim)  # may raise
-        target_qs = ExternalIDQualifiers.from_statement(self)
-        target_qs.merge(claim_qs)
+    def update_statement(self, claim: pwb.Claim) -> bool:
 
-        if claim_qs != target_qs:
-            claim.qualifiers = target_qs.recreate_qualifiers(claim)
+        orig_q = QualifierHandler()
+        orig_q.from_claim(claim)
+
+        new_q = QualifierHandler()
+        new_q.from_claim(claim)
+
+        external_q = self.create_qualifiers()
+        res = new_q.merge(external_q)
+        print(res)
+
+        if not new_q.is_equal(orig_q, strict=True):
+            claim.qualifiers = new_q.recreate_qualifiers(claim)
             claim_changed = True
 
         if claim_changed:
             self.wd_page.claim_changed(claim)
 
+        return claim_changed
+
     def add_statement(self) -> pwb.Claim:
         claim = pwb.Claim(REPO, self.prop)
         claim.setTarget(self.external_id)
 
-        target_qs = ExternalIDQualifiers.from_statement(self)
-        claim.qualifiers = target_qs.recreate_qualifiers(claim)
+        external_q = self.create_qualifiers()
+        claim.qualifiers = external_q.recreate_qualifiers(claim)
         self.wd_page.add_claim(self.prop, claim)
         return claim
 
