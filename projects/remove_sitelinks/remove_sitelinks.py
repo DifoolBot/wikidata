@@ -3,7 +3,7 @@ import random
 import re
 from enum import Enum
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pywikibot
 from database_handler import DatabaseHandler
@@ -16,7 +16,7 @@ import shared_lib.constants as wd
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
 
-edit_group = "{:x}".format(random.randrange(0, 2**48))
+edit_group = "10eb4e0209a1"  # "{:x}".format(random.randrange(0, 2**48))
 
 SUPPORTED_LANGS = [
     "en",
@@ -41,10 +41,15 @@ SUPPORTED_LANGS = [
     "ko",
 ]
 
-EDIT_SUMMARY = "Remove Wikipedia references for deleted/missing pages {lang}"
+# Template: format with lang=", ".join(sorted(langs_done))
+EDIT_SUMMARY = "Remove {lang} Wikipedia references for deleted/missing pages"
 
-# File-based cache for the Wikipedia-editions QID map.
 WIKIPEDIA_EDITIONS_CACHE_FILE = Path(__file__).parent / "wikipedia_editions_cache.txt"
+
+
+# ---------------------------------------------------------------------------
+# Database tracker
+# ---------------------------------------------------------------------------
 
 
 class FirebirdStatusTracker(DatabaseHandler):
@@ -55,13 +60,9 @@ class FirebirdStatusTracker(DatabaseHandler):
         super().__init__(file_path, create_script)
 
     def is_processed(self, qid: str) -> bool:
+        """Return True if the QID has any existing record (success or failure)."""
         rows = self.execute_query("SELECT status FROM qids WHERE qid = ?", (qid,))
-        if not rows:
-            return False
-        # For now, we treat any existing record as "processed", regardless of status.
-        return True
-        # status = rows[0][0]
-        # return bool(status == "success")
+        return bool(rows)
 
     def mark_success(self, qid: str, summary: str = "") -> None:
         self.execute_procedure(
@@ -76,11 +77,16 @@ class FirebirdStatusTracker(DatabaseHandler):
         )
 
 
+# ---------------------------------------------------------------------------
+# Wikipedia-editions QID map  (lang code -> QID, lazy-loaded once)
+# ---------------------------------------------------------------------------
+
 _wikipedia_editions: dict[str, str] = {}
 _wikipedia_editions_loaded = False
 
 
 def _load_wikipedia_editions() -> None:
+    """Populate _wikipedia_editions from disk cache or SPARQL, at most once."""
     global _wikipedia_editions, _wikipedia_editions_loaded
     if _wikipedia_editions_loaded:
         return
@@ -89,10 +95,9 @@ def _load_wikipedia_editions() -> None:
         with WIKIPEDIA_EDITIONS_CACHE_FILE.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
-                if not line:
-                    continue
-                qid, lang = line.split("\t", 1)
-                _wikipedia_editions[qid] = lang
+                if line:
+                    qid, lang = line.split("\t", 1)
+                    _wikipedia_editions[qid] = lang
         pywikibot.output(
             f"Loaded {len(_wikipedia_editions)} Wikipedia edition QIDs "
             f"from cache ({WIKIPEDIA_EDITIONS_CACHE_FILE})."
@@ -100,10 +105,11 @@ def _load_wikipedia_editions() -> None:
         _wikipedia_editions_loaded = True
         return
 
+    # Cache miss - query Wikidata
     query_object = sparql.SparqlQuery(repo=repo)
     query = """
     SELECT ?edition ?lang WHERE {
-      ?edition wdt:P31 wd:Q10876391 ;   # instance of: Wikimedia language edition of Wikipedia
+      ?edition wdt:P31 wd:Q10876391 ;
                wdt:P407 ?langItem .
       ?langItem wdt:P424 ?lang .
     }
@@ -112,14 +118,16 @@ def _load_wikipedia_editions() -> None:
     if not results:
         pywikibot.warning("SPARQL query returned no results.")
         return
+
     for row in results:
         qid = row["edition"].replace(wd.BASE_URL, "")
-        lang = row["lang"]
-        _wikipedia_editions[qid] = lang
+        _wikipedia_editions[qid] = row["lang"]
+
     pywikibot.output(
         f"Fetched {len(_wikipedia_editions)} Wikipedia edition QIDs via SPARQL."
     )
 
+    # Persist for next run
     if _wikipedia_editions:
         with WIKIPEDIA_EDITIONS_CACHE_FILE.open("w", encoding="utf-8") as fh:
             for qid, lang in sorted(_wikipedia_editions.items()):
@@ -127,6 +135,11 @@ def _load_wikipedia_editions() -> None:
         pywikibot.output(f"Saved editions cache to {WIKIPEDIA_EDITIONS_CACHE_FILE}.")
 
     _wikipedia_editions_loaded = True
+
+
+# ---------------------------------------------------------------------------
+# Page-status helpers
+# ---------------------------------------------------------------------------
 
 
 class PageStatus(Enum):
@@ -138,24 +151,18 @@ class PageStatus(Enum):
 
 
 def get_page_status(title: str, lang: str) -> PageStatus:
-    """Returns the status of a Wikipedia page."""
+    """Return the current status of a Wikipedia page."""
+    wiki_site = pywikibot.Site(lang, "wikipedia")
+    page = pywikibot.Page(wiki_site, title)
 
-    site = pywikibot.Site(lang, "wikipedia")
-    page = pywikibot.Page(site, title)
-
-    # Check current page state first
     if page.exists():
-        if page.isRedirectPage():
-            return PageStatus.REDIRECT
-        return PageStatus.EXISTS
+        return PageStatus.REDIRECT if page.isRedirectPage() else PageStatus.EXISTS
 
-    # Page doesn't currently exist — inspect the deletion log
-    log_entries = list(site.logevents(logtype="delete", page=page))
-
+    # Not live - inspect the deletion log (newest entry first)
+    log_entries = list(wiki_site.logevents(logtype="delete", page=page))
     if not log_entries:
         return PageStatus.NEVER_EXISTED
 
-    # Log entries are newest-first
     for entry in log_entries:
         if entry.action() == "delete":
             return PageStatus.DELETED
@@ -165,57 +172,81 @@ def get_page_status(title: str, lang: str) -> PageStatus:
     return PageStatus.NEVER_EXISTED
 
 
-def _parse_wikipedia_lang_from_url(url: str) -> str | None:
-    """Extract the language code from a Wikipedia URL"""
-    host = urlparse(url).hostname or ""
+def _parse_wikipedia_url(url: str) -> dict[str, str] | None:
+    """
+    Parse a Wikipedia URL and return {"language": ..., "title": ...}, or None
+    if the URL is not a recognised Wikipedia article URL.
+
+    Handles two URL formats:
+      - /wiki/Andrew_Madoff
+      - /w/index.php?title=Andrew_Madoff&oldid=...
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+
+    # log the url to a file
+    logfilePath = Path(__file__).parent / "url_log.txt"
+    with open(logfilePath, "a", encoding="utf-8") as f:
+        f.write(url + "\n")
+
     m = re.match(r"^(?:www\.)?([a-z\-]+)\.([a-z]+(?:\.[a-z]+)?)$", host)
     if not m:
         return None
+
     lang, project = m.group(1), m.group(2).split(".")[0]
-    if lang == "wikidata":
+    if lang == "wikidata" or project != "wikipedia":
         return None
-    if project == "wikipedia":
-        return lang
-    return None
+
+    params = parse_qs(parsed.query)
+    if "title" in params:
+        title = params["title"][0].replace("_", " ")
+    elif parsed.path.startswith("/wiki/"):
+        title = parsed.path[len("/wiki/") :].replace("_", " ")
+    else:
+        return None
+
+    return {"language": lang, "title": title}
 
 
-def _page_title_from_url(url: str) -> str | None:
-    """
-    Extract the article title from a Wikipedia URL.
-    https://en.wikipedia.org/wiki/Albert_Einstein  ->  "Albert Einstein"
-    """
-    m = re.match(r"^/wiki/(.+)$", urlparse(url).path)
-    if m:
-        value = m.group(1).replace("_", " ")
-        return value
+# def _page_title_from_url(url: str) -> str | None:
+#     """Return the article title from a Wikipedia /wiki/<title> URL."""
+#     m = re.match(r"^/wiki/(.+)$", urlparse(url).path)
+#     return m.group(1).replace("_", " ") if m else None
 
-    return None
+
+# ---------------------------------------------------------------------------
+# Source / claim inspection
+# ---------------------------------------------------------------------------
 
 
 def _source_get_qids(source: dict, pid: str) -> list[str]:
-    """Return all QID targets for *pid* in a source dict."""
-    result = []
-    for claim in source.get(pid, []):
-        target = claim.getTarget()
-        if target and hasattr(target, "id"):
-            result.append(target.id)
-    return result
+    """Collect all QID targets for *pid* within a single source dict."""
+    return [
+        claim.getTarget().id
+        for claim in source.get(pid, [])
+        if (t := claim.getTarget()) and hasattr(t, "id")
+    ]
 
 
 def _source_get_urls(source: dict, pid: str) -> list[str]:
-    """Return all URL string targets for *pid* in a source dict."""
-    result = []
-    for claim in source.get(pid, []):
-        url = claim.getTarget()
-        if isinstance(url, str):
-            result.append(url)
-    return result
+    """Collect all URL string targets for *pid* within a single source dict."""
+    return [
+        url
+        for claim in source.get(pid, [])
+        if isinstance(url := claim.getTarget(), str)
+    ]
 
 
-def _analyze_source(
-    source: dict,
-    sitelinks: dict,
-) -> dict:
+def _analyze_source(source: dict, sitelinks: dict) -> dict:
+    """
+    Examine one reference source for Wikipedia import signals.
+
+    Returns a dict with:
+      - language: first Wikipedia language code detected
+      - has_missing_sitelink: True if that language has no sitelink on the item
+      - imported_from_qid: QID of the Wikipedia edition (P143)
+      - import_url: import URL (P4656 / P813 etc.)
+    """
     result = {
         "language": None,
         "has_missing_sitelink": False,
@@ -225,32 +256,57 @@ def _analyze_source(
 
     for qid in _source_get_qids(source, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT):
         lang = _wikipedia_editions.get(qid)
-        if lang:
-            result["imported_from_qid"] = qid
-            if result["language"] is None:
-                result["language"] = lang
-            if f"{lang}wiki" not in sitelinks:
-                result["has_missing_sitelink"] = True
+        if not lang:
+            continue
+        result["imported_from_qid"] = qid
+        if result["language"] is None:
+            result["language"] = lang
+        if result["language"] != lang:
+            raise ValueError(
+                f"Multiple languages detected in one source: {result['language']} and {lang}"
+            )
+        if f"{lang}wiki" not in sitelinks:
+            result["has_missing_sitelink"] = True
 
     for url in _source_get_urls(source, wd.PID_WIKIMEDIA_IMPORT_URL):
-        lang = _parse_wikipedia_lang_from_url(url)
+        info = _parse_wikipedia_url(url)
+        if not info:
+            raise ValueError(f"Unrecognized URL format: {url}")
+        lang = info["language"]
         result["import_url"] = url
         if lang:
             if result["language"] is None:
                 result["language"] = lang
+            if result["language"] != lang:
+                raise ValueError(
+                    f"Multiple languages detected in one source: {result['language']} and {lang}"
+                )
             if f"{lang}wiki" not in sitelinks:
                 result["has_missing_sitelink"] = True
 
     return result
 
 
-def collect_wikipedia_refs(
-    item: pywikibot.ItemPage,
-) -> dict[str, list[dict]]:
-    by_lang: dict[str, list[dict]] = {}
-    sitelinks = item.sitelinks  # dict: site_key -> SiteLink
+def _get_ref_hash(source: dict) -> str | None:
+    """Return the hash of the first reference claim found in *source*."""
+    for claims in source.values():
+        for claim in claims:
+            return claim.hash
+    return None
 
-    for pid, claim_list in item.claims.items():
+
+def collect_wikipedia_refs(item: pywikibot.ItemPage) -> dict[str, list[dict]]:
+    """
+    Scan all non-deprecated claims for sources that point to a Wikipedia edition
+    whose sitelink is absent from the item.
+
+    Returns a dict keyed by language code, each value being a list of
+    {claim, source, analysis} entries.
+    """
+    by_lang: dict[str, list[dict]] = {}
+    sitelinks = item.sitelinks
+
+    for claim_list in item.claims.values():
         for claim in claim_list:
             if claim.getRank() == "deprecated":
                 continue
@@ -260,152 +316,152 @@ def collect_wikipedia_refs(
                     continue
                 lang = analysis["language"] or "unknown"
                 by_lang.setdefault(lang, []).append(
-                    {
-                        "claim": claim,
-                        "source": source,
-                        "analysis": analysis,
-                    }
+                    {"claim": claim, "source": source, "analysis": analysis}
                 )
 
     return by_lang
 
 
-def find_title_from_sources(entries: list[dict]) -> str | None:
+# ---------------------------------------------------------------------------
+# Title recovery
+# ---------------------------------------------------------------------------
+
+
+def find_title_from_sources(lang: str, entries: list[dict]) -> str | None:
+    titles = set()
+    """Extract a page title directly from import-URL claims in the sources."""
     for entry in entries:
-        source = entry["source"]
-
-        for url in _source_get_urls(source, wd.PID_WIKIMEDIA_IMPORT_URL):
-            title = _page_title_from_url(url)
+        for url in _source_get_urls(entry["source"], wd.PID_WIKIMEDIA_IMPORT_URL):
+            info = _parse_wikipedia_url(url)
+            if not info:
+                raise ValueError(f"Unrecognized URL format: {url}")
+            if info["language"] != lang:
+                raise ValueError(
+                    f"URL language mismatch: expected '{lang}', got '{info['language']}' in URL {url}"
+                )
+            title = info["title"]
             if title:
-                return title
-
+                titles.add(title)
+    if len(titles) > 1:
+        raise ValueError(
+            f"Multiple distinct titles found in sources for {lang}: {titles}"
+        )
+    if titles:
+        return titles.pop()
     return None
 
 
 def find_title_from_history(
-    item: pywikibot.ItemPage, lang: str, max_check_count: int = 5
+    item: pywikibot.ItemPage,
+    lang: str,
+    max_check_count: int = 5,
+    _revision_cache: dict[str, list[dict]] | None = None,
 ) -> str | None:
     """
     Walk the item's revision history looking for an old sitelink for *lang*wiki.
 
-    Strategy: fetch revisions oldest-first, group consecutive revisions by the
-    same user into runs, then inspect only the *newest* revision of each run.
-    This minimises getOldVersion() calls while still covering every distinct
-    editing session.
-
-    Example (oldest -> newest):
-        rev 1  user0   <- run A
-        rev 2  user0   <- newest of run A -> inspect
-        rev 3  user1   <- run B
-        rev 4  user1
-        rev 5  user1   <- newest of run B -> inspect
-        rev 6  user0   <- run C, newest of run C -> inspect
+    To minimise API calls, consecutive revisions by the same user are collapsed
+    into a single "run", and only the newest revision of each run is fetched in
+    full. This covers every distinct editing session with the fewest getOldVersion
+    calls.
     """
     wiki_key = f"{lang}wiki"
     pywikibot.output(f"  Searching revision history for '{wiki_key}' sitelink...")
 
-    params = {
-        "action": "query",
-        "prop": "revisions",
-        "titles": item.title(),
-        "rvprop": "ids|timestamp|user",
-        "rvlimit": "50",
-        "rvdir": "newer",  # oldest -> newest
-    }
-    req = Request(site=site, parameters=params)
-    data = req.submit()
+    # Fetch revisions once per item, reuse across language calls
+    qid = item.title()
+    if _revision_cache is not None and qid in _revision_cache:
+        candidates = _revision_cache[qid]
+    else:
+        req = Request(
+            site=site,
+            parameters={
+                "action": "query",
+                "prop": "revisions",
+                "titles": item.title(),
+                "rvprop": "ids|timestamp|user",
+                "rvlimit": "50",
+                "rvdir": "newer",  # oldest -> newest so we can group runs in order
+            },
+        )
+        data = req.submit()
 
-    revisions = []
-    for _, page in data["query"]["pages"].items():
-        revisions = page.get("revisions", [])
+        revisions = []
+        for _, page in data["query"]["pages"].items():
+            revisions = page.get("revisions", [])
 
-    # Keep only the newest revision of each consecutive same-user run.
-    candidates = []
-    for i, rev in enumerate(revisions):
-        is_last = i == len(revisions) - 1
-        next_user = revisions[i + 1]["user"] if not is_last else None
-        if is_last or next_user != rev["user"]:
-            candidates.append(rev)
+        # Keep only the last revision of each consecutive same-user run
+        candidates = [
+            rev
+            for i, rev in enumerate(revisions)
+            if i == len(revisions) - 1 or revisions[i + 1]["user"] != rev["user"]
+        ]
 
-    pywikibot.output(
-        f"  {len(revisions)} revisions -> {len(candidates)} user-run candidates to inspect."
-    )
+        if _revision_cache is not None:
+            _revision_cache[qid] = candidates
 
-    check_count = 0
-    for rev in candidates:
+        pywikibot.output(
+            f"  {len(revisions)} revisions -> {len(candidates)} user-run candidates to inspect."
+        )
+
+    for check_count, rev in enumerate(candidates):
         if check_count >= max_check_count:
             pywikibot.output(
                 f"  Reached max check count ({max_check_count}). Stopping."
             )
             break
-        check_count += 1
-        revid = rev["revid"]
 
-        snapshot = json.loads(item.getOldVersion(revid))
+        snapshot = json.loads(item.getOldVersion(rev["revid"]))
         sitelinks = snapshot.get("sitelinks", {})
         if wiki_key in sitelinks:
             title = sitelinks[wiki_key].get("title")
             if title:
                 pywikibot.output(
-                    f"  Found '{title}' in rev {revid} (user: {rev['user']})"
+                    f"  Found '{title}' in rev {rev['revid']} (user: {rev['user']})"
                 )
                 return title
 
     return None
 
 
-# def _source_is_for_lang(source: dict, lang: str) -> bool:
-#     for qid in _source_get_qids(source, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT):
-#         if _wikipedia_editions.get(qid) == lang:
-#             return True
-
-#     for url in _source_get_urls(source, wd.PID_WIKIMEDIA_IMPORT_URL):
-#         if _parse_wikipedia_lang_from_url(url) == lang:
-#             return True
-
-#     return False
+# ---------------------------------------------------------------------------
+# Editing
+# ---------------------------------------------------------------------------
 
 
 def remove_wikipedia_refs_for_lang(
     page: cwd.WikiDataPage,
     lang_entries: list[dict],
 ) -> bool:
-
-    def get_hash_for_ref(source):
-        for pid, ref_list in source.items():
-            for ref in ref_list:
-                return ref.hash
-        return None
-
+    """Queue removal of all reference sources in *lang_entries*. Returns True if any were queued."""
     did_something = False
     for entry in lang_entries:
-        source = entry["source"]
-        claim = entry["claim"]
-        ref_hash = get_hash_for_ref(source)
+        ref_hash = _get_ref_hash(entry["source"])
         if ref_hash:
-            page.remove_reference(claim.snak, ref_hash)
+            page.remove_reference(entry["claim"].snak, ref_hash)
             did_something = True
-
     return did_something
 
 
-def process_lang(page: cwd.WikiDataPage, lang: str, lang_entries: list[dict]) -> bool:
+def process_lang(
+    page: cwd.WikiDataPage,
+    lang: str,
+    lang_entries: list[dict],
+    _revision_cache: dict[str, list[dict]],
+) -> bool:
     """
-    Full pipeline for one language edition.
-
-    1. Sitelink present -> nothing to do.
-    2. Recover the original page title from sources or history.
-    3. Check whether the page is deleted on the target Wikipedia.
-    4. If deleted, call remove_wikipedia_refs_for_lang().
+    Full pipeline for one language edition:
+      1. Skip if the sitelink already exists.
+      2. Recover the original page title from sources or revision history.
+      3. Verify the page is deleted on the target Wikipedia.
+      4. Queue reference removal.
     """
     item: pywikibot.ItemPage = page.item
     wiki_key = f"{lang}wiki"
-    sitelinks = item.sitelinks
 
-    # Step 1 - already linked
-    if wiki_key in sitelinks:
+    if wiki_key in item.sitelinks:
         pywikibot.output(
-            f"[{lang}] Sitelink present ({sitelinks[wiki_key].canonical_title()}), skipping."
+            f"[{lang}] Sitelink present ({item.sitelinks[wiki_key].canonical_title()}), skipping."
         )
         return False
 
@@ -413,11 +469,10 @@ def process_lang(page: cwd.WikiDataPage, lang: str, lang_entries: list[dict]) ->
         f"[{lang}] No sitelink - investigating {len(lang_entries)} source(s)..."
     )
 
-    # Step 2 - recover title
-    title = find_title_from_sources(lang_entries)
+    title = find_title_from_sources(lang, lang_entries)
     if not title:
         pywikibot.output(f"[{lang}] Title not in sources; checking revision history...")
-        title = find_title_from_history(item, lang)
+        title = find_title_from_history(item, lang, _revision_cache=_revision_cache)
 
     if not title:
         pywikibot.output(f"[{lang}] Could not determine original title. Skipping.")
@@ -425,19 +480,20 @@ def process_lang(page: cwd.WikiDataPage, lang: str, lang_entries: list[dict]) ->
 
     pywikibot.output(f"[{lang}] Recovered title: '{title}'")
 
-    # Step 3 - check deletion status
     status = get_page_status(title, lang)
     if status != PageStatus.DELETED:
         pywikibot.output(
-            f"[{lang}] '{title}' on {lang}.wikipedia - status is {status.name}."
+            f"[{lang}] '{title}' on {lang}.wikipedia has status {status.name} - skipping."
         )
         return False
 
     pywikibot.output(f"[{lang}] '{title}' is deleted on {lang}.wikipedia.")
+    return remove_wikipedia_refs_for_lang(page, lang_entries)
 
-    # Step 4 - remove references
-    did_something = remove_wikipedia_refs_for_lang(page, lang_entries)
-    return did_something
+
+# ---------------------------------------------------------------------------
+# Entry points
+# ---------------------------------------------------------------------------
 
 
 def process_item(
@@ -451,53 +507,71 @@ def process_item(
         return
 
     pywikibot.output(f"\n{'='*60}\nProcessing {qid}  (dry_run={dry_run})\n{'='*60}")
-
     _load_wikipedia_editions()
 
     try:
         item = pywikibot.ItemPage(repo, qid)
         item.get()
 
-        if not item.claims:
-            pywikibot.output("No claims found on this item.")
-            return
-
-        # Collect sources with missing sitelinks, grouped by language
         wp_refs = collect_wikipedia_refs(item)
-
         if not wp_refs:
             pywikibot.output("No Wikipedia references with missing sitelinks found.")
+            tracker.mark_success(qid, "Nothing to do")
             return
 
         pywikibot.output(f"Languages with stale refs: {sorted(wp_refs.keys())}")
 
         page = cwd.WikiDataPage(item, test=dry_run)
+        langs_done: set[str] = set()
 
-        langs_done = set()
+        revision_cache: dict[str, list[dict]] = (
+            {}
+        )  # lives for this item's lifetime only
+
         for lang in sorted(wp_refs.keys()):
             if lang not in SUPPORTED_LANGS and lang != "unknown":
                 pywikibot.output(f"[{lang}] Not in SUPPORTED_LANGS - skipping.")
                 continue
-            if process_lang(page, lang, wp_refs[lang]):
+            if process_lang(page, lang, wp_refs[lang], _revision_cache=revision_cache):
                 langs_done.add(lang)
 
         page.summary = EDIT_SUMMARY.format(lang=", ".join(sorted(langs_done)))
+        page.edit_group = edit_group
         if page.apply():
-            tracker.mark_success(qid, page.used_summary or "")
+            summary = page.used_summary or ""
+            if dry_run:
+                summary = f"(DRY RUN) {summary}"
+            tracker.mark_success(qid, summary)
         else:
             tracker.mark_success(qid, "Nothing done")
+
     except Exception as e:
-        print(f"Error processing {qid}: {e}")
+        pywikibot.error(f"Error processing {qid}: {e}")
         tracker.mark_failed(qid, e)
 
 
-def iterate_text_file(tracker: FirebirdStatusTracker, dry_run: bool = True):
-
-    with open(Path(__file__).parent / "items.txt", "r", encoding="utf-8") as f:
-        for line in f:
+def iterate_text_file(tracker: FirebirdStatusTracker, dry_run: bool = True) -> None:
+    """Process every QID listed (one per line) in items.txt."""
+    items_file = Path(__file__).parent / "items.txt"
+    with items_file.open(encoding="utf-8") as fh:
+        for line in fh:
             qid = line.strip()
             if qid:
                 process_item(qid, tracker, dry_run=dry_run)
+
+
+def test():
+    # Test URL parsing
+    test_urls = [
+        "https://en.wikipedia.org/w/index.php?title=Nenad_Zivkovic_(footballer,_born_2002)&oldid=973360753",
+        "https://hu.wikipedia.org/w/index.php?title=George_Bruce&oldid=18268661",
+        "https://www.wikidata.org/wiki/Q101079706#P2369",
+        "https://ko.wikipedia.org/w/index.php?title=%ED%9B%84%EB%9E%AD%ED%82%A4%EB%B0%B0&oldid=34799705",
+        "https://ko.wikipedia.org/w/index.php?title=후랭키배&oldid=34799705",
+    ]
+    for url in test_urls:
+        info = _parse_wikipedia_url(url)
+        print(f"URL: {url}\nParsed: {info}\n")
 
 
 def main():
@@ -507,10 +581,16 @@ def main():
     # process_item(
     #    "Q100534439", tracker=FirebirdStatusTracker(), dry_run=True
     # )  # try 4 - remove
-    iterate_text_file(tracker=FirebirdStatusTracker(), dry_run=True)
+    iterate_text_file(tracker=FirebirdStatusTracker(), dry_run=False)
+    # test()
     # Q100226976 - permalink
 
     # print(get_page_status("Albert Einstein", "en"))
+    # print(
+    #     _parse_wikipedia_url(
+    #         "https://en.wikipedia.org/wiki/Clint_Eastwood#Spiritual_beliefs"
+    #     )
+    # )
 
 
 if __name__ == "__main__":
