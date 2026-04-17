@@ -42,6 +42,7 @@ REPO = SITE.data_repository()
 
 @rate_limit(30)
 def get_html_content_from_url(url: str) -> str:
+    print("Retrieving URL:", url)
     response = requests.get(url)
     if response.status_code == 200:
         return response.text
@@ -875,11 +876,19 @@ def main():
     # iterate_all(data)
     config = EcarticoConfig(
         always_include_viaf=True,
-        include_date_of_birth=False,
-        include_date_of_death=False,
+        # include_date_of_birth=False,
+        # include_date_of_death=False,
     )
     # try_one(lookup_add, tracker, "Q55801505", test=True, config=EcarticoConfig())
-    try_one(lookup_add, tracker, "Q117812280", test=True, config=EcarticoConfig())
+    try_one(
+        lookup_add,
+        tracker,
+        "Q2652800",
+        # ecartico_id="7266",
+        test=False,
+        # config=EcarticoConfig(),
+        config=config,
+    )
     # try_one(data, "Q6163946")
 
     # qid testen

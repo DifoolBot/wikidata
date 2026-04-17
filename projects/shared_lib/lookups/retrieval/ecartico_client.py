@@ -9,6 +9,7 @@ from shared_lib.lookups.interfaces.ecartico_lookup_interface import (
 
 
 def get_html_content_from_url(url: str) -> str:
+    print("Retrieving URL:", url)
     response = requests.get(url)
     if response.status_code == 200:
         return response.text

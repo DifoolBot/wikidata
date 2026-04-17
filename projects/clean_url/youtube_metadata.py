@@ -1,4 +1,5 @@
 import os
+import random
 import re
 from pathlib import Path
 from typing import Optional
@@ -13,9 +14,15 @@ from pywikibot.data import sparql
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 import shared_lib.date_value as date_value
+import requests
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
+edit_group = "fa3ffa532b70"  # "{:x}".format(random.randrange(0, 2**48))
+
+# query used:
+# https://qlever.dev/wikidata/euqcXi
+# https://qlever.dev/wikidata/?query=PREFIX+wd%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fentity%2F%3E%0APREFIX+wdt%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2Fdirect%2F%3E%0APREFIX+p%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2F%3E%0APREFIX+xsd%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23%3E%0APREFIX+wikibase%3A+%3Chttp%3A%2F%2Fwikiba.se%2Fontology%23%3E%0ASELECT+DISTINCT+%3Fitem+WHERE+%7B%0A++VALUES+%3Fprop+%7B%0A++++p%3AP854+p%3AP856+p%3AP953+p%3AP973+p%3AP1325+p%3AP2699+p%3AP2888+p%3AP8214%0A++%7D%0A++%3Fitem+%3Fprop+%3Fstatement+.%0A++%3Fstatement+%3FpsDirect+%3Furl+.%0A++FILTER%28%0A++++CONTAINS%28STR%28%3Furl%29%2C+%22youtube.com%22%29+%7C%7C%0A++++CONTAINS%28STR%28%3Furl%29%2C+%22youtu.be%22%29%0A++%29%0A%0A%7D%0A
 
 load_dotenv()  # reads .env file in the current directory
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -23,6 +30,13 @@ YOUTUBE_VIDEOS_API_URL = "https://www.googleapis.com/youtube/v3/videos"
 YOUTUBE_CHANNELS_API_URL = "https://www.googleapis.com/youtube/v3/channels"
 
 URL_PROPERTIES = ["P854", "P856", "P953", "P973", "P1325", "P2699", "P2888", "P8214"]
+
+# This video is no longer available because the YouTube account associated with this video has been terminated.
+# reason for deprecation: deactivated account (Q56631052)
+# This video is private
+# reason for deprecation: unavailable video (Q137217079)
+# This video isn't available anymore
+# reason for deprecation: unavailable video (Q137217079)
 
 
 # ---------------------------------------------------------------------------
@@ -70,11 +84,14 @@ class ChannelHandleTracker(DatabaseHandler):
             (channel_id, None, "error"),
         )
 
-    def add_error(self, qid: str, error_msg):
-        """Add an error record to the database."""
-
-        sql = "INSERT INTO qerrors (qid, error_msg) VALUES (?, ?)"
-        self.execute_procedure(sql, (qid, error_msg))
+    def mark_failed(self, qid: str, error: Exception) -> None:
+        e = str(error)
+        if len(e) > 255:
+            e = e[:252] + "..."
+        self.execute_procedure(
+            "UPDATE OR INSERT INTO qids (qid, status, error_msg) VALUES (?, ?, ?)",
+            (qid, "failed", e),
+        )
 
     def get_publisher(self, channel_key: str) -> tuple[bool, str | None]:
         """Return (is_cached, qid_or_None)."""
@@ -92,6 +109,17 @@ class ChannelHandleTracker(DatabaseHandler):
             "UPDATE OR INSERT INTO channel_publishers (channel_key, publisher_qid, status) "
             "VALUES (?, ?, ?)",
             (channel_key, qid, status),
+        )
+
+    def is_processed(self, qid: str) -> bool:
+        """Return True if the QID has any existing record (success or failure)."""
+        rows = self.execute_query("SELECT status FROM qids WHERE qid = ?", (qid,))
+        return bool(rows)
+
+    def mark_success(self, qid: str, summary: str):
+        self.execute_procedure(
+            "UPDATE OR INSERT INTO qids (qid, status, summary) VALUES (?, ?, ?)",
+            (qid, "success", summary),
         )
 
 
@@ -122,8 +150,57 @@ def get_duration_for_wikidata(total_seconds: int) -> tuple[float, str]:
 def language_code_to_qid(lang_code: str) -> str:
     # This mapping is not exhaustive, just some common languages we expect to see.
     mapping = {
-        "en": wd.QID_ENGLISH,
+        "af": wd.QID_AFRIKAANS,
+        "ar": wd.QID_ARABIC,
+        "az": wd.QID_AZERBAIJANI,
+        "bg": wd.QID_BULGARIAN,
+        "bn": wd.QID_BANGLA,
+        "cs": wd.QID_CZECH,
+        "da": wd.QID_DANISH,
         "de": wd.QID_GERMAN,
+        "el": wd.QID_GREEK,
+        "en": wd.QID_ENGLISH,
+        "eo": wd.QID_ESPERANTO,
+        "es": wd.QID_SPANISH,
+        "et": wd.QID_ESTONIAN,
+        "eu": wd.QID_BASQUE,
+        "fa": wd.QID_PERSIAN,
+        "fi": wd.QID_FINNISH,
+        "fr": wd.QID_FRENCH,
+        "he": wd.QID_HEBREW,
+        "hi": wd.QID_HINDI,
+        "hr": wd.QID_CROATIAN,
+        "hu": wd.QID_HUNGARIAN,
+        "id": wd.QID_INDONESIAN,
+        "it": wd.QID_ITALIAN,
+        "iw": wd.QID_HEBREW,
+        "ja": wd.QID_JAPANESE,
+        "ka": wd.QID_GEORGIAN,
+        "ko": wd.QID_KOREAN,
+        "lt": wd.QID_LITHUANIAN,
+        "lv": wd.QID_LATVIAN,
+        "mi": wd.QID_MAORI,
+        "mr": wd.QID_MARATHI,
+        "nl": wd.QID_DUTCH,
+        "pa": wd.QID_PUNJABI,
+        "pl": wd.QID_POLISH,
+        "pt": wd.QID_PORTUGUESE,
+        "ro": wd.QID_ROMANIAN,
+        "ru": wd.QID_RUSSIAN,
+        "sl": wd.QID_SLOVENE,
+        "sr": wd.QID_SERBIAN,
+        "sv": wd.QID_SWEDISH,
+        "sw": wd.QID_SWAHILI,
+        "ta": wd.QID_TAMIL,
+        "tr": wd.QID_TURKISH,
+        "uk": wd.QID_UKRAINIAN,
+        "und": wd.QID_UNDETERMINED_LANGUAGE,
+        "ur": wd.QID_URDU,
+        "uz": wd.QID_UZBEK,
+        "yo": wd.QID_YORUBA,
+        "yue": wd.QID_YUE_CHINESE,
+        "zh": wd.QID_CHINESE,
+        "zxx": wd.QID_NO_LINGUISTIC_CONTENT,
     }
     qid = mapping.get(lang_code.split("-")[0], None)
     if not qid:
@@ -150,9 +227,46 @@ def extract_video_id(url):
         params = parse_qs(parsed.query)
         if "v" in params:
             return params["v"][0]
-        match = re.match(r"/(?:embed|v)/([^/?]+)", parsed.path)
+        match = re.match(r"/(?:embed|v|shorts|live)/([^/?]+)", parsed.path)
         if match:
             return match.group(1)
+        else:
+            raise ValueError(f"Could not extract video ID from YouTube URL: {url}")
+    return None
+
+
+def resolve_youtube_custom_url(url: str) -> str | None:
+    """
+    Resolve legacy /c/, /user/, /channel/ URLs to a @handle or channel ID.
+    Returns the handle (without @) or channel ID extracted from the final URL.
+    """
+    try:
+        r = requests.get(url, allow_redirects=True, timeout=10)
+        final_url = r.url  # e.g. https://www.youtube.com/@medlifecrisis
+        parsed = urlparse(final_url)
+        path = parsed.path  # e.g. /@medlifecrisis or /channel/UCxxx
+
+        if path.startswith("/@"):
+            return strip_at(path[1:])  # strip leading / and @
+        if path.startswith("/channel/"):
+            return path.replace("/channel/", "")  # returns raw UCxxx ID
+    except Exception as e:
+        pywikibot.error(f"Failed to resolve YouTube URL {url}: {e}")
+    return None
+
+
+def check_youtube_url(url: str) -> str | None:
+    """
+    Check if the URL is a YouTube URL that can be resolved to a cleaner format.
+    If so, return the cleaner URL (e.g. with @handle or channel ID). Otherwise, return None.
+    """
+    if "youtube.com" in url or "youtu.be" in url:
+        handle_or_id = resolve_youtube_custom_url(url)
+        if handle_or_id:
+            if handle_or_id.startswith("UC"):
+                return f"https://www.youtube.com/channel/{handle_or_id}"
+            else:
+                return f"https://www.youtube.com/@{handle_or_id}"
     return None
 
 
@@ -266,15 +380,16 @@ def lookup_handle_qid(handle: Optional[str]) -> str | None:
     Query Wikidata for an item that has the given YouTube channel ID or handle.
     Returns the QID (e.g. 'Q12345') or None if not found.
     """
+    if not handle:
+        return None
     pid = wd.PID_YOUTUBE_HANDLE
+    clean_handle = strip_at(handle)
     query = f"""
     SELECT ?item WHERE {{
-      ?item wdt:{pid} "{handle}" .
+      ?item wdt:{pid} "{clean_handle}" .
     }}
     LIMIT 1
     """
-    if not handle:
-        return None
     try:
         query_object = sparql.SparqlQuery(repo=repo)
         results = query_object.select(query, full_data=False)
@@ -374,9 +489,62 @@ def strip_at(handle: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def process_item(item_id, tracker: ChannelHandleTracker, test=True):
-    item = pywikibot.ItemPage(repo, item_id)
+def always_ignore(qid: str) -> bool:
+    """Return True for global YouTube-related QIDs to skip processing."""
+    ignored_qids = {
+        "Q112247183",  # YouTube LLC
+        "Q41697543",  # YouTube
+        "Q125499732",  # YouTube Music
+        "Q866",  # YouTube
+        "Q28404534",  # YouTube Music
+        "Q125499708",  # YouTube Studio
+        "Q115926044",  # YouTube Studio
+        "Q53720737",  # YouTube TV
+        "Q110227693",  # YouTube website
+        "Q18157148",  # YouTube
+        "Q116733536",  # YouTube Music Global Charts
+        "Q15128315",  # YouTube Music Awards
+        "Q111772254",  # YouTube Standard License
+        "Q99438379",  # YouTube Shorts
+        "Q98987800",  # YouTube auto-generated game page
+        "Q61942967",  # Diamond Play Button
+        "Q55020669",  # YouTube Gaming
+        "Q21411063",  # YouTube Space
+        "Q18643737",  # YouTube Premium
+        "Q18157145",  # YouTube Creator Awards
+    }
+    return qid in ignored_qids
+
+
+def specific_ignore(qid: str) -> bool:
+    """Return True for global YouTube-related QIDs to skip processing."""
+    ignored_qids = {
+        "Q130259713",  # Domian Parodie
+    }
+    return qid in ignored_qids
+
+
+def is_link_rot(claim) -> bool:
+    # online access status (P6954)
+    if wd.PID_ONLINE_ACCESS_STATUS in claim.qualifiers:
+        for qualifier in claim.qualifiers[wd.PID_ONLINE_ACCESS_STATUS]:
+            if qualifier.getTarget().id == wd.QID_LINK_ROT:
+                return True
+    return False
+
+
+def process_item(qid, tracker: ChannelHandleTracker, test=True):
+    if always_ignore(qid):
+        tracker.mark_success(qid, "Skipped (always-ignore list)")
+        pywikibot.output(f"  Skipping {qid} (in always-ignore list)")
+        return
+    if specific_ignore(qid):
+        tracker.mark_success(qid, "Skipped (specific-ignore list)")
+        pywikibot.output(f"  Skipping {qid} (in specific-ignore list)")
+        return
+    item = pywikibot.ItemPage(repo, qid)
     page = cwd.WikiDataPage(item, test=test)
+    page.edit_group = edit_group
 
     # ── Step 1: Collect YouTube URLs ─────────────────────────────────────────
     video_to_claims = {}
@@ -389,18 +557,24 @@ def process_item(item_id, tracker: ChannelHandleTracker, test=True):
             target = claim.getTarget()
             if not isinstance(target, str):
                 continue
+            # change_url = check_youtube_url(target)
+            # if change_url and change_url != target:
+            #     page.change_claim(prop_id, claim, change_url)
+            #     continue
             video_id = extract_video_id(target)
             if not video_id:
+                continue
+            if is_link_rot(claim):
+                pywikibot.output(f"  Skipping {target} (link rot suspected)")
                 continue
             video_to_claims.setdefault(video_id, []).append((prop_id, claim))
 
     if not video_to_claims:
-        pywikibot.output(f"  No YouTube URLs found on {item_id}")
+        tracker.mark_success(qid, "No YouTube URLs found")
+        pywikibot.output(f"  Not found any YouTube URLs on {qid}")
         return
 
-    pywikibot.output(
-        f"  Found {len(video_to_claims)} unique YouTube video(s) on {item_id}"
-    )
+    pywikibot.output(f"  Found {len(video_to_claims)} unique YouTube video(s) on {qid}")
 
     # ── Step 2: Fetch video metadata ─────────────────────────────────────────
     metadata = {}
@@ -437,6 +611,8 @@ def process_item(item_id, tracker: ChannelHandleTracker, test=True):
                 f"Video {video_id}: missing audio language in API response"
             )
         lang_code = raw_lang.split("-")[0] if raw_lang else None
+        if lang_code == "iw":
+            lang_code = "he"  # YouTube uses 'iw' for Hebrew, but Wikidata uses 'he'
         if lang_code and not language_code_to_qid(lang_code):
             raise ValueError(
                 f"Video {video_id}: language '{raw_lang}' not in LANGUAGE_MAP"
@@ -503,7 +679,8 @@ def process_item(item_id, tracker: ChannelHandleTracker, test=True):
                         claim,
                         cwd.StringQualifier(wd.PID_YOUTUBE_HANDLE, clean_handle),
                     )
-                elif existing_handle != clean_handle:
+                # case insensitive check
+                elif existing_handle.lower() != clean_handle.lower():
                     raise ValueError(
                         f"Video {video_id}: existing handle '{existing_handle}' "
                         f"differs from fetched '{clean_handle}' -- manual check required"
@@ -557,12 +734,32 @@ def process_item(item_id, tracker: ChannelHandleTracker, test=True):
 
     # Single commit for the entire page
     page.summary = "Add YouTube metadata qualifiers"
-    page.apply()
+    if page.apply():
+        summary = page.used_summary or ""
+        if test:
+            summary = f"(DRY RUN) {summary}"
+        tracker.mark_success(qid, summary)
+    else:
+        tracker.mark_success(qid, "Nothing done")
 
 
 # ---------------------------------------------------------------------------
 # Entry points
 # ---------------------------------------------------------------------------
+
+
+def check_video_availability(video_id: str) -> str:
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    response = requests.get(url, headers={"Accept-Language": "en-US"})
+
+    if "Video unavailable" in response.text:
+        response = "Video is deleted or removed"
+    elif "This video has been removed" in response.text:
+        response = "Video was removed by YouTube"
+    else:
+        response = "Video likely exists"
+
+    return response
 
 
 def load_items_from_file(filename):
@@ -573,14 +770,16 @@ def load_items_from_file(filename):
 def main():
     # print(lookup_channel_qid("UCmh7afBz-uWwOSSNTqUBAhg"))
     tracker = ChannelHandleTracker()  # shared across all items
-    items = [wd.QID_WIKIDATASANDBOX3]
-    # items = load_items_from_file("items.csv")
+    # items = ["Q123306649"]
+    items = load_items_from_file(r"D:\python\wikidata\projects\clean_url\items.csv")
     for qid in items:
         pywikibot.output(f"Processing {qid}...")
         try:
+            if tracker.is_processed(qid):
+                continue
             process_item(qid, tracker=tracker, test=False)
         except Exception as e:
-            tracker.add_error(qid, str(e))
+            tracker.mark_failed(qid, e)
             print(f"Error processing {qid}: {e}")
 
 

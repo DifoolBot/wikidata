@@ -70,6 +70,11 @@ class Patronym:
             self.gender = "female"
             full_suffix = "dochter"
             short_suffix = "dr"
+        elif lower.endswith("en"):
+            base = p[: -len("en")]
+            self.gender = "male"
+            full_suffix = "en"
+            short_suffix = ""
         else:
             # If nothing matches, raise to avoid unpredictable behavior
             raise RuntimeError(f"Unexpected patronym format: {patronym}")
@@ -80,7 +85,10 @@ class Patronym:
 
         # Normalized forms
         self.patronym = base + full_suffix
-        self.short_patronym = base + short_suffix
+        if short_suffix:
+            self.short_patronym = base + short_suffix
+        else:
+            self.short_patronym = None
         self.name = name.strip()
         self.name_qid = name_qid
 
@@ -91,8 +99,11 @@ class Patronym:
         kind = "son" if self.gender == "male" else "daughter"
         return f"Dutch patronym, meaning {kind} of {self.name}"
 
-    def get_short_dot_patronym(self) -> str:
-        return self.short_patronym + "."
+    def get_short_dot_patronym(self) -> Optional[str]:
+        if self.short_patronym:
+            return self.short_patronym + "."
+        else:
+            return None
 
     def create_item(self, site, label_dict):
         new_item = pwb.ItemPage(site)
@@ -117,14 +128,17 @@ class Patronym:
                 raise RuntimeError("Failed to create patronym item")
             self.qid = str(id)
 
+        short = self.get_short_dot_patronym()
         item = pwb.ItemPage(repo, self.qid)
         page = cwd.WikiDataPage(item, test=False)
         page.add_statement(cwd.Description(self.en_description(), "en"))
         page.add_statement(cwd.Description(self.nl_description(), "nl"))
-        page.add_statement(cwd.Label(self.get_short_dot_patronym(), "mul"))
+        if short:
+            page.add_statement(cwd.Label(short, "mul"))
         page.add_statement(cwd.Label(self.short_patronym, "mul"))
         page.add_statement(cwd.InstanceOf(wd.QID_PATRONYMIC, based_on=self.name_qid))
-        page.add_statement(cwd.ShortName(self.get_short_dot_patronym(), "nl"))
+        if short:
+            page.add_statement(cwd.ShortName(short, "nl"))
         page.add_statement(cwd.WritingSystem(wd.QID_LATIN_SCRIPT))
         if self.gender == "male":
             page.add_statement(cwd.HasCharacteristic(wd.QID_MASCULINE))
@@ -345,6 +359,8 @@ class CachedEcarticoLookup(EcarticoLookupAddInterface):
                 if e_qid and e_qid.startswith("Q"):
                     self.cache.add_person(ecartico_id, e_description, e_qid)
                     return e_qid, e_description
+                else:
+                    self.cache.add_person(ecartico_id, e_description, SKIP)
 
             t = self.wikidata_source.get_person(ecartico_id)
             if t:
@@ -357,6 +373,8 @@ class CachedEcarticoLookup(EcarticoLookupAddInterface):
                         w_description = "?"
                     self.cache.add_person(ecartico_id, w_description, w_qid)
                     return w_qid, w_description
+            else:
+                qid = SKIP
 
         if qid == SKIP:
             return None

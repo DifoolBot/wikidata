@@ -87,6 +87,31 @@ def has_rkd_work_location(claims):
     return False
 
 
+def expand_names_list(names):
+    """
+    Expand a list of names with optional parenthetical parts.
+    Returns a flat list of unique names (no duplicates).
+
+    Example:
+    ["Gerrit (van) Uylenburgh", "Gerrit Uylenburgh"]
+    -> ["Gerrit Uylenburgh", "Gerrit van Uylenburgh"]
+    """
+    expanded = set()  # use a set to avoid duplicates
+
+    for name in names:
+        match = re.match(r"^(.*?)\s*\((.*?)\)\s*(.*)$", name)
+        if match:
+            before, inside, after = match.groups()
+            # Add both versions
+            expanded.add(f"{before.strip()} {after.strip()}".strip())
+            expanded.add(f"{before.strip()} {inside.strip()} {after.strip()}".strip())
+        else:
+            expanded.add(name.strip())
+
+    # Return as a sorted list for consistency (optional)
+    return sorted(expanded)
+
+
 class EcarticoReference(cwd.Reference):
     def __init__(self, ecartico_id):
         self.pid = wd.PID_ECARTICO_PERSON_ID
@@ -184,6 +209,7 @@ class Marriage(EcarticoElement):
         self.date = date
         self.is_circa = is_circa
         self.spouse_qid = None
+        self.place_qid = None
 
     def __repr__(self):
         return f"Marriage(ecartico_id={self.ecartico_id}, place_id={self.place_id}, date={self.date}, circa={self.is_circa})"
@@ -193,11 +219,18 @@ class Marriage(EcarticoElement):
 
     def resolve(self, lookup: EcarticoLookupAddInterface):
         self.spouse_qid = lookup.get_person_qid(self.ecartico_id)
+        self.place_qid = lookup.get_place_qid(self.place_id)
 
     def apply(self, lookup_add: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
         if self.spouse_qid:
-            # TODO
-            # wikidata.add_statement(cwd.Child(self.qid))
+            statement = cwd.Spouse(self.spouse_qid)
+            if self.date:
+                statement.start_date = construct_date(self.date)
+            if self.place_qid:
+                statement.place_of_marriage = self.place_qid
+            wikidata.add_statement(
+                statement, EcarticoReference(self.structure.ecartico_id)
+            )
             return
 
         qids = wikidata.get_qids(wd.PID_SPOUSE)
@@ -336,6 +369,7 @@ class Occupation(EcarticoElement):
     occupation_types = {
         "Occupation": cwd.Occupation,
         "PositionHeld": cwd.PositionHeld,
+        "Position": cwd.PositionHeld,
         "NobleTitle": cwd.NobleTitle,
         "MilitaryRank": cwd.MilitaryOrPoliceRank,
     }
@@ -632,6 +666,7 @@ def get_place_alternative(qid: str) -> Optional[str]:
         ("Q803", "Q39297398"),
         ("Q10001", "Q26296883"),  # deventer
         ("Q52101", "Q49280679"),  # middelburg
+        ("Q12892", "Q31467408"),  # antwerp
         # Add more pairs here
     ]
 
@@ -740,21 +775,20 @@ class ReligionDenomination(Attribute):
 class Bentvueghels(Attribute):
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
-        if self.qid:
-            statement = cwd.MemberOf(
-                self.qid,
-                start_date=self.start_date,
-                end_date=self.end_date,
-            )
-            statement.subject_named_as = self.text
-            wikidata.add_statement(
-                statement, EcarticoReference(self.structure.ecartico_id)
-            )
+        statement = cwd.MemberOf(
+            wd.QID_BENTVUEGHELS,
+            start_date=self.start_date,
+            end_date=self.end_date,
+        )
+        statement.subject_named_as = self.text
+        wikidata.add_statement(statement, EcarticoReference(self.structure.ecartico_id))
 
 
 class Nickname(Attribute):
     def resolve(self, lookup: EcarticoLookupAddInterface):
-        raise RuntimeError(f"unexpected Nickname {self.text}")
+        # raise RuntimeError(f"unexpected Nickname {self.text}")
+        # 3248 - De Dortse Parel
+        pass
 
 
 class PenName(Attribute):
@@ -858,9 +892,9 @@ class RKDImageID(EcarticoElement):
 
 
 class Rijksmuseum(EcarticoElement):
-    def __init__(self, url: Optional[str]):
+    def __init__(self, url: Optional[str], tag: Optional[str]):
         self.url = url or ""
-        self.inventory_number = None
+        self.inventory_number = tag or ""
         self.qid = None
 
     def __repr__(self):
@@ -922,6 +956,8 @@ class DescribedBySource(EcarticoElement):
         self.source_qid = lookup.get_source_qid(self.source_id)
         # ignore this url; it is a general link to the book, that is already on De Vroedschap van Amsterdam, 1578-1795 (Q28329667)
         if self.book_url == "http://resources.huygens.knaw.nl/retroboeken/elias/":
+            self.book_url = ""
+        if self.book_url == "http://digi.ub.uni-heidelberg.de/diglit/wurzbach1906ga":
             self.book_url = ""
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
@@ -1242,6 +1278,8 @@ class EcarticoStructure:
                 else:
                     raise RuntimeError(f"Unknown key: {key}")
 
+        self.names = expand_names_list(self.names)
+
         h2s = soup.find_all("h2")
         for i in range(len(h2s)):
             current_h2 = h2s[i]
@@ -1439,7 +1477,9 @@ class EcarticoStructure:
                 ):
                     # 17269
                     # todo
-                    pass
+                    raise NotImplementedError(
+                        "Religion - executed for religious convictions not implemented"
+                    )
                 elif category == "Identity" and attribute_str == "Motto":
                     pass
                 elif category == "Identity" and attribute_str == "Incorrect name":
@@ -1596,7 +1636,7 @@ class EcarticoStructure:
                             )
                             self.add_statement(statement)
                     elif type_str == "divorcedFrom":
-                        pass
+                        raise NotImplementedError("divorcedFrom not implemented yet")
                     elif type_str in {
                         "collaboratedWith",
                         "tennantOf",
@@ -1726,7 +1766,7 @@ class EcarticoStructure:
                     self.add_statement(statement)
                 elif source_id == SOURCE_RIJKSMUSEUM_AMSTERDAM:
                     # todo; include inventory nr
-                    statement = Rijksmuseum(book_url)
+                    statement = Rijksmuseum(book_url, a_tag.text)
                     self.add_statement(statement)
                 elif source_id == SOURCE_LE_DICTIONNAIRE_DES_PEINTRES_BELGES:
                     # balat.kikirpa.be
@@ -1849,6 +1889,17 @@ class EcarticoStructure:
             external_id = url[len(prefix) :]
             return prop, external_id
 
+        prefix = "https://www.britishmuseum.org/collection/term/BIOG"
+        if url.startswith(prefix):
+            prop = wd.PID_BRITISH_MUSEUM_PERSON_OR_INSTITUTION_ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+        prefix = "http://www.dwc.knaw.nl/biografie/scientific-instrument-makers/?pagetype=authorDetail&aId="
+        if url.startswith(prefix):
+            prop = "P6582"  # Scientific Instrument Makers ID
+            external_id = url[len(prefix) :]
+            return prop, external_id
+
         if "data.deutsche-biographie.de/Person/" in url:
             raise RuntimeError("url = data.deutsche-biographie.de/Person/")
         if "urn:rijksmuseum:people" in url:
@@ -1856,7 +1907,15 @@ class EcarticoStructure:
         if url.startswith("http://hdl.handle.net/11259/people."):
             # Amsterdam Museum; defunct
             return None
-
+        if url.startswith("https://hoogleraren.universiteitleiden.nl/id/"):
+            # defunct
+            return None
+        if url.startswith("http://data.deutsche-biographie.de/rest/"):
+            # described by/external id?
+            return None
+        if url.startswith("https://www.boijmans.nl/collectie/kunstenaars/"):
+            # not really useful
+            return None
         raise RuntimeError(f"unrecognized url: {url}")
 
     def apply(self, lookup: EcarticoLookupAddInterface, wikidata: cwd.WikiDataPage):
@@ -1902,7 +1961,7 @@ class EcarticoStructure:
                         wikidata.add_statement(
                             cwd.ExternalIDStatement(
                                 prop=prop,
-                                external_id=external_id,
+                                external_id=page.external_id,
                                 subject_named_as=(
                                     page.get_name() if len(pages) > 1 else None
                                 ),
