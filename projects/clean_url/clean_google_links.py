@@ -12,8 +12,6 @@ repo = site.data_repository()
 # see https://www.wikidata.org/wiki/Talk:Q4937233
 # query: https://qlever.dev/wikidata/c1T82F
 
-API_KEY = "AIzaSyAAkpodWtzB2e_foow6MbYsDxfDbIGG4co"
-
 # Global cache
 _url_cache = {}
 _classify_cache = {}
