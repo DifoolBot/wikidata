@@ -35,10 +35,15 @@ if TYPE_CHECKING:
     import pywikibot
 
 from cleanup.detectors import (
+    ACTION_CLEAN_URL,
+    ACTION_DOWNGRADE_PREFERRED,
+    ACTION_MERGE_CLAIM,
     ACTION_REMOVE_ALIAS,
     ACTION_REMOVE_CLAIM,
     ACTION_REMOVE_QUALIFIER,
+    ACTION_REMOVE_REFS,
     PID_END_TIME,
+    PID_REASON_FOR_PREFERRED_RANK,
 )
 
 # ==== Payload builders =======================================================
@@ -164,7 +169,169 @@ def build_payload(
             alias_removals.setdefault(lang, set()).add(value)
             descriptions.append(f"remove alias [{lang}] {value!r} ({diff['reason']})")
 
-    # ── Assemble the payload ─────────────────────────────────────────────────
+        elif action == ACTION_DOWNGRADE_PREFERRED:
+            claim_id = diff["claim_id"]
+
+            if claim_id in claim_payloads and "remove" in claim_payloads[claim_id]:
+                # Claim already being removed entirely — skip.
+                continue
+
+            claim = _find_claim(item, claim_id)
+            if claim is None:
+                continue
+
+            if claim_id not in claim_payloads:
+                claim_payloads[claim_id] = claim.toJSON()
+
+            entry = claim_payloads[claim_id]
+            entry["rank"] = "normal"
+
+            # Strip P7452 (reason for preferred rank) qualifier if present.
+            qual_pid = diff.get("removed_qualifier")
+            if qual_pid:
+                qualifiers = entry.get("qualifiers", {})
+                if qual_pid in qualifiers:
+                    del qualifiers[qual_pid]
+                    if "qualifiers-order" in entry:
+                        entry["qualifiers-order"] = [
+                            p for p in entry["qualifiers-order"] if p != qual_pid
+                        ]
+
+            detector = diff.get("detector", "")
+            reason = (
+                "expired end time" if detector == "expired_preferred" else "redundant"
+            )
+            descriptions.append(f"downgrade preferred rank on {diff['pid']} ({reason})")
+
+        elif action == ACTION_CLEAN_URL:
+            claim_id = diff["claim_id"]
+
+            if claim_id in claim_payloads and "remove" in claim_payloads[claim_id]:
+                continue
+
+            claim = _find_claim(item, claim_id)
+            if claim is None:
+                continue
+
+            if claim_id not in claim_payloads:
+                claim_payloads[claim_id] = claim.toJSON()
+
+            entry = claim_payloads[claim_id]
+            context = diff["context"]
+            before = diff["before"]
+            after = diff["after"]
+
+            if context == "claim":
+                # Top-level mainsnak URL value
+                ms = entry.get("mainsnak", {})
+                if ms.get("datavalue", {}).get("value") == before:
+                    ms["datavalue"]["value"] = after
+                    ms.pop("hash", None)
+
+            elif context == "qualifier":
+                # Qualifier snak identified by snak_pid + snak_hash
+                q_pid = diff["snak_pid"]
+                q_hash = diff["snak_hash"]
+                for snak in entry.get("qualifiers", {}).get(q_pid, []):
+                    if (
+                        snak.get("hash") == q_hash
+                        and snak.get("datavalue", {}).get("value") == before
+                    ):
+                        snak["datavalue"]["value"] = after
+                        snak.pop("hash", None)
+                        break
+
+            else:
+                # Reference snak (context == "reference")
+                ref_hash = diff["ref_hash"]
+                snak_pid = diff["snak_pid"]
+                ref = next(
+                    (
+                        r
+                        for r in entry.get("references", [])
+                        if r.get("hash") == ref_hash
+                    ),
+                    None,
+                )
+                if ref:
+                    for snak in ref.get("snaks", {}).get(snak_pid, []):
+                        if snak.get("datavalue", {}).get("value") == before:
+                            snak["datavalue"]["value"] = after
+                            snak.pop("hash", None)
+                            break
+
+            descriptions.append(
+                f"clean URL on {diff['pid']} {context}: " f"{before!r} → {after!r}"
+            )
+
+        elif action == ACTION_REMOVE_REFS:
+            claim_id = diff["claim_id"]
+
+            if claim_id in claim_payloads and "remove" in claim_payloads[claim_id]:
+                continue
+
+            claim = _find_claim(item, claim_id)
+            if claim is None:
+                continue
+
+            if claim_id not in claim_payloads:
+                claim_payloads[claim_id] = claim.toJSON()
+
+            entry = claim_payloads[claim_id]
+            ref_hash = diff["ref_hash"]
+            # Remove last matching reference by hash, mirroring JS findLastIndex.
+            refs = entry.get("references", [])
+            for i in range(len(refs) - 1, -1, -1):
+                if refs[i].get("hash") == ref_hash:
+                    refs.pop(i)
+                    break
+
+            descriptions.append(f"remove duplicate reference on {diff['pid']}")
+
+        elif action == ACTION_MERGE_CLAIM:
+            from_id = diff["from_claim_id"]
+            to_id = diff["to_claim_id"]
+
+            # If the "from" claim is already being fully removed, skip.
+            if from_id in claim_payloads and "remove" in claim_payloads[from_id]:
+                continue
+
+            from_claim = _find_claim(item, from_id)
+            to_claim = _find_claim(item, to_id)
+            if from_claim is None or to_claim is None:
+                continue
+
+            if from_id not in claim_payloads:
+                claim_payloads[from_id] = from_claim.toJSON()
+            if to_id not in claim_payloads:
+                claim_payloads[to_id] = to_claim.toJSON()
+
+            from_entry = claim_payloads[from_id]
+            to_entry = claim_payloads[to_id]
+
+            # Merge references: transfer any refs not already on the target.
+            to_ref_hashes = {r.get("hash") for r in to_entry.get("references", [])}
+            for ref in from_entry.get("references", []):
+                if ref.get("hash") not in to_ref_hashes:
+                    to_entry.setdefault("references", []).append(ref)
+                    to_ref_hashes.add(ref.get("hash"))
+
+            # Merge qualifiers: transfer snaks not already on the target.
+            for q_pid, snaks in (from_entry.get("qualifiers") or {}).items():
+                to_hashes = {
+                    s.get("hash") for s in to_entry.get("qualifiers", {}).get(q_pid, [])
+                }
+                new_snaks = [s for s in snaks if s.get("hash") not in to_hashes]
+                if new_snaks:
+                    to_entry.setdefault("qualifiers", {}).setdefault(q_pid, []).extend(
+                        new_snaks
+                    )
+
+            # Mark the "from" claim for removal.
+            from_entry["remove"] = ""
+
+            descriptions.append(f"merge duplicate date claim on {diff['pid']}")
+
     payload: dict = {}
 
     if claim_payloads:
