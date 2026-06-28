@@ -5,9 +5,9 @@ from collections.abc import Iterator
 
 import pywikibot as pwb
 import requests
-import viaf.authority_sources
-import viaf.viaf_api_client
 import viaf.wdqs_client
+from viaf.authority_sources import AuthorityRecord, AuthoritySource
+from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
 
 import shared_lib.change_wikidata as cwd
@@ -90,7 +90,7 @@ class ReportBackend(ABC):
 
 def _add_viaf(
     item: pwb.ItemPage,
-    auth_src: viaf.authority_sources.AuthoritySource,
+    auth_src: AuthoritySource,
     viaf_cluster_id: str | None,
 ) -> None:
     if viaf_cluster_id is None:
@@ -137,9 +137,7 @@ def _execute_qlever_query(query: str) -> list[dict[str, str]]:
 
 
 class ViafBot:
-    def __init__(
-        self, auth_src: viaf.authority_sources.AuthoritySource, report: ReportBackend
-    ):
+    def __init__(self, auth_src: AuthoritySource, report: ReportBackend):
         self.auth_src = auth_src
         self.test = False
         self.report = report
@@ -156,17 +154,21 @@ class ViafBot:
     def run(self):
         self.run_session()
 
-    def run_session(self) -> None:
+    def run_session(self, output_file: str = "qlever_viaf_index.txt") -> bool:
         """Run one qlever-based pass and, if it ran to completion (i.e. wasn't cut
         short by the VIAF API rate limit), publish the duplicate/wikitext
-        reports and start a new reporting session."""
-        finished = self.iterate_qlever()
+        reports and start a new reporting session.
+
+        Returns True if the pass ran to completion, False if it was cut short.
+        """
+        finished = self.iterate_qlever(output_file=output_file)
         if finished:
             self.generate_dup_report()
             self.generate_report()
             self.end_session()
+        return finished
 
-    def change_wikidata(self, record: viaf.authority_sources.AuthorityRecord) -> None:
+    def change_wikidata(self, record: AuthorityRecord) -> None:
         if not record.qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
@@ -219,7 +221,7 @@ class ViafBot:
         _add_viaf(item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id)
         self.report.add_done(qid=record.qid)
 
-    def get_duplicates_qids(self, record: viaf.authority_sources.AuthorityRecord):
+    def get_duplicates_qids(self, record: AuthorityRecord):
         res = []
         query = 'SELECT DISTINCT ?item WHERE {{ ?item p:P214 ?statement0. ?statement0 (ps:P214) "{viaf_id}". FILTER (?item != wd:{qid})}} LIMIT 5'.format(
             viaf_id=record.viaf_cluster_id, qid=record.qid
@@ -234,7 +236,7 @@ class ViafBot:
             res.append(other_qid)
         return res
 
-    def examine(self, record: viaf.authority_sources.AuthorityRecord) -> None:
+    def examine(self, record: AuthorityRecord) -> None:
         try:
             if self.report.has_done(record.qid):
                 return
@@ -253,7 +255,7 @@ class ViafBot:
             if not record.viaf_search_key:
                 raise RuntimeError("No search key")
 
-            qry = viaf.viaf_api_client.ViafApiClient()
+            qry = ViafApiClient()
             if code == "LC":
                 res = qry.query_viaf_lccn(record.viaf_search_key)
             else:
@@ -330,7 +332,7 @@ class ViafBot:
                 )
             )
             self.change_wikidata(record)
-        except viaf.viaf_api_client.ViafRateLimitExceeded:
+        except ViafRateLimitExceeded:
             # Not a per-item failure - let the caller (iterate_qlever) stop the run.
             raise
         except RuntimeError as e:
@@ -488,14 +490,19 @@ class ViafBot:
                 continue
             if len(local_auth_id) == 0:
                 continue
-            record = viaf.authority_sources.AuthorityRecord(qid, local_auth_id)
+            record = AuthorityRecord(qid, local_auth_id)
             self.examine(record)
         return True
+
+    def _qlever_header(self) -> str:
+        """Marker line identifying which authority source a qlever output_file is for."""
+        return f"# pid={self.auth_src.pid}"
 
     def fetch_qlever_results(self, output_file: str = "qlever_viaf_index.txt") -> int:
         """Execute the iterate_index query on qlever without the slice part and save the output.
 
-        The output file contains QID and local authority ID pairs separated by tabs.
+        The output file starts with a header line identifying self.auth_src.pid,
+        followed by QID and local authority ID pairs separated by tabs.
         """
         query_template = """
                         PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -520,6 +527,7 @@ class ViafBot:
             return 0
 
         with open(output_file, "w", encoding="utf-8") as fh:
+            fh.write(self._qlever_header() + "\n")
             for row in results:
                 fh.write(f"{row['qid']}\t{row['local_auth_id']}\n")
 
@@ -529,12 +537,28 @@ class ViafBot:
     def iterate_qlever(self, output_file: str = "qlever_viaf_index.txt") -> bool:
         """Run qlever once and iterate the resulting items.
 
+        If output_file already exists but its header doesn't match self.auth_src
+        (e.g. it's a leftover from a previous, differently-configured run), it is
+        discarded and refetched rather than trusted blindly.
+
         Stops early if the VIAF API reports its rate limit was hit, leaving
-        the remaining rows in output_file for the next run.
+        the remaining rows (plus the header) in output_file for the next run.
 
         Returns True if every row in output_file was processed (and the file
         was removed), False if the run was cut short by the rate limit.
         """
+        header = self._qlever_header()
+
+        if os.path.exists(output_file):
+            with open(output_file, "r", encoding="utf-8") as fh:
+                first_line = fh.readline().strip()
+            if first_line != header:
+                pwb.warning(
+                    f"{output_file} header {first_line!r} doesn't match "
+                    f"{header!r}; discarding and refetching."
+                )
+                os.remove(output_file)
+
         if not os.path.exists(output_file):
             pwb.output(f"Fetching qlever results into {output_file}...")
             count = self.fetch_qlever_results(output_file=output_file)
@@ -544,45 +568,47 @@ class ViafBot:
         else:
             pwb.output(f"Using existing qlever file: {output_file}")
 
-        total_lines = 0
         with open(output_file, "r", encoding="utf-8") as fh:
-            total_lines = sum(1 for line in fh if line.strip())
+            lines = [line for line in fh if line.strip()]
+        if lines and lines[0].strip() == header:
+            lines = lines[1:]
+
+        total_lines = len(lines)
 
         processed = 0
         malformed = 0
         remaining_lines: list[str] = []
         finished = True
-        with open(output_file, "r", encoding="utf-8") as fh:
-            for line in fh:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-
-                parts = stripped.split("\t")
-                if len(parts) != 2:
-                    malformed += 1
-                    pwb.warning(f"Skipping malformed line: {stripped}")
-                    continue
-                qid, local_auth_id = parts
-                record = viaf.authority_sources.AuthorityRecord(qid, local_auth_id)
-                try:
-                    self.examine(record)
-                except viaf.viaf_api_client.ViafRateLimitExceeded as e:
-                    pwb.warning(f"{e}; stopping for now.")
-                    remaining_lines = [line] + list(fh)
-                    finished = False
-                    break
-                processed += 1
-                if processed % 100 == 0 or processed == total_lines:
-                    pct = (processed / total_lines * 100) if total_lines else 0.0
-                    pwb.output(
-                        f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
-                    )
+        for index, line in enumerate(lines):
+            stripped = line.strip()
+            parts = stripped.split("\t")
+            if len(parts) != 2:
+                malformed += 1
+                pwb.warning(f"Skipping malformed line: {stripped}")
+                continue
+            qid, local_auth_id = parts
+            record = AuthorityRecord(qid, local_auth_id)
+            try:
+                self.examine(record)
+            except ViafRateLimitExceeded as e:
+                pwb.warning(f"{e}; stopping for now.")
+                remaining_lines = lines[index:]
+                finished = False
+                break
+            processed += 1
+            if processed % 100 == 0 or processed == total_lines:
+                pct = (processed / total_lines * 100) if total_lines else 0.0
+                pwb.output(
+                    f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
+                )
 
         if not finished:
             with open(output_file, "w", encoding="utf-8") as fh:
+                fh.write(header + "\n")
                 fh.writelines(remaining_lines)
-            pwb.output(f"{len(remaining_lines)} unprocessed row(s) left in {output_file}.")
+            pwb.output(
+                f"{len(remaining_lines)} unprocessed row(s) left in {output_file}."
+            )
             return False
 
         try:

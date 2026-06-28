@@ -492,3 +492,6 @@ class AuthoritySources:
 
     def get(self, pid: str) -> AuthoritySource:
         return self._sources_by_pid[pid]
+
+    def all_pids(self) -> list[str]:
+        return list(self._sources_by_pid.keys())
