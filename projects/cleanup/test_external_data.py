@@ -23,6 +23,7 @@ def _read_fixture(name: str) -> str:
     return (FIXTURES / name).read_text(encoding="utf-8")
 from cleanup.external_data import (
     _parse_source_category_page,
+    load_all,
     load_url_strip_rules,
     load_wikipedia_editions,
     load_source_category_rules,
@@ -265,7 +266,7 @@ class TestLoadSourceCategoryRules:
 
     def test_full_load(self):
         site_mock = MagicMock()
-        site_mock._simple_request.return_value.submit.return_value = (
+        site_mock.simple_request.return_value.submit.return_value = (
             self._mock_mw_search()
         )
         with (
@@ -293,7 +294,7 @@ class TestLoadSourceCategoryRules:
 
     def test_obsolete_pids_populated(self):
         site_mock = MagicMock()
-        site_mock._simple_request.return_value.submit.return_value = (
+        site_mock.simple_request.return_value.submit.return_value = (
             self._mock_mw_search()
         )
         with (
@@ -306,7 +307,7 @@ class TestLoadSourceCategoryRules:
 
     def test_stated_in_populated(self):
         site_mock = MagicMock()
-        site_mock._simple_request.return_value.submit.return_value = (
+        site_mock.simple_request.return_value.submit.return_value = (
             self._mock_mw_search()
         )
         with (
@@ -319,3 +320,74 @@ class TestLoadSourceCategoryRules:
         assert prefs is not None
         assert prefs["preferred"] == "Q54919"
         assert "Q54919" in prefs["allowed"]
+
+
+# ==== load_all (on-disk cache) ===============================================
+
+
+class TestLoadAllCache:
+    def _populated_loaders(self):
+        """Patch the three loaders to return non-empty, populated objects."""
+        rules = SourceCategoryRules(aggregator_pids={"P214"})
+        url_rules = UrlStripRules()
+        wp_eds = WikipediaEditions({"en": "Q328"})
+        return (
+            patch("cleanup.external_data.load_source_category_rules", return_value=rules),
+            patch("cleanup.external_data.load_url_strip_rules", return_value=url_rules),
+            patch("cleanup.external_data.load_wikipedia_editions", return_value=wp_eds),
+        )
+
+    def test_no_cache_calls_loaders_every_time(self, tmp_path):
+        cache = tmp_path / "ext.pkl"
+        p1, p2, p3 = self._populated_loaders()
+        with p1 as m1, p2 as m2, p3 as m3:
+            load_all(use_cache=False, cache_path=cache)
+            load_all(use_cache=False, cache_path=cache)
+            assert m1.call_count == 2
+            assert m2.call_count == 2
+            assert m3.call_count == 2
+        assert not cache.exists()  # nothing written when caching is off
+
+    def test_second_call_uses_cache(self, tmp_path):
+        cache = tmp_path / "ext.pkl"
+        p1, p2, p3 = self._populated_loaders()
+        with p1 as m1, p2 as m2, p3 as m3:
+            rules1, url1, wp1 = load_all(use_cache=True, cache_path=cache)
+            assert cache.exists()  # first call populated the cache
+            rules2, url2, wp2 = load_all(use_cache=True, cache_path=cache)
+            # Loaders ran exactly once: the second call came from disk.
+            assert m1.call_count == 1
+            assert m2.call_count == 1
+            assert m3.call_count == 1
+        # Round-tripped data is equivalent.
+        assert rules2.aggregator_pids == {"P214"}
+        assert wp2.get_qid("en") == "Q328"
+
+    def test_stale_cache_refetches(self, tmp_path):
+        cache = tmp_path / "ext.pkl"
+        p1, p2, p3 = self._populated_loaders()
+        with p1 as m1, p2, p3:
+            load_all(use_cache=True, cache_path=cache)
+            # max_age 0 → the just-written cache is already "stale".
+            load_all(use_cache=True, cache_path=cache, max_age_seconds=0)
+            assert m1.call_count == 2
+
+    def test_empty_result_not_cached(self, tmp_path):
+        cache = tmp_path / "ext.pkl"
+        # All loaders return empty objects → looks like an offline/failed run.
+        with (
+            patch(
+                "cleanup.external_data.load_source_category_rules",
+                return_value=SourceCategoryRules(),
+            ),
+            patch(
+                "cleanup.external_data.load_url_strip_rules",
+                return_value=UrlStripRules(),
+            ),
+            patch(
+                "cleanup.external_data.load_wikipedia_editions",
+                return_value=WikipediaEditions(),
+            ),
+        ):
+            load_all(use_cache=True, cache_path=cache)
+        assert not cache.exists()

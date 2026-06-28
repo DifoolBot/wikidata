@@ -33,9 +33,11 @@ from cleanup.detectors import (
     detect_obsolete_snaks_in_references,
     detect_merge_wiki_import_refs,
     detect_ref_categories,
+    restore_entity_ids,
 )
 from cleanup.apply import apply_diffs
 from cleanup.database import WikidataCleanupTracker
+from cleanup.labels import build_edit_summary
 from cleanup.external_data import (
     load_source_category_rules,
     load_url_strip_rules,
@@ -47,7 +49,6 @@ from cleanup.generators import generator_for_detectors
 
 TOOL_NAME = "WikidataCleanupBot"
 TOOL_PAGE = "User:Difool/WikidataCleanup"
-EDIT_SUMMARY_TPL = "Cleanup: {actions} ([[{tool_page}|bot]])"
 
 REF_CATEGORY_DETECTORS = frozenset(
     {
@@ -60,34 +61,6 @@ REF_CATEGORY_DETECTORS = frozenset(
         "self_stated_in",
     }
 )
-
-DETECTOR_LABELS = {
-    "self_cite": "remove self-citation",
-    "empty_end_time": "remove empty end time",
-    "alias_equals_label": "remove alias=label",
-    "redundant_preferred": "downgrade redundant preferred ranks",
-    "expired_preferred": "downgrade expired preferred ranks",
-    "clean_urls": "clean URLs",
-    "dup_retrieved": "remove duplicate references",
-    "merge_same_date_claims": "merge same-date claims",
-    "julian_gregorian_dates": "remove Julian/Gregorian duplicate dates",
-    "low_precision_dates": "remove redundant low-precision dates",
-    "obsolete_snaks": "remove obsolete snaks from references",
-    "normalize_labels": "normalize labels/descriptions/aliases",
-    "add_mul_label": "add mul label",
-    "add_mul_alias": "add mul alias",
-    "upgrade_precise_date": "upgrade precise date to preferred",
-    "replace_wrong_property": "replace wrong property in references",
-    "split_reference_urls": "split multiple reference URLs",
-    "merge_wiki_import_refs": "merge P4656 into P143 reference",
-    "wikimedia": "remove imported-from-Wikimedia references",
-    "aggregator": "remove aggregator references",
-    "community": "remove community references",
-    "redundant": "remove redundant references",
-    "inferred": "remove inferred references",
-    "obsolete": "remove obsolete ID references",
-    "self_stated_in": "remove tautological stated-in references",
-}
 
 # ==== Bot class ==============================================================
 
@@ -140,9 +113,14 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
 
         raw = {
             "id": item.id,
-            "claims": {
-                pid: [c.toJSON() for c in claims] for pid, claims in item.claims.items()
-            },
+            # pywikibot's toJSON() drops the "id" on entity values; restore it
+            # so the detectors see wbgetentities-shaped data.
+            "claims": restore_entity_ids(
+                {
+                    pid: [c.toJSON() for c in claims]
+                    for pid, claims in item.claims.items()
+                }
+            ),
             "labels": {lang: {"value": v} for lang, v in item.labels.items()},
             "descriptions": {
                 lang: {"value": v} for lang, v in item.descriptions.items()
@@ -185,17 +163,10 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
 
         self.stats["diffs_total"] += len(all_diffs)
 
-        active_labels = sorted(
-            {
-                DETECTOR_LABELS.get(d["detector"]) or d["detector"]
-                for d in all_diffs
-                if not d.get("_hidden")
-            }
-        )
-        summary = EDIT_SUMMARY_TPL.format(
-            actions="; ".join(active_labels),
-            tool_page=TOOL_PAGE,
-        )
+        active_detectors = {
+            d["detector"] for d in all_diffs if not d.get("_hidden")
+        }
+        summary = build_edit_summary(active_detectors, TOOL_PAGE)
 
         try:
             changed = apply_diffs(item, all_diffs, summary, self.dry_run)
@@ -323,8 +294,9 @@ def main(*args: str) -> None:
     run_id = str(uuid.uuid4())
     log.info("Run ID: %s", run_id)
 
-    site = pywikibot.Site("wikidata", "wikidata")
-    repo = site.data_repository()
+    # Shared, logged-in Wikidata session (imported here so merely importing
+    # bot.py does not trigger a login).
+    from shared_lib.wikidata_site import REPO as repo
 
     if single_item:
         item = pywikibot.ItemPage(repo, single_item)

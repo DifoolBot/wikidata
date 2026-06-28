@@ -84,7 +84,14 @@ import json
 import math
 import re
 import unicodedata
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse, unquote
+from urllib.parse import (
+    unquote,
+    unquote_plus,
+    urlparse,
+    urlsplit,
+    urlunparse,
+    urlunsplit,
+)
 
 # ==== Action constants =======================================================
 
@@ -155,6 +162,54 @@ def normalize_text(s: str | None) -> str | None:
 
 # ==== Helpers ================================================================
 
+# Maps a wikibase entity-type to its id prefix.
+_ENTITY_ID_PREFIX = {"item": "Q", "property": "P", "lexeme": "L"}
+
+
+def _restore_snak_entity_id(snak: dict) -> None:
+    """Add the 'id' field to a wikibase-entityid snak value when it is missing.
+
+    pywikibot's Claim.toJSON() emits entity values as
+    ``{"entity-type": "item", "numeric-id": 42}`` (no ``id``), whereas the
+    wbgetentities JSON the detectors mirror includes ``"id": "Q42"``.  Mutates
+    the snak in place.
+    """
+    dv = snak.get("datavalue")
+    if not isinstance(dv, dict) or dv.get("type") != "wikibase-entityid":
+        return
+    value = dv.get("value")
+    if (
+        not isinstance(value, dict)
+        or value.get("id")
+        or value.get("numeric-id") is None
+    ):
+        return
+    prefix = _ENTITY_ID_PREFIX.get(value.get("entity-type"))
+    if prefix:
+        value["id"] = f"{prefix}{value['numeric-id']}"
+
+
+def restore_entity_ids(claims: dict) -> dict:
+    """Restore missing ``id`` fields on every wikibase-entityid value in a
+    claims dict built from pywikibot's ``Claim.toJSON()``.
+
+    Walks mainsnaks, qualifiers and reference snaks.  Mutates and returns
+    ``claims`` so the detectors — which read ``value["id"]`` throughout — see
+    the same shape as the wbgetentities JSON used by the test fixtures and the
+    JS implementation.
+    """
+    for claim_list in claims.values():
+        for claim in claim_list:
+            _restore_snak_entity_id(claim.get("mainsnak", {}))
+            for snaks in (claim.get("qualifiers") or {}).values():
+                for snak in snaks:
+                    _restore_snak_entity_id(snak)
+            for ref in claim.get("references") or []:
+                for snaks in (ref.get("snaks") or {}).values():
+                    for snak in snaks:
+                        _restore_snak_entity_id(snak)
+    return claims
+
 
 def _claim_target_qid(claim: dict) -> str | None:
     """
@@ -167,20 +222,39 @@ def _claim_target_qid(claim: dict) -> str | None:
         return None
 
 
+_WB_TIME_RE = re.compile(r"^([+-])?0*(\d+)-(\d{2})-(\d{2})")
+
+
 def _parse_wikibase_time(time_str: str) -> "datetime | None":
     """
     Parse a Wikibase time string into a Python datetime, or None on failure.
 
-    Mirrors parseWikibaseTime() from WikidataCleanup.js:
-      timeStr.replace(/^\\+/, "").replace(/-00/g, "-01")
-    The -00 → -01 substitution handles month/day "unknown" values that
-    are not valid ISO 8601 but common in Wikidata.
+    Handles the formats produced both by wbgetentities (``+1732-02-22T...``)
+    and by pywikibot's ``Claim.toJSON()`` (zero-padded years like
+    ``+00000001732-02-22T...``).  Month/day "00" (unknown) are treated as 01.
+
+    Python's ``datetime`` only spans years 1..9999, so values outside that
+    range are clamped to ``datetime.min`` / ``datetime.max`` — sufficient for
+    the only use here (deciding whether a date lies in the past/future).
     """
     if not time_str:
         return None
-    t = time_str.lstrip("+").replace("-00", "-01")
+    m = _WB_TIME_RE.match(time_str)
+    if not m:
+        return None
+    sign, year_str, month_str, day_str = m.groups()
+    year = int(year_str)
+    if sign == "-":
+        year = -year
+    month = int(month_str) or 1  # 00 -> 01 (unknown month)
+    day = int(day_str) or 1  # 00 -> 01 (unknown day)
+
+    if year < 1:  # BCE / year 0 — before any real comparison point
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if year > 9999:  # far future
+        return datetime.max.replace(tzinfo=timezone.utc)
     try:
-        return datetime.fromisoformat(t).replace(tzinfo=timezone.utc)
+        return datetime(year, month, day, tzinfo=timezone.utc)
     except ValueError:
         return None
 
@@ -830,9 +904,11 @@ class SourceCategoryRules:
     This is a black box for the classifier — the bot fetches and constructs
     it; the classifier reads from it only through its interface.
 
-    TODO: implement from_wiki_text(wikitext) to parse the live wiki page.
-    For now, construct with empty rules (no aggregator/community/redundant
-    classifications) so the classifier still works for wikimedia/inferred/etc.
+    Populated by external_data.load_source_category_rules() (wiki page parsing
+    plus SPARQL for obsolete-ID and stated-in data).  Constructing with no
+    arguments yields empty rules (no aggregator/community/redundant
+    classifications), used as the offline/fallback default — the classifier
+    still works for wikimedia/inferred/etc.
 
     Fields:
       aggregator_pids  : set of PIDs classified as aggregator sources
@@ -1037,7 +1113,7 @@ def _is_splittable_reference(ref: dict) -> tuple[bool, int, str | None]:
     if not all(p in ALLOWED for p in pids):
         return (False, 0, None)
 
-    archive_count = wikimedia_count = url_count = 0
+    archive_count = wikimedia_count = url_count = other_count = 0
     for p in pids:
         if p in METADATA:
             continue
@@ -1052,14 +1128,20 @@ def _is_splittable_reference(ref: dict) -> tuple[bool, int, str | None]:
                     wikimedia_count += 1
                 else:
                     url_count += 1
+            else:
+                other_count += len(snaks.get(p, []))
 
     if archive_count > 1:
         return (False, 0, None)
     if len(snaks.get(PID_ARCHIVE_DATE, [])) > 1:
         return (False, 0, None)
-    total = archive_count + wikimedia_count + url_count
-    if total <= 1:
+    # An archive URL is the archived copy of a primary URL, not an independent
+    # source, so it must NOT count toward splittability: a single reference URL
+    # plus its archive URL/date is one logical reference.  Only wikimedia/url/
+    # other content drives the decision (mirrors the JS threshold).
+    if wikimedia_count + url_count + other_count <= 1:
         return (False, 0, None)
+    total = archive_count + wikimedia_count + url_count
     return (True, total, "multiUrl")
 
 
@@ -1717,8 +1799,8 @@ class WikipediaEditions:
     Maps Wikipedia language codes to Wikidata QIDs and vice versa.
     Black box for detect_merge_wiki_import_refs — bot.py fetches and constructs it.
 
-    TODO: implement from_sparql() or from_wiki_page() to populate the map.
-    For now construct with an empty map.
+    Populated by external_data.load_wikipedia_editions() (via SPARQL).
+    Constructing with no arguments yields an empty map (offline/fallback default).
     """
 
     def __init__(self, lang_to_qid: dict[str, str] | None = None) -> None:
@@ -2126,10 +2208,20 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     Mirrors cleanUrl(rawUrl, { recognitionMode: false }) in WDCaches.js.
     Only "always" mode stripping is applied — recognition mode is only
     used during URL→property matching, not during cleanup.
+
+    The query string is edited surgically: only the matching key=value pairs
+    are dropped; every surviving parameter (and the path/fragment) is preserved
+    byte-for-byte.  This avoids the re-encoding edits that a parse-then-urlencode
+    round trip would otherwise introduce (e.g. "/" → "%2F", "," → "%2C",
+    "%20" → "+") for values that were never tracking parameters — matching the
+    JS, which leaves the URL untouched when it removes nothing.
     """
     try:
-        parsed = urlparse(raw_url)
+        parsed = urlsplit(raw_url)
     except Exception:
+        return raw_url
+
+    if not parsed.query:
         return raw_url
 
     hostname = parsed.hostname or ""
@@ -2140,27 +2232,22 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     if not params_to_strip:
         return raw_url
 
-    original_qs = parsed.query
-    filtered = [
-        (k, v)
-        for k, v in parse_qsl(original_qs, keep_blank_values=True)
-        if k not in params_to_strip
-    ]
+    kept: list[str] = []
+    removed = False
+    for token in parsed.query.split("&"):
+        # Compare the (decoded) key name; keep the token's original encoding.
+        key = unquote_plus(token.split("=", 1)[0])
+        if key in params_to_strip:
+            removed = True
+        else:
+            kept.append(token)
 
-    new_qs = urlencode(filtered)
-    if new_qs == original_qs:
+    if not removed:
         return raw_url
 
-    cleaned = urlunparse(parsed._replace(query=new_qs))
-
-    # Mirror JS: decode non-ASCII characters that may have been re-encoded.
-    if any(ord(c) > 0x7F for c in raw_url):
-        try:
-            cleaned = unquote(cleaned, errors="surrogatepass")
-        except Exception:
-            pass
-
-    return cleaned
+    # urlunsplit preserves each component verbatim, so surviving tokens keep
+    # their exact original encoding.
+    return urlunsplit(parsed._replace(query="&".join(kept)))
 
 
 def _normalize_wikimedia_import_url(raw: str | None) -> str | None:

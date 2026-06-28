@@ -15,32 +15,41 @@ Four data sources:
 
 from __future__ import annotations
 
-import re
-import urllib.parse
-import urllib.request
-import json
 import logging
+import pathlib
+import pickle
+import re
+import time
 
 import pywikibot
+from pywikibot.data import sparql
 
 from cleanup.detectors import SourceCategoryRules, UrlStripRules, WikipediaEditions
 
 log = logging.getLogger(__name__)
 
-SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 WD_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
+
+# Combined on-disk cache for the three external-data objects, used by debug
+# entry points (e.g. call_bot.py) so repeated runs don't re-hit SPARQL and the
+# wiki API.  Bump _CACHE_VERSION whenever the shape of the cached rule classes
+# changes; delete the file to force a refresh.
+_CACHE_FILE = pathlib.Path(__file__).parent / "external_data_cache.pkl"
+_CACHE_VERSION = 1
+_CACHE_MAX_AGE_SECONDS = 24 * 3600  # 1 day
 
 # ==== Helpers ================================================================
 
 
 def _sparql(query: str) -> list[dict]:
-    """Run a SPARQL query and return the bindings list."""
-    url = SPARQL_ENDPOINT + "?query=" + urllib.parse.quote(query) + "&format=json"
-    req = urllib.request.Request(
-        url, headers={"User-Agent": "WikidataCleanupBot/1.0 (pywikibot)"}
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read().decode())
+    """Run a SPARQL query and return the bindings list.
+
+    Uses pywikibot's :class:`SparqlQuery`, which defaults to the Wikidata
+    endpoint and supplies a compliant User-Agent and retry handling.
+    """
+    data = sparql.SparqlQuery().query(query)
+    if not data:
+        return []
     return data["results"]["bindings"]
 
 
@@ -203,7 +212,7 @@ def _fetch_obsolete_id_props() -> set[str]:
     Step 2: SPARQL to exclude partially-obsolete properties (those with P518).
     """
     site = pywikibot.Site("wikidata", "wikidata")
-    api = site._simple_request(
+    api = site.simple_request(
         action="query",
         list="search",
         srsearch="haswbstatement:P31=Q108951239|P31=Q60457486",
@@ -225,7 +234,7 @@ def _fetch_obsolete_id_props() -> set[str]:
             break
         # Rebuild request with continuation params
         cont = result["continue"]
-        api = site._simple_request(
+        api = site.simple_request(
             action="query",
             list="search",
             srsearch="haswbstatement:P31=Q108951239|P31=Q60457486",
@@ -386,3 +395,87 @@ def load_source_category_rules() -> SourceCategoryRules:
         stated_in=stated_in,
         obsolete_pids=obsolete,
     )
+
+
+# ==== 4. Combined loader with optional on-disk cache =========================
+
+
+def _looks_populated(
+    rules: SourceCategoryRules, wp_eds: WikipediaEditions
+) -> bool:
+    """Heuristic: did the fetch return real data (vs an offline/failed run)?
+
+    Used to avoid persisting an empty result to the cache.
+    """
+    return bool(
+        wp_eds._lang_to_qid
+        or rules.aggregator_pids
+        or rules.community_pids
+        or rules.obsolete_pids
+        or rules.stated_in
+    )
+
+
+def load_all(
+    *,
+    use_cache: bool = False,
+    cache_path: pathlib.Path | None = None,
+    max_age_seconds: float = _CACHE_MAX_AGE_SECONDS,
+) -> tuple[SourceCategoryRules, UrlStripRules, WikipediaEditions]:
+    """Load the three external-data objects, optionally via an on-disk cache.
+
+    Returns ``(source_category_rules, url_strip_rules, wikipedia_editions)`` —
+    the same trio ``bot.main()`` builds inline.
+
+    When ``use_cache`` is True a fresh-enough pickle is reused instead of
+    re-running the SPARQL queries and wiki-page fetches; this keeps repeated
+    debug runs from hammering the query service.  The cache is only written
+    when the fetch produced non-empty data, so a failed/offline run is not
+    persisted.  Delete the cache file (its path is logged) to force a refresh.
+    """
+    path = pathlib.Path(cache_path) if cache_path else _CACHE_FILE
+
+    if use_cache and path.exists():
+        age = time.time() - path.stat().st_mtime
+        if age <= max_age_seconds:
+            try:
+                with path.open("rb") as fh:
+                    blob = pickle.load(fh)
+                if not isinstance(blob, dict) or blob.get("version") != _CACHE_VERSION:
+                    raise ValueError("cache version mismatch")
+                rules, url_rules, wp_eds = blob["data"]
+                log.info(
+                    "Loaded external data from cache %s (age %.0f min)",
+                    path,
+                    age / 60,
+                )
+                return rules, url_rules, wp_eds
+            except Exception as e:
+                log.warning(
+                    "Could not read external-data cache %s (%s); refetching",
+                    path,
+                    e,
+                )
+        else:
+            log.info(
+                "External-data cache %s is stale (%.0f min old); refetching",
+                path,
+                age / 60,
+            )
+
+    rules = load_source_category_rules()
+    url_rules = load_url_strip_rules()
+    wp_eds = load_wikipedia_editions()
+
+    if use_cache and _looks_populated(rules, wp_eds):
+        try:
+            with path.open("wb") as fh:
+                pickle.dump(
+                    {"version": _CACHE_VERSION, "data": (rules, url_rules, wp_eds)},
+                    fh,
+                )
+            log.info("Wrote external-data cache %s", path)
+        except Exception as e:
+            log.warning("Could not write external-data cache %s: %s", path, e)
+
+    return rules, url_rules, wp_eds

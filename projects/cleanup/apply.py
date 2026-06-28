@@ -67,6 +67,7 @@ from cleanup.detectors import (
     _is_archive_url,
     _is_wikimedia_url,
 )
+from cleanup.labels import remove_claim_description, remove_refs_description
 
 # ==== Payload builders =======================================================
 
@@ -382,17 +383,9 @@ def build_payload(
             if claim is None:
                 continue
             claim_payloads[claim_id] = _build_remove_claim(claim)
-            detector = diff.get("detector", "")
-            if detector == "julian_gregorian_dates":
-                descriptions.append(
-                    f"remove duplicate Julian/Gregorian {diff['pid']} date"
-                )
-            elif detector == "low_precision_dates":
-                descriptions.append(
-                    f"remove redundant low-precision {diff['pid']} date"
-                )
-            else:
-                descriptions.append(f"remove {diff['pid']} self-citation")
+            descriptions.append(
+                remove_claim_description(diff.get("detector", ""), diff["pid"])
+            )
 
         elif action == ACTION_REMOVE_QUALIFIER:
             claim_id = diff["claim_id"]
@@ -432,7 +425,12 @@ def build_payload(
             lang = diff["lang"]
             value = diff["value"]
             alias_removals.setdefault(lang, set()).add(value)
-            descriptions.append(f"remove alias [{lang}] {value!r} ({diff['reason']})")
+            # add_mul_alias emits hidden ACTION_REMOVE_ALIAS diffs (no reason);
+            # those are represented by the paired add-mul-alias summary instead.
+            if not diff.get("_hidden"):
+                reason = diff.get("reason")
+                suffix = f" ({reason})" if reason else ""
+                descriptions.append(f"remove alias [{lang}] {value!r}{suffix}")
 
         elif action == ACTION_DOWNGRADE_PREFERRED:
             claim_id = diff["claim_id"]
@@ -554,7 +552,9 @@ def build_payload(
                     refs.pop(i)
                     break
 
-            descriptions.append(f"remove duplicate reference on {diff['pid']}")
+            descriptions.append(
+                remove_refs_description(diff.get("detector", ""), diff["pid"])
+            )
 
         elif action == ACTION_MERGE_CLAIM:
             from_id = diff["from_claim_id"]
@@ -877,6 +877,10 @@ def apply_diffs(
     # Log each change.
     for desc in descriptions:
         pywikibot.output(f"  [{item.id}] {desc}")
+
+    # Show the exact edit summary that will be submitted, with its length so
+    # the Wikidata summary limit is easy to keep an eye on.
+    pywikibot.output(f"  [{item.id}] summary ({len(summary)} chars): {summary}")
 
     if dry_run:
         pywikibot.output(f"  [{item.id}] DRY RUN — no edit submitted")

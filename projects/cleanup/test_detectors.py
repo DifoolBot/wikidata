@@ -34,6 +34,8 @@ from cleanup.detectors import (
     detect_split_reference_urls,
     detect_merge_wiki_import_refs,
     clean_url,
+    restore_entity_ids,
+    _parse_wikibase_time,
     _normalize_wikimedia_import_url,
     _normalize_date_value,
     _has_same_normalized_date,
@@ -82,6 +84,130 @@ from cleanup.detectors import (
     CALENDAR_JULIAN,
     WEAK_CATEGORY_PRIORITY,
 )
+
+# ==== _parse_wikibase_time ===================================================
+
+
+class TestParseWikibaseTime:
+    def test_unpadded_year(self):
+        dt = _parse_wikibase_time("+1732-02-22T00:00:00Z")
+        assert dt is not None
+        assert (dt.year, dt.month, dt.day) == (1732, 2, 22)
+
+    def test_padded_year_from_pywikibot_tojson(self):
+        # pywikibot zero-pads years; must parse to the same value as unpadded.
+        dt = _parse_wikibase_time("+00000001732-02-22T00:00:00Z")
+        assert dt is not None
+        assert (dt.year, dt.month, dt.day) == (1732, 2, 22)
+
+    def test_unknown_month_and_day_become_january_first(self):
+        dt = _parse_wikibase_time("+00000002018-00-00T00:00:00Z")
+        assert dt is not None
+        assert (dt.year, dt.month, dt.day) == (2018, 1, 1)
+
+    def test_padded_and_unpadded_agree(self):
+        assert _parse_wikibase_time("+00000000950-01-01T00:00:00Z") == (
+            _parse_wikibase_time("+950-01-01T00:00:00Z")
+        )
+
+    def test_bce_clamped_to_min(self):
+        import datetime as _dt
+
+        dt = _parse_wikibase_time("-00000000044-03-15T00:00:00Z")
+        assert dt == _dt.datetime.min.replace(tzinfo=_dt.timezone.utc)
+
+    def test_far_future_clamped_to_max(self):
+        import datetime as _dt
+
+        dt = _parse_wikibase_time("+00000010000-01-01T00:00:00Z")
+        assert dt == _dt.datetime.max.replace(tzinfo=_dt.timezone.utc)
+
+    def test_garbage_and_empty(self):
+        assert _parse_wikibase_time("garbage") is None
+        assert _parse_wikibase_time("") is None
+        assert _parse_wikibase_time(None) is None  # type: ignore[arg-type]
+
+    def test_result_is_timezone_aware(self):
+        dt = _parse_wikibase_time("+2018-02-16T00:00:00Z")
+        assert dt is not None and dt.tzinfo is not None
+
+
+# ==== restore_entity_ids =====================================================
+
+
+class TestRestoreEntityIds:
+    def _entity_snak(self, etype="item", nid=42, with_id=False):
+        value = {"entity-type": etype, "numeric-id": nid}
+        if with_id:
+            value["id"] = {"item": "Q", "property": "P", "lexeme": "L"}[etype] + str(nid)
+        return {
+            "snaktype": "value",
+            "property": "P31",
+            "datatype": "wikibase-item",
+            "datavalue": {"value": value, "type": "wikibase-entityid"},
+        }
+
+    def test_item_id_restored_from_numeric_id(self):
+        claims = {"P31": [{"mainsnak": self._entity_snak("item", 5)}]}
+        restore_entity_ids(claims)
+        assert claims["P31"][0]["mainsnak"]["datavalue"]["value"]["id"] == "Q5"
+
+    def test_property_and_lexeme_prefixes(self):
+        claims = {
+            "Px": [{"mainsnak": self._entity_snak("property", 18)}],
+            "Lx": [{"mainsnak": self._entity_snak("lexeme", 7)}],
+        }
+        restore_entity_ids(claims)
+        assert claims["Px"][0]["mainsnak"]["datavalue"]["value"]["id"] == "P18"
+        assert claims["Lx"][0]["mainsnak"]["datavalue"]["value"]["id"] == "L7"
+
+    def test_existing_id_is_untouched(self):
+        snak = self._entity_snak("item", 42, with_id=True)
+        snak["datavalue"]["value"]["id"] = "Q99"  # deliberately "wrong"
+        claims = {"P31": [{"mainsnak": snak}]}
+        restore_entity_ids(claims)
+        # Must not overwrite an id that is already present.
+        assert claims["P31"][0]["mainsnak"]["datavalue"]["value"]["id"] == "Q99"
+
+    def test_qualifiers_and_references_walked(self):
+        claims = {
+            "P39": [
+                {
+                    "mainsnak": self._entity_snak("item", 1),
+                    "qualifiers": {"P580": [self._entity_snak("item", 2)]},
+                    "references": [
+                        {"snaks": {"P248": [self._entity_snak("item", 3)]}}
+                    ],
+                }
+            ]
+        }
+        restore_entity_ids(claims)
+        c = claims["P39"][0]
+        assert c["mainsnak"]["datavalue"]["value"]["id"] == "Q1"
+        assert c["qualifiers"]["P580"][0]["datavalue"]["value"]["id"] == "Q2"
+        assert (
+            c["references"][0]["snaks"]["P248"][0]["datavalue"]["value"]["id"] == "Q3"
+        )
+
+    def test_novalue_and_non_entity_snaks_ignored(self):
+        claims = {
+            "P582": [{"mainsnak": {"snaktype": "novalue", "property": "P582"}}],
+            "P854": [
+                {
+                    "mainsnak": {
+                        "snaktype": "value",
+                        "property": "P854",
+                        "datatype": "url",
+                        "datavalue": {"value": "https://x", "type": "string"},
+                    }
+                }
+            ],
+        }
+        # Should not raise or alter anything.
+        restore_entity_ids(claims)
+        assert "datavalue" not in claims["P582"][0]["mainsnak"]
+        assert claims["P854"][0]["mainsnak"]["datavalue"]["value"] == "https://x"
+
 
 # ==== Fixture helpers ========================================================
 
@@ -779,21 +905,18 @@ class TestCleanUrl:
         assert clean_url(bad, rules) == bad
 
 
-# ==== clean_url re-encoding fidelity (#3) ====================================
+# ==== clean_url encoding fidelity (#3) =======================================
 #
-# clean_url rebuilds the query string with parse_qsl + urlencode.  That round
-# trip re-encodes *surviving* parameters, which can mutate a URL even when the
-# change is semantically a no-op (e.g. "%20" -> "+", "," -> "%2C").  On Wikidata
-# this means the bot can emit cosmetic edits that differ byte-for-byte from the
-# stored value.  These tests lock the behaviour that IS correct and pin the
-# known-bad cases as xfail so a future fix surfaces as XPASS.
+# clean_url edits the query string surgically: it drops only the matching
+# key=value tokens and leaves every surviving parameter (and the path/fragment)
+# byte-for-byte intact.  This avoids the spurious re-encoding edits a
+# parse-then-urlencode round trip would introduce ("/" -> "%2F", "," -> "%2C",
+# "%20" -> "+") for values that were never tracking parameters.
 
 
 class TestCleanUrlEncodingFidelity:
     def _rules(self, **kwargs) -> UrlStripRules:
         return UrlStripRules(**kwargs)
-
-    # ── Correct behaviour: these must keep working ───────────────────────────
 
     def test_surviving_param_kept_when_tracking_stripped(self):
         rules = self._rules(always={"*": ["utm_source"]})
@@ -801,7 +924,6 @@ class TestCleanUrlEncodingFidelity:
         assert clean_url(url, rules) == "https://example.com/?q=plain"
 
     def test_path_with_encoded_space_preserved(self):
-        # The path is not part of the query round trip, so it must be untouched.
         rules = self._rules(always={"*": ["utm_source"]})
         url = "https://example.com/a%20b?utm_source=x"
         assert clean_url(url, rules) == "https://example.com/a%20b"
@@ -812,48 +934,38 @@ class TestCleanUrlEncodingFidelity:
         assert clean_url(url, rules) == "https://example.com/p?q=1#frag"
 
     def test_no_active_rule_leaves_encoding_untouched(self):
-        # No rule matches this host, so the early return must give back the
-        # exact original string with its %20 intact.
         rules = self._rules(always={"imdb.com": ["ref_"]})
         url = "https://example.com/?q=a%20b"
         assert clean_url(url, rules) == url
 
-    # ── Known fidelity gaps (#3): currently produce spurious rewrites ────────
-
-    @pytest.mark.xfail(
-        reason="#3: parse_qsl+urlencode rewrites %20->+ on surviving params, "
-        "producing a spurious edit even though no tracking param was removed",
-        strict=True,
-    )
-    def test_no_tracking_param_present_should_not_rewrite_space(self):
+    def test_no_tracking_param_present_leaves_url_untouched(self):
         # utm_source is in the active rule set but NOT in this URL, so nothing
-        # should be stripped and the URL should come back unchanged.
+        # is stripped and the URL comes back unchanged (no %20 -> + rewrite).
         rules = self._rules(always={"*": ["utm_source"]})
         url = "https://example.com/?q=a%20b"
         assert clean_url(url, rules) == url
 
-    @pytest.mark.xfail(
-        reason="#3: urlencode percent-encodes ',' (a valid query sub-delim) "
-        "on surviving params, mutating the stored value",
-        strict=True,
-    )
+    def test_surviving_slashes_not_reencoded(self):
+        # Regression for the congreso.es case: a surviving value containing
+        # unencoded "/" must not become "%2F".
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/p?next_page=/wc/servidorCGI&CMD=VERLST"
+        # No tracking param present -> identical.
+        assert clean_url(url, rules) == url
+        # And with one present and removed, the slashes still survive verbatim.
+        url2 = "https://example.com/p?utm_source=x&next_page=/wc/servidorCGI"
+        assert clean_url(url2, rules) == "https://example.com/p?next_page=/wc/servidorCGI"
+
     def test_surviving_comma_value_not_reencoded(self):
         rules = self._rules(always={"*": ["utm_source"]})
         url = "https://example.com/?utm_source=x&ids=1,2,3"
         assert clean_url(url, rules) == "https://example.com/?ids=1,2,3"
 
-    @pytest.mark.xfail(
-        reason="#3: an existing '+'-encoded space on a surviving param is "
-        "preserved, but a '%20' one is normalised to '+', so the two encodings "
-        "are not handled identically",
-        strict=True,
-    )
-    def test_encoded_space_variants_handled_consistently(self):
+    def test_encoded_space_variants_preserved_verbatim(self):
         rules = self._rules(always={"*": ["utm_source"]})
         pct = clean_url("https://example.com/?utm_source=x&q=a%20b", rules)
         plus = clean_url("https://example.com/?utm_source=x&q=a+b", rules)
-        # Whatever the chosen encoding, the %20 form should not be silently
-        # rewritten relative to leaving the value as-is.
+        # Each surviving value keeps its original encoding exactly.
         assert pct == "https://example.com/?q=a%20b"
         assert plus == "https://example.com/?q=a+b"
 
@@ -1531,6 +1643,54 @@ class TestIsSplittableReference:
         splittable, url_count, mode = _is_splittable_reference(ref)
         assert splittable
         assert url_count == 2
+
+    def _date_snak(self, pid: str, time: str) -> dict:
+        return {
+            "property": pid,
+            "snaktype": "value",
+            "datatype": "time",
+            "datavalue": {"value": {"time": time}, "type": "time"},
+        }
+
+    def test_url_plus_archive_url_and_date_not_splittable(self):
+        # Regression (Q23): one reference URL + its archive URL + archive date is
+        # a single logical source, not two — the archive must not count.
+        ref = self._ref(
+            {
+                "P854": [self._url_snak("P854", "https://www.example.org/page")],
+                "P1065": [
+                    self._url_snak(
+                        "P1065",
+                        "https://web.archive.org/web/20180216/https://www.example.org/page",
+                    )
+                ],
+                "P2960": [self._date_snak("P2960", "+2018-02-16T00:00:00Z")],
+            },
+            snaks_order=["P854", "P1065", "P2960"],
+        )
+        assert not _is_splittable_reference(ref)[0]
+
+    def test_two_urls_plus_archive_still_splittable(self):
+        # Two distinct primary URLs (+ one archive) are genuinely splittable.
+        ref = self._ref(
+            {
+                "P854": [
+                    self._url_snak("P854", "https://a.example.org/x"),
+                    self._url_snak("P854", "https://b.example.org/y"),
+                ],
+                "P1065": [
+                    self._url_snak(
+                        "P1065",
+                        "https://web.archive.org/web/1/https://a.example.org/x",
+                    )
+                ],
+            },
+            snaks_order=["P854", "P1065"],
+        )
+        splittable, url_count, mode = _is_splittable_reference(ref)
+        assert splittable
+        assert mode == "multiUrl"
+        assert url_count == 3
 
     def test_two_p143_splittable(self):
         snak = {
