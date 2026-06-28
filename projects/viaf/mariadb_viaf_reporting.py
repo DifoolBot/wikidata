@@ -1,18 +1,12 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-import pywikibot as pwb
+from viaf.viaf_bot import ReportBackend
 
-import viaf.authority_sources
-import viaf.viaf_bot
-from viaf.viaf_inferred_from_reference import ViafInferredFromReference
-
-import shared_lib.change_wikidata as cwd
-import shared_lib.constants as wd
 from shared_lib.database_handler_mariadb import MariaDbDatabaseHandler
 
 
-class MariaDbViafReporting(MariaDbDatabaseHandler, viaf.viaf_bot.ReportBackend):
+class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
     """MariaDB counterpart of FirebirdViafReporting (see firebird_viaf_reporting.py).
 
     Assumes a MariaDB schema with the same QDONE/QDUPLICATES/QDUPLOCAL/QERROR/
@@ -99,20 +93,3 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, viaf.viaf_bot.ReportBackend):
     def end_session(self, pid: str) -> None:
         sql = "CALL start_new_session(?)"
         self.execute_procedure(sql, (pid,))
-
-    def add_viaf(
-        self,
-        item: pwb.ItemPage,
-        auth_src: viaf.authority_sources.AuthoritySource,
-        viaf_cluster_id: str | None,
-    ) -> None:
-        if viaf_cluster_id is None:
-            raise RuntimeError("Cannot add VIAF ID without a viaf_cluster_id")
-
-        wdpage = cwd.WikiDataPage(item, test=False)
-        wdpage.add_statement(
-            cwd.ExternalIDStatement(prop=wd.PID_VIAF_ID, external_id=viaf_cluster_id),
-            reference=ViafInferredFromReference(wd.PID_VIAF_ID, viaf_cluster_id),
-        )
-        wdpage.summary = f"Adding VIAF ID based on {auth_src.description}"
-        wdpage.apply()

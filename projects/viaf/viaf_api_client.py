@@ -1,6 +1,14 @@
-import time
-
 import requests
+
+
+class ViafRateLimitExceeded(Exception):
+    """Raised when viaf.org reports (via HTTP 429) that the API rate limit was hit."""
+
+    def __init__(self, retry_after: int):
+        self.retry_after = retry_after
+        super().__init__(
+            f"VIAF API rate limit exceeded; retry after {format_retry_time(retry_after)}"
+        )
 
 
 def format_retry_time(retry_after):
@@ -82,9 +90,7 @@ class ViafApiClient:
 
         if response.status_code == 429:
             retry_after = int(response.headers.get("Ratelimit-Reset", 60))
-            print(f"Rate limit exceeded! Waiting {format_retry_time(retry_after)}...")
-            time.sleep(retry_after)
-            return self.query_viaf(url)  # Retry after delay
+            raise ViafRateLimitExceeded(retry_after)
 
         if response.status_code == 404:
             return ViafLookupResult("not_found")

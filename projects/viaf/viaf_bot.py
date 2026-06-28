@@ -8,7 +8,9 @@ import requests
 import viaf.authority_sources
 import viaf.viaf_api_client
 import viaf.wdqs_client
+from viaf.viaf_inferred_from_reference import ViafInferredFromReference
 
+import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 
 WD = "http://www.wikidata.org/entity/"
@@ -70,15 +72,6 @@ class ReportBackend(ABC):
         pass
 
     @abstractmethod
-    def add_viaf(
-        self,
-        item: pwb.ItemPage,
-        auth_src: viaf.authority_sources.AuthoritySource,
-        viaf_cluster_id: str | None,
-    ) -> None:
-        pass
-
-    @abstractmethod
     def get_duplicates(self) -> list[tuple[str, str, str, str]]:
         pass
 
@@ -93,6 +86,23 @@ class ReportBackend(ABC):
     @abstractmethod
     def end_session(self, pid: str) -> None:
         pass
+
+
+def _add_viaf(
+    item: pwb.ItemPage,
+    auth_src: viaf.authority_sources.AuthoritySource,
+    viaf_cluster_id: str | None,
+) -> None:
+    if viaf_cluster_id is None:
+        raise RuntimeError("Cannot add VIAF ID without a viaf_cluster_id")
+
+    wdpage = cwd.WikiDataPage(item, test=False)
+    wdpage.add_statement(
+        cwd.ExternalIDStatement(prop=wd.PID_VIAF_ID, external_id=viaf_cluster_id),
+        reference=ViafInferredFromReference(wd.PID_VIAF_ID, viaf_cluster_id),
+    )
+    wdpage.summary = f"Adding VIAF ID based on {auth_src.description}"
+    wdpage.apply()
 
 
 def _execute_qlever_query(query: str) -> list[dict[str, str]]:
@@ -144,8 +154,17 @@ class ViafBot:
         self.report.end_session(self.auth_src.pid)
 
     def run(self):
-        # self.iterate()
-        self.iterate_qlever()
+        self.run_session()
+
+    def run_session(self) -> None:
+        """Run one qlever-based pass and, if it ran to completion (i.e. wasn't cut
+        short by the VIAF API rate limit), publish the duplicate/wikitext
+        reports and start a new reporting session."""
+        finished = self.iterate_qlever()
+        if finished:
+            self.generate_dup_report()
+            self.generate_report()
+            self.end_session()
 
     def change_wikidata(self, record: viaf.authority_sources.AuthorityRecord) -> None:
         if not record.qid.startswith("Q"):  # ignore property pages and lexeme pages
@@ -197,9 +216,7 @@ class ViafBot:
             return
 
         pwb.output(f"Adding VIAF ID {record.viaf_cluster_id} to {record.qid}")
-        self.report.add_viaf(
-            item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id
-        )
+        _add_viaf(item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id)
         self.report.add_done(qid=record.qid)
 
     def get_duplicates_qids(self, record: viaf.authority_sources.AuthorityRecord):
@@ -313,6 +330,9 @@ class ViafBot:
                 )
             )
             self.change_wikidata(record)
+        except viaf.viaf_api_client.ViafRateLimitExceeded:
+            # Not a per-item failure - let the caller (iterate_qlever) stop the run.
+            raise
         except RuntimeError as e:
             pwb.warning(f"Runtime error: {e}")
             self.report.add_error(record.qid, e.__repr__())
@@ -506,14 +526,21 @@ class ViafBot:
         pwb.output(f"Wrote {len(results)} rows to {output_file}")
         return len(results)
 
-    def iterate_qlever(self, output_file: str = "qlever_viaf_index.txt") -> None:
-        """Run qlever once, iterate the resulting items, and delete the file afterward."""
+    def iterate_qlever(self, output_file: str = "qlever_viaf_index.txt") -> bool:
+        """Run qlever once and iterate the resulting items.
+
+        Stops early if the VIAF API reports its rate limit was hit, leaving
+        the remaining rows in output_file for the next run.
+
+        Returns True if every row in output_file was processed (and the file
+        was removed), False if the run was cut short by the rate limit.
+        """
         if not os.path.exists(output_file):
             pwb.output(f"Fetching qlever results into {output_file}...")
             count = self.fetch_qlever_results(output_file=output_file)
             if count == 0:
                 pwb.warning("No qlever rows to process.")
-                return
+                return True
         else:
             pwb.output(f"Using existing qlever file: {output_file}")
 
@@ -523,19 +550,28 @@ class ViafBot:
 
         processed = 0
         malformed = 0
+        remaining_lines: list[str] = []
+        finished = True
         with open(output_file, "r", encoding="utf-8") as fh:
             for line in fh:
-                line = line.strip()
-                if not line:
+                stripped = line.strip()
+                if not stripped:
                     continue
-                parts = line.split("\t")
+
+                parts = stripped.split("\t")
                 if len(parts) != 2:
                     malformed += 1
-                    pwb.warning(f"Skipping malformed line: {line}")
+                    pwb.warning(f"Skipping malformed line: {stripped}")
                     continue
                 qid, local_auth_id = parts
                 record = viaf.authority_sources.AuthorityRecord(qid, local_auth_id)
-                self.examine(record)
+                try:
+                    self.examine(record)
+                except viaf.viaf_api_client.ViafRateLimitExceeded as e:
+                    pwb.warning(f"{e}; stopping for now.")
+                    remaining_lines = [line] + list(fh)
+                    finished = False
+                    break
                 processed += 1
                 if processed % 100 == 0 or processed == total_lines:
                     pct = (processed / total_lines * 100) if total_lines else 0.0
@@ -543,8 +579,16 @@ class ViafBot:
                         f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
                     )
 
+        if not finished:
+            with open(output_file, "w", encoding="utf-8") as fh:
+                fh.writelines(remaining_lines)
+            pwb.output(f"{len(remaining_lines)} unprocessed row(s) left in {output_file}.")
+            return False
+
         try:
             os.remove(output_file)
             pwb.output(f"Removed temporary qlever file {output_file}")
         except OSError as e:
             pwb.error(f"Failed to remove temporary file {output_file}: {e}")
+
+        return True

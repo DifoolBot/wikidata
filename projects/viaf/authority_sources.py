@@ -492,12 +492,3 @@ class AuthoritySources:
 
     def get(self, pid: str) -> AuthoritySource:
         return self._sources_by_pid[pid]
-
-
-def main() -> None:
-
-    authsrcs = AuthoritySources()
-
-
-if __name__ == "__main__":
-    main()
