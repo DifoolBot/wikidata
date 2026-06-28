@@ -1,9 +1,10 @@
 import time
 from functools import wraps
 
+
 def rate_limit(seconds):
     def decorator(func):
-        last_called = [0]
+        last_called = [0.0]
 
         @wraps(func)
         def wrapper(*args, **kwargs):

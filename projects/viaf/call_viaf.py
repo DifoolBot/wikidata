@@ -1,25 +1,14 @@
 from collections.abc import Iterator
 
 import pywikibot as pwb
-import viaf.authsource
-import viaf.viaf
+import viaf.authority_sources
+import viaf.viaf_bot
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.database_handler import DatabaseHandler
 
 QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM = "Q115111315"
-
-# class ReportingKeepURLStrategy(impl_statedin.KeepURLStrategy):
-#     def __init__(self, report: reporting.Reporting):
-#         self.report = report
-
-#     def keep_url(self, pid: str, pattern: str) -> bool:
-#         return self.report.keep_url(pid, pattern)
-
-# REPORT = firebird_reporting.FirebirdReporting()
-# STA_IN = viaf.impl_statedin.StatedIn()
-# STA_IN.keep_url_strategy = ReportingKeepURLStrategy(REPORT)
 
 
 class ViafInferredFromReference(cwd.Reference):
@@ -46,7 +35,7 @@ class ViafInferredFromReference(cwd.Reference):
         return True
 
 
-class FirebirdViafReporting(DatabaseHandler, viaf.viaf.IReport):
+class FirebirdViafReporting(DatabaseHandler, viaf.viaf_bot.ReportBackend):
     def __init__(self) -> None:
         super().__init__("viaf.json")
 
@@ -123,7 +112,7 @@ class FirebirdViafReporting(DatabaseHandler, viaf.viaf.IReport):
     def add_viaf(
         self,
         item: pwb.ItemPage,
-        auth_src: viaf.authsource.AuthoritySource,
+        auth_src: viaf.authority_sources.AuthoritySource,
         viaf_cluster_id: str | None,
     ) -> None:
         if viaf_cluster_id is None:
@@ -140,7 +129,7 @@ class FirebirdViafReporting(DatabaseHandler, viaf.viaf.IReport):
 
 def main() -> None:
 
-    authsrcs = viaf.authsource.AuthoritySources()
+    authsrcs = viaf.authority_sources.AuthoritySources()
     # nothing found:
     #              : PID_FAST_ID
     #              : PID_CONOR_SI_ID
@@ -157,15 +146,12 @@ def main() -> None:
     #       PID_CYT_CCS; PID_NATIONAL_LIBRARY_OF_LATVIA_ID; PID_LIBRIS_URI; PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID
     #       PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID; PID_NUKAT_ID; PID_NATIONAL_LIBRARY_OF_CHILE_ID
 
-    bot = viaf.viaf.ViafBot(
-        authsrcs.get(viaf.authsource.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID),
+    bot = viaf.viaf_bot.ViafBot(
+        authsrcs.get(viaf.authority_sources.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID),
         report=FirebirdViafReporting(),
     )
     bot.test = False
     bot.run()
-    # bot.generate_dup_report()
-    # bot.generate_report()
-    # bot.end_session()
 
 
 if __name__ == "__main__":

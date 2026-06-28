@@ -5,26 +5,13 @@ from collections.abc import Iterator
 
 import pywikibot as pwb
 import requests
-import viaf.authsource
-import viaf.query_wikidata
-import viaf.viaf_query
-
-# todo;
-#    Q2177740: viaf id - no value
-
-# abandoned : 48754610
-
+import viaf.authority_sources
+import viaf.wdqs_client
+import viaf.viaf_api_client
 
 WD = "http://www.wikidata.org/entity/"
-# VIAF_ENDPOINT = "https://viaf.org/viaf/search"
 
 PID_VIAF_ID = "P214"
-PID_STATED_IN = "P248"
-PID_RETRIEVED = "P813"
-PID_REFERENCE_URL = "P854"
-PID_BASED_ON_HEURISTIC = "P887"
-
-QID_VIRTUAL_INTERNATIONAL_AUTHORITY_FILE = "Q54919"
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
 
@@ -33,10 +20,6 @@ SITE.login()
 SITE.get_tokens("csrf")
 REPO = SITE.data_repository()
 
-# DUPLICATES_FILE = "duplicates.json"
-# DONE_FILE = 'done.json'
-# ERRORS_FILE = "errors.json"
-# IGNORES_FILE = "ignores.json"
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
 WIKI_FILE = "wiki.txt"
 
@@ -45,7 +28,7 @@ SLEEP_AFTER_ERROR = 10  # sec
 SLEEP_AFTER_RUNTIMEERROR = 2  # sec
 
 
-class IReport(ABC):
+class ReportBackend(ABC):
     @abstractmethod
     def has_duplicate(self, qid: str) -> bool:
         pass
@@ -90,7 +73,7 @@ class IReport(ABC):
     def add_viaf(
         self,
         item: pwb.ItemPage,
-        auth_src: viaf.authsource.AuthoritySource,
+        auth_src: viaf.authority_sources.AuthoritySource,
         viaf_cluster_id: str | None,
     ) -> None:
         pass
@@ -144,7 +127,7 @@ def _execute_qlever_query(query: str) -> list[dict[str, str]]:
 
 
 class ViafBot:
-    def __init__(self, auth_src: viaf.authsource.AuthoritySource, report: IReport):
+    def __init__(self, auth_src: viaf.authority_sources.AuthoritySource, report: ReportBackend):
         self.auth_src = auth_src
         self.test = False
         self.report = report
@@ -162,11 +145,11 @@ class ViafBot:
         # self.iterate()
         self.iterate_qlever()
 
-    def change_wikidata(self, aid: viaf.authsource.AuthorityID) -> None:
-        if not aid.qid.startswith("Q"):  # ignore property pages and lexeme pages
+    def change_wikidata(self, record: viaf.authority_sources.AuthorityRecord) -> None:
+        if not record.qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
-        item = pwb.ItemPage(REPO, aid.qid)
+        item = pwb.ItemPage(REPO, record.qid)
 
         try:
             if not item.exists():
@@ -194,72 +177,72 @@ class ViafBot:
 
         found = False
         for claim in existing_claims[self.auth_src.pid]:
-            id = claim.getTarget()
-            if id == aid.wikidata_external_id:
+            claim_target = claim.getTarget()
+            if claim_target == record.wikidata_external_id:
                 if claim.getRank() == "deprecated":
                     raise RuntimeError(
-                        f"Skipping, because the {self.auth_src.pid} {aid.wikidata_external_id} is deprecated"
+                        f"Skipping, because the {self.auth_src.pid} {record.wikidata_external_id} is deprecated"
                     )
                 found = True
                 break
 
         if not found:
             raise RuntimeError(
-                f"Skipping, because it has no {self.auth_src.pid} {aid.wikidata_external_id}"
+                f"Skipping, because it has no {self.auth_src.pid} {record.wikidata_external_id}"
             )
 
         if self.test:
             return
 
-        pwb.output(f"Adding VIAF ID {aid.viaf_cluster_id} to {aid.qid}")
-        self.report.add_viaf(item, self.auth_src, viaf_cluster_id=aid.viaf_cluster_id)
-        self.report.add_done(qid=aid.qid)
+        pwb.output(f"Adding VIAF ID {record.viaf_cluster_id} to {record.qid}")
+        self.report.add_viaf(item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id)
+        self.report.add_done(qid=record.qid)
 
-    def get_duplicates_qids(self, aid: viaf.authsource.AuthorityID):
+    def get_duplicates_qids(self, record: viaf.authority_sources.AuthorityRecord):
         res = []
         query = 'SELECT DISTINCT ?item WHERE {{ ?item p:P214 ?statement0. ?statement0 (ps:P214) "{viaf_id}". FILTER (?item != wd:{qid})}} LIMIT 5'.format(
-            viaf_id=aid.viaf_cluster_id, qid=aid.qid
+            viaf_id=record.viaf_cluster_id, qid=record.qid
         )
 
-        x = viaf.query_wikidata.query_wdqs(query)
-        if not x:
+        bindings = viaf.wdqs_client.query_wdqs(query)
+        if not bindings:
             return res
-        for row in x:
+        for row in bindings:
             other_qid = row.get("item", {}).get("value", "").replace(WD, "")
             # other_qid = row.get("item", {}).get("value", "").replace(WD, "")
             res.append(other_qid)
         return res
 
-    def examine(self, aid: viaf.authsource.AuthorityID) -> None:
+    def examine(self, record: viaf.authority_sources.AuthorityRecord) -> None:
         try:
-            if self.report.has_done(aid.qid):
+            if self.report.has_done(record.qid):
                 return
-            if self.report.has_duplicate(aid.qid):
+            if self.report.has_duplicate(record.qid):
                 return
-            if self.report.has_duplicate_local_auth_id(aid.qid):
+            if self.report.has_duplicate_local_auth_id(record.qid):
                 return
-            if self.report.has_error(aid.qid):
+            if self.report.has_error(record.qid):
                 return
-            if self.report.has_ignore(aid.qid):
+            if self.report.has_ignore(record.qid):
                 return
 
             code = self.auth_src.viaf_code
-            self.auth_src.compute_viaf_search_key(aid)
+            self.auth_src.compute_viaf_search_key(record)
 
-            if not aid.viaf_search_key:
+            if not record.viaf_search_key:
                 raise RuntimeError("No search key")
 
-            qry = viaf.viaf_query.VIAFQuery()
+            qry = viaf.viaf_api_client.ViafApiClient()
             if code == "LC":
-                res = qry.query_viaf_lccn(aid.viaf_search_key)
+                res = qry.query_viaf_lccn(record.viaf_search_key)
             else:
-                res = qry.query_viaf_sourceid(code, aid.viaf_search_key)
+                res = qry.query_viaf_sourceid(code, record.viaf_search_key)
             if res.status != "found":
                 raise RuntimeError(f"status {res.status}")
             if not res.viaf_cluster_id:
                 raise RuntimeError(f"no viaf_cluster_id")
 
-            aid.viaf_cluster_id = res.viaf_cluster_id
+            record.viaf_cluster_id = res.viaf_cluster_id
 
             other_wikidata_ids = []
             local_auth_ids = []
@@ -267,7 +250,7 @@ class ViafBot:
 
             if self.auth_src.viaf_code in res.source_mapping:
                 for nsid, content_id in res.source_mapping[self.auth_src.viaf_code]:
-                    if self.auth_src.matches_viaf_external_id(nsid, content_id, aid):
+                    if self.auth_src.matches_viaf_external_id(nsid, content_id, record):
                         has_local_auth_id = True
                     if nsid not in local_auth_ids:
                         local_auth_ids.append(nsid)
@@ -276,20 +259,20 @@ class ViafBot:
                 for other_qid, content_id in res.source_mapping[
                     AUTHORITY_SOURCE_CODE_WIKIDATA
                 ]:
-                    if other_qid != aid.qid:
+                    if other_qid != record.qid:
                         if other_qid not in other_wikidata_ids:
                             other_wikidata_ids.append(other_qid)
 
             duplicate_qids = list(
-                set(self.get_duplicates_qids(aid)).union(other_wikidata_ids)
+                set(self.get_duplicates_qids(record)).union(other_wikidata_ids)
             )
             if duplicate_qids:
                 for duplicate_qid in duplicate_qids:
                     self.report.add_duplicate(
-                        aid.qid,
+                        record.qid,
                         duplicate_qid,
-                        aid.wikidata_external_id,
-                        aid.viaf_cluster_id,
+                        record.wikidata_external_id,
+                        record.viaf_cluster_id,
                     )
                 raise RuntimeError(f"has duplicates: {duplicate_qids}")
 
@@ -297,15 +280,15 @@ class ViafBot:
                 raise RuntimeError("no local_auth_ids")
             if len(local_auth_ids) > 1:
                 self.report.add_duplicate_local_auth_id(
-                    aid.qid,
-                    aid.wikidata_external_id,
-                    aid.viaf_cluster_id,
+                    record.qid,
+                    record.wikidata_external_id,
+                    record.viaf_cluster_id,
                 )
                 for local_auth_id in local_auth_ids:
                     self.report.add_duplicate_local_auth_id(
-                        aid.qid,
+                        record.qid,
                         local_auth_id,
-                        aid.viaf_cluster_id,
+                        record.viaf_cluster_id,
                     )
                 raise RuntimeError(f"multiple local_auth_ids {local_auth_ids}")
             if not has_local_auth_id:
@@ -319,20 +302,20 @@ class ViafBot:
 
             pwb.output(
                 "{qid} -> {viaf_id}; {desc} {local_auth_id}".format(
-                    qid=aid.qid,
-                    viaf_id=aid.viaf_cluster_id,
+                    qid=record.qid,
+                    viaf_id=record.viaf_cluster_id,
                     desc=self.auth_src.description,
-                    local_auth_id=aid.wikidata_external_id,
+                    local_auth_id=record.wikidata_external_id,
                 )
             )
-            self.change_wikidata(aid)
+            self.change_wikidata(record)
         except RuntimeError as e:
             pwb.warning(f"Runtime error: {e}")
-            self.report.add_error(aid.qid, e.__repr__())
+            self.report.add_error(record.qid, e.__repr__())
             time.sleep(SLEEP_AFTER_RUNTIMEERROR)
         except Exception as e:
             pwb.error(f"Exception: {e}")
-            self.report.add_error(aid.qid, e.__repr__())
+            self.report.add_error(record.qid, e.__repr__())
             time.sleep(SLEEP_AFTER_ERROR)
 
     def make_wikitext(self):
@@ -341,10 +324,10 @@ class ViafBot:
         body = ""
         line = "\n|-\n| https://viaf.org/viaf/{viaf_id}\n| {{{{Q|{qid}}}}}\n| {auth_code}|{local_auth_id}\n| {{{{Q|{duplicate_qid}}}}}\n| {compare}"
         has_duplicates = False
-        x = self.report.get_duplicates()
-        if not x:
+        duplicates = self.report.get_duplicates()
+        if not duplicates:
             raise RuntimeError("No duplicates")
-        for row in x:
+        for row in duplicates:
             qid, duplicate_qid, local_auth_id, viaf_id = row
             # https://dicare.toolforge.org/wikidata-diff/?qids=Q3218809+Q2920825&language=en
             compare = "[https://dicare.toolforge.org/wikidata-diff/?qids={qid1}+{qid2}&language=en compare]".format(
@@ -471,7 +454,7 @@ class ViafBot:
                     """
 
         qry = query_template.format(pid=self.auth_src.pid, index=index)
-        r = viaf.query_wikidata.query_wdqs(qry)
+        r = viaf.wdqs_client.query_wdqs(qry)
         if not r:
             return False
         for row in r:
@@ -481,8 +464,8 @@ class ViafBot:
                 continue
             if len(local_auth_id) == 0:
                 continue
-            id = viaf.authsource.AuthorityID(qid, local_auth_id)
-            self.examine(id)
+            record = viaf.authority_sources.AuthorityRecord(qid, local_auth_id)
+            self.examine(record)
         return True
 
     def fetch_qlever_results(self, output_file: str = "qlever_viaf_index.txt") -> int:
@@ -547,8 +530,8 @@ class ViafBot:
                     pwb.warning(f"Skipping malformed line: {line}")
                     continue
                 qid, local_auth_id = parts
-                aid = viaf.authsource.AuthorityID(qid, local_auth_id)
-                self.examine(aid)
+                record = viaf.authority_sources.AuthorityRecord(qid, local_auth_id)
+                self.examine(record)
                 processed += 1
                 if processed % 100 == 0 or processed == total_lines:
                     pct = (processed / total_lines * 100) if total_lines else 0.0

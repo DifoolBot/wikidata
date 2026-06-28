@@ -1,5 +1,3 @@
-import re
-
 import requests
 
 PID_BANQ_AUTHORITY_ID = "P3280"
@@ -60,7 +58,7 @@ PID_VATICAN_LIBRARY_VCBA_ID = "P8034"
 READ_TIMEOUT = 20  # sec
 
 
-class AuthorityID:
+class AuthorityRecord:
     def __init__(self, qid: str, wikidata_external_id: str):
         self.qid = qid
         # identifier for the Virtual International Authority File database
@@ -72,7 +70,7 @@ class AuthorityID:
         # the code to use to search the VIAF API; for example Vincent van Gogh, BNF: 11927591
         # VIAF calls this the localAuthorityId
         self.viaf_search_key: str | None = None
-        # another code; only used by NUKAT_AuthoritySource
+        # another code; only used by NukatAuthoritySource
         self.nukat_specific_code: str | None = None
 
     def matches_viaf_search_key(self, viaf_external_id: str) -> bool:
@@ -113,177 +111,163 @@ class AuthoritySource:
         self.description = description  # Brief description of the authority source
 
     def matches_viaf_external_id(
-        self, nsid: str, content_id: str, aid: AuthorityID
+        self, nsid: str, content_id: str, record: AuthorityRecord
     ) -> bool:
         """Checks if the given VIAF ID matches the normalized form of the authority ID."""
-        return aid.normalized_match(nsid)
+        return record.normalized_match(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """computes a VIAF search key using the authority-specific method."""
-        aid.compute_viaf_search_key()
+        record.compute_viaf_search_key()
 
 
-class BNCHL_AuthoritySource(AuthoritySource):
+class BnchlAuthoritySource(AuthoritySource):
     def matches_viaf_external_id(
-        self, nsid: str, content_id: str, aid: AuthorityID
+        self, nsid: str, content_id: str, record: AuthorityRecord
     ) -> bool:
         """BNCHL-specific matching by prefixing 'BNC' to the VIAF search key."""
-        if not aid.viaf_search_key:
+        if not record.viaf_search_key:
             raise RuntimeError("viaf_search_key is empty")
-        return nsid == "BNC" + aid.viaf_search_key
+        return nsid == "BNC" + record.viaf_search_key
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """computes a BNCHL-specific VIAF search key using a padded numeric format."""
         # The VIAF search key is a 22-digit padded number prefixed with '1'
-        padded_number = ("0" * 22) + aid.wikidata_external_id
-        aid.viaf_search_key = "1" + padded_number[-22:]
+        padded_number = ("0" * 22) + record.wikidata_external_id
+        record.viaf_search_key = "1" + padded_number[-22:]
 
 
-class BNF_AuthoritySource(AuthoritySource):
+class BnfAuthoritySource(AuthoritySource):
     def matches_viaf_external_id(
-        self, nsid: str, content_id: str, aid: AuthorityID
+        self, nsid: str, content_id: str, record: AuthorityRecord
     ) -> bool:
         """BNF-specific matching by handling FRBNF prefixes and checksums."""
         if nsid.startswith("FRBNF"):
             nsid = nsid[5:]  # Remove "FRBNF" prefix
             if len(nsid) == 9:  # Remove possible incorrect checksum
                 nsid = nsid[:-1]
-            return aid.matches_viaf_search_key(nsid)
+            return record.matches_viaf_search_key(nsid)
         else:
-            if not aid.viaf_search_key:
-                raise RuntimeError("No aid.viaf_search_key")
+            if not record.viaf_search_key:
+                raise RuntimeError("No record.viaf_search_key")
             # Convert a BNF catalog URL to an authority code
             nsid = nsid.replace("http://catalogue.bnf.fr/ark:/12148/", "")
-            bnf_ark = compute_bnf_ark_from_8digits(aid.viaf_search_key)
+            bnf_ark = compute_bnf_ark_from_8digits(record.viaf_search_key)
             return nsid == bnf_ark
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """BNF-specific VIAF search key computation by adjusting checksums."""
-        search_key = aid.wikidata_external_id[:-1]  # Remove checksum from Wikidata ID
+        search_key = record.wikidata_external_id[:-1]  # Remove checksum from Wikidata ID
         bnf_ark = compute_bnf_ark_from_8digits(search_key)
 
         # Verify if BNF Ark matches expected format before assigning search key
-        if bnf_ark == "cb" + aid.wikidata_external_id:
-            aid.viaf_search_key = search_key
+        if bnf_ark == "cb" + record.wikidata_external_id:
+            record.viaf_search_key = search_key
         else:
-            aid.viaf_search_key = aid.wikidata_external_id
+            record.viaf_search_key = record.wikidata_external_id
 
 
-class RISM_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class RismAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        aid.viaf_search_key = (
-            aid.wikidata_external_id.replace("people", "pe")
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.viaf_search_key = (
+            record.wikidata_external_id.replace("people", "pe")
             .replace("_", "")
             .replace("/", "")
         )
 
 
-class GND_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class GndAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         # http://d-nb.info/gnd/171910605 vs 171910605
         nsid = nsid.replace("http://d-nb.info/gnd/", "")
-        return (nsid == aid.wikidata_external_id) or (
-            content_id == aid.wikidata_external_id
+        return (nsid == record.wikidata_external_id) or (
+            content_id == record.wikidata_external_id
         )
 
 
-class SBN_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class SbnAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         # IT\\ICCU\\SBLV\\015759 vs SBLV015759
         nsid = nsid.replace("IT\\ICCU", "").replace("\\", "")
-        return nsid == aid.wikidata_external_id
+        return nsid == record.wikidata_external_id
 
 
-class LNB_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class LnbAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         # 000011784 -> LNC10-000011784
         #
-        aid.viaf_search_key = "LNC10-" + aid.wikidata_external_id
+        record.viaf_search_key = "LNC10-" + record.wikidata_external_id
         # todo; nakijken ; deze kan ook een LNB: link hebben
 
 
-class NLA_AuthoritySource(AuthoritySource):
+class NlaAuthoritySource(AuthoritySource):
     def matches_viaf_external_id(
-        self, nsid: str, content_id: str, aid: AuthorityID
+        self, nsid: str, content_id: str, record: AuthorityRecord
     ) -> bool:
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """Formats ID as a 12-digit zero-padded number for NLA."""
-        res = "000000000000" + aid.wikidata_external_id
-        aid.viaf_search_key = res[-12:]  # Extract last 12 digits
+        res = "000000000000" + record.wikidata_external_id
+        record.viaf_search_key = res[-12:]  # Extract last 12 digits
 
 
-class NLR_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class NlrAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         nsid = nsid.replace("RU\\NLR\\AUTH\\", "")
-        return nsid == aid.wikidata_external_id
+        return nsid == record.wikidata_external_id
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        aid.viaf_search_key = "RU NLR AUTH " + aid.wikidata_external_id
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.viaf_search_key = "RU NLR AUTH " + record.wikidata_external_id
 
 
-class NUKAT_AuthoritySource(AuthoritySource):
-    def fetch_nukat_code(self, aid: AuthorityID):
-        # test: http://katalog.nukat.edu.pl/lib/authority?lccn=n%20%2001041400
-        #       http://katalog.nukat.edu.pl/lib/authority?lccn=n 01041400
-        if aid.wikidata_external_id.startswith("n"):
-            ncode = "n " + aid.wikidata_external_id[1:]
-        else:
-            return None
-        url = f"http://katalog.nukat.edu.pl/lib/authority?lccn={ncode}"
-        response = requests.get(url, timeout=READ_TIMEOUT)
-        regex = r'\<tr\>\s*<td width="10">001<\/td>.*?<td class="tagdata">(.*?)<\/td>'
-        matches = re.search(regex, response.text, re.MULTILINE | re.DOTALL)
-        return matches.group(1) if matches else None
-
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
-        return (nsid.replace(" ", "") == aid.wikidata_external_id.replace(" ", "")) or (
-            content_id.replace(" ", "") == aid.wikidata_external_id.replace(" ", "")
+class NukatAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+        return (nsid.replace(" ", "") == record.wikidata_external_id.replace(" ", "")) or (
+            content_id.replace(" ", "") == record.wikidata_external_id.replace(" ", "")
         )
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        # aid.nukat_specific_code = self.fetch_nukat_code(aid)
-        aid.nukat_specific_code = aid.wikidata_external_id
-        if aid.nukat_specific_code is None:
-            aid.viaf_search_key = None
-        elif aid.wikidata_external_id.startswith("n"):
-            aid.viaf_search_key = "n " + aid.wikidata_external_id[1:]
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.nukat_specific_code = record.wikidata_external_id
+        if record.nukat_specific_code is None:
+            record.viaf_search_key = None
+        elif record.wikidata_external_id.startswith("n"):
+            record.viaf_search_key = "n " + record.wikidata_external_id[1:]
 
 
-class PERSEUS_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class PerseusAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         # urn:cite:perseus:author.384.1
-        aid.viaf_search_key = "urn:cite:perseus:author." + aid.wikidata_external_id
+        record.viaf_search_key = "urn:cite:perseus:author." + record.wikidata_external_id
 
 
-class RERO_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class ReroAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        aid.viaf_search_key = aid.wikidata_external_id.replace("02-", "").replace(
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.viaf_search_key = record.wikidata_external_id.replace("02-", "").replace(
             "02_", ""
         )
 
 
-class SELIBR_AuthoritySource(AuthoritySource):
-    def fetch_controlnumber(self, aid: AuthorityID):
-        url = f"https://libris.kb.se/{aid.wikidata_external_id}/data.json"
+class SelibrAuthoritySource(AuthoritySource):
+    def fetch_controlnumber(self, record: AuthorityRecord):
+        url = f"https://libris.kb.se/{record.wikidata_external_id}/data.json"
         response = requests.get(url, timeout=READ_TIMEOUT)
         if response.status_code != 200:
             # typical 404 NOT FOUND or 410 GONE
@@ -291,27 +275,27 @@ class SELIBR_AuthoritySource(AuthoritySource):
         payload = response.json()
         return payload["controlNumber"]
 
-    # def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+    # def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
     #     # None, selibr_determine_search_code
-    #     return aid.matches_viaf_search_key(viaf_external_id)
+    #     return record.matches_viaf_search_key(viaf_external_id)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        aid.viaf_search_key = self.fetch_controlnumber(aid)
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.viaf_search_key = self.fetch_controlnumber(record)
 
 
-class SRP_AuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, aid: AuthorityID):
+class SrpAuthoritySource(AuthoritySource):
+    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
         """Standard matching using the computed VIAF search key."""
-        return aid.matches_viaf_search_key(nsid)
+        return record.matches_viaf_search_key(nsid)
 
-    def compute_viaf_search_key(self, aid: AuthorityID) -> None:
-        aid.viaf_search_key = "person_" + aid.wikidata_external_id
+    def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
+        record.viaf_search_key = "person_" + record.wikidata_external_id
 
 
 class AuthoritySources:
     def __init__(self):
 
-        self.dict = {}
+        self._sources_by_pid = {}
 
         sources = [
             (AuthoritySource, PID_BNMM_AUTHORITY_ID, "ARBABN", "BNMM authority ID"),
@@ -331,7 +315,7 @@ class AuthoritySources:
             ),
             (AuthoritySource, PID_CANTIC_ID, "BNC", "CANTIC ID"),
             (
-                BNCHL_AuthoritySource,
+                BnchlAuthoritySource,
                 PID_NATIONAL_LIBRARY_OF_CHILE_ID,
                 "BNCHL",
                 "National Library of Chile ID",
@@ -343,7 +327,7 @@ class AuthoritySources:
                 "Biblioteca Nacional de España ID",
             ),
             (
-                BNF_AuthoritySource,
+                BnfAuthoritySource,
                 PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
                 "BNF",
                 "Bibliothèque nationale de France ID",
@@ -362,10 +346,10 @@ class AuthoritySources:
             ),
             (AuthoritySource, PID_CYT_CCS, "CYT", "CYT/CCS"),  # 2 varianten
             (AuthoritySource, PID_DBC_AUTHOR_ID, "DBC", "DBC author ID"),
-            (RISM_AuthoritySource, PID_RISM_ID, "DE633", "RISM ID"),
+            (RismAuthoritySource, PID_RISM_ID, "DE633", "RISM ID"),
             # uitgezet
             # (AuthoritySource, PID_RISM_ID, "DE663", "RISM ID"),
-            (GND_AuthoritySource, PID_GND_ID, "DNB", "GND ID"),
+            (GndAuthoritySource, PID_GND_ID, "DNB", "GND ID"),
             (AuthoritySource, PID_EGAXA_ID, "EGAXA", "EGAXA ID"),
             (AuthoritySource, PID_ELNET_ID, "ERRR", "ELNET ID"),
             (AuthoritySource, PID_FAST_ID, "FAST", "FAST ID"),
@@ -375,7 +359,7 @@ class AuthoritySources:
                 "GRATEVE",
                 "National Library of Greece ID",
             ),
-            (SBN_AuthoritySource, PID_SBN_AUTHOR_ID, "ICCU", "SBN author ID"),
+            (SbnAuthoritySource, PID_SBN_AUTHOR_ID, "ICCU", "SBN author ID"),
             # werkt nu; veel fouten:
             (AuthoritySource, PID_ISNI, "ISNI", "ISNI"),
             # weinig fouten:
@@ -410,7 +394,7 @@ class AuthoritySources:
                 "National Library of Lithuania ID",
             ),
             (
-                LNB_AuthoritySource,
+                LnbAuthoritySource,
                 PID_NATIONAL_LIBRARY_OF_LATVIA_ID,
                 "LNB",
                 "National Library of Latvia ID",
@@ -437,7 +421,7 @@ class AuthoritySources:
             ),
             (AuthoritySource, PID_NL_CR_AUT_ID, "NKC", "NL CR AUT ID"),
             (
-                NLA_AuthoritySource,
+                NlaAuthoritySource,
                 PID_LIBRARIES_AUSTRALIA_ID,
                 "NLA",
                 "Libraries Australia ID",
@@ -449,7 +433,7 @@ class AuthoritySources:
                 "National Library Board Singapore ID",
             ),
             (
-                NLR_AuthoritySource,
+                NlrAuthoritySource,
                 PID_NATIONAL_LIBRARY_OF_RUSSIA_ID,
                 "NLR",
                 "National Library of Russia ID",
@@ -468,10 +452,10 @@ class AuthoritySources:
                 "NTA",
                 "Nationale Thesaurus voor Auteursnamen ID",
             ),
-            (NUKAT_AuthoritySource, PID_NUKAT_ID, "NUKAT", "NUKAT ID"),
+            (NukatAuthoritySource, PID_NUKAT_ID, "NUKAT", "NUKAT ID"),
             (AuthoritySource, PID_RILM_ID, "NYNYRILM", "RILM ID"),
             (
-                PERSEUS_AuthoritySource,
+                PerseusAuthoritySource,
                 PID_PERSEUS_AUTHOR_ID,
                 "PERSEUS",
                 "Perseus author ID",
@@ -483,8 +467,8 @@ class AuthoritySources:
                 "PTBNP",
                 "Portuguese National Library author ID",
             ),
-            (RERO_AuthoritySource, PID_RERO_ID_OBSOLETE, "RERO", "RERO ID (obsolete),"),
-            (SELIBR_AuthoritySource, PID_LIBRIS_URI, "SELIBR", "Libris-URI"),
+            (ReroAuthoritySource, PID_RERO_ID_OBSOLETE, "RERO", "RERO ID (obsolete),"),
+            (SelibrAuthoritySource, PID_LIBRIS_URI, "SELIBR", "Libris-URI"),
             (AuthoritySource, PID_CONOR_SI_ID, "SIMACOB", "CONOR.SI ID"),
             (
                 AuthoritySource,
@@ -493,7 +477,7 @@ class AuthoritySources:
                 "Slovak National Library (VIAF), ID",
             ),
             (
-                SRP_AuthoritySource,
+                SrpAuthoritySource,
                 PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID,
                 "SRP",
                 "Syriac Biographical Dictionary ID",
@@ -525,40 +509,13 @@ class AuthoritySources:
         for source_class, pid, viaf_code, description in sources:
             self.add(source_class(pid, viaf_code, description))
 
-    def bnf_viaf_qry(self, wikidata_id):
-        # Identifiant de la notice  : ark:/12148/cb11916320z
-        # Notice n° : FRBNF11916320
-        # https://viaf.org/viaf/sourceID/BNF|11916320/justlinks.json  -> FRBNF119163208
-        #
-        # Identifiant de la notice  : ark:/12148/cb120493546
-        # Notice n° : FRBNF12049354
-        # https://viaf.org/viaf/sourceID/BNF|12049354/justlinks.json  -> http://catalogue.bnf.fr/ark:/12148/cb12049354 ['6' weg]
-        #
-        # Identifiant de la notice  : ark:/12148/cb170700059
-        # Notice n° : FRBNF17070005
-        # https://viaf.org/viaf/sourceID/BNF|17070005/justlinks.json  -> not found
-        #
-        # Identifiant de la notice  : ark:/12148/cb17074051f
-        # Notice n° : FRBNF17074051
-        # https://viaf.org/viaf/sourceID/BNF|17074051/justlinks.json  -> not found
-        #
-        # Identifiant de la notice  : ark:/12148/cb16728223r
-        # Notice n° : FRBNF16728223
-        # https://viaf.org/viaf/sourceID/BNF|16728223/justlinks.json  -> not found
-        #
-        # Identifiant de la notice  : ark:/12148/cb101761115
-        # Notice n° : FRBNF10176111
-        # https://viaf.org/viaf/sourceID/BNF|10176111/justlinks.json  -> not found
-
-        return wikidata_id[:-1]
-
     def add(self, item: AuthoritySource) -> None:
-        if item.pid in self.dict:
+        if item.pid in self._sources_by_pid:
             raise RuntimeError(f"{item.pid} is already assigned")
-        self.dict[item.pid] = item
+        self._sources_by_pid[item.pid] = item
 
     def get(self, pid: str) -> AuthoritySource:
-        return self.dict[pid]
+        return self._sources_by_pid[pid]
 
 
 def main() -> None:

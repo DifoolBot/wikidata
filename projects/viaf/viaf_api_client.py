@@ -22,7 +22,7 @@ def format_retry_time(retry_after):
     return ", ".join(time_parts)
 
 
-class VIAFResult:
+class ViafLookupResult:
     def __init__(self, status: str, redirect_to: str | None = None, data=None):
         self.status = status
         self.redirect_to = redirect_to
@@ -34,7 +34,7 @@ class VIAFResult:
 
     def __str__(self):
         return (
-            f"VIAFResult(status='{self.status}', redirect_to={self.redirect_to}, "
+            f"ViafLookupResult(status='{self.status}', redirect_to={self.redirect_to}, "
             f"viaf_id={self.viaf_cluster_id}, source_mapping={self.source_mapping})"
         )
 
@@ -64,7 +64,7 @@ class VIAFResult:
         # print(json.dumps(self.source_mapping, indent=4))
 
 
-class VIAFQuery:
+class ViafApiClient:
     BASE_URL = "https://viaf.org/viaf/"
     HEADERS = {
         "Accept": "application/json",
@@ -73,7 +73,7 @@ class VIAFQuery:
         "X-USER-AGENT": "DifoolBot",
     }
 
-    def query_viaf(self, url) -> VIAFResult:
+    def query_viaf(self, url) -> ViafLookupResult:
         response = requests.get(url, headers=self.HEADERS)
 
         remaining_day = int(response.headers.get("x-ratelimit-remaining-day", 0))
@@ -87,12 +87,12 @@ class VIAFQuery:
             return self.query_viaf(url)  # Retry after delay
 
         if response.status_code == 404:
-            return VIAFResult("not_found")
+            return ViafLookupResult("not_found")
 
         data = response.json()
         if not data:
             # seen with query_viaf_sourceid + LC
-            return VIAFResult("empty")
+            return ViafLookupResult("empty")
 
         # # Save to file with formatting
         # with open("output.json", "w", encoding="utf-8") as f:
@@ -103,22 +103,22 @@ class VIAFQuery:
         if abandoned:
             redirect = abandoned.get("ns0:redirect", {})
             return (
-                VIAFResult("redirect", redirect_to=redirect.get("ns0:directto", {}))
+                ViafLookupResult("redirect", redirect_to=redirect.get("ns0:directto", {}))
                 if redirect
-                else VIAFResult("abandoned")
+                else ViafLookupResult("abandoned")
             )
 
-        return VIAFResult("found", data=data)
+        return ViafLookupResult("found", data=data)
 
-    def query_viaf_sourceid(self, code: str, local_auth_id: str) -> VIAFResult:
+    def query_viaf_sourceid(self, code: str, local_auth_id: str) -> ViafLookupResult:
         url = f"{self.BASE_URL}sourceID/{code}%7C{local_auth_id}"
         return self.query_viaf(url)
 
-    def query_viaf_lccn(self, lccn: str) -> VIAFResult:
+    def query_viaf_lccn(self, lccn: str) -> ViafLookupResult:
         url = f"{self.BASE_URL}lccn/{lccn}"
         return self.query_viaf(url)
 
-    def query_viaf_id(self, viaf_cluster_id: str) -> VIAFResult:
+    def query_viaf_id(self, viaf_cluster_id: str) -> ViafLookupResult:
         url = f"{self.BASE_URL}{viaf_cluster_id}"
         return self.query_viaf(url)
 
@@ -126,7 +126,7 @@ class VIAFQuery:
 def test_gnd() -> None:
     # found
     # Q108320349 1089388047
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_sourceid("GND", "103459037")
     print(res)
 
@@ -134,14 +134,14 @@ def test_gnd() -> None:
 def test_bnf() -> None:
     # not found
     # Q104680968 103459037
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_sourceid("BNF", "103459037")
     print(res)
 
 
 def test_loc() -> None:
     # 	n86084265; 	nr99002962; no2024135806
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     # res = qry.query_viaf_sourceid("LC", 'no2024135806') # empty
     # res = qry.query_viaf_sourceid("LC", 'no%202024135806') # empty
     # res = qry.query_viaf_sourceid("LC", 'n86084265') # empty
@@ -154,25 +154,25 @@ def test_loc() -> None:
 
 
 def test_abandoned() -> None:
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_id("48754610")
     print(res)
 
 
 def test_redirect() -> None:
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_id("9611149544633400490005")
     print(res)
 
 
 def test_found() -> None:
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_id("120062731")
     print(res)
 
 
 def test_nukat() -> None:
-    qry = VIAFQuery()
+    qry = ViafApiClient()
     res = qry.query_viaf_sourceid("NUKAT", "n 99016302")
     print(res)
 
