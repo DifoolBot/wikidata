@@ -122,7 +122,7 @@ class TestGeneratorForDetectors:
 
     def test_no_detectors_returns_none(self):
         repo = self._mock_repo()
-        with patch("generators._sparql_generator", return_value=iter([])):
+        with patch("cleanup.generators._sparql_generator", return_value=iter([])):
             result = generator_for_detectors(set(), repo)
         # No generators built → should be None or empty
         # (CombinedPageGenerator with no generators is valid but empty)
@@ -136,7 +136,7 @@ class TestGeneratorForDetectors:
             calls.append(query)
             return iter([])
 
-        with patch("generators._sparql_generator", side_effect=mock_gen):
+        with patch("cleanup.generators._sparql_generator", side_effect=mock_gen):
             generator_for_detectors({"self_cite"}, repo, limit=100)
         assert len(calls) == 1
         assert "P2860" in calls[0]
@@ -153,7 +153,7 @@ class TestGeneratorForDetectors:
             return iter([])
 
         # wikimedia appears twice — once via "wikimedia", once explicitly
-        with patch("generators._sparql_generator", side_effect=mock_gen):
+        with patch("cleanup.generators._sparql_generator", side_effect=mock_gen):
             generator_for_detectors({"wikimedia"}, repo, limit=100)
         # Should only call once for wikimedia
         wiki_calls = [c for c in calls if "P143" in c]
@@ -167,7 +167,7 @@ class TestGeneratorForDetectors:
             calls.append(query)
             return iter([])
 
-        with patch("generators._sparql_generator", side_effect=mock_gen):
+        with patch("cleanup.generators._sparql_generator", side_effect=mock_gen):
             generator_for_detectors({"wikimedia"}, repo, limit=200)
         assert any("P143" in c for c in calls)
 
@@ -183,7 +183,7 @@ class TestGeneratorForDetectors:
             calls.append(query)
             return iter([])
 
-        with patch("generators._sparql_generator", side_effect=mock_gen):
+        with patch("cleanup.generators._sparql_generator", side_effect=mock_gen):
             generator_for_detectors(
                 {"aggregator", "community"},
                 repo,
@@ -202,7 +202,7 @@ class TestGeneratorForDetectors:
             calls.append(query)
             return iter([])
 
-        with patch("generators._sparql_generator", side_effect=mock_gen):
+        with patch("cleanup.generators._sparql_generator", side_effect=mock_gen):
             generator_for_detectors({"aggregator"}, repo, limit=100, source_rules=None)
         # Should fall back to the recent-items query
         assert any("dateModified" in c or "modified" in c for c in calls)
@@ -211,7 +211,7 @@ class TestGeneratorForDetectors:
         # generator_for_detectors is not called when -item: is used;
         # this just confirms the function handles empty detector sets cleanly.
         repo = self._mock_repo()
-        with patch("generators._sparql_generator", return_value=iter([])):
+        with patch("cleanup.generators._sparql_generator", return_value=iter([])):
             gen = generator_for_detectors(set(), repo, limit=100)
         # Should return None or an empty generator — no crash.
 

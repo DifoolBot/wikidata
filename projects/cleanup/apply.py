@@ -29,7 +29,9 @@ editEntity call is made.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     import pywikibot
@@ -227,13 +229,10 @@ def _split_reference(ref: dict) -> list[dict]:
             for e in all_entries
         )
     ):
-        import re as _re
-        from urllib.parse import urlparse as _up
-
         def lang_from_p4656(snak: dict) -> str | None:
             url = snak.get("datavalue", {}).get("value", "")
             try:
-                m = _re.match(r"^([a-z-]+)\.wikipedia\.org$", _up(url).hostname or "")
+                m = re.match(r"^([a-z-]+)\.wikipedia\.org$", urlparse(url).hostname or "")
                 return m.group(1) if m else None
             except Exception:
                 return None
@@ -383,7 +382,17 @@ def build_payload(
             if claim is None:
                 continue
             claim_payloads[claim_id] = _build_remove_claim(claim)
-            descriptions.append(f"remove {diff['pid']} self-citation")
+            detector = diff.get("detector", "")
+            if detector == "julian_gregorian_dates":
+                descriptions.append(
+                    f"remove duplicate Julian/Gregorian {diff['pid']} date"
+                )
+            elif detector == "low_precision_dates":
+                descriptions.append(
+                    f"remove redundant low-precision {diff['pid']} date"
+                )
+            else:
+                descriptions.append(f"remove {diff['pid']} self-citation")
 
         elif action == ACTION_REMOVE_QUALIFIER:
             claim_id = diff["claim_id"]

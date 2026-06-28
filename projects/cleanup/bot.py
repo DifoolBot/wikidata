@@ -272,7 +272,7 @@ def main(*args: str) -> None:
             if name not in all_detector_ids:
                 pywikibot.error(
                     f"Unknown detector {name!r}. "
-                    f"Valid: {{', '.join(sorted(all_detector_ids))}}"
+                    f"Valid: {', '.join(sorted(all_detector_ids))}"
                 )
                 sys.exit(1)
             active_detectors.add(name)
@@ -351,7 +351,7 @@ def main(*args: str) -> None:
         gen = pagegenerators.PreloadingEntityGenerator(gen)
 
     pywikibot.output(
-        f"Active detectors: {{', '.join(sorted(active_detectors))}}"
+        f"Active detectors: {', '.join(sorted(active_detectors))}"
         + (" [DRY RUN]" if dry_run else "")
         + (" [NO DB]" if no_db else "")
     )

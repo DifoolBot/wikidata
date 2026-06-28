@@ -80,7 +80,11 @@ ACTION_MERGE_WIKI_IMPORT_REFS:
 
 from typing import Callable
 from datetime import datetime, timezone
+import json
+import math
 import re
+import unicodedata
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse, unquote
 
 # ==== Action constants =======================================================
 
@@ -388,8 +392,6 @@ def detect_expired_preferred(item: dict) -> list[dict]:
       val = c.qualifiers?.[PID_END_TIME][0]?.datavalue?.value
       if parseWikibaseTime(val.time) < new Date() → downgrade
     """
-    from datetime import datetime, timezone
-
     now = datetime.now(tz=timezone.utc)
     diffs = []
 
@@ -453,10 +455,7 @@ def _normalize_date_value(val: dict, precision: int) -> dict | None:
     if not val:
         return None
 
-    import re as _re
-    import math
-
-    m = _re.match(r"^([+-]\d+)-", val.get("time", ""))
+    m = re.match(r"^([+-]\d+)-", val.get("time", ""))
     if not m:
         return None
     year = int(m.group(1))
@@ -556,8 +555,6 @@ def _qualifiers_equal_except_p31(claim_a: dict, claim_b: dict) -> bool:
     Compare qualifier dicts, ignoring P31 (instance of).
     Mirrors qualifiersEqualExceptP31() from WikidataCleanup.js.
     """
-    import json
-
     qa = {k: v for k, v in (claim_a.get("qualifiers") or {}).items() if k != "P31"}
     qb = {k: v for k, v in (claim_b.get("qualifiers") or {}).items() if k != "P31"}
     return json.dumps(qa, sort_keys=True) == json.dumps(qb, sort_keys=True)
@@ -607,8 +604,6 @@ def _build_ref_field_map(ref: dict) -> dict[str, list[str]]:
     Build a canonical map of PID → sorted list of serialized values,
     ignoring metadata-only PIDs.  Mirrors buildFieldMap() from JS.
     """
-    import json
-
     IGNORE = {PID_RETRIEVED, PID_TITLE, PID_SUBJECT_NAMED_AS}
     result: dict[str, list[str]] = {}
     for pid, snaks in (ref.get("snaks") or {}).items():
@@ -940,8 +935,6 @@ ALWAYS_REMOVE_WIKIMEDIA_PIDS: frozenset[str] = frozenset(
 
 
 def _is_qid(s: str) -> bool:
-    import re
-
     return bool(re.match(r"^Q\d+$", s or ""))
 
 
@@ -1072,11 +1065,7 @@ def _is_splittable_reference(ref: dict) -> tuple[bool, int, str | None]:
 
 def _is_wikimedia_url(url: str) -> bool:
     """Check if a URL is a Wikimedia project URL."""
-    import re
-
     try:
-        from urllib.parse import urlparse
-
         host = urlparse(url).hostname or ""
         return bool(
             re.search(
@@ -1093,8 +1082,6 @@ def _is_archive_url(url: str) -> bool:
     """Check if a URL points to a web archive service."""
     ARCHIVE_DOMAINS = {"web.archive.org", "archive.is", "wayback.archive-it.org"}
     try:
-        from urllib.parse import urlparse
-
         host = urlparse(url).hostname or ""
         return any(host == d or host.endswith("." + d) for d in ARCHIVE_DOMAINS)
     except Exception:
@@ -1290,8 +1277,6 @@ def detect_normalize_labels(item: dict) -> list[dict]:
     Mirrors detectNormalizeLabels() exactly.
     For descriptions, also strips trailing semicolons/whitespace.
     """
-    import re as _re
-
     diffs = []
 
     for lang, entry in (item.get("labels") or {}).items():
@@ -1313,7 +1298,7 @@ def detect_normalize_labels(item: dict) -> list[dict]:
         before = entry.get("value", "")
         after = normalize_text(before)
         if after:
-            after = _re.sub(r"[;\s]+$", "", after).strip()
+            after = re.sub(r"[;\s]+$", "", after).strip()
         if after and after != before:
             diffs.append(
                 {
@@ -1378,12 +1363,10 @@ def detect_add_mul_label(item: dict) -> list[dict]:
     label_value = normalised[0]
 
     # Latin-script check: reject any letter character outside the Latin ranges.
-    import unicodedata as _ud
-
     for ch in label_value:
         if not ch.isalpha():
             continue
-        name = _ud.name(ch, "")
+        name = unicodedata.name(ch, "")
         # Accept letters whose Unicode name starts with "LATIN"
         if not name.startswith("LATIN"):
             return []
@@ -1680,11 +1663,8 @@ def detect_merge_wiki_import_refs(
 
                 p4656_lang = None
                 try:
-                    from urllib.parse import urlparse as _up
-                    import re as _re2
-
-                    host = _up(p4656_url).hostname or ""
-                    m = _re2.match(r"^([a-z-]+)\.wikipedia\.org$", host)
+                    host = urlparse(p4656_url).hostname or ""
+                    m = re.match(r"^([a-z-]+)\.wikipedia\.org$", host)
                     p4656_lang = m.group(1) if m else None
                 except Exception:
                     pass
@@ -2147,8 +2127,6 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     Only "always" mode stripping is applied — recognition mode is only
     used during URL→property matching, not during cleanup.
     """
-    from urllib.parse import urlparse, urlunparse, urlencode, parse_qsl
-
     try:
         parsed = urlparse(raw_url)
     except Exception:
@@ -2178,8 +2156,6 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     # Mirror JS: decode non-ASCII characters that may have been re-encoded.
     if any(ord(c) > 0x7F for c in raw_url):
         try:
-            from urllib.parse import unquote
-
             cleaned = unquote(cleaned, errors="surrogatepass")
         except Exception:
             pass
@@ -2199,8 +2175,6 @@ def _normalize_wikimedia_import_url(raw: str | None) -> str | None:
 
     Mirrors normalizeWikimediaImportUrl() in detectCleanUrls() exactly.
     """
-    from urllib.parse import urlparse, urlunparse
-
     if not isinstance(raw, str):
         return None
 
@@ -2224,9 +2198,7 @@ def _normalize_wikimedia_import_url(raw: str | None) -> str | None:
         changed = True
 
     # (b) Remove mobile subdomain xx.m.wikipedia.org → xx.wikipedia.org
-    import re as _re
-
-    m = _re.match(r"^([a-z-]+)\.m\.wikipedia\.org$", hostname)
+    m = re.match(r"^([a-z-]+)\.m\.wikipedia\.org$", hostname)
     if m:
         new_host = f"{m.group(1)}.wikipedia.org"
         # Rebuild netloc preserving any port (rare, but safe)
@@ -2250,8 +2222,6 @@ def _normalize_wikimedia_import_url(raw: str | None) -> str | None:
     # Decode non-ASCII chars the URL library may have re-encoded
     if any(ord(c) > 0x7F for c in raw):
         try:
-            from urllib.parse import unquote
-
             result = unquote(result, errors="surrogatepass")
         except Exception:
             pass

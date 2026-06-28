@@ -779,6 +779,85 @@ class TestCleanUrl:
         assert clean_url(bad, rules) == bad
 
 
+# ==== clean_url re-encoding fidelity (#3) ====================================
+#
+# clean_url rebuilds the query string with parse_qsl + urlencode.  That round
+# trip re-encodes *surviving* parameters, which can mutate a URL even when the
+# change is semantically a no-op (e.g. "%20" -> "+", "," -> "%2C").  On Wikidata
+# this means the bot can emit cosmetic edits that differ byte-for-byte from the
+# stored value.  These tests lock the behaviour that IS correct and pin the
+# known-bad cases as xfail so a future fix surfaces as XPASS.
+
+
+class TestCleanUrlEncodingFidelity:
+    def _rules(self, **kwargs) -> UrlStripRules:
+        return UrlStripRules(**kwargs)
+
+    # ── Correct behaviour: these must keep working ───────────────────────────
+
+    def test_surviving_param_kept_when_tracking_stripped(self):
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/?utm_source=x&q=plain"
+        assert clean_url(url, rules) == "https://example.com/?q=plain"
+
+    def test_path_with_encoded_space_preserved(self):
+        # The path is not part of the query round trip, so it must be untouched.
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/a%20b?utm_source=x"
+        assert clean_url(url, rules) == "https://example.com/a%20b"
+
+    def test_fragment_preserved(self):
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/p?utm_source=x&q=1#frag"
+        assert clean_url(url, rules) == "https://example.com/p?q=1#frag"
+
+    def test_no_active_rule_leaves_encoding_untouched(self):
+        # No rule matches this host, so the early return must give back the
+        # exact original string with its %20 intact.
+        rules = self._rules(always={"imdb.com": ["ref_"]})
+        url = "https://example.com/?q=a%20b"
+        assert clean_url(url, rules) == url
+
+    # ── Known fidelity gaps (#3): currently produce spurious rewrites ────────
+
+    @pytest.mark.xfail(
+        reason="#3: parse_qsl+urlencode rewrites %20->+ on surviving params, "
+        "producing a spurious edit even though no tracking param was removed",
+        strict=True,
+    )
+    def test_no_tracking_param_present_should_not_rewrite_space(self):
+        # utm_source is in the active rule set but NOT in this URL, so nothing
+        # should be stripped and the URL should come back unchanged.
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/?q=a%20b"
+        assert clean_url(url, rules) == url
+
+    @pytest.mark.xfail(
+        reason="#3: urlencode percent-encodes ',' (a valid query sub-delim) "
+        "on surviving params, mutating the stored value",
+        strict=True,
+    )
+    def test_surviving_comma_value_not_reencoded(self):
+        rules = self._rules(always={"*": ["utm_source"]})
+        url = "https://example.com/?utm_source=x&ids=1,2,3"
+        assert clean_url(url, rules) == "https://example.com/?ids=1,2,3"
+
+    @pytest.mark.xfail(
+        reason="#3: an existing '+'-encoded space on a surviving param is "
+        "preserved, but a '%20' one is normalised to '+', so the two encodings "
+        "are not handled identically",
+        strict=True,
+    )
+    def test_encoded_space_variants_handled_consistently(self):
+        rules = self._rules(always={"*": ["utm_source"]})
+        pct = clean_url("https://example.com/?utm_source=x&q=a%20b", rules)
+        plus = clean_url("https://example.com/?utm_source=x&q=a+b", rules)
+        # Whatever the chosen encoding, the %20 form should not be silently
+        # rewritten relative to leaving the value as-is.
+        assert pct == "https://example.com/?q=a%20b"
+        assert plus == "https://example.com/?q=a+b"
+
+
 # ==== _normalize_wikimedia_import_url ========================================
 
 
