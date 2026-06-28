@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pywikibot as pwb
 import viaf.authority_sources
@@ -37,7 +38,9 @@ class ViafInferredFromReference(cwd.Reference):
 
 class FirebirdViafReporting(DatabaseHandler, viaf.viaf_bot.ReportBackend):
     def __init__(self) -> None:
-        super().__init__("viaf.json")
+        config_filename = Path(__file__).parent / "viaf.json"
+        create_script = Path("schemas/viaf.sql")
+        super().__init__(config_filename, create_script)
 
     def has_done(self, qid: str) -> bool:
         return self.has_record("QDONE", "QCODE=?", (qid,))
