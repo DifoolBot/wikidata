@@ -109,7 +109,9 @@ class ViafApiClient:
         if abandoned:
             redirect = abandoned.get("ns0:redirect", {})
             return (
-                ViafLookupResult("redirect", redirect_to=redirect.get("ns0:directto", {}))
+                ViafLookupResult(
+                    "redirect", redirect_to=redirect.get("ns0:directto", {})
+                )
                 if redirect
                 else ViafLookupResult("abandoned")
             )

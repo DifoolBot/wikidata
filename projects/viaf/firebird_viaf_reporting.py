@@ -52,7 +52,7 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
         sql = "SELECT first 1000 skip 1000 QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES ORDER BY 1, 2"
         return self.execute_query(sql)
 
-    def get_dup_locals(self) -> Iterator[tuple[str, set[str], str]]:
+    def get_duplicate_local_auth_ids(self) -> Iterator[tuple[str, set[str], str]]:
         sql = "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLOCAL order by viaf_id,qid,local_auth_id"
         rows = self.execute_query(sql)
         last_viaf_id: str | None = None

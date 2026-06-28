@@ -2,18 +2,18 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 
 import pywikibot as pwb
+from viaf.wikidata_site import REPO
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-from viaf.wikidata_site import REPO
 
 QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM = "Q115111315"
 
 
 class ViafInferredFromReference(cwd.Reference):
-    def __init__(self, pid: str, id: str):
+    def __init__(self, pid: str, external_id: str):
         self.pid = pid
-        self.external_id = id
+        self.external_id = external_id
         self.heuristic_qid = (
             QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM
         )
@@ -35,14 +35,14 @@ class ViafInferredFromReference(cwd.Reference):
         source[self.pid] = [pid_claim]
 
         today = datetime.now(timezone.utc)
-        dateCre = pwb.WbTime(
+        retrieved_date = pwb.WbTime(
             year=int(today.strftime("%Y")),
             month=int(today.strftime("%m")),
             day=int(today.strftime("%d")),
         )
 
         retr_claim = pwb.Claim(REPO, wd.PID_RETRIEVED, is_reference=True)
-        retr_claim.setTarget(dateCre)
+        retr_claim.setTarget(retrieved_date)
         source[wd.PID_RETRIEVED] = [retr_claim]
 
         heur_claim = pwb.Claim(REPO, wd.PID_BASED_ON_HEURISTIC, is_reference=True)

@@ -27,8 +27,8 @@ def _save_current_pid_index(pids: list[str], index: int) -> None:
 
 
 def main() -> None:
-    authsrcs = viaf.authority_sources.AuthoritySources()
-    pids = authsrcs.all_pids()
+    authority_sources = viaf.authority_sources.AuthoritySources()
+    pids = authority_sources.all_pids()
 
     index = _load_current_pid_index(pids)
 
@@ -39,7 +39,7 @@ def main() -> None:
     # to the next source, for at most one full cycle through all sources.
     for _ in range(len(pids)):
         pid = pids[index]
-        auth_src = authsrcs.get(pid)
+        auth_src = authority_sources.get(pid)
 
         bot = viaf.viaf_bot.ViafBot(auth_src, report=FirebirdViafReporting())
         bot.test = False

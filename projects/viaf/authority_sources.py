@@ -43,11 +43,11 @@ def compute_bnf_ark_from_8digits(orig_id: str) -> str:
     bnf_xdigits = "0123456789bcdfghjkmnpqrstvwxz"
     bnf_check_digit = 0
 
-    id = "cb" + orig_id
-    for i in range(len(id)):
-        bnf_check_digit += bnf_xdigits.index(id[i]) * (i + 1)
+    ark = "cb" + orig_id
+    for i in range(len(ark)):
+        bnf_check_digit += bnf_xdigits.index(ark[i]) * (i + 1)
     # 29 is the radix
-    return id + bnf_xdigits[bnf_check_digit % len(bnf_xdigits)]
+    return ark + bnf_xdigits[bnf_check_digit % len(bnf_xdigits)]
 
 
 class AuthoritySource:
@@ -174,8 +174,8 @@ class NlaAuthoritySource(AuthoritySource):
 
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """Formats ID as a 12-digit zero-padded number for NLA."""
-        res = "000000000000" + record.wikidata_external_id
-        record.viaf_search_key = res[-12:]  # Extract last 12 digits
+        padded = "000000000000" + record.wikidata_external_id
+        record.viaf_search_key = padded[-12:]  # Extract last 12 digits
 
 
 class NlrAuthoritySource(AuthoritySource):
