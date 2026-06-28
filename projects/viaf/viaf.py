@@ -1,17 +1,21 @@
-import requests
-import json
-import pywikibot as pwb
-from datetime import datetime
-import os.path
-import authsource
+import os
 import time
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
 
-# todo; 
+import pywikibot as pwb
+import requests
+import viaf.authsource
+import viaf.query_wikidata
+import viaf.viaf_query
+
+# todo;
 #    Q2177740: viaf id - no value
+
+# abandoned : 48754610
 
 
 WD = "http://www.wikidata.org/entity/"
-WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 # VIAF_ENDPOINT = "https://viaf.org/viaf/search"
 
 PID_VIAF_ID = "P214"
@@ -21,7 +25,6 @@ PID_REFERENCE_URL = "P854"
 PID_BASED_ON_HEURISTIC = "P887"
 
 QID_VIRTUAL_INTERNATIONAL_AUTHORITY_FILE = "Q54919"
-QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM = "Q115111315"
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
 
@@ -30,186 +33,136 @@ SITE.login()
 SITE.get_tokens("csrf")
 REPO = SITE.data_repository()
 
-DUPLICATES_FILE = "duplicates.json"
-DONE_FILE = 'done.json'
-ERRORS_FILE = "errors.json"
-IGNORES_FILE = "ignores.json"
+# DUPLICATES_FILE = "duplicates.json"
+# DONE_FILE = 'done.json'
+# ERRORS_FILE = "errors.json"
+# IGNORES_FILE = "ignores.json"
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
-WIKI_FILE = 'wiki.txt'
+WIKI_FILE = "wiki.txt"
 
 MAX_LAG_BACKOFF_SECS = 10 * 60
-WDQS_SLEEP_AFTER_TIMEOUT = 30  # sec
-VIAF_SLEEP_AFTER_ERROR = 10 * 60
+SLEEP_AFTER_ERROR = 10  # sec
+SLEEP_AFTER_RUNTIMEERROR = 2  # sec
+
+
+class IReport(ABC):
+    @abstractmethod
+    def has_duplicate(self, qid: str) -> bool:
+        pass
+
+    @abstractmethod
+    def has_duplicate_local_auth_id(self, qid: str) -> bool:
+        pass
+
+    @abstractmethod
+    def has_done(self, qid: str) -> bool:
+        pass
+
+    @abstractmethod
+    def has_error(self, qid: str) -> bool:
+        pass
+
+    @abstractmethod
+    def has_ignore(self, qid: str) -> bool:
+        pass
+
+    @abstractmethod
+    def add_duplicate(
+        self, qid: str, duplicate_qid: str, local_auth_id: str | None, viaf_id: str
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def add_duplicate_local_auth_id(
+        self, qid: str, local_auth_id: str, viaf_cluster_id: str | None
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def add_error(self, qid: str, msg: str) -> None:
+        pass
+
+    @abstractmethod
+    def add_done(self, qid: str) -> None:
+        pass
+
+    @abstractmethod
+    def add_viaf(
+        self,
+        item: pwb.ItemPage,
+        auth_src: viaf.authsource.AuthoritySource,
+        viaf_cluster_id: str | None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def get_duplicates(self) -> list[tuple[str, str, str, str]]:
+        pass
+
+    @abstractmethod
+    def get_dup_locals(self) -> Iterator[tuple[str, set[str], str]]:
+        pass
+
+    @abstractmethod
+    def get_stats(self) -> tuple[int, int, int] | None:
+        pass
+
+    @abstractmethod
+    def end_session(self, pid: str) -> None:
+        pass
+
+
+def _execute_qlever_query(query: str) -> list[dict[str, str]]:
+    """Execute a qlever query and return rows with qid and local_auth_id."""
+    qlever_url = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+    try:
+        response = requests.get(qlever_url, params={"query": query}, timeout=300)
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException as e:
+        pwb.error(f"Error querying qlever: {e}")
+        return []
+    except ValueError as e:
+        pwb.error(f"Error parsing qlever response: {e}")
+        return []
+
+    if "results" not in data or "bindings" not in data["results"]:
+        return []
+
+    rows: list[dict[str, str]] = []
+    for binding in data["results"]["bindings"]:
+        item_uri = binding.get("item", {}).get("value", "")
+        if not item_uri:
+            continue
+        qid = item_uri.split("/")[-1]
+        if not qid.startswith("Q"):
+            continue
+        local_auth_id = binding.get("local_auth_id", {}).get("value", "")
+        rows.append({"qid": qid, "local_auth_id": local_auth_id})
+
+    return rows
 
 
 class ViafBot:
-    def __init__(self, auth_src: authsource.AuthoritySource):
+    def __init__(self, auth_src: viaf.authsource.AuthoritySource, report: IReport):
         self.auth_src = auth_src
         self.test = False
-        self.duplicates = self.load_duplicates()
-        self.errors = self.load_errors()
-        self.ignores = self.load_ignores()
+        self.report = report
+
+    def generate_dup_report(self):
+        self.write_to_wiki(self.make_duplocal_wikitext())
+
+    def generate_report(self):
+        self.write_to_wiki(self.make_wikitext())
+
+    def end_session(self):
+        self.report.end_session(self.auth_src.pid)
 
     def run(self):
-        self.iterate()
-        if not self.test:
-            self.write_to_wiki(self.make_wikitext())
-            if os.path.exists(DUPLICATES_FILE):
-                os.remove(DUPLICATES_FILE)
-            if os.path.exists(ERRORS_FILE):
-                os.remove(ERRORS_FILE)
-            self.update_done(self.auth_src.pid)
+        # self.iterate()
+        self.iterate_qlever()
 
-    def query_wdqs(self, query: str,  retry_counter: int = 3):
-        response = requests.get(
-            WDQS_ENDPOINT, params={"query": query, "format": "json"}
-        )
-        try:
-            payload = response.json()
-        except json.JSONDecodeError as e:
-            # nothing more left to slice on WDQS
-            if response.elapsed.total_seconds() < 3 and 'RuntimeException: offset is out of range' in response.text:
-                return []
-
-            # likely timed out, try again up to three times
-            retry_counter -= 1
-            if retry_counter > 0 and response.elapsed.total_seconds() > 55 and 'java.util.concurrent.TimeoutException' in response.text:
-                time.sleep(WDQS_SLEEP_AFTER_TIMEOUT)
-                return self.query_wdqs(query, retry_counter)
-
-            raise RuntimeError(
-                f'Cannot parse WDQS response as JSON; http status {response.status_code}; query time {response.elapsed.total_seconds():.2f} sec') from e
-
-        return payload["results"]["bindings"]
-
-    def query_viaf(self, aid: authsource.AuthorityID):
-        try:
-            self.auth_src.determine_search_code(aid)
-            if aid.search_code == None:
-                time.sleep(1)
-                self.add_error(aid.qid,
-                            "{qid}: {desc} {local_auth_id} no search code found".format(
-                                qid=aid.qid, desc=self.auth_src.description, local_auth_id=aid.id_from_wikidata
-                            )
-                            )
-                return []
-        except Exception as e:
-            print('*** determine_search_code error ***')
-            print('Error: {error}'.format(error=e))
-            time.sleep(10)
-            self.add_error(aid.qid,
-                           "{qid}: {desc} {local_auth_id} no search code found".format(
-                               qid=aid.qid, desc=self.auth_src.description, local_auth_id=aid.id_from_wikidata
-                           )
-                           )
-            return []
-
-        url = "https://viaf.org/viaf/sourceID/{code}|{local_auth_id}/justlinks.json".format(
-            code=self.auth_src.codes[0], local_auth_id=aid.search_code
-        )
-        try:
-            response = requests.get(url)
-        except requests.exceptions.ConnectionError as e:
-            print('*** ConnectionError ***')
-            print('Error: {error}'.format(error=e))
-            time.sleep(VIAF_SLEEP_AFTER_ERROR)
-            return []
-        except Exception as e:
-            print('*** Generic VIAF error ***')
-            print('Error: {error}'.format(error=e))
-            time.sleep(VIAF_SLEEP_AFTER_ERROR)
-            return []
-
-        if response.status_code == 404:
-            time.sleep(1)
-            self.add_error(aid.qid,
-                           "{qid}: {desc} {local_auth_id} not found".format(
-                               qid=aid.qid, desc=self.auth_src.description, local_auth_id=aid.id_from_wikidata
-                           )
-                           )
-            return []
-        try:
-            data = response.json()
-        except json.JSONDecodeError as e:
-            self.add_error(aid.qid,
-                           "{desc} {local_auth_id} returns an error: {error}".format(
-                               desc=self.auth_src.description, local_auth_id=aid.id_from_wikidata, error=e
-                           )
-                           )
-            return []
-
-        return data
-
-    def check_viaf_justlinks(self, data, aid: authsource.AuthorityID):
-        res = {}
-
-        if "viafID" not in data:
-            return None
-
-        viaf_id = data["viafID"]
-        res["viaf_id"] = viaf_id
-        res["has_local_auth_id"] = False
-        res["has_wikidata"] = False
-        res["has_error"] = False
-
-        for code in self.auth_src.codes:
-            if code in data:
-                for id in data[code]:
-                    if self.auth_src.is_same_id(id, aid):
-                        res["has_local_auth_id"] = True
-                    else:
-                        self.add_error(aid.qid,
-                                       "viaf id {viaf_id} of {qid} has another {desc} link".format(
-                                           viaf_id=viaf_id, qid=aid.qid, desc=self.auth_src.description
-                                       )
-                                       )
-                        res["has_error"] = True
-
-        if AUTHORITY_SOURCE_CODE_WIKIDATA in data:
-            for other_qid in data[AUTHORITY_SOURCE_CODE_WIKIDATA]:
-                if other_qid == aid.qid:
-                    res["has_wikidata"] = True
-                else:
-                    self.add_duplicate(aid.qid, other_qid, aid.id_from_wikidata, viaf_id)
-                    self.add_error(aid.qid,
-                                   "viaf id {viaf_id} of {qid} has another wikidata link".format(
-                                       viaf_id=viaf_id, qid=aid.qid
-                                   )
-                                   )
-                    res["has_error"] = True
-
-        return res
-
-    def create_viaf_ref(self, viaf_id: str):
-        today = datetime.today()
-
-        stated_in = pwb.Claim(REPO, PID_STATED_IN)
-        stated_in.setTarget(
-            pwb.ItemPage(REPO, QID_VIRTUAL_INTERNATIONAL_AUTHORITY_FILE)
-        )
-
-        id = pwb.Claim(REPO, PID_VIAF_ID)
-        id.setTarget(viaf_id)
-
-        retr = pwb.Claim(REPO, PID_RETRIEVED)
-        dateCre = pwb.WbTime(
-            year=int(today.strftime("%Y")),
-            month=int(today.strftime("%m")),
-            day=int(today.strftime("%d")),
-        )
-        retr.setTarget(dateCre)
-
-        ref = pwb.Claim(REPO, PID_BASED_ON_HEURISTIC)
-        ref.setTarget(
-            pwb.ItemPage(
-                REPO,
-                QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM,
-            )
-        )
-
-        return [stated_in, id, retr, ref]
-
-    def change_wikidata(self, aid: authsource.AuthorityID) -> None:
+    def change_wikidata(self, aid: viaf.authsource.AuthorityID) -> None:
         if not aid.qid.startswith("Q"):  # ignore property pages and lexeme pages
             return
 
@@ -219,11 +172,8 @@ class ViafBot:
             if not item.exists():
                 return
         except pwb.exceptions.MaxlagTimeoutError as ex:
-            print(
-                "max lag timeout. sleeping. failed to add claim for qid {qid}".format(qid=aid.qid))
             time.sleep(MAX_LAG_BACKOFF_SECS)
-            return
-        
+            raise RuntimeError("max lag timeout. sleeping. failed to add claim")
 
         if item.isRedirectPage():
             return
@@ -231,161 +181,256 @@ class ViafBot:
         existing_claims = item.get().get("claims")
 
         if not item.botMayEdit():
-            self.add_error(
-                aid.qid, "Skipping %s because it cannot be edited by bots" % aid.qid)
-            return
+            raise RuntimeError("Skipping, because it cannot be edited by bots")
+
+        if not existing_claims:
+            raise RuntimeError("Skipping, because it has no claims")
 
         if PID_VIAF_ID in existing_claims:
-            self.add_error(
-                aid.qid, "Skipping %s because it already has a VIAF ID" % aid.qid)
-            return
+            raise RuntimeError("Skipping, because it already has a VIAF ID")
 
         if self.auth_src.pid not in existing_claims:
-            self.add_error(aid.qid, "Skipping {qid} because it has no {code} PID".format(
-                qid=aid.qid, code=self.auth_src.pid))
-            return
+            raise RuntimeError(f"Skipping, because it has no {self.auth_src.pid} PID")
 
         found = False
         for claim in existing_claims[self.auth_src.pid]:
             id = claim.getTarget()
-            if id == aid.id_from_wikidata:
+            if id == aid.wikidata_external_id:
                 if claim.getRank() == "deprecated":
-                    self.add_error(aid.qid, "Skipping {qid} because the {code} {local_auth_id} is deprecated".format(
-                        qid=aid.qid, code=self.auth_src.pid, local_auth_id=aid.id_from_wikidata))
-                    return
+                    raise RuntimeError(
+                        f"Skipping, because the {self.auth_src.pid} {aid.wikidata_external_id} is deprecated"
+                    )
                 found = True
                 break
 
         if not found:
-            self.add_error(aid.qid, "Skipping {qid} because it has no {code} {local_auth_id}".format(
-                qid=aid.qid, code=self.auth_src.pid, local_auth_id=aid.id_from_wikidata))
-            return
+            raise RuntimeError(
+                f"Skipping, because it has no {self.auth_src.pid} {aid.wikidata_external_id}"
+            )
 
         if self.test:
             return
 
-        print("Adding VIAF ID {viaf_id} to {qid}".format(
-            viaf_id=aid.viaf_id, qid=aid.qid))
-        try:
-            claim = pwb.Claim(REPO, PID_VIAF_ID)
-            claim.setTarget(aid.viaf_id)
-            item.addClaim(
-                claim,
-                summary="Adding VIAF ID based on {desc}".format(
-                    desc=self.auth_src.description
-                ),
-            )
+        pwb.output(f"Adding VIAF ID {aid.viaf_cluster_id} to {aid.qid}")
+        self.report.add_viaf(item, self.auth_src, viaf_cluster_id=aid.viaf_cluster_id)
+        self.report.add_done(qid=aid.qid)
 
-            claim.addSources(
-                self.create_viaf_ref(aid.viaf_id), summary="Adding VIAF reference"
-            )
-
-        except Exception as e:
-            self.add_error(aid.qid, "Error adding claims: %s" % e)
-
-    def get_duplicates_qids(self, aid: authsource.AuthorityID):
+    def get_duplicates_qids(self, aid: viaf.authsource.AuthorityID):
         res = []
         query = 'SELECT DISTINCT ?item WHERE {{ ?item p:P214 ?statement0. ?statement0 (ps:P214) "{viaf_id}". FILTER (?item != wd:{qid})}} LIMIT 5'.format(
-            viaf_id=aid.viaf_id, qid=aid.qid
+            viaf_id=aid.viaf_cluster_id, qid=aid.qid
         )
 
-        for row in self.query_wdqs(query):
+        x = viaf.query_wikidata.query_wdqs(query)
+        if not x:
+            return res
+        for row in x:
             other_qid = row.get("item", {}).get("value", "").replace(WD, "")
+            # other_qid = row.get("item", {}).get("value", "").replace(WD, "")
             res.append(other_qid)
         return res
 
-    def iterate_viaf(self, aid: authsource.AuthorityID) -> None:
-        if aid.qid in self.duplicates:
-            return
-        if aid.qid in self.errors:
-            return
-        if aid.qid in self.ignores:
-            return
+    def examine(self, aid: viaf.authsource.AuthorityID) -> None:
+        try:
+            if self.report.has_done(aid.qid):
+                return
+            if self.report.has_duplicate(aid.qid):
+                return
+            if self.report.has_duplicate_local_auth_id(aid.qid):
+                return
+            if self.report.has_error(aid.qid):
+                return
+            if self.report.has_ignore(aid.qid):
+                return
 
-        res = self.check_viaf_justlinks(
-            self.query_viaf(aid), aid
-        )
-        if res is None:
-            return
+            code = self.auth_src.viaf_code
+            self.auth_src.compute_viaf_search_key(aid)
 
-        aid.viaf_id = res["viaf_id"]
-        has_local_auth_id = res["has_local_auth_id"]
-        has_error = res["has_error"]
+            if not aid.viaf_search_key:
+                raise RuntimeError("No search key")
 
-        if not has_local_auth_id:
-            self.add_error(aid.qid,
-                           "{viaf_id} has no {desc} link".format(
-                               viaf_id=aid.viaf_id, desc=self.auth_src.description
-                           )
-                           )
-            return
+            qry = viaf.viaf_query.VIAFQuery()
+            if code == "LC":
+                res = qry.query_viaf_lccn(aid.viaf_search_key)
+            else:
+                res = qry.query_viaf_sourceid(code, aid.viaf_search_key)
+            if res.status != "found":
+                raise RuntimeError(f"status {res.status}")
+            if not res.viaf_cluster_id:
+                raise RuntimeError(f"no viaf_cluster_id")
 
-        duplicate_qids = self.get_duplicates_qids(aid)
-        if duplicate_qids != []:
-            self.add_error(aid.qid, "{qid} has duplicates: {dupl}".format(
-                qid=aid.qid, dupl=duplicate_qids))
-            for duplicate_qid in duplicate_qids:
-                self.add_duplicate(aid.qid, duplicate_qid, aid.id_from_wikidata, aid.viaf_id)
-        elif has_error:
-            self.add_error(
-                aid.qid, "{qid} has errors, but no duplicates".format(qid=aid.qid))
-        else:
-            print(
+            aid.viaf_cluster_id = res.viaf_cluster_id
+
+            other_wikidata_ids = []
+            local_auth_ids = []
+            has_local_auth_id = False
+
+            if self.auth_src.viaf_code in res.source_mapping:
+                for nsid, content_id in res.source_mapping[self.auth_src.viaf_code]:
+                    if self.auth_src.matches_viaf_external_id(nsid, content_id, aid):
+                        has_local_auth_id = True
+                    if nsid not in local_auth_ids:
+                        local_auth_ids.append(nsid)
+
+            if AUTHORITY_SOURCE_CODE_WIKIDATA in res.source_mapping:
+                for other_qid, content_id in res.source_mapping[
+                    AUTHORITY_SOURCE_CODE_WIKIDATA
+                ]:
+                    if other_qid != aid.qid:
+                        if other_qid not in other_wikidata_ids:
+                            other_wikidata_ids.append(other_qid)
+
+            duplicate_qids = list(
+                set(self.get_duplicates_qids(aid)).union(other_wikidata_ids)
+            )
+            if duplicate_qids:
+                for duplicate_qid in duplicate_qids:
+                    self.report.add_duplicate(
+                        aid.qid,
+                        duplicate_qid,
+                        aid.wikidata_external_id,
+                        aid.viaf_cluster_id,
+                    )
+                raise RuntimeError(f"has duplicates: {duplicate_qids}")
+
+            if len(local_auth_ids) == 0:
+                raise RuntimeError("no local_auth_ids")
+            if len(local_auth_ids) > 1:
+                self.report.add_duplicate_local_auth_id(
+                    aid.qid,
+                    aid.wikidata_external_id,
+                    aid.viaf_cluster_id,
+                )
+                for local_auth_id in local_auth_ids:
+                    self.report.add_duplicate_local_auth_id(
+                        aid.qid,
+                        local_auth_id,
+                        aid.viaf_cluster_id,
+                    )
+                raise RuntimeError(f"multiple local_auth_ids {local_auth_ids}")
+            if not has_local_auth_id:
+                raise RuntimeError(f"local_auth_id not found")
+            # if len(reader.wikidata_ids) == 0:
+            #     raise RuntimeError("no wikidata_ids")
+            if len(other_wikidata_ids) > 1:
+                raise RuntimeError(f"multiple wikidata_ids {other_wikidata_ids}")
+            # if not reader.has_wikidata_id:
+            #     raise RuntimeError(f"wikidata_id not found")
+
+            pwb.output(
                 "{qid} -> {viaf_id}; {desc} {local_auth_id}".format(
                     qid=aid.qid,
-                    viaf_id=aid.viaf_id,
+                    viaf_id=aid.viaf_cluster_id,
                     desc=self.auth_src.description,
-                    local_auth_id=aid.id_from_wikidata,
+                    local_auth_id=aid.wikidata_external_id,
                 )
             )
             self.change_wikidata(aid)
+        except RuntimeError as e:
+            pwb.warning(f"Runtime error: {e}")
+            self.report.add_error(aid.qid, e.__repr__())
+            time.sleep(SLEEP_AFTER_RUNTIMEERROR)
+        except Exception as e:
+            pwb.error(f"Exception: {e}")
+            self.report.add_error(aid.qid, e.__repr__())
+            time.sleep(SLEEP_AFTER_ERROR)
 
     def make_wikitext(self):
-        heading = '=={description}==\n'.format(description=self.auth_src.description)
-        header = '{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! VIAF\n! QID on the item\n! ID from cluster\n! 2nd QID\n! class="unsortable" | Compare'
+        heading = "=={description}==\n".format(description=self.auth_src.description)
+        header = '\n{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! VIAF\n! QID on the item\n! ID from cluster\n! 2nd QID\n! class="unsortable" | Compare'
         body = ""
         line = "\n|-\n| https://viaf.org/viaf/{viaf_id}\n| {{{{Q|{qid}}}}}\n| {auth_code}|{local_auth_id}\n| {{{{Q|{duplicate_qid}}}}}\n| {compare}"
-        for qid in self.duplicates:
-            # for row in self.duplicates[qid]:
-            row = self.duplicates[qid][0]
-            duplicate_qid = row["duplicate_qid"]
-            auth_code = row["auth_code"]
-            local_auth_id = row["local_auth_id"]
-            viaf_id = row["viaf_id"]
+        has_duplicates = False
+        x = self.report.get_duplicates()
+        if not x:
+            raise RuntimeError("No duplicates")
+        for row in x:
+            qid, duplicate_qid, local_auth_id, viaf_id = row
             # https://dicare.toolforge.org/wikidata-diff/?qids=Q3218809+Q2920825&language=en
-            compare = '[https://dicare.toolforge.org/wikidata-diff/?qids={qid1}+{qid2}&language=en compare]'.format(qid1=qid, qid2=duplicate_qid)
+            compare = "[https://dicare.toolforge.org/wikidata-diff/?qids={qid1}+{qid2}&language=en compare]".format(
+                qid1=qid, qid2=duplicate_qid
+            )
             body = body + line.format(
                 viaf_id=viaf_id,
                 qid=qid,
-                auth_code=auth_code,
+                auth_code=self.auth_src.viaf_code,
                 local_auth_id=local_auth_id,
                 duplicate_qid=duplicate_qid,
-                compare=compare
+                compare=compare,
             )
+            has_duplicates = True
+        if not has_duplicates:
+            return ""
         footer = "\n|}"
+        stats = self.report.get_stats()
+        if not stats:
+            raise RuntimeError("No stats")
+        checked, added, not_found = stats
+        if checked == added + not_found:
+            return ""
 
+        stats = (
+            "\n"
+            + " ".join(
+                [
+                    f"Checked: {checked};" if checked else "",
+                    f"Added: {added};" if added else "",
+                    f"Not found: {not_found}" if not_found else "",
+                ]
+            ).strip()
+        )
+        wikitext = f"{heading}{stats}{header}{body}{footer}"
+
+        return wikitext
+
+    def make_duplocal_wikitext(self):
+        heading = "=={description}==\n".format(description=self.auth_src.description)
+        header = '\n{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! VIAF\n! QID on the item\n! ID from cluster'
+        body = ""
+        line = "\n|-\n| https://viaf.org/viaf/{viaf_id}\n| {{{{Q|{qid}}}}}\n|{local_auth_ids}"
+        has_duplicates = False
+        for row in self.report.get_dup_locals():
+            qid, local_auth_id_set, viaf_id = row
+            strs = set()
+            for local_auth_id in local_auth_id_set:
+                str = f"[https://d-nb.info/gnd/{local_auth_id} {local_auth_id}]"
+                strs.add(str)
+            local_auth_ids = ", ".join(sorted(strs))
+            body = body + line.format(
+                viaf_id=viaf_id,
+                qid=qid,
+                auth_code=self.auth_src.viaf_code,
+                local_auth_ids=local_auth_ids,
+            )
+            has_duplicates = True
+        if not has_duplicates:
+            return ""
+        footer = "\n|}"
         wikitext = f"{heading}{header}{body}{footer}"
 
         return wikitext
 
+    def write_to_file(self, wikitext) -> None:
+        if not wikitext:
+            return
+        with open(WIKI_FILE, "w", encoding="utf-8") as outfile:
+            outfile.write(wikitext)
+
     def write_to_wiki(self, wikitext) -> None:
-        #with open(WIKI_FILE, "w") as outfile:
-        #    outfile.write(wikitext)
-        #return
-        # print(wikitext)
-        # ==Union List of Artist Names ID==\n((.*)*\n)*?\|\}
+        if not wikitext:
+            return
         site = pwb.Site("wikidata", "wikidata")
         page = pwb.Page(site, PAGE_TITLE)
-        page.text = page.text + '\n' + wikitext
+        page.text = page.text + "\n" + wikitext
         page.save(summary="upd", minor=False)
 
     def iterate(self):
-        index = 0
+        index = 1_300_000
         while True:
-            print('Index = {index}'.format(index=index))
+            pwb.output(f"Index = {index}")
             if not self.iterate_index(index):
                 return
-            index = index + 100000
+            index = index + 100_000
 
     def iterate_index(self, index: int) -> bool:
         # instance of (P31)
@@ -407,7 +452,7 @@ class ViafBot:
         #                             }}
         #                             }} LIMIT 3000
         #                             """
-        
+
         query_template = """
                     SELECT DISTINCT ?item ?local_auth_id WHERE {{
 
@@ -426,8 +471,8 @@ class ViafBot:
                     """
 
         qry = query_template.format(pid=self.auth_src.pid, index=index)
-        r = self.query_wdqs(qry)
-        if r == []:
+        r = viaf.query_wikidata.query_wdqs(qry)
+        if not r:
             return False
         for row in r:
             qid = row.get("item", {}).get("value", "").replace(WD, "")
@@ -436,99 +481,83 @@ class ViafBot:
                 continue
             if len(local_auth_id) == 0:
                 continue
-            id = authsource.AuthorityID(qid, local_auth_id)
-            self.iterate_viaf(id)
+            id = viaf.authsource.AuthorityID(qid, local_auth_id)
+            self.examine(id)
         return True
 
-    def update_done(self, pid: str):
-        if os.path.exists(DONE_FILE):
-            with open(DONE_FILE, "r") as infile:
-                done = json.load(infile)
+    def fetch_qlever_results(self, output_file: str = "qlever_viaf_index.txt") -> int:
+        """Execute the iterate_index query on qlever without the slice part and save the output.
+
+        The output file contains QID and local authority ID pairs separated by tabs.
+        """
+        query_template = """
+                        PREFIX wikibase: <http://wikiba.se/ontology#>
+                        PREFIX wd: <http://www.wikidata.org/entity/>
+                        PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+                        PREFIX p: <http://www.wikidata.org/prop/>
+                        PREFIX ps: <http://www.wikidata.org/prop/statement/>
+                        SELECT DISTINCT ?item ?local_auth_id WHERE {{
+                        ?item wdt:{pid} ?local_auth_id .
+                        FILTER EXISTS {{?item wdt:P31 wd:Q5}}
+                        MINUS {{?item p:P214 ?viaf}}
+                        OPTIONAL {{?item p:{pid} ?statement0.
+                                    ?statement0 ps:{pid} _:anyValueP245;
+                                        wikibase:rank ?rank }}
+                        FILTER(?rank != wikibase:DeprecatedRank)
+                    }}
+                    """
+        qry = query_template.format(pid=self.auth_src.pid)
+        results = _execute_qlever_query(qry)
+        if not results:
+            pwb.warning("No results returned from qlever.")
+            return 0
+
+        with open(output_file, "w", encoding="utf-8") as fh:
+            for row in results:
+                fh.write(f"{row['qid']}\t{row['local_auth_id']}\n")
+
+        pwb.output(f"Wrote {len(results)} rows to {output_file}")
+        return len(results)
+
+    def iterate_qlever(self, output_file: str = "qlever_viaf_index.txt") -> None:
+        """Run qlever once, iterate the resulting items, and delete the file afterward."""
+        if not os.path.exists(output_file):
+            pwb.output(f"Fetching qlever results into {output_file}...")
+            count = self.fetch_qlever_results(output_file=output_file)
+            if count == 0:
+                pwb.warning("No qlever rows to process.")
+                return
         else:
-            done = {}
-        done[pid] = datetime.utcnow().strftime('%Y-%m-%d')
-        with open(DONE_FILE, "w") as outfile:
-            json.dump(done, outfile)
+            pwb.output(f"Using existing qlever file: {output_file}")
 
-    def load_duplicates(self):
-        if os.path.exists(DUPLICATES_FILE):
-            with open(DUPLICATES_FILE, "r") as infile:
-                duplicates = json.load(infile)
-        else:
-            duplicates = {}
-        return duplicates
+        total_lines = 0
+        with open(output_file, "r", encoding="utf-8") as fh:
+            total_lines = sum(1 for line in fh if line.strip())
 
-    def save_duplicates(self, duplicates):
-        with open(DUPLICATES_FILE, "w") as outfile:
-            json.dump(duplicates, outfile)
+        processed = 0
+        malformed = 0
+        with open(output_file, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) != 2:
+                    malformed += 1
+                    pwb.warning(f"Skipping malformed line: {line}")
+                    continue
+                qid, local_auth_id = parts
+                aid = viaf.authsource.AuthorityID(qid, local_auth_id)
+                self.examine(aid)
+                processed += 1
+                if processed % 100 == 0 or processed == total_lines:
+                    pct = (processed / total_lines * 100) if total_lines else 0.0
+                    pwb.output(
+                        f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
+                    )
 
-    def add_duplicate(self, qid, duplicate_qid, local_auth_id, viaf_id):
-        if qid not in self.duplicates:
-            self.duplicates[qid] = []
-        self.duplicates[qid].append(
-            {
-                "duplicate_qid": duplicate_qid,
-                "auth_code": self.auth_src.codes[0],
-                "local_auth_id": local_auth_id,
-                "viaf_id": viaf_id,
-            })
-
-        self.save_duplicates(self.duplicates)
-
-    def add_error(self, qid, msg):
-        print(msg)
-        if qid not in self.errors:
-            self.errors[qid] = []
-        self.errors[qid].append(
-            {
-                "msg": msg,
-            }
-        )
-
-        self.save_errors(self.errors)
-
-    def load_errors(self):
-        if os.path.exists(ERRORS_FILE):
-            with open(ERRORS_FILE, "r") as infile:
-                errors = json.load(infile)
-        else:
-            errors = {}
-        return errors
-
-    def save_errors(self, errors):
-        with open(ERRORS_FILE, "w") as outfile:
-            json.dump(errors, outfile)
-
-    def load_ignores(self):
-        if os.path.exists(IGNORES_FILE):
-            with open(IGNORES_FILE, "r") as infile:
-                ignores = json.load(infile)
-        else:
-            ignores = {}
-        return ignores
-
-def main() -> None:
-
-    authsrc = authsource.AuthoritySources()
-    # nothing found: 
-    #              : PID_FAST_ID
-    #              : PID_CONOR_SI_ID
-    #              : PID_PERSEUS_AUTHOR_ID
-    # lots of not found: PID_BIBLIOTECA_NACIONAL_DE_ESPANA_ID; PID_ISNI
-    # niets gevonden: PID_EGAXA_ID; PID_BNRM_ID
-    # done; PID_IDREF_ID; PID_GND_ID; PID_SBN_AUTHOR_ID; PID_NL_CR_AUT_ID; PID_VATICAN_LIBRARY_VCBA_ID; PID_NATIONAL_LIBRARY_OF_KOREA_ID
-    #       PID_BNMM_AUTHORITY_ID; PID_NSK_ID; PID_LIBRARIES_AUSTRALIA_ID; PID_NATIONAL_LIBRARY_OF_BRAZIL_ID
-    #       PID_CANADIANA_NAME_AUTHORITY_ID; PID_RISM_ID; PID_NORAF_ID; PID_NATIONAL_LIBRARY_OF_IRELAND_ID
-    #       PID_LEBANESE_NATIONAL_LIBRARY_ID; PID_NATIONAL_LIBRARY_OF_ICELAND_ID
-    #       PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID; PID_NDL_AUTHORITY_ID; PID_RERO_ID_OBSOLETE
-    #       PID_PORTUGUESE_NATIONAL_LIBRARY_AUTHOR_ID; PID_PLWABN_ID; PID_CANTIC_ID; PID_BANQ_AUTHORITY_ID; PID_RILM_ID
-    #       PID_ELNET_ID; PID_DBC_AUTHOR_ID; PID_CINII_BOOKS_AUTHOR_ID; PID_NATIONAL_LIBRARY_OF_RUSSIA_ID
-    #       PID_CYT_CCS; PID_NATIONAL_LIBRARY_OF_LATVIA_ID; PID_LIBRIS_URI; PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID
-    #       PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID; PID_NUKAT_ID; PID_NATIONAL_LIBRARY_OF_CHILE_ID
-    bot = ViafBot(authsrc.get(authsource.PID_CONOR_SI_ID))
-    bot.test = False
-    bot.run()
-
-
-if __name__ == "__main__":
-    main()
+        try:
+            os.remove(output_file)
+            pwb.output(f"Removed temporary qlever file {output_file}")
+        except OSError as e:
+            pwb.error(f"Failed to remove temporary file {output_file}: {e}")

@@ -1,12 +1,32 @@
-import requests
 import time
+
+import requests
+
+
+def format_retry_time(retry_after):
+    days = retry_after // 86400
+    hours = (retry_after % 86400) // 3600
+    minutes = (retry_after % 3600) // 60
+    seconds = retry_after % 60
+
+    time_parts = []
+    if days:
+        time_parts.append(f"{days} days")
+    if hours:
+        time_parts.append(f"{hours} hours")
+    if minutes:
+        time_parts.append(f"{minutes} minutes")
+    if seconds or not time_parts:
+        time_parts.append(f"{seconds} seconds")
+
+    return ", ".join(time_parts)
 
 
 class VIAFResult:
-    def __init__(self, status: str, redirect_to: str = None, data=None):
+    def __init__(self, status: str, redirect_to: str | None = None, data=None):
         self.status = status
         self.redirect_to = redirect_to
-        self.viaf_id = None
+        self.viaf_cluster_id = None
         self.source_mapping = {}
 
         if data:
@@ -15,7 +35,7 @@ class VIAFResult:
     def __str__(self):
         return (
             f"VIAFResult(status='{self.status}', redirect_to={self.redirect_to}, "
-            f"viaf_id={self.viaf_id}, source_mapping={self.source_mapping})"
+            f"viaf_id={self.viaf_cluster_id}, source_mapping={self.source_mapping})"
         )
 
     def extract_data(self, data):
@@ -24,28 +44,45 @@ class VIAFResult:
         sources = cluster.get("ns1:sources", {})
         source_entries = sources.get("ns1:source", [])
 
-        self.viaf_id = str(cluster.get("ns1:viafID", ""))
+        self.viaf_cluster_id = str(cluster.get("ns1:viafID", ""))
 
         if isinstance(source_entries, dict):  # Normalize to a list for consistency
             source_entries = [source_entries]
 
         for entry in source_entries:
-            key, nsid = entry["content"].split("|")
-            self.source_mapping.setdefault(key, []).append(str(entry["nsid"]))
+            key, content_id = entry["content"].split("|")
+            nsid = str(entry["nsid"])
+            # most of the time the nsid is equal to the content_id;
+            # but for NUKAT the nsid is for example: vtls000507549 and the content_id is n  99016302
+            self.source_mapping.setdefault(key, []).append(
+                (
+                    nsid,
+                    content_id,
+                )
+            )
 
         # print(json.dumps(self.source_mapping, indent=4))
 
 
 class VIAFQuery:
     BASE_URL = "https://viaf.org/viaf/"
-    HEADERS = {"Accept": "application/json", "Origin": "https://www.wikidata.org/"}
+    HEADERS = {
+        "Accept": "application/json",
+        "Origin": "https://www.wikidata.org/",
+        "User-Agent": "DifoolBot (https://www.wikidata.org/wiki/User:DifoolBot) Purpose: Adding VIAF ID to Wikidata pages",
+        "X-USER-AGENT": "DifoolBot",
+    }
 
     def query_viaf(self, url) -> VIAFResult:
         response = requests.get(url, headers=self.HEADERS)
 
+        remaining_day = int(response.headers.get("x-ratelimit-remaining-day", 0))
+        remaining_month = int(response.headers.get("x-ratelimit-remaining-month", 0))
+        print(f"Remaining: day={remaining_day} month={remaining_month}")
+
         if response.status_code == 429:
             retry_after = int(response.headers.get("Ratelimit-Reset", 60))
-            print(f"Rate limit exceeded! Waiting {retry_after} seconds...")
+            print(f"Rate limit exceeded! Waiting {format_retry_time(retry_after)}...")
             time.sleep(retry_after)
             return self.query_viaf(url)  # Retry after delay
 
@@ -56,6 +93,10 @@ class VIAFQuery:
         if not data:
             # seen with query_viaf_sourceid + LC
             return VIAFResult("empty")
+
+        # # Save to file with formatting
+        # with open("output.json", "w", encoding="utf-8") as f:
+        #     json.dump(data, f, indent=4, ensure_ascii=False)
 
         abandoned = data.get("ns0:abandoned_viaf_record", {})
 
@@ -77,10 +118,9 @@ class VIAFQuery:
         url = f"{self.BASE_URL}lccn/{lccn}"
         return self.query_viaf(url)
 
-    def query_viaf_id(self, viaf_id: str) -> VIAFResult:
-        url = f"{self.BASE_URL}{viaf_id}"
+    def query_viaf_id(self, viaf_cluster_id: str) -> VIAFResult:
+        url = f"{self.BASE_URL}{viaf_cluster_id}"
         return self.query_viaf(url)
-
 
 
 def test_gnd() -> None:
@@ -106,9 +146,9 @@ def test_loc() -> None:
     # res = qry.query_viaf_sourceid("LC", 'no%202024135806') # empty
     # res = qry.query_viaf_sourceid("LC", 'n86084265') # empty
     # res = qry.query_viaf_sourceid("JPG", '500334113') # found
-    # res = qry.query_viaf_lccn('n79022935') # Vincent van Gogh
+    res = qry.query_viaf_lccn("n79022935")  # Vincent van Gogh
     # https://viaf.org/viaf/LC%257Cn%20%2079022935
-    res = qry.query_viaf_sourceid("LC", "n  79022935")
+    # res = qry.query_viaf_sourceid("LC", "n  79022935")
 
     print(res)
 
@@ -131,8 +171,14 @@ def test_found() -> None:
     print(res)
 
 
+def test_nukat() -> None:
+    qry = VIAFQuery()
+    res = qry.query_viaf_sourceid("NUKAT", "n 99016302")
+    print(res)
+
+
 def main() -> None:
-    test_loc()
+    test_nukat()
 
 
 if __name__ == "__main__":
