@@ -9,6 +9,7 @@ import viaf.wdqs_client
 from viaf.authority_sources import AuthorityRecord, AuthoritySource
 from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
+from viaf.wikidata_site import REPO, SITE
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
@@ -16,11 +17,6 @@ import shared_lib.constants as wd
 WD = "http://www.wikidata.org/entity/"
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
-
-SITE = pwb.Site("wikidata", "wikidata")
-SITE.login()
-SITE.get_tokens("csrf")
-REPO = SITE.data_repository()
 
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
 WIKI_FILE = "wiki.txt"
@@ -428,8 +424,7 @@ class ViafBot:
     def write_to_wiki(self, wikitext) -> None:
         if not wikitext:
             return
-        site = pwb.Site("wikidata", "wikidata")
-        page = pwb.Page(site, PAGE_TITLE)
+        page = pwb.Page(SITE, PAGE_TITLE)
         page.text = page.text + "\n" + wikitext
         page.save(summary="upd", minor=False)
 

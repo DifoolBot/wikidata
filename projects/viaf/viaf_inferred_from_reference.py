@@ -1,4 +1,11 @@
+from collections import OrderedDict
+from datetime import datetime, timezone
+
+import pywikibot as pwb
+
 import shared_lib.change_wikidata as cwd
+import shared_lib.constants as wd
+from viaf.wikidata_site import REPO
 
 QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM = "Q115111315"
 
@@ -12,16 +19,38 @@ class ViafInferredFromReference(cwd.Reference):
         )
 
     def is_equal_reference(self, src: dict) -> bool:
-        if self.pid not in src:
-            return False
-        if len(src[self.pid]) != 1:
-            raise RuntimeError("Multiple external ids")
-        actual = src[self.pid][0].getTarget()
-        return actual == self.external_id
+        return False
 
     def create_source(self):
-        # TODO
-        pass
+        source = OrderedDict()
+
+        stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN, is_reference=True)
+        stated_in_claim.setTarget(
+            pwb.ItemPage(REPO, wd.QID_VIRTUAL_INTERNATIONAL_AUTHORITY_FILE)
+        )
+        source[wd.PID_STATED_IN] = [stated_in_claim]
+
+        pid_claim = pwb.Claim(REPO, self.pid, is_reference=True)
+        pid_claim.setTarget(self.external_id)
+        source[self.pid] = [pid_claim]
+
+        today = datetime.now(timezone.utc)
+        dateCre = pwb.WbTime(
+            year=int(today.strftime("%Y")),
+            month=int(today.strftime("%m")),
+            day=int(today.strftime("%d")),
+        )
+
+        retr_claim = pwb.Claim(REPO, wd.PID_RETRIEVED, is_reference=True)
+        retr_claim.setTarget(dateCre)
+        source[wd.PID_RETRIEVED] = [retr_claim]
+
+        heur_claim = pwb.Claim(REPO, wd.PID_BASED_ON_HEURISTIC, is_reference=True)
+        heur_claim.setTarget(pwb.ItemPage(REPO, self.heuristic_qid))
+        #        QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM,
+        source[wd.PID_BASED_ON_HEURISTIC] = [heur_claim]
+
+        return source
 
     def is_strong_reference(self) -> bool:
         return True
