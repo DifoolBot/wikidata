@@ -147,7 +147,7 @@ def main() -> None:
     #       PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID; PID_NUKAT_ID; PID_NATIONAL_LIBRARY_OF_CHILE_ID
 
     bot = viaf.viaf_bot.ViafBot(
-        authsrcs.get(viaf.authority_sources.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID),
+        authsrcs.get(wd.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID),
         report=FirebirdViafReporting(),
     )
     bot.test = False

@@ -1,59 +1,6 @@
 import requests
 
-PID_BANQ_AUTHORITY_ID = "P3280"
-PID_BIBLIOTECA_NACIONAL_DE_ESPANA_ID = "P950"
-PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID = "P268"
-PID_BNMM_AUTHORITY_ID = "P3788"
-PID_BNRM_ID = "P7058"
-PID_CANADIANA_NAME_AUTHORITY_ID = "P8179"
-PID_CANTIC_ID = "P9984"
-PID_CINII_BOOKS_AUTHOR_ID = "P271"
-PID_CONOR_SI_ID = "P1280"
-PID_CYT_CCS = "P10307"
-PID_DBC_AUTHOR_ID = "P3846"
-PID_EGAXA_ID = "P1309"
-PID_ELNET_ID = "P6394"
-PID_FAST_ID = "P2163"
-PID_FLEMISH_PUBLIC_LIBRARIES_ID = "P7024"
-PID_GND_ID = "P227"
-PID_IDREF_ID = "P269"
-PID_ISNI = "P213"
-PID_LEBANESE_NATIONAL_LIBRARY_ID = "P7026"
-PID_LIBRARIES_AUSTRALIA_ID = "P409"
-PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID = "P244"
-PID_LIBRIS_URI = "P5587"
-PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID = "P1006"
-PID_NATIONAL_LIBRARY_BOARD_SINGAPORE_ID = "P3988"
-PID_NATIONAL_LIBRARY_OF_BRAZIL_ID = "P4619"
-PID_NATIONAL_LIBRARY_OF_CHILE_ID = "P7369"
-PID_NATIONAL_LIBRARY_OF_GREECE_ID = "P3348"
-PID_NATIONAL_LIBRARY_OF_ICELAND_ID = "P7039"
-PID_NATIONAL_LIBRARY_OF_IRELAND_ID = "P10227"
-PID_NATIONAL_LIBRARY_OF_ISRAEL_J9U_ID = "P8189"
-PID_NATIONAL_LIBRARY_OF_KOREA_ID = "P5034"
-PID_NATIONAL_LIBRARY_OF_LATVIA_ID = "P1368"
-PID_NATIONAL_LIBRARY_OF_LITHUANIA_ID = "P7699"
-PID_NATIONAL_LIBRARY_OF_LUXEMBOURG_ID = "P7028"
-PID_NATIONAL_LIBRARY_OF_RUSSIA_ID = "P7029"
-PID_NDL_AUTHORITY_ID = "P349"
-PID_NL_CR_AUT_ID = "P691"
-PID_NORAF_ID = "P1015"
-PID_NSK_ID = "P1375"
-PID_NSZL_NAME_AUTHORITY_ID = "P3133"
-PID_NSZL_VIAF_ID = "P951"
-PID_NUKAT_ID = "P1207"
-PID_PERSEUS_AUTHOR_ID = "P7041"
-PID_PLWABN_ID = "P7293"
-PID_PORTUGUESE_NATIONAL_LIBRARY_AUTHOR_ID = "P1005"
-PID_RERO_ID_OBSOLETE = "P3065"
-PID_RILM_ID = "P9171"
-PID_RISM_ID = "P5504"
-PID_SBN_AUTHOR_ID = "P396"
-PID_SLOVAK_NATIONAL_LIBRARY_VIAF_ID = "P7700"
-PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID = "P6934"
-PID_UAE_UNIVERSITY_LIBRARIES_ID = "P10021"
-PID_UNION_LIST_OF_ARTIST_NAMES_ID = "P245"
-PID_VATICAN_LIBRARY_VCBA_ID = "P8034"
+import shared_lib.constants as wd
 
 READ_TIMEOUT = 20  # sec
 
@@ -157,7 +104,9 @@ class BnfAuthoritySource(AuthoritySource):
 
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """BNF-specific VIAF search key computation by adjusting checksums."""
-        search_key = record.wikidata_external_id[:-1]  # Remove checksum from Wikidata ID
+        search_key = record.wikidata_external_id[
+            :-1
+        ]  # Remove checksum from Wikidata ID
         bnf_ark = compute_bnf_ark_from_8digits(search_key)
 
         # Verify if BNF Ark matches expected format before assigning search key
@@ -168,7 +117,9 @@ class BnfAuthoritySource(AuthoritySource):
 
 
 class RismAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
 
@@ -181,7 +132,9 @@ class RismAuthoritySource(AuthoritySource):
 
 
 class GndAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         # http://d-nb.info/gnd/171910605 vs 171910605
         nsid = nsid.replace("http://d-nb.info/gnd/", "")
         return (nsid == record.wikidata_external_id) or (
@@ -190,14 +143,18 @@ class GndAuthoritySource(AuthoritySource):
 
 
 class SbnAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         # IT\\ICCU\\SBLV\\015759 vs SBLV015759
         nsid = nsid.replace("IT\\ICCU", "").replace("\\", "")
         return nsid == record.wikidata_external_id
 
 
 class LnbAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
 
@@ -222,7 +179,9 @@ class NlaAuthoritySource(AuthoritySource):
 
 
 class NlrAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         nsid = nsid.replace("RU\\NLR\\AUTH\\", "")
         return nsid == record.wikidata_external_id
 
@@ -231,8 +190,12 @@ class NlrAuthoritySource(AuthoritySource):
 
 
 class NukatAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
-        return (nsid.replace(" ", "") == record.wikidata_external_id.replace(" ", "")) or (
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
+        return (
+            nsid.replace(" ", "") == record.wikidata_external_id.replace(" ", "")
+        ) or (
             content_id.replace(" ", "") == record.wikidata_external_id.replace(" ", "")
         )
 
@@ -245,17 +208,23 @@ class NukatAuthoritySource(AuthoritySource):
 
 
 class PerseusAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
 
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         # urn:cite:perseus:author.384.1
-        record.viaf_search_key = "urn:cite:perseus:author." + record.wikidata_external_id
+        record.viaf_search_key = (
+            "urn:cite:perseus:author." + record.wikidata_external_id
+        )
 
 
 class ReroAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
 
@@ -284,7 +253,9 @@ class SelibrAuthoritySource(AuthoritySource):
 
 
 class SrpAuthoritySource(AuthoritySource):
-    def matches_viaf_external_id(self, nsid: str, content_id: str, record: AuthorityRecord):
+    def matches_viaf_external_id(
+        self, nsid: str, content_id: str, record: AuthorityRecord
+    ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
 
@@ -298,213 +269,218 @@ class AuthoritySources:
         self._sources_by_pid = {}
 
         sources = [
-            (AuthoritySource, PID_BNMM_AUTHORITY_ID, "ARBABN", "BNMM authority ID"),
-            (AuthoritySource, PID_BANQ_AUTHORITY_ID, "B2Q", "BAnQ authority ID"),
+            (AuthoritySource, wd.PID_BNMM_AUTHORITY_ID, "ARBABN", "BNMM authority ID"),
+            (AuthoritySource, wd.PID_BANQ_AUTHORITY_ID, "B2Q", "BAnQ authority ID"),
             (
                 AuthoritySource,
-                PID_VATICAN_LIBRARY_VCBA_ID,
+                wd.PID_VATICAN_LIBRARY_VCBA_ID,
                 "BAV",
                 "Vatican Library VcBA ID",
             ),
-            (AuthoritySource, PID_NORAF_ID, "BIBSYS", "NORAF ID"),
+            (AuthoritySource, wd.PID_NORAF_ID, "BIBSYS", "NORAF ID"),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_BRAZIL_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_BRAZIL_ID,
                 "BLBNB",
                 "National Library of Brazil ID",
             ),
-            (AuthoritySource, PID_CANTIC_ID, "BNC", "CANTIC ID"),
+            (AuthoritySource, wd.PID_CANTIC_ID, "BNC", "CANTIC ID"),
             (
                 BnchlAuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_CHILE_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_CHILE_ID,
                 "BNCHL",
                 "National Library of Chile ID",
             ),
             (
                 AuthoritySource,
-                PID_BIBLIOTECA_NACIONAL_DE_ESPANA_ID,
+                wd.PID_BIBLIOTECA_NACIONAL_DE_ESPANA_ID,
                 "BNE",
                 "Biblioteca Nacional de España ID",
             ),
             (
                 BnfAuthoritySource,
-                PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
+                wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID,
                 "BNF",
                 "Bibliothèque nationale de France ID",
             ),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_LUXEMBOURG_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_LUXEMBOURG_ID,
                 "BNL",
                 "National Library of Luxembourg ID",
             ),
             (
                 AuthoritySource,
-                PID_CANADIANA_NAME_AUTHORITY_ID,
+                wd.PID_CANADIANA_NAME_AUTHORITY_ID,
                 "CAOONL",
                 "Canadiana Name Authority ID",
             ),
-            (AuthoritySource, PID_CYT_CCS, "CYT", "CYT/CCS"),  # 2 varianten
-            (AuthoritySource, PID_DBC_AUTHOR_ID, "DBC", "DBC author ID"),
-            (RismAuthoritySource, PID_RISM_ID, "DE633", "RISM ID"),
+            (AuthoritySource, wd.PID_CYT_CCS, "CYT", "CYT/CCS"),  # 2 varianten
+            (AuthoritySource, wd.PID_DBC_AUTHOR_ID, "DBC", "DBC author ID"),
+            (RismAuthoritySource, wd.PID_RISM_ID, "DE633", "RISM ID"),
             # uitgezet
-            # (AuthoritySource, PID_RISM_ID, "DE663", "RISM ID"),
-            (GndAuthoritySource, PID_GND_ID, "DNB", "GND ID"),
-            (AuthoritySource, PID_EGAXA_ID, "EGAXA", "EGAXA ID"),
-            (AuthoritySource, PID_ELNET_ID, "ERRR", "ELNET ID"),
-            (AuthoritySource, PID_FAST_ID, "FAST", "FAST ID"),
+            # (AuthoritySource, wd.PID_RISM_ID, "DE663", "RISM ID"),
+            (GndAuthoritySource, wd.PID_GND_ID, "DNB", "GND ID"),
+            (AuthoritySource, wd.PID_EGAXA_ID, "EGAXA", "EGAXA ID"),
+            (AuthoritySource, wd.PID_ELNET_ID, "ERRR", "ELNET ID"),
+            (AuthoritySource, wd.PID_FAST_ID, "FAST", "FAST ID"),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_GREECE_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_GREECE_ID,
                 "GRATEVE",
                 "National Library of Greece ID",
             ),
-            (SbnAuthoritySource, PID_SBN_AUTHOR_ID, "ICCU", "SBN author ID"),
+            (SbnAuthoritySource, wd.PID_SBN_AUTHOR_ID, "ICCU", "SBN author ID"),
             # werkt nu; veel fouten:
-            (AuthoritySource, PID_ISNI, "ISNI", "ISNI"),
+            (AuthoritySource, wd.PID_ISNI, "ISNI", "ISNI"),
             # weinig fouten:
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_ISRAEL_J9U_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_ISRAEL_J9U_ID,
                 "J9U",
                 "National Library of Israel J9U ID",
             ),
             (
                 AuthoritySource,
-                PID_UNION_LIST_OF_ARTIST_NAMES_ID,
+                wd.PID_UNION_LIST_OF_ARTIST_NAMES_ID,
                 "JPG",
                 "Union List of Artist Names ID",
             ),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_KOREA_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_KOREA_ID,
                 "KRNLK",
                 "National Library of Korea ID",
             ),
             (
                 AuthoritySource,
-                PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID,
+                wd.PID_LIBRARY_OF_CONGRESS_AUTHORITY_ID,
                 "LC",
                 "Library of Congress authority ID",
             ),  # tested
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_LITHUANIA_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_LITHUANIA_ID,
                 "LIH",
                 "National Library of Lithuania ID",
             ),
             (
                 LnbAuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_LATVIA_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_LATVIA_ID,
                 "LNB",
                 "National Library of Latvia ID",
             ),
             (
                 AuthoritySource,
-                PID_LEBANESE_NATIONAL_LIBRARY_ID,
+                wd.PID_LEBANESE_NATIONAL_LIBRARY_ID,
                 "LNL",
                 "Lebanese National Library ID",
             ),
-            (AuthoritySource, PID_BNRM_ID, "MRBNR", "BNRM ID"),
+            (AuthoritySource, wd.PID_BNRM_ID, "MRBNR", "BNRM ID"),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_IRELAND_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_IRELAND_ID,
                 "N6I",
                 "National Library of Ireland ID",
             ),
-            (AuthoritySource, PID_NDL_AUTHORITY_ID, "NDL", "NDL Authority ID"),
+            (AuthoritySource, wd.PID_NDL_AUTHORITY_ID, "NDL", "NDL Authority ID"),
             (
                 AuthoritySource,
-                PID_CINII_BOOKS_AUTHOR_ID,
+                wd.PID_CINII_BOOKS_AUTHOR_ID,
                 "NII",
                 "CiNii Books author ID",
             ),
-            (AuthoritySource, PID_NL_CR_AUT_ID, "NKC", "NL CR AUT ID"),
+            (AuthoritySource, wd.PID_NL_CR_AUT_ID, "NKC", "NL CR AUT ID"),
             (
                 NlaAuthoritySource,
-                PID_LIBRARIES_AUSTRALIA_ID,
+                wd.PID_LIBRARIES_AUSTRALIA_ID,
                 "NLA",
                 "Libraries Australia ID",
             ),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_BOARD_SINGAPORE_ID,
+                wd.PID_NATIONAL_LIBRARY_BOARD_SINGAPORE_ID,
                 "NLB",
                 "National Library Board Singapore ID",
             ),
             (
                 NlrAuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_RUSSIA_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_RUSSIA_ID,
                 "NLR",
                 "National Library of Russia ID",
             ),
-            (AuthoritySource, PID_NSK_ID, "NSK", "NSK ID"),  # tested
+            (AuthoritySource, wd.PID_NSK_ID, "NSK", "NSK ID"),  # tested
             (
                 AuthoritySource,
-                PID_NSZL_NAME_AUTHORITY_ID,
+                wd.PID_NSZL_NAME_AUTHORITY_ID,
                 "NSZL",
                 "NSZL name authority ID",
             ),
-            (AuthoritySource, PID_NSZL_VIAF_ID, "NSZL", "NSZL (VIAF), ID"),
+            (AuthoritySource, wd.PID_NSZL_VIAF_ID, "NSZL", "NSZL (VIAF), ID"),
             (
                 AuthoritySource,
-                PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID,
+                wd.PID_NATIONALE_THESAURUS_VOOR_AUTEURSNAMEN_ID,
                 "NTA",
                 "Nationale Thesaurus voor Auteursnamen ID",
             ),
-            (NukatAuthoritySource, PID_NUKAT_ID, "NUKAT", "NUKAT ID"),
-            (AuthoritySource, PID_RILM_ID, "NYNYRILM", "RILM ID"),
+            (NukatAuthoritySource, wd.PID_NUKAT_ID, "NUKAT", "NUKAT ID"),
+            (AuthoritySource, wd.PID_RILM_ID, "NYNYRILM", "RILM ID"),
             (
                 PerseusAuthoritySource,
-                PID_PERSEUS_AUTHOR_ID,
+                wd.PID_PERSEUS_AUTHOR_ID,
                 "PERSEUS",
                 "Perseus author ID",
             ),
-            (AuthoritySource, PID_PLWABN_ID, "PLWABN", "PLWABN ID"),
+            (AuthoritySource, wd.PID_PLWABN_ID, "PLWABN", "PLWABN ID"),
             (
                 AuthoritySource,
-                PID_PORTUGUESE_NATIONAL_LIBRARY_AUTHOR_ID,
+                wd.PID_PORTUGUESE_NATIONAL_LIBRARY_AUTHOR_ID,
                 "PTBNP",
                 "Portuguese National Library author ID",
             ),
-            (ReroAuthoritySource, PID_RERO_ID_OBSOLETE, "RERO", "RERO ID (obsolete),"),
-            (SelibrAuthoritySource, PID_LIBRIS_URI, "SELIBR", "Libris-URI"),
-            (AuthoritySource, PID_CONOR_SI_ID, "SIMACOB", "CONOR.SI ID"),
+            (
+                ReroAuthoritySource,
+                wd.PID_RERO_ID_OBSOLETE,
+                "RERO",
+                "RERO ID (obsolete),",
+            ),
+            (SelibrAuthoritySource, wd.PID_LIBRIS_URI, "SELIBR", "Libris-URI"),
+            (AuthoritySource, wd.PID_CONOR_SI_ID, "SIMACOB", "CONOR.SI ID"),
             (
                 AuthoritySource,
-                PID_SLOVAK_NATIONAL_LIBRARY_VIAF_ID,
+                wd.PID_SLOVAK_NATIONAL_LIBRARY_VIAF_ID,
                 "SKMASNL",
                 "Slovak National Library (VIAF), ID",
             ),
             (
                 SrpAuthoritySource,
-                PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID,
+                wd.PID_SYRIAC_BIOGRAPHICAL_DICTIONARY_ID,
                 "SRP",
                 "Syriac Biographical Dictionary ID",
             ),
-            (AuthoritySource, PID_IDREF_ID, "SUDOC", "IdRef ID"),
+            (AuthoritySource, wd.PID_IDREF_ID, "SUDOC", "IdRef ID"),
             # uitgezet:
-            # (AuthoritySource, PID_GND_ID, "SZ", "GND ID"),
+            # (AuthoritySource, wd.PID_GND_ID, "SZ", "GND ID"),
             (
                 AuthoritySource,
-                PID_UAE_UNIVERSITY_LIBRARIES_ID,
+                wd.PID_UAE_UNIVERSITY_LIBRARIES_ID,
                 "UAE",
                 "UAE University Libraries ID",
             ),
             (
                 AuthoritySource,
-                PID_NATIONAL_LIBRARY_OF_ICELAND_ID,
+                wd.PID_NATIONAL_LIBRARY_OF_ICELAND_ID,
                 "UIY",
                 "National Library of Iceland ID",
             ),
             (
                 AuthoritySource,
-                PID_FLEMISH_PUBLIC_LIBRARIES_ID,
+                wd.PID_FLEMISH_PUBLIC_LIBRARIES_ID,
                 "VLACC",
                 "Flemish Public Libraries ID",
             ),
             # uitgezet:
-            # self.add(AuthoritySource, PID_NORAF_ID, "W2Z", "NORAF ID"))
+            # self.add(AuthoritySource, wd.PID_NORAF_ID, "W2Z", "NORAF ID"))
         ]
         for source_class, pid, viaf_code, description in sources:
             self.add(source_class(pid, viaf_code, description))

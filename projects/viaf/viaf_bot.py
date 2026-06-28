@@ -6,12 +6,12 @@ from collections.abc import Iterator
 import pywikibot as pwb
 import requests
 import viaf.authority_sources
-import viaf.wdqs_client
 import viaf.viaf_api_client
+import viaf.wdqs_client
+
+import shared_lib.constants as wd
 
 WD = "http://www.wikidata.org/entity/"
-
-PID_VIAF_ID = "P214"
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
 
@@ -127,7 +127,9 @@ def _execute_qlever_query(query: str) -> list[dict[str, str]]:
 
 
 class ViafBot:
-    def __init__(self, auth_src: viaf.authority_sources.AuthoritySource, report: ReportBackend):
+    def __init__(
+        self, auth_src: viaf.authority_sources.AuthoritySource, report: ReportBackend
+    ):
         self.auth_src = auth_src
         self.test = False
         self.report = report
@@ -169,7 +171,7 @@ class ViafBot:
         if not existing_claims:
             raise RuntimeError("Skipping, because it has no claims")
 
-        if PID_VIAF_ID in existing_claims:
+        if wd.PID_VIAF_ID in existing_claims:
             raise RuntimeError("Skipping, because it already has a VIAF ID")
 
         if self.auth_src.pid not in existing_claims:
@@ -195,7 +197,9 @@ class ViafBot:
             return
 
         pwb.output(f"Adding VIAF ID {record.viaf_cluster_id} to {record.qid}")
-        self.report.add_viaf(item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id)
+        self.report.add_viaf(
+            item, self.auth_src, viaf_cluster_id=record.viaf_cluster_id
+        )
         self.report.add_done(qid=record.qid)
 
     def get_duplicates_qids(self, record: viaf.authority_sources.AuthorityRecord):
