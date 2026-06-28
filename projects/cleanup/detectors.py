@@ -44,11 +44,43 @@ ACTION_MERGE_CLAIM:
   { "pid": str, "from_claim_id": str, "to_claim_id": str }
   The "from" claim is removed; its references and qualifiers are
   transferred to the "to" claim.
+
+ACTION_REMOVE_OBSOLETE_SNAKS:
+  { "pid": str, "claim_id": str, "ref_hash": str, "obsolete_pids": list[str] }
+  Removes only the listed obsolete-PID snaks from a reference, leaving
+  the rest of the reference intact.
+
+ACTION_NORMALIZE:
+  { "field": str, "lang": str, "before": str, "after": str }
+  field is one of "label", "description", "alias".
+
+ACTION_SET_MUL_LABEL:
+  { "value": str, "matching_langs": str }
+
+ACTION_ADD_MUL_ALIAS:
+  { "value": str, "source_langs": list[str], "lang_count": int }
+  Paired with hidden ACTION_REMOVE_ALIAS diffs for each source language.
+
+ACTION_UPGRADE_PRECISE_DATE:
+  { "pid": str, "claim_id": str, "depr_claim_id": str }
+  Paired with a hidden ACTION_DOWNGRADE_PREFERRED diff on depr_claim_id.
+
+ACTION_CHANGE_PROPERTY:
+  { "pid": str, "claim_id": str, "ref_hash": str, "snak_hash": str,
+    "old_property": str, "new_property": str }
+
+ACTION_SPLIT_REFERENCE_URLS:
+  { "pid": str, "claim_id": str, "ref_hash": str, "url_count": int }
+
+ACTION_MERGE_WIKI_IMPORT_REFS:
+  { "pid": str, "claim_id": str,
+    "p4656_ref_hash": str, "p4656_url": str,
+    "p143_ref_hash": str, "p143_qid": str }
 """
 
-import re
-from datetime import datetime, timezone
 from typing import Callable
+from datetime import datetime, timezone
+import re
 
 # ==== Action constants =======================================================
 
@@ -59,12 +91,21 @@ ACTION_DOWNGRADE_PREFERRED = "downgrade_preferred"
 ACTION_CLEAN_URL = "clean_url"
 ACTION_REMOVE_REFS = "remove_refs"
 ACTION_MERGE_CLAIM = "merge_claim"
+ACTION_REMOVE_OBSOLETE_SNAKS = "remove_obsolete_snaks"
+ACTION_NORMALIZE = "normalize"
+ACTION_SET_MUL_LABEL = "set_mul_label"
+ACTION_ADD_MUL_ALIAS = "add_mul_alias"
+ACTION_UPGRADE_PRECISE_DATE = "upgrade_precise_date"
+ACTION_CHANGE_PROPERTY = "change_property"
+ACTION_SPLIT_REFERENCE_URLS = "split_reference_urls"
+ACTION_MERGE_WIKI_IMPORT_REFS = "merge_wiki_import_refs"
 
-# ==== PIDs ===================================================================
+# ==== PIDs and QIDs ==========================================================
 
 PID_CITES_WORK = "P2860"
 PID_END_TIME = "P582"
 PID_REASON_FOR_PREFERRED_RANK = "P7452"
+PID_REASON_FOR_DEPRECATED_RANK = "P2241"
 PID_WIKIMEDIA_IMPORT_URL = "P4656"
 PID_RETRIEVED = "P813"
 PID_TITLE = "P1476"
@@ -78,6 +119,12 @@ PID_BASED_ON_HEURISTIC = "P887"
 PID_REFERENCE_URL = "P854"
 PID_ARCHIVE_URL = "P1065"
 PID_ARCHIVE_DATE = "P2960"
+PID_DATE_OF_BIRTH = "P569"
+PID_DATE_OF_DEATH = "P570"
+PID_URL = "P2699"
+
+QID_LESS_PRECISE = "Q42727519"  # item/value with less precision
+QID_MOST_PRECISE = "Q71536040"  # most precise value (P7452 reason)
 
 # ==== Text normalisation (mirrors JS normalizeText exactly) ==================
 
@@ -406,8 +453,8 @@ def _normalize_date_value(val: dict, precision: int) -> dict | None:
     if not val:
         return None
 
-    import math
     import re as _re
+    import math
 
     m = _re.match(r"^([+-]\d+)-", val.get("time", ""))
     if not m:
@@ -928,65 +975,18 @@ def _highest_level_category(codes: list[str | None]) -> str | None:
     return best
 
 
-def _is_splittable_reference(ref: dict) -> bool:
+def _is_splittable_reference(ref: dict) -> tuple[bool, int, str | None]:
     """
-    Return True when a reference should be skipped because it is a candidate
-    for splitting (detect_multiple_reference_urls detector).
-    Mirrors the entry conditions of isSplittableReference() from JS.
-    We implement only the conditions needed to correctly skip refs here;
-    the full splitting logic is not ported to the bot.
+    Return (splittable, url_count, split_mode).
+    Mirrors isSplittableReference() from WikidataCleanup.js exactly.
+    split_mode: "multiP143", "multiP4656", "multiP143P4656",
+                "wikiHeaderUrl", "multiUrl", or None.
     """
     snaks = ref.get("snaks") or {}
     pids = list(snaks.keys())
     METADATA = {PID_RETRIEVED, PID_ARCHIVE_DATE}
-
-    # Case A1: multiple P143 snaks only
-    if (
-        PID_IMPORTED_FROM in pids
-        and all(p == PID_IMPORTED_FROM or p in METADATA for p in pids)
-        and len(snaks.get(PID_IMPORTED_FROM, [])) >= 2
-    ):
-        return True
-
-    # Case A2: multiple P4656 snaks only
-    if (
-        PID_WIKIMEDIA_IMPORT_URL in pids
-        and all(p == PID_WIKIMEDIA_IMPORT_URL or p in METADATA for p in pids)
-        and len(snaks.get(PID_WIKIMEDIA_IMPORT_URL, [])) >= 2
-    ):
-        return True
-
-    # Case A3: multiple P143 + multiple P4656 snaks only
-    if (
-        PID_IMPORTED_FROM in pids
-        and PID_WIKIMEDIA_IMPORT_URL in pids
-        and all(
-            p in {PID_IMPORTED_FROM, PID_WIKIMEDIA_IMPORT_URL} or p in METADATA
-            for p in pids
-        )
-        and len(snaks.get(PID_IMPORTED_FROM, [])) >= 2
-        and len(snaks.get(PID_WIKIMEDIA_IMPORT_URL, [])) >= 2
-    ):
-        return True
-
-    # Case B: wikipedia header + URL/archive pids
     WIKI_PIDS = {PID_INFERRED, PID_IMPORTED_FROM, PID_WIKIMEDIA_IMPORT_URL}
     URL_PIDS = {PID_REFERENCE_URL, PID_ARCHIVE_URL}
-    has_wiki = bool(set(pids) & {PID_IMPORTED_FROM, PID_WIKIMEDIA_IMPORT_URL})
-    has_url = bool(set(pids) & URL_PIDS)
-    if has_wiki and has_url:
-        all_accounted = all(
-            p in WIKI_PIDS or p in URL_PIDS or p in METADATA for p in pids
-        )
-        non_meta = [p for p in (ref.get("snaks-order") or pids) if p not in METADATA]
-        wiki_idxs = [i for i, p in enumerate(non_meta) if p in WIKI_PIDS]
-        url_idxs = [i for i, p in enumerate(non_meta) if p in URL_PIDS]
-        correct_order = max(wiki_idxs, default=-1) < min(url_idxs, default=float("inf"))
-        url_count = sum(len(snaks.get(p, [])) for p in URL_PIDS if p in pids)
-        if all_accounted and correct_order and url_count >= 1:
-            return True
-
-    # Main case: multiple P854/P1065 URLs
     ALLOWED = {
         PID_REFERENCE_URL,
         PID_RETRIEVED,
@@ -995,15 +995,56 @@ def _is_splittable_reference(ref: dict) -> bool:
         PID_IMPORTED_FROM,
         PID_WIKIMEDIA_IMPORT_URL,
     }
+
     if PID_REFERENCE_URL not in pids:
-        return False
+        # Case A1
+        if PID_IMPORTED_FROM in pids and all(
+            p == PID_IMPORTED_FROM or p in METADATA for p in pids
+        ):
+            c = len(snaks.get(PID_IMPORTED_FROM, []))
+            if c >= 2:
+                return (True, c, "multiP143")
+        # Case A2
+        if PID_WIKIMEDIA_IMPORT_URL in pids and all(
+            p == PID_WIKIMEDIA_IMPORT_URL or p in METADATA for p in pids
+        ):
+            c = len(snaks.get(PID_WIKIMEDIA_IMPORT_URL, []))
+            if c >= 2:
+                return (True, c, "multiP4656")
+        # Case A3
+        if (
+            PID_IMPORTED_FROM in pids
+            and PID_WIKIMEDIA_IMPORT_URL in pids
+            and all(
+                p in {PID_IMPORTED_FROM, PID_WIKIMEDIA_IMPORT_URL} or p in METADATA
+                for p in pids
+            )
+        ):
+            c143 = len(snaks.get(PID_IMPORTED_FROM, []))
+            c4656 = len(snaks.get(PID_WIKIMEDIA_IMPORT_URL, []))
+            if c143 >= 2 and c4656 >= 2:
+                return (True, c143 + c4656, "multiP143P4656")
+
+    # Case B: wikipedia header + URL/archive pids
+    has_wiki = bool(set(pids) & {PID_IMPORTED_FROM, PID_WIKIMEDIA_IMPORT_URL})
+    has_url = bool(set(pids) & URL_PIDS)
+    if has_wiki and has_url:
+        all_ok = all(p in WIKI_PIDS or p in URL_PIDS or p in METADATA for p in pids)
+        order = [p for p in (ref.get("snaks-order") or pids) if p not in METADATA]
+        wi_idxs = [i for i, p in enumerate(order) if p in WIKI_PIDS]
+        ur_idxs = [i for i, p in enumerate(order) if p in URL_PIDS]
+        correct = max(wi_idxs, default=-1) < min(ur_idxs, default=float("inf"))
+        uc = sum(len(snaks.get(p, [])) for p in URL_PIDS if p in pids)
+        if all_ok and correct and uc >= 1:
+            return (True, uc + 1, "wikiHeaderUrl")
+
+    # Main case: multiple P854/P1065 URLs
+    if PID_REFERENCE_URL not in pids:
+        return (False, 0, None)
     if not all(p in ALLOWED for p in pids):
-        return False
+        return (False, 0, None)
 
-    archive_count = 0
-    wikimedia_count = 0
-    url_count = 0
-
+    archive_count = wikimedia_count = url_count = 0
     for p in pids:
         if p in METADATA:
             continue
@@ -1012,7 +1053,7 @@ def _is_splittable_reference(ref: dict) -> bool:
                 v = snak.get("datavalue", {}).get("value", "")
                 if not isinstance(v, str):
                     continue
-                if p == PID_ARCHIVE_URL:
+                if p == PID_ARCHIVE_URL or _is_archive_url(v):
                     archive_count += 1
                 elif _is_wikimedia_url(v):
                     wikimedia_count += 1
@@ -1020,14 +1061,17 @@ def _is_splittable_reference(ref: dict) -> bool:
                     url_count += 1
 
     if archive_count > 1:
-        return False
+        return (False, 0, None)
     if len(snaks.get(PID_ARCHIVE_DATE, [])) > 1:
-        return False
-    return wikimedia_count + url_count > 1
+        return (False, 0, None)
+    total = archive_count + wikimedia_count + url_count
+    if total <= 1:
+        return (False, 0, None)
+    return (True, total, "multiUrl")
 
 
 def _is_wikimedia_url(url: str) -> bool:
-    """Minimal Wikimedia host check used by _is_splittable_reference."""
+    """Check if a URL is a Wikimedia project URL."""
     import re
 
     try:
@@ -1045,26 +1089,34 @@ def _is_wikimedia_url(url: str) -> bool:
         return False
 
 
+def _is_archive_url(url: str) -> bool:
+    """Check if a URL points to a web archive service."""
+    ARCHIVE_DOMAINS = {"web.archive.org", "archive.is", "wayback.archive-it.org"}
+    try:
+        from urllib.parse import urlparse
+
+        host = urlparse(url).hostname or ""
+        return any(host == d or host.endswith("." + d) for d in ARCHIVE_DOMAINS)
+    except Exception:
+        return False
+
+
 class ReferenceClassifier:
     """
     Classifies references into weak categories, mirroring the JS
     determineSourceCategory / getReferenceLevel pipeline.
 
-    Constructed once by bot.py and passed into detect_ref_categories().
-    All external data (obsolete IDs, aggregator/community PIDs,
-    stated-in preferences, etc.) is accessed through SourceCategoryRules.
+    Constructed once by bot.py and passed into detect_ref_categories() and
+    detect_low_precision_dates().  All external data is accessed through
+    SourceCategoryRules.
     """
 
-    def __init__(self, rules: SourceCategoryRules) -> None:
+    def __init__(self, rules: "SourceCategoryRules") -> None:
         self.rules = rules
 
     def _classify_ext_id_snak(
         self, pid: str, value: str, has_retrieved: bool
     ) -> str | None:
-        """
-        Classify one external-id snak.
-        Mirrors classifyExtIdSnak() exactly.
-        """
         if not has_retrieved:
             if self.rules.is_obsolete(pid):
                 return "obsolete"
@@ -1073,8 +1125,6 @@ class ReferenceClassifier:
             if self.rules.is_community(pid):
                 return "community"
         else:
-            # When P813 is present, skip obsolete/invalid checks but still
-            # classify aggregator/community.
             if self.rules.is_aggregator(pid):
                 return "aggregator"
             if self.rules.is_community(pid):
@@ -1082,10 +1132,6 @@ class ReferenceClassifier:
         return None
 
     def _classify_stated_in_qid(self, qid: str) -> str | None:
-        """
-        Classify a P248 stated-in QID.
-        Mirrors classifyStatedInQid() exactly.
-        """
         for agg_pid in self.rules.aggregator_pids:
             prefs = self.rules.get_property_stated_in(agg_pid)
             if prefs and qid in prefs.get("allowed", set()):
@@ -1103,19 +1149,14 @@ class ReferenceClassifier:
         all_refs: list[dict],
         ref: dict,
     ) -> bool:
-        """
-        Mirrors isRedundantInContext() exactly.
-        """
         for weak_pid, strong_pid in self.rules.redundancy_pairs:
             weak_prefs = self.rules.get_property_stated_in(weak_pid)
             weak_qids = weak_prefs.get("allowed", set()) if weak_prefs else set()
             is_weak = pid == weak_pid or any(q in weak_qids for q in stated_in_qids)
             if not is_weak:
                 continue
-
             strong_prefs = self.rules.get_property_stated_in(strong_pid)
             strong_qids = strong_prefs.get("allowed", set()) if strong_prefs else set()
-
             strong_present = any(
                 r is not ref
                 and (
@@ -1139,23 +1180,14 @@ class ReferenceClassifier:
         all_refs: list[dict],
         claim: dict | None = None,
     ) -> str | None:
-        """
-        Classify a single reference into a weak category string, or None
-        (= strong / genuine source).
-        Mirrors determineSourceCategory() from WikidataCleanup.js exactly.
-        """
         snaks = ref.get("snaks") or {}
         pids = list(snaks.keys())
-
-        # Metadata-only references are not real sources.
         METADATA = {PID_RETRIEVED, PID_TITLE, PID_SUBJECT_NAMED_AS}
+
         if pids and all(p in METADATA for p in pids):
             return "ignore"
 
         has_retrieved = PID_RETRIEVED in pids
-
-        # ── Reference-level checks (order matters) ────────────────────────────
-
         WIKIMEDIA_ALLOWED = {
             PID_INFERRED,
             PID_WIKIMEDIA_IMPORT_URL,
@@ -1172,11 +1204,9 @@ class ReferenceClassifier:
 
         if PID_MATCHED_BY_IDENTIFIER_FROM in pids:
             return "inferred+"
-
         if (PID_INFERRED in pids or PID_BASED_ON_HEURISTIC in pids) and len(pids) == 1:
             return "inferred"
 
-        # Tautological "stated in" check
         if (
             not has_retrieved
             and claim is not None
@@ -1198,8 +1228,6 @@ class ReferenceClassifier:
             ):
                 return "self_stated_in"
 
-        # ── Per-snak classification ───────────────────────────────────────────
-
         ext_id_snaks = [
             {"pid": pid, "value": snak.get("datavalue", {}).get("value")}
             for pid in pids
@@ -1218,7 +1246,6 @@ class ReferenceClassifier:
                     codes.append("redundant")
                     break
             return _highest_level_category(codes)
-
         else:
             stated_in_qids = [
                 s.get("datavalue", {}).get("value", {}).get("id")
@@ -1226,8 +1253,7 @@ class ReferenceClassifier:
                 if _is_qid(s.get("datavalue", {}).get("value", {}).get("id", ""))
             ]
             if not stated_in_qids:
-                return None  # strong
-
+                return None
             codes = [self._classify_stated_in_qid(q) for q in stated_in_qids]
             if self._is_redundant_in_context(None, stated_in_qids, all_refs, ref):
                 codes.append("redundant")
@@ -1240,10 +1266,6 @@ class ReferenceClassifier:
         all_refs: list[dict],
         claim: dict | None = None,
     ) -> int:
-        """
-        Returns 0 (wikimedia/ignored), 1 (weak), or 2 (strong).
-        Mirrors getReferenceLevel() from WikidataCleanup.js exactly.
-        """
         cat = self.determine_source_category(item, ref, all_refs, claim)
         if cat in {"wikimedia", "wikimedia_no_sitelinks", "ignore", "self_stated_in"}:
             return 0
@@ -1260,6 +1282,477 @@ class ReferenceClassifier:
         }:
             return 1
         return 2
+
+
+def detect_normalize_labels(item: dict) -> list[dict]:
+    """
+    Detect labels, descriptions and aliases that need Unicode normalisation.
+    Mirrors detectNormalizeLabels() exactly.
+    For descriptions, also strips trailing semicolons/whitespace.
+    """
+    import re as _re
+
+    diffs = []
+
+    for lang, entry in (item.get("labels") or {}).items():
+        before = entry.get("value", "")
+        after = normalize_text(before)
+        if after and after != before:
+            diffs.append(
+                {
+                    "detector": "normalize_labels",
+                    "action": ACTION_NORMALIZE,
+                    "field": "label",
+                    "lang": lang,
+                    "before": before,
+                    "after": after,
+                }
+            )
+
+    for lang, entry in (item.get("descriptions") or {}).items():
+        before = entry.get("value", "")
+        after = normalize_text(before)
+        if after:
+            after = _re.sub(r"[;\s]+$", "", after).strip()
+        if after and after != before:
+            diffs.append(
+                {
+                    "detector": "normalize_labels",
+                    "action": ACTION_NORMALIZE,
+                    "field": "description",
+                    "lang": lang,
+                    "before": before,
+                    "after": after,
+                }
+            )
+
+    for lang, aliases in (item.get("aliases") or {}).items():
+        for alias_obj in aliases:
+            before = alias_obj.get("value", "")
+            after = normalize_text(before)
+            if after and after != before:
+                diffs.append(
+                    {
+                        "detector": "normalize_labels",
+                        "action": ACTION_NORMALIZE,
+                        "field": "alias",
+                        "lang": lang,
+                        "before": before,
+                        "after": after,
+                    }
+                )
+
+    return diffs
+
+
+def detect_add_mul_label(item: dict) -> list[dict]:
+    """
+    Detect items that should get a mul (multilingual) label.
+
+    Guards (mirrors detectAddMulLabel() exactly):
+      - Item must be a human (P31 = Q5)
+      - No mul label present yet
+      - en, de, fr labels all present and equal after normalisation
+      - The normalised value must be Latin-script only
+    """
+    is_human = any(
+        c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id") == "Q5"
+        for c in (item.get("claims") or {}).get("P31", [])
+    )
+    if not is_human:
+        return []
+
+    labels = item.get("labels") or {}
+    if labels.get("mul", {}).get("value"):
+        return []
+
+    required = ["en", "de", "fr"]
+    raw_values = [labels.get(lang, {}).get("value") for lang in required]
+    if any(v is None for v in raw_values):
+        return []
+
+    normalised = [normalize_text(v) for v in raw_values]
+    if any(v != normalised[0] for v in normalised) or not normalised[0]:
+        return []
+
+    label_value = normalised[0]
+
+    # Latin-script check: reject any letter character outside the Latin ranges.
+    import unicodedata as _ud
+
+    for ch in label_value:
+        if not ch.isalpha():
+            continue
+        name = _ud.name(ch, "")
+        # Accept letters whose Unicode name starts with "LATIN"
+        if not name.startswith("LATIN"):
+            return []
+
+    return [
+        {
+            "detector": "add_mul_label",
+            "action": ACTION_SET_MUL_LABEL,
+            "value": label_value,
+            "matching_langs": ", ".join(required),
+        }
+    ]
+
+
+def detect_add_mul_alias(item: dict) -> list[dict]:
+    """
+    Detect alias values present in more than 5 languages that should be
+    promoted to mul (multilingual) alias.
+
+    Mirrors detectAddMulAlias() exactly, including:
+      - Skip values already in aliases.mul
+      - Skip values equal to the mul label
+      - Threshold: strictly > 5 (i.e. ≥ 6 languages)
+      - Paired with hidden ACTION_REMOVE_ALIAS diffs per source language
+    """
+    aliases = item.get("aliases") or {}
+    labels = item.get("labels") or {}
+
+    mul_alias_norms = {
+        normalize_text(a.get("value")) for a in aliases.get("mul", []) if a.get("value")
+    }
+    mul_label_norm = (
+        normalize_text(labels.get("mul", {}).get("value"))
+        if labels.get("mul", {}).get("value")
+        else None
+    )
+
+    value_map: dict[str, dict] = {}
+    for lang, lang_aliases in aliases.items():
+        if lang == "mul":
+            continue
+        for alias_obj in lang_aliases:
+            raw = alias_obj.get("value", "")
+            norm = normalize_text(raw)
+            if not norm or norm in mul_alias_norms:
+                continue
+            if mul_label_norm and norm == mul_label_norm:
+                continue
+            if norm not in value_map:
+                value_map[norm] = {"original": raw, "langs": {}}
+            value_map[norm]["langs"][lang] = raw
+
+    diffs = []
+    for norm, entry in value_map.items():
+        if len(entry["langs"]) <= 5:
+            continue
+        source_langs = list(entry["langs"].keys())
+        row_id = f"addMulAlias_{norm}"
+        diffs.append(
+            {
+                "detector": "add_mul_alias",
+                "action": ACTION_ADD_MUL_ALIAS,
+                "row_id": row_id,
+                "value": entry["original"],
+                "source_langs": source_langs,
+                "lang_count": len(entry["langs"]),
+            }
+        )
+        for lang, orig_value in entry["langs"].items():
+            diffs.append(
+                {
+                    "detector": "add_mul_alias",
+                    "action": ACTION_REMOVE_ALIAS,
+                    "_hidden": True,
+                    "row_id": row_id,
+                    "lang": lang,
+                    "value": orig_value,
+                }
+            )
+
+    return diffs
+
+
+def detect_upgrade_precise_date(item: dict) -> list[dict]:
+    """
+    Detect date properties with exactly one normal-rank and one deprecated-rank
+    claim where the deprecated claim is less precise and tagged Q42727519 (or
+    untagged), and propose upgrading the precise claim to preferred rank.
+
+    Emits two diffs per matching pair:
+      1. ACTION_UPGRADE_PRECISE_DATE on the precise (normal) claim
+      2. Hidden ACTION_DOWNGRADE_PREFERRED on the deprecated (less-precise) claim
+
+    Mirrors detectUpgradePreciseDate() from WikidataCleanup.js exactly.
+    """
+    diffs = []
+
+    for pid in _get_date_properties(item):
+        claims = item.get("claims", {}).get(pid, [])
+        normal_cls = [c for c in claims if c.get("rank") == "normal"]
+        depr_cls = [c for c in claims if c.get("rank") == "deprecated"]
+
+        if len(normal_cls) != 1 or len(depr_cls) != 1:
+            continue
+
+        normal_cl = normal_cls[0]
+        depr_cl = depr_cls[0]
+
+        normal_prec = (
+            normal_cl.get("mainsnak", {})
+            .get("datavalue", {})
+            .get("value", {})
+            .get("precision", -1)
+        )
+        depr_prec = (
+            depr_cl.get("mainsnak", {})
+            .get("datavalue", {})
+            .get("value", {})
+            .get("precision", -1)
+        )
+
+        if normal_prec < 0 or depr_prec < 0 or normal_prec < depr_prec:
+            continue
+        if not _has_same_normalized_date(
+            normal_cl, depr_cl, at_lowest_precision=True, ignore_calendarmodel=False
+        ):
+            continue
+        if not normal_cl.get("references"):
+            continue
+
+        p2241_snaks = (depr_cl.get("qualifiers") or {}).get(
+            PID_REASON_FOR_DEPRECATED_RANK, []
+        )
+        if p2241_snaks:
+            if not all(
+                s.get("datavalue", {}).get("value", {}).get("id") == QID_LESS_PRECISE
+                for s in p2241_snaks
+            ):
+                continue
+
+        row_id = f"upgradePreciseDate_{pid}_{normal_cl['id']}"
+
+        diffs.append(
+            {
+                "detector": "upgrade_precise_date",
+                "action": ACTION_UPGRADE_PRECISE_DATE,
+                "row_id": row_id,
+                "pid": pid,
+                "claim_id": normal_cl["id"],
+                "depr_claim_id": depr_cl["id"],
+            }
+        )
+        diffs.append(
+            {
+                "detector": "upgrade_precise_date",
+                "action": ACTION_DOWNGRADE_PREFERRED,
+                "_hidden": True,
+                "row_id": row_id,
+                "pid": pid,
+                "claim_id": depr_cl["id"],
+                "removed_qualifier": (
+                    PID_REASON_FOR_DEPRECATED_RANK if p2241_snaks else None
+                ),
+                "from_deprecated": True,
+            }
+        )
+
+    return diffs
+
+
+def detect_replace_wrong_property(item: dict) -> list[dict]:
+    """
+    Detect references where a URL snak is stored under the wrong property.
+
+    Rules (mirrors detectWrongPropertyClaims() exactly):
+      1. P2699 or P854 → P1065 when the URL is an archive URL
+      2. P2699 or P854 → P4656 when the URL is a Wikimedia import URL
+      3. P2699         → P854  unconditionally
+    First matching rule wins.
+    """
+    RULES = [
+        {
+            "props": {PID_URL, PID_REFERENCE_URL},
+            "new_prop": PID_ARCHIVE_URL,
+            "check": _is_archive_url,
+        },
+        {
+            "props": {PID_URL, PID_REFERENCE_URL},
+            "new_prop": PID_WIKIMEDIA_IMPORT_URL,
+            "check": _is_wikimedia_url,
+        },
+        {"props": {PID_URL}, "new_prop": PID_REFERENCE_URL, "check": None},
+    ]
+    diffs = []
+
+    for pid, claims in (item.get("claims") or {}).items():
+        for claim in claims:
+            for ref in claim.get("references") or []:
+                for wrong_prop, ref_snaks in (ref.get("snaks") or {}).items():
+                    for snak in ref_snaks:
+                        val = snak.get("datavalue", {}).get("value")
+                        for rule in RULES:
+                            if wrong_prop not in rule["props"]:
+                                continue
+                            matches = rule["check"] is None or (
+                                isinstance(val, str) and rule["check"](val)
+                            )
+                            if not matches:
+                                continue
+                            diffs.append(
+                                {
+                                    "detector": "replace_wrong_property",
+                                    "action": ACTION_CHANGE_PROPERTY,
+                                    "context": "reference",
+                                    "pid": pid,
+                                    "claim_id": claim["id"],
+                                    "ref_hash": ref.get("hash"),
+                                    "snak_hash": snak.get("hash"),
+                                    "old_property": wrong_prop,
+                                    "new_property": rule["new_prop"],
+                                }
+                            )
+                            break
+
+    return diffs
+
+
+def detect_split_reference_urls(item: dict) -> list[dict]:
+    """
+    Detect references that contain multiple URL snaks that should each become
+    their own reference.  The split itself happens in apply.py.
+    Mirrors detectMultipleReferenceUrls() from WikidataCleanup.js exactly.
+    """
+    diffs = []
+    for pid, claims in (item.get("claims") or {}).items():
+        for claim in claims:
+            for ref in claim.get("references") or []:
+                splittable, url_count, _ = _is_splittable_reference(ref)
+                if not splittable:
+                    continue
+                diffs.append(
+                    {
+                        "detector": "split_reference_urls",
+                        "action": ACTION_SPLIT_REFERENCE_URLS,
+                        "pid": pid,
+                        "claim_id": claim["id"],
+                        "ref_hash": ref.get("hash"),
+                        "url_count": url_count,
+                    }
+                )
+    return diffs
+
+
+def detect_merge_wiki_import_refs(
+    item: dict,
+    wikipedia_editions: "WikipediaEditions",
+) -> list[dict]:
+    """
+    Detect pairs of references where one contains only P4656 (Wikimedia import
+    URL) and another contains a matching P143 (imported from) snak, and propose
+    merging the P4656 snak into the P143 reference.
+
+    Requires a WikipediaEditions black box for language-code → QID lookup.
+    Mirrors detectMergeWikiImportRefs() from WikidataCleanup.js exactly.
+    """
+    METADATA = {PID_RETRIEVED, PID_ARCHIVE_DATE}
+    diffs = []
+
+    for pid, claims in (item.get("claims") or {}).items():
+        for claim in claims:
+            if claim.get("rank") == "deprecated":
+                continue
+            refs = claim.get("references") or []
+            if len(refs) < 2:
+                continue
+
+            for p4656_ref in refs:
+                p4656_pids = list((p4656_ref.get("snaks") or {}).keys())
+                if PID_WIKIMEDIA_IMPORT_URL not in p4656_pids:
+                    continue
+                if not all(
+                    p == PID_WIKIMEDIA_IMPORT_URL or p in METADATA for p in p4656_pids
+                ):
+                    continue
+                p4656_snaks = (p4656_ref.get("snaks") or {}).get(
+                    PID_WIKIMEDIA_IMPORT_URL, []
+                )
+                if len(p4656_snaks) != 1:
+                    continue
+
+                p4656_url = p4656_snaks[0].get("datavalue", {}).get("value")
+                if not isinstance(p4656_url, str):
+                    continue
+
+                p4656_lang = None
+                try:
+                    from urllib.parse import urlparse as _up
+                    import re as _re2
+
+                    host = _up(p4656_url).hostname or ""
+                    m = _re2.match(r"^([a-z-]+)\.wikipedia\.org$", host)
+                    p4656_lang = m.group(1) if m else None
+                except Exception:
+                    pass
+                if not p4656_lang:
+                    continue
+
+                expected_qid = wikipedia_editions.get_qid(p4656_lang)
+                if not expected_qid:
+                    continue
+
+                for p143_ref in refs:
+                    if p143_ref is p4656_ref:
+                        continue
+                    p143_snaks = (p143_ref.get("snaks") or {}).get(
+                        PID_IMPORTED_FROM, []
+                    )
+                    if not p143_snaks:
+                        continue
+                    if (p143_ref.get("snaks") or {}).get(PID_WIKIMEDIA_IMPORT_URL):
+                        continue
+                    if not any(
+                        s.get("datavalue", {}).get("value", {}).get("id")
+                        == expected_qid
+                        for s in p143_snaks
+                    ):
+                        continue
+
+                    diffs.append(
+                        {
+                            "detector": "merge_wiki_import_refs",
+                            "action": ACTION_MERGE_WIKI_IMPORT_REFS,
+                            "pid": pid,
+                            "claim_id": claim["id"],
+                            "p4656_ref_hash": p4656_ref.get("hash"),
+                            "p4656_url": p4656_url,
+                            "p143_ref_hash": p143_ref.get("hash"),
+                            "p143_qid": expected_qid,
+                        }
+                    )
+                    break
+
+    return diffs
+
+
+# ==== Wikipedia editions (black box for detect_merge_wiki_import_refs) =======
+
+
+class WikipediaEditions:
+    """
+    Maps Wikipedia language codes to Wikidata QIDs and vice versa.
+    Black box for detect_merge_wiki_import_refs — bot.py fetches and constructs it.
+
+    TODO: implement from_sparql() or from_wiki_page() to populate the map.
+    For now construct with an empty map.
+    """
+
+    def __init__(self, lang_to_qid: dict[str, str] | None = None) -> None:
+        self._lang_to_qid: dict[str, str] = lang_to_qid or {}
+        self._qid_to_lang: dict[str, str] = {v: k for k, v in self._lang_to_qid.items()}
+
+    def get_qid(self, lang_code: str) -> str | None:
+        return self._lang_to_qid.get(lang_code)
+
+    def get_lang(self, qid: str) -> str | None:
+        return self._qid_to_lang.get(qid)
+
+    def is_wikipedia_edition(self, qid: str) -> bool:
+        return qid in self._qid_to_lang
 
 
 def detect_ref_categories(
@@ -1306,7 +1799,7 @@ def detect_ref_categories(
                 )
                 ignore_strict_check = cat == "wikimedia"
 
-                if _is_splittable_reference(ref):
+                if _is_splittable_reference(ref)[0]:
                     continue
 
                 if not always_remove:
@@ -1327,6 +1820,215 @@ def detect_ref_categories(
                 )
 
     return results
+
+
+def detect_low_precision_dates(
+    item: dict,
+    classifier: ReferenceClassifier,
+) -> list[dict]:
+    """
+    Detect birth/death date claims with lower precision that can be removed
+    when a more precise, better-sourced claim is present.
+
+    Two removal conditions (mirroring detectLowPrecisionDates() exactly):
+
+    1. Strong-source removal: a less-precise claim whose references are all
+       weak (or absent) is removed when a more precise claim with at least one
+       strong (level-2) reference exists in the same group.
+
+    2. No-reference removal: an unreferenced claim is removed when a higher-
+       precision unreferenced claim exists in the same group.
+
+    Groups are formed by same-date at the lowest common precision (ignoring
+    calendar model differences).  Deprecated claims are excluded.
+
+    Requires a ReferenceClassifier to determine reference strength.
+    """
+    diffs = []
+
+    for pid in (PID_DATE_OF_BIRTH, PID_DATE_OF_DEATH):
+        claims = [
+            c
+            for c in item.get("claims", {}).get(pid, [])
+            if c.get("rank") != "deprecated"
+            and (
+                c.get("mainsnak", {})
+                .get("datavalue", {})
+                .get("value", {})
+                .get("precision")
+                or 0
+            )
+            <= 11
+        ]
+
+        # Group claims by same date at lowest common precision.
+        groups: list[list[dict]] = []
+        for c in claims:
+            matched = next(
+                (
+                    g
+                    for g in groups
+                    if _has_same_normalized_date(
+                        c, g[0], at_lowest_precision=True, ignore_calendarmodel=False
+                    )
+                ),
+                None,
+            )
+            if matched is not None:
+                matched.append(c)
+            else:
+                groups.append([c])
+
+        for group in groups:
+            if len(group) < 2:
+                continue
+
+            max_prec = max(
+                c["mainsnak"]["datavalue"]["value"]["precision"] for c in group
+            )
+
+            # Find the best unreferenced claim (highest precision, no refs).
+            best_no_ref_prec = 0
+            best_no_ref_claim = None
+            for c in group:
+                prec = c["mainsnak"]["datavalue"]["value"]["precision"]
+                refs = c.get("references", [])
+                if not refs and prec > best_no_ref_prec:
+                    best_no_ref_prec = prec
+                    best_no_ref_claim = c
+
+            # Find the most precise claim with at least one strong reference.
+            precise_strong = next(
+                (
+                    c
+                    for c in group
+                    if c["mainsnak"]["datavalue"]["value"]["precision"] == max_prec
+                    and c.get("references")
+                    and any(
+                        classifier.get_reference_level(
+                            item, r, c.get("references", []), c
+                        )
+                        == 2
+                        for r in c.get("references", [])
+                    )
+                ),
+                None,
+            )
+
+            for c in group:
+                prec = c["mainsnak"]["datavalue"]["value"]["precision"]
+                refs = c.get("references", [])
+                if prec >= max_prec:
+                    continue
+
+                # Condition 1: all refs weak (or none) + precise strong claim exists
+                all_weak = not refs or all(
+                    classifier.get_reference_level(item, r, refs, c) < 2 for r in refs
+                )
+                if precise_strong and all_weak:
+                    diffs.append(
+                        {
+                            "detector": "low_precision_dates",
+                            "action": ACTION_REMOVE_CLAIM,
+                            "pid": pid,
+                            "claim_id": c["id"],
+                            "keep_claim_id": precise_strong["id"],
+                        }
+                    )
+                    continue
+
+                # Condition 2: no refs + lower precision than best unreferenced
+                if (
+                    not refs
+                    and prec < best_no_ref_prec
+                    and best_no_ref_claim is not None
+                    and c["id"] != best_no_ref_claim["id"]
+                ):
+                    diffs.append(
+                        {
+                            "detector": "low_precision_dates",
+                            "action": ACTION_REMOVE_CLAIM,
+                            "pid": pid,
+                            "claim_id": c["id"],
+                            "keep_claim_id": best_no_ref_claim["id"],
+                        }
+                    )
+
+    return diffs
+
+
+def detect_obsolete_snaks_in_references(
+    item: dict,
+    rules: "SourceCategoryRules",
+) -> list[dict]:
+    """
+    Detect references that contain obsolete external-ID snaks alongside at
+    least one non-obsolete external-ID snak, and no P813 (retrieved) snak.
+    Only the obsolete snaks are flagged for removal; the rest of the reference
+    is preserved.
+
+    Guards (mirrors detectObsoleteSnaksInReferences() from JS exactly):
+      - The reference must have no P813 (retrieved) snak.
+      - The reference must contain at least one obsolete external-ID snak.
+      - The reference must contain at least one non-obsolete external-ID snak
+        (the "surviving content" guard).
+      - Deprecated claims are skipped.
+
+    Requires SourceCategoryRules to identify obsolete PIDs.
+    """
+    diffs = []
+
+    for pid, claims in item.get("claims", {}).items():
+        for claim in claims:
+            if claim.get("rank") == "deprecated":
+                continue
+            for ref in claim.get("references", []):
+                snaks = ref.get("snaks") or {}
+                ref_pids = list(snaks.keys())
+
+                # Skip if P813 (retrieved) is present.
+                if PID_RETRIEVED in ref_pids:
+                    continue
+
+                # Collect obsolete external-ID PIDs.
+                obsolete_pids = [
+                    p
+                    for p in ref_pids
+                    if rules.is_obsolete(p)
+                    and any(
+                        s.get("datatype") == "external-id"
+                        and s.get("datavalue", {}).get("value")
+                        for s in snaks.get(p, [])
+                    )
+                ]
+                if not obsolete_pids:
+                    continue
+
+                # Require at least one surviving non-obsolete external-ID snak.
+                has_other_ext_id = any(
+                    p not in obsolete_pids
+                    and any(
+                        s.get("datatype") == "external-id"
+                        and s.get("datavalue", {}).get("value")
+                        for s in snaks.get(p, [])
+                    )
+                    for p in ref_pids
+                )
+                if not has_other_ext_id:
+                    continue
+
+                diffs.append(
+                    {
+                        "detector": "obsolete_snaks",
+                        "action": ACTION_REMOVE_OBSOLETE_SNAKS,
+                        "pid": pid,
+                        "claim_id": claim["id"],
+                        "ref_hash": ref.get("hash"),
+                        "obsolete_pids": obsolete_pids,
+                    }
+                )
+
+    return diffs
 
 
 # ==== URL strip rules ========================================================
@@ -1445,7 +2147,7 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     Only "always" mode stripping is applied — recognition mode is only
     used during URL→property matching, not during cleanup.
     """
-    from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+    from urllib.parse import urlparse, urlunparse, urlencode, parse_qsl
 
     try:
         parsed = urlparse(raw_url)
@@ -1485,7 +2187,7 @@ def clean_url(raw_url: str, rules: UrlStripRules) -> str:
     return cleaned
 
 
-def _normalize_wikimedia_import_url(raw: str) -> str | None:
+def _normalize_wikimedia_import_url(raw: str | None) -> str | None:
     """
     Normalise a P4656 (Wikimedia import URL) value on a wikipedia.org domain:
       (a) http → https
@@ -1721,8 +2423,18 @@ DETECTORS: dict[str, Callable] = {
     "dup_retrieved": detect_duplicate_refs,
     "merge_same_date_claims": detect_merge_same_date_claims,
     "julian_gregorian_dates": detect_julian_gregorian_dates,
-    # "clean_urls" is added dynamically by bot.py after fetching url strip rules.
-    # "wikimedia", "aggregator", "community", "redundant", "inferred", "obsolete",
-    # "self_stated_in" are run via detect_ref_categories() (single shared pass),
-    # not through DETECTORS directly.
+    "normalize_labels": detect_normalize_labels,
+    "add_mul_label": detect_add_mul_label,
+    "add_mul_alias": detect_add_mul_alias,
+    "upgrade_precise_date": detect_upgrade_precise_date,
+    "replace_wrong_property": detect_replace_wrong_property,
+    "split_reference_urls": detect_split_reference_urls,
+    # Detectors requiring external data added dynamically by bot.py:
+    #   "clean_urls"              → functools.partial(detect_clean_urls, rules=url_rules)
+    #   "low_precision_dates"     → functools.partial(detect_low_precision_dates, classifier=clf)
+    #   "obsolete_snaks"          → functools.partial(detect_obsolete_snaks_in_references, rules=rules)
+    #   "merge_wiki_import_refs"  → functools.partial(detect_merge_wiki_import_refs, wikipedia_editions=we)
+    # Ref-category detectors run via detect_ref_categories() (single shared pass):
+    #   "wikimedia", "aggregator", "community", "redundant",
+    #   "inferred", "obsolete", "self_stated_in"
 }

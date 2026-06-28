@@ -8,38 +8,40 @@ Usage:
 
 Bot options:
   -detector:NAME   Activate a specific detector. May be repeated.
-                   Names: self_cite, empty_end_time, alias_equals_label,
-                           redundant_preferred, expired_preferred, clean_urls,
-                           dup_retrieved, merge_same_date_claims,
-                           julian_gregorian_dates,
-                           wikimedia, aggregator, community, redundant,
-                           inferred, obsolete, self_stated_in
                    Default: all detectors.
   -item:QXXX       Process a single item (useful for testing).
   -dry             Detect but do not submit any edits.
-
-Examples:
-  python bot.py -item:Q42 -dry
-  python bot.py -detector:self_cite -detector:empty_end_time
-  python bot.py -sparql:"SELECT ?item WHERE { ?item wdt:P2860 ?item }"
 """
 
 import functools
+import logging
+import pathlib
 import sys
 
 import pywikibot
-import pywikibot.bot
-from cleanup.apply import apply_diffs
+from pywikibot import pagegenerators
+from pywikibot.bot import SingleSiteBot, ExistingPageBot
+
 from cleanup.detectors import (
     DETECTORS,
-    ReferenceClassifier,
     SourceCategoryRules,
+    ReferenceClassifier,
     UrlStripRules,
+    WikipediaEditions,
     detect_clean_urls,
+    detect_low_precision_dates,
+    detect_obsolete_snaks_in_references,
+    detect_merge_wiki_import_refs,
     detect_ref_categories,
 )
-from pywikibot import pagegenerators
-from pywikibot.bot import ExistingPageBot, SingleSiteBot
+from cleanup.apply import apply_diffs
+from cleanup.database import WikidataCleanupTracker
+from cleanup.external_data import (
+    load_source_category_rules,
+    load_url_strip_rules,
+    load_wikipedia_editions,
+)
+from cleanup.generators import generator_for_detectors
 
 # ==== Constants ==============================================================
 
@@ -47,8 +49,6 @@ TOOL_NAME = "WikidataCleanupBot"
 TOOL_PAGE = "User:Difool/WikidataCleanup"
 EDIT_SUMMARY_TPL = "Cleanup: {actions} ([[{tool_page}|bot]])"
 
-# All reference-category detector keys handled via the single-pass
-# detect_ref_categories(), not through DETECTORS directly.
 REF_CATEGORY_DETECTORS = frozenset(
     {
         "wikimedia",
@@ -71,6 +71,15 @@ DETECTOR_LABELS = {
     "dup_retrieved": "remove duplicate references",
     "merge_same_date_claims": "merge same-date claims",
     "julian_gregorian_dates": "remove Julian/Gregorian duplicate dates",
+    "low_precision_dates": "remove redundant low-precision dates",
+    "obsolete_snaks": "remove obsolete snaks from references",
+    "normalize_labels": "normalize labels/descriptions/aliases",
+    "add_mul_label": "add mul label",
+    "add_mul_alias": "add mul alias",
+    "upgrade_precise_date": "upgrade precise date to preferred",
+    "replace_wrong_property": "replace wrong property in references",
+    "split_reference_urls": "split multiple reference URLs",
+    "merge_wiki_import_refs": "merge P4656 into P143 reference",
     "wikimedia": "remove imported-from-Wikimedia references",
     "aggregator": "remove aggregator references",
     "community": "remove community references",
@@ -80,43 +89,10 @@ DETECTOR_LABELS = {
     "self_stated_in": "remove tautological stated-in references",
 }
 
-# ==== External data loading (black boxes) ====================================
-
-
-def load_source_category_rules() -> SourceCategoryRules:
-    """
-    Load reference source category rules.
-
-    TODO: fetch and parse:
-      - User:Difool/reference-source-categories  → aggregator/community/redundant
-      - Wikidata SPARQL → obsolete ID properties
-      - Wikidata SPARQL → stated-in preferences per property
-
-    For now returns an empty SourceCategoryRules so the classifier handles
-    wikimedia/inferred/self_stated_in correctly (those require no external
-    data), while aggregator/community/redundant/obsolete fire on nothing.
-    """
-    return SourceCategoryRules()
-
-
-def load_url_strip_rules() -> UrlStripRules:
-    """
-    Load URL strip rules for the clean_urls detector.
-
-    TODO: fetch and parse User:Difool/url_tracking_params.
-    For now returns hardcoded defaults only.
-    """
-    return UrlStripRules()
-
-
 # ==== Bot class ==============================================================
 
 
 class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
-    """
-    Runs the active detectors against each item and applies all resulting
-    diffs in a single wbeditentity call per item.
-    """
 
     use_redirects = False
 
@@ -125,37 +101,43 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
         active_detectors: set[str],
         dry_run: bool,
         classifier: ReferenceClassifier,
+        rules: SourceCategoryRules,
+        tracker: WikidataCleanupTracker | None,
+        run_id: str,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.active_detectors = active_detectors
         self.dry_run = dry_run
         self.classifier = classifier
+        self.rules = rules
+        self.tracker = tracker
+        self.run_id = run_id
         self.stats = {
             "items_checked": 0,
             "items_changed": 0,
+            "items_skipped": 0,
             "diffs_total": 0,
         }
 
     def treat_page_and_item(self, page, item: pywikibot.ItemPage) -> None:
-        """
-        Process one item:
-          1. Build raw entity dict from the already-fetched pywikibot item.
-          2. Run all active detectors against the raw dict.
-          3. Apply all diffs in a single editEntity call.
-        """
         try:
             item.get()
         except pywikibot.exceptions.IsRedirectPageError:
             return
         except Exception as e:
             pywikibot.error(f"Failed to load {item.id}: {e}")
+            if self.tracker:
+                self.tracker.mark_error(item.id, e, self.run_id)
+            return
+
+        # Skip items processed successfully in the last 7 days.
+        if self.tracker and self.tracker.is_processed(item.id, days=7):
+            self.stats["items_skipped"] += 1
             return
 
         self.stats["items_checked"] += 1
 
-        # Build the raw dict the detectors work on. Avoids item.toJSON() on
-        # sitelinks (which can be large).
         raw = {
             "id": item.id,
             "claims": {
@@ -173,7 +155,7 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
 
         all_diffs: list[dict] = []
 
-        # ── Standard detectors (one function per detector) ────────────────────
+        # Standard detectors
         standard_active = self.active_detectors - REF_CATEGORY_DETECTORS
         for detector_id in standard_active:
             detect_fn = DETECTORS.get(detector_id)
@@ -184,7 +166,7 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
             except Exception as e:
                 pywikibot.error(f"[{item.id}] detector {detector_id!r} failed: {e}")
 
-        # ── Reference-category detectors (single shared pass) ─────────────────
+        # Reference-category detectors (single shared pass)
         ref_cat_active = self.active_detectors & REF_CATEGORY_DETECTORS
         if ref_cat_active:
             try:
@@ -197,12 +179,18 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
                 pywikibot.error(f"[{item.id}] detect_ref_categories failed: {e}")
 
         if not all_diffs:
+            if self.tracker:
+                self.tracker.mark_skipped(item.id, self.run_id)
             return
 
         self.stats["diffs_total"] += len(all_diffs)
 
         active_labels = sorted(
-            {DETECTOR_LABELS.get(d["detector"]) or d["detector"] for d in all_diffs}
+            {
+                DETECTOR_LABELS.get(d["detector"]) or d["detector"]
+                for d in all_diffs
+                if not d.get("_hidden")
+            }
         )
         summary = EDIT_SUMMARY_TPL.format(
             actions="; ".join(active_labels),
@@ -213,26 +201,61 @@ class WikidataCleanupBot(SingleSiteBot, ExistingPageBot):
             changed = apply_diffs(item, all_diffs, summary, self.dry_run)
         except Exception as e:
             pywikibot.error(f"[{item.id}] apply_diffs failed: {e}")
+            if self.tracker:
+                self.tracker.mark_error(item.id, e, self.run_id)
             return
 
         if changed:
             self.stats["items_changed"] += 1
+            if self.tracker:
+                self.tracker.mark_changed(
+                    item.id,
+                    run_id=self.run_id,
+                    diffs_count=len(all_diffs),
+                    edit_summary=summary,
+                )
+        else:
+            if self.tracker:
+                self.tracker.mark_skipped(item.id, self.run_id)
 
     def exit(self) -> None:
         pywikibot.output("\n=== WikidataCleanupBot run summary ===")
         pywikibot.output(f"  Items checked  : {self.stats['items_checked']}")
+        pywikibot.output(f"  Items skipped  : {self.stats['items_skipped']}")
         pywikibot.output(f"  Items changed  : {self.stats['items_changed']}")
         pywikibot.output(f"  Diffs total    : {self.stats['diffs_total']}")
         if self.dry_run:
             pywikibot.output("  (dry run — no edits were submitted)")
+        if self.tracker:
+            db_summary = self.tracker.summary()
+            pywikibot.output("\n  Database totals:")
+            for status, count in sorted(db_summary.items()):
+                pywikibot.output(f"    {status:10s}: {count:,}")
+            self.tracker.close()
 
 
 # ==== Entry point ============================================================
 
+log = logging.getLogger(__name__)
+
 
 def main(*args: str) -> None:
-    # Build the complete set of available detector ids.
-    all_detector_ids = set(DETECTORS.keys()) | REF_CATEGORY_DETECTORS | {"clean_urls"}
+    import uuid
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    all_detector_ids = (
+        set(DETECTORS.keys())
+        | REF_CATEGORY_DETECTORS
+        | {
+            "clean_urls",
+            "low_precision_dates",
+            "obsolete_snaks",
+            "merge_wiki_import_refs",
+        }
+    )
 
     local_args = pywikibot.handle_args(args)
     gen_factory = pagegenerators.GeneratorFactory()
@@ -240,6 +263,8 @@ def main(*args: str) -> None:
     active_detectors: set[str] = set()
     dry_run = False
     single_item: str | None = None
+    no_db = False
+    sqlite_path: str | None = None
 
     for arg in local_args:
         if arg.startswith("-detector:"):
@@ -247,12 +272,16 @@ def main(*args: str) -> None:
             if name not in all_detector_ids:
                 pywikibot.error(
                     f"Unknown detector {name!r}. "
-                    f"Valid: {', '.join(sorted(all_detector_ids))}"
+                    f"Valid: {{', '.join(sorted(all_detector_ids))}}"
                 )
                 sys.exit(1)
             active_detectors.add(name)
         elif arg == "-dry":
             dry_run = True
+        elif arg == "-no-db":
+            no_db = True
+        elif arg.startswith("-sqlite:"):
+            sqlite_path = arg[len("-sqlite:") :]
         elif arg.startswith("-item:"):
             single_item = arg[len("-item:") :]
         else:
@@ -261,36 +290,79 @@ def main(*args: str) -> None:
     if not active_detectors:
         active_detectors = all_detector_ids
 
-    # Load external data (black boxes).
+    # Load external data
     rules = load_source_category_rules()
     url_rules = load_url_strip_rules()
+    wp_eds = load_wikipedia_editions()
     classifier = ReferenceClassifier(rules)
 
-    # Register clean_urls bound to the fetched url strip rules.
+    # Register detectors requiring external data
     DETECTORS["clean_urls"] = functools.partial(detect_clean_urls, rules=url_rules)
+    DETECTORS["low_precision_dates"] = functools.partial(
+        detect_low_precision_dates, classifier=classifier
+    )
+    DETECTORS["obsolete_snaks"] = functools.partial(
+        detect_obsolete_snaks_in_references, rules=rules
+    )
+    DETECTORS["merge_wiki_import_refs"] = functools.partial(
+        detect_merge_wiki_import_refs, wikipedia_editions=wp_eds
+    )
+
+    # Database tracker
+    tracker: WikidataCleanupTracker | None = None
+    if not no_db and not dry_run:
+        try:
+            db_kwargs: dict = {}
+            if sqlite_path:
+                db_kwargs["db_path"] = pathlib.Path(sqlite_path)
+            tracker = WikidataCleanupTracker(**db_kwargs)
+            log.info("Database tracker initialised")
+        except Exception as e:
+            log.warning("Could not connect to database, running without tracker: %s", e)
+
+    run_id = str(uuid.uuid4())
+    log.info("Run ID: %s", run_id)
 
     site = pywikibot.Site("wikidata", "wikidata")
     repo = site.data_repository()
 
     if single_item:
         item = pywikibot.ItemPage(repo, single_item)
-        gen = pagegenerators.PreloadingGenerator(iter([item]))
+        gen = pagegenerators.PreloadingEntityGenerator(iter([item]))
     else:
         gen = gen_factory.getCombinedGenerator(preload=True)
         if gen is None:
-            pywikibot.bot.suggest_help(missing_generator=True)
+            log.info(
+                "No generator specified; building SPARQL generator "
+                "for active detectors."
+            )
+            gen = generator_for_detectors(
+                active_detectors,
+                repo,
+                limit=500,
+                source_rules=rules,
+            )
+        if gen is None:
+            pywikibot.error(
+                "Could not build a generator. "
+                "Specify one with -sparql:, -item:, etc."
+            )
             sys.exit(1)
-        gen = pagegenerators.PreloadingGenerator(gen)
+        gen = pagegenerators.PreloadingEntityGenerator(gen)
 
     pywikibot.output(
-        f"Active detectors: {', '.join(sorted(active_detectors))}"
+        f"Active detectors: {{', '.join(sorted(active_detectors))}}"
         + (" [DRY RUN]" if dry_run else "")
+        + (" [NO DB]" if no_db else "")
     )
 
     bot = WikidataCleanupBot(
         active_detectors=active_detectors,
         dry_run=dry_run,
         classifier=classifier,
+        rules=rules,
+        tracker=tracker,
+        run_id=run_id,
         generator=gen,
         site=repo,
     )
