@@ -1,0 +1,41 @@
+# Configuration for remove_import_ref
+#
+# Removes "imported from Wikimedia project" (P143) references that were
+# added by a specific (now banned) user to items that have NO sitelink to
+# the referenced Wikipedia -- neither now, nor at the moment the reference
+# was added.
+
+# Account whose reference-add edits we target. Matched against the MediaWiki
+# revision "user" field, scoped per item (rvuser), so the user's total edit
+# count is irrelevant -- we only ever look at their edits on each listed item.
+target_user: "Olaf Kosinsky"
+
+# Property used by the import reference.
+import_property: "P143"
+
+# Property on the *project item* (e.g. Q8449) that holds its wiki dbname
+# (e.g. "eswiki"). Used to resolve P143 value -> sitelink key.
+# P1800 = "Wikimedia database name".
+dbname_property: "P1800"
+
+# Edit behaviour
+dry_run: true                  # never edits unless explicitly overridden with --save
+remove_whole_reference: true   # remove the reference object that is the P143 import.
+                               # If the reference also contains OTHER snaks, skip and
+                               # log for manual review instead (see reference_checker).
+
+# HTTP / etiquette. Reads and the edit both go through one pywikibot Site, so
+# rate limiting is governed by pywikibot config (user-config.py): maxlag,
+# max_retries, retry_wait, put_throttle. All reads hit only the wikidata.org
+# endpoint (never the individual Wikipedias). Set the User-Agent in user-config.py.
+sleep_between_items_secs: 0.0     # optional extra spacing between items
+
+# Files (relative to project dir)
+input_file: "input/items.txt"
+done_file: "output/done.txt"          # qid<TAB>outcome  -- skipped on rerun
+matched_file: "output/matched.csv"    # qid, claim_prop, project_qid, dbcode, ref_hash, revid
+skipped_file: "output/skipped.csv"    # qid, reason
+log_file: "output/run.log"
+
+# Cache of resolved project_qid -> dbcode (text file, "Q8449<TAB>eswiki")
+dbcode_cache_file: "output/dbcode_cache.txt"

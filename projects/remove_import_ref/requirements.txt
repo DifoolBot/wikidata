@@ -1,0 +1,2 @@
+PyYAML>=6.0
+pywikibot==10.3.0   # reads (api.Request) and the edit both go through pywikibot
