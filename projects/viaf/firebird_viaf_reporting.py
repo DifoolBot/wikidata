@@ -2,13 +2,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import viaf.viaf_bot
+from viaf.paths import DATA_DIR
 
 from shared_lib.database_handler_firebird import FirebirdDatabaseHandler
 
 
 class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend):
     def __init__(self) -> None:
-        config_filename = Path(__file__).parent / "viaf.json"
+        config_filename = DATA_DIR / "viaf.json"
         create_script = Path("schemas/viaf.sql")
         super().__init__(config_filename, create_script)
 
@@ -48,8 +49,13 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
         sql = "EXECUTE PROCEDURE add_done(?)"
         self.execute_procedure(sql, (qid,))
 
+    def count_duplicates(self) -> int:
+        rows = self.execute_query("SELECT COUNT(*) FROM QDUPLICATES")
+        return rows[0][0] if rows else 0
+
     def get_duplicates(self) -> list[tuple[str, str, str, str]]:
-        sql = "SELECT first 1000 skip 1000 QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES ORDER BY 1, 2"
+        # cap the list at 1000 items to keep the wiki result page manageable
+        sql = "SELECT first 1000 QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES ORDER BY 1, 2"
         return self.execute_query(sql)
 
     def get_duplicate_local_auth_ids(self) -> Iterator[tuple[str, set[str], str]]:

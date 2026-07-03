@@ -2,10 +2,10 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 
 import pywikibot as pwb
-from viaf.wikidata_site import REPO
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from shared_lib.wikidata_site import REPO
 
 QID_INFERRED_FROM_VIAF_ID_CONTAINING_AN_ID_ALREADY_PRESENT_IN_THE_ITEM = "Q115111315"
 

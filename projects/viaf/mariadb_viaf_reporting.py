@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+from viaf.paths import DATA_DIR
 from viaf.viaf_bot import ReportBackend
 
 from shared_lib.database_handler_mariadb import MariaDbDatabaseHandler
@@ -17,7 +18,7 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
     """
 
     def __init__(self) -> None:
-        config_filename = Path(__file__).parent / "viaf_mariadb.json"
+        config_filename = DATA_DIR / "viaf_mariadb.json"
         create_script = Path("schemas/viaf_mariadb.sql")
         super().__init__(config_filename, create_script)
 
@@ -57,10 +58,14 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
         sql = "CALL add_done(?)"
         self.execute_procedure(sql, (qid,))
 
+    def count_duplicates(self) -> int:
+        rows = self.execute_query("SELECT COUNT(*) FROM QDUPLICATES")
+        return rows[0][0] if rows else 0
+
     def get_duplicates(self) -> list[tuple[str, str, str, str]]:
         sql = (
             "SELECT QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES "
-            "ORDER BY 1, 2 LIMIT 1000 OFFSET 1000"
+            "ORDER BY 1, 2 LIMIT 1000"
         )
         return self.execute_query(sql)
 

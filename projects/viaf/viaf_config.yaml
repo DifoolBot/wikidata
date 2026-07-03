@@ -1,0 +1,32 @@
+# Configuration for call_viaf.py
+#
+# call_viaf is meant to run once per day. Each run works through the authority
+# sources in the order below, firing at most ~1000 requests at the VIAF API
+# (VIAF enforces a daily limit) before stopping until the next day.
+
+# Desired processing order of authority sources, by Wikidata property id (PID).
+# The sources listed here are processed first, in this order; any authority
+# source not listed follows afterwards in its default order. You only need to
+# list the ones whose order you care about.
+order:
+  - P244   # Library of Congress authority ID (LC)
+  - P227   # GND ID (DNB)
+  - P269   # IdRef ID (SUDOC)
+  # - P396 # SBN author ID (ICCU)
+  # - P691 # NL CR AUT ID (NKC)
+
+# Authority sources to skip entirely, by Wikidata property id (PID). These are
+# never processed, even if also listed in "order".
+ignore:
+  - P213 # ISNI (too many false positives)
+  - P2163 # FAST ID (nothing found)
+
+# Once the QDUPLICATES table for the source being processed reaches this many
+# rows, stop processing that source, publish the duplicates report to Wikidata,
+# and move on to the next source. A report larger than this is unwieldy for
+# editors to work through. Set to null to disable the cap.
+max_duplicates: 150
+
+# After a full pass through all authority sources completes, wait this many
+# days before starting the next pass (nothing is processed during this period).
+cooldown_days: 28

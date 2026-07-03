@@ -2,24 +2,38 @@ import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from enum import Enum, auto
 
 import pywikibot as pwb
 import requests
 import viaf.wdqs_client
 from viaf.authority_sources import AuthorityRecord, AuthoritySource
 from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
+from viaf.paths import DATA_DIR
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
-from viaf.wikidata_site import REPO, SITE
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from shared_lib.wikidata_site import REPO, SITE
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
+
+
+class SessionOutcome(Enum):
+    """How a single run_session / iterate_qlever pass ended."""
+
+    # every row of the qlever file was processed
+    COMPLETED = auto()
+    # the VIAF API reported its daily rate limit was hit
+    RATE_LIMITED = auto()
+    # the QDUPLICATES table reached the configured max_duplicates cap
+    MAX_DUPLICATES = auto()
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
 
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
-WIKI_FILE = "wiki.txt"
+WIKI_FILE = str(DATA_DIR / "wiki.txt")
+DEFAULT_QLEVER_FILE = str(DATA_DIR / "qlever_viaf_index.txt")
 
 MAX_LAG_BACKOFF_SECS = 10 * 60
 SLEEP_AFTER_ERROR = 10  # sec
@@ -65,6 +79,10 @@ class ReportBackend(ABC):
 
     @abstractmethod
     def add_done(self, qid: str) -> None:
+        pass
+
+    @abstractmethod
+    def count_duplicates(self) -> int:
         pass
 
     @abstractmethod
@@ -150,19 +168,27 @@ class ViafBot:
     def run(self):
         self.run_session()
 
-    def run_session(self, output_file: str = "qlever_viaf_index.txt") -> bool:
-        """Run one qlever-based pass and, if it ran to completion (i.e. wasn't cut
-        short by the VIAF API rate limit), publish the duplicate/wikitext
-        reports and start a new reporting session.
+    def run_session(
+        self,
+        output_file: str = DEFAULT_QLEVER_FILE,
+        max_duplicates: int | None = None,
+    ) -> SessionOutcome:
+        """Run one qlever-based pass over the current authority source.
 
-        Returns True if the pass ran to completion, False if it was cut short.
+        Unless the pass was cut short by the VIAF API rate limit, the
+        accumulated duplicate/wikitext reports are published and a new
+        reporting session is started (which clears QDUPLICATES/QERROR).
+
+        Returns the SessionOutcome describing how the pass ended.
         """
-        finished = self.iterate_qlever(output_file=output_file)
-        if finished:
+        outcome = self.iterate_qlever(
+            output_file=output_file, max_duplicates=max_duplicates
+        )
+        if outcome != SessionOutcome.RATE_LIMITED:
             self.generate_duplicate_locals_report()
             self.generate_duplicates_report()
             self.end_session()
-        return finished
+        return outcome
 
     def change_wikidata(self, record: AuthorityRecord) -> None:
         if not record.qid.startswith("Q"):  # ignore property pages and lexeme pages
@@ -349,7 +375,7 @@ class ViafBot:
         has_duplicates = False
         duplicates = self.report.get_duplicates()
         if not duplicates:
-            raise RuntimeError("No duplicates")
+            return ""
         for row in duplicates:
             qid, duplicate_qid, local_auth_id, viaf_id = row
             # https://dicare.toolforge.org/wikidata-diff/?qids=Q3218809+Q2920825&language=en
@@ -370,7 +396,7 @@ class ViafBot:
         footer = "\n|}"
         stats = self.report.get_stats()
         if not stats:
-            raise RuntimeError("No stats")
+            return ""
         checked, added, not_found = stats
         if checked == added + not_found:
             return ""
@@ -496,7 +522,7 @@ class ViafBot:
         """Marker line identifying which authority source a qlever output_file is for."""
         return f"# pid={self.auth_src.pid}"
 
-    def fetch_qlever_results(self, output_file: str = "qlever_viaf_index.txt") -> int:
+    def fetch_qlever_results(self, output_file: str = DEFAULT_QLEVER_FILE) -> int:
         """Execute the iterate_index query on qlever without the slice part and save the output.
 
         The output file starts with a header line identifying self.auth_src.pid,
@@ -532,18 +558,23 @@ class ViafBot:
         pwb.output(f"Wrote {len(results)} rows to {output_file}")
         return len(results)
 
-    def iterate_qlever(self, output_file: str = "qlever_viaf_index.txt") -> bool:
+    def iterate_qlever(
+        self,
+        output_file: str = DEFAULT_QLEVER_FILE,
+        max_duplicates: int | None = None,
+    ) -> SessionOutcome:
         """Run qlever once and iterate the resulting items.
 
         If output_file already exists but its header doesn't match self.auth_src
         (e.g. it's a leftover from a previous, differently-configured run), it is
         discarded and refetched rather than trusted blindly.
 
-        Stops early if the VIAF API reports its rate limit was hit, leaving
-        the remaining rows (plus the header) in output_file for the next run.
+        Stops early, leaving the remaining rows (plus the header) in output_file
+        for the next run, if either:
+          - the VIAF API reports its rate limit was hit (RATE_LIMITED), or
+          - the QDUPLICATES table reaches max_duplicates rows (MAX_DUPLICATES).
 
-        Returns True if every row in output_file was processed (and the file
-        was removed), False if the run was cut short by the rate limit.
+        If every row is processed the file is removed and COMPLETED is returned.
         """
         header = self._qlever_header()
 
@@ -562,7 +593,7 @@ class ViafBot:
             count = self.fetch_qlever_results(output_file=output_file)
             if count == 0:
                 pwb.warning("No qlever rows to process.")
-                return True
+                return SessionOutcome.COMPLETED
         else:
             pwb.output(f"Using existing qlever file: {output_file}")
 
@@ -576,8 +607,20 @@ class ViafBot:
         processed = 0
         malformed = 0
         remaining_lines: list[str] = []
-        finished = True
+        outcome = SessionOutcome.COMPLETED
         for index, line in enumerate(lines):
+            if (
+                max_duplicates is not None
+                and self.report.count_duplicates() >= max_duplicates
+            ):
+                pwb.warning(
+                    f"QDUPLICATES reached {max_duplicates} rows; "
+                    "publishing report and moving on."
+                )
+                remaining_lines = lines[index:]
+                outcome = SessionOutcome.MAX_DUPLICATES
+                break
+
             stripped = line.strip()
             parts = stripped.split("\t")
             if len(parts) != 2:
@@ -591,7 +634,7 @@ class ViafBot:
             except ViafRateLimitExceeded as e:
                 pwb.warning(f"{e}; stopping for now.")
                 remaining_lines = lines[index:]
-                finished = False
+                outcome = SessionOutcome.RATE_LIMITED
                 break
             processed += 1
             if processed % 100 == 0 or processed == total_lines:
@@ -600,14 +643,14 @@ class ViafBot:
                     f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
                 )
 
-        if not finished:
+        if outcome != SessionOutcome.COMPLETED:
             with open(output_file, "w", encoding="utf-8") as fh:
                 fh.write(header + "\n")
                 fh.writelines(remaining_lines)
             pwb.output(
                 f"{len(remaining_lines)} unprocessed row(s) left in {output_file}."
             )
-            return False
+            return outcome
 
         try:
             os.remove(output_file)
@@ -615,4 +658,4 @@ class ViafBot:
         except OSError as e:
             pwb.error(f"Failed to remove temporary file {output_file}: {e}")
 
-        return True
+        return SessionOutcome.COMPLETED

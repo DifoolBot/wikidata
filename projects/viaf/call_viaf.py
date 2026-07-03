@@ -1,56 +1,88 @@
 import json
-from pathlib import Path
+from datetime import date, timedelta
+
+import pywikibot as pwb
 
 import viaf.authority_sources
-import viaf.viaf_bot
 from viaf.firebird_viaf_reporting import FirebirdViafReporting
+from viaf.paths import DATA_DIR
+from viaf.viaf_bot import SessionOutcome, ViafBot
+from viaf.viaf_config import load_config, order_pids
 
-PROGRESS_FILE = Path(__file__).parent / "viaf_progress.json"
+PROGRESS_FILE = DATA_DIR / "viaf_progress.json"
 
 
-def _load_current_pid_index(pids: list[str]) -> int:
-    """Return the index in pids to resume from, based on the last saved progress."""
+def _load_progress() -> dict:
     if not PROGRESS_FILE.exists():
-        return 0
+        return {}
     try:
-        data = json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
+        return json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return 0
-    current_pid = data.get("current_pid")
-    if current_pid in pids:
-        return pids.index(current_pid)
+        return {}
+
+
+def _save_progress(current_pid: str, cooldown_until: date | None = None) -> None:
+    data = {"current_pid": current_pid}
+    if cooldown_until is not None:
+        data["cooldown_until"] = cooldown_until.isoformat()
+    PROGRESS_FILE.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _resume_index(ordered_pids: list[str], current_pid: str | None) -> int:
+    if current_pid in ordered_pids:
+        return ordered_pids.index(current_pid)
     return 0
 
 
-def _save_current_pid_index(pids: list[str], index: int) -> None:
-    PROGRESS_FILE.write_text(json.dumps({"current_pid": pids[index]}), encoding="utf-8")
-
-
 def main() -> None:
+    config = load_config()
+    progress = _load_progress()
+
+    cooldown_until = progress.get("cooldown_until")
+    if cooldown_until and date.today() < date.fromisoformat(cooldown_until):
+        pwb.output(f"In cooldown until {cooldown_until}; nothing to do.")
+        return
+
     authority_sources = viaf.authority_sources.AuthoritySources()
-    pids = authority_sources.all_pids()
+    ignored = set(config.ignore)
+    active_pids = [pid for pid in authority_sources.all_pids() if pid not in ignored]
+    ordered_pids = order_pids(active_pids, config.order)
+    if not ordered_pids:
+        return
 
-    index = _load_current_pid_index(pids)
+    index = _resume_index(ordered_pids, progress.get("current_pid"))
 
-    # viaf.org allows only a limited number of API calls per day, so we work
-    # through the authority sources one at a time, persisting which one to
-    # resume from next time. A run stops as soon as one source reports its
-    # pass was cut short (i.e. the rate limit was hit); otherwise it moves on
-    # to the next source, for at most one full cycle through all sources.
-    for _ in range(len(pids)):
-        pid = pids[index]
+    # Process sources in order. A source that finishes (either its qlever rows
+    # are exhausted or the duplicates cap is hit) publishes its report and we
+    # advance to the next one; when the VIAF daily rate limit is hit we stop and
+    # resume the same source on the next run. After the final source finishes,
+    # enter a cooldown before starting the next full pass from the top.
+    for _ in range(len(ordered_pids)):
+        pid = ordered_pids[index]
         auth_src = authority_sources.get(pid)
 
-        bot = viaf.viaf_bot.ViafBot(auth_src, report=FirebirdViafReporting())
+        bot = ViafBot(auth_src, report=FirebirdViafReporting())
         bot.test = False
-        finished = bot.run_session(output_file=f"qlever_viaf_index_{pid}.txt")
+        outcome = bot.run_session(
+            output_file=str(DATA_DIR / f"qlever_viaf_index_{pid}.txt"),
+            max_duplicates=config.max_duplicates,
+        )
 
-        if not finished:
-            # continue next day
-            break
+        if outcome == SessionOutcome.RATE_LIMITED:
+            # used today's VIAF budget; resume this same source next run
+            _save_progress(current_pid=pid)
+            return
 
-        index = (index + 1) % len(pids)
-        _save_current_pid_index(pids, index)
+        if index == len(ordered_pids) - 1:
+            resume_at = date.today() + timedelta(days=config.cooldown_days)
+            _save_progress(current_pid=ordered_pids[0], cooldown_until=resume_at)
+            pwb.output(
+                f"Completed all authority sources; cooling down until {resume_at}."
+            )
+            return
+
+        index += 1
+        _save_progress(current_pid=ordered_pids[index])
 
 
 if __name__ == "__main__":
