@@ -8,8 +8,8 @@ import pywikibot as pwb
 import requests
 import viaf.wdqs_client
 from viaf.authority_sources import AuthorityRecord, AuthoritySource
-from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
 from viaf.paths import DATA_DIR
+from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
 
 import shared_lib.change_wikidata as cwd
@@ -28,6 +28,7 @@ class SessionOutcome(Enum):
     RATE_LIMITED = auto()
     # the QDUPLICATES table reached the configured max_duplicates cap
     MAX_DUPLICATES = auto()
+
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
 
@@ -253,8 +254,8 @@ class ViafBot:
         if not bindings:
             return duplicate_qids
         for row in bindings:
-            other_qid = row.get("item", {}).get("value", "").replace(
-                WIKIDATA_ENTITY_PREFIX, ""
+            other_qid = (
+                row.get("item", {}).get("value", "").replace(WIKIDATA_ENTITY_PREFIX, "")
             )
             duplicate_qids.append(other_qid)
         return duplicate_qids
@@ -506,8 +507,8 @@ class ViafBot:
         if not rows:
             return False
         for row in rows:
-            qid = row.get("item", {}).get("value", "").replace(
-                WIKIDATA_ENTITY_PREFIX, ""
+            qid = (
+                row.get("item", {}).get("value", "").replace(WIKIDATA_ENTITY_PREFIX, "")
             )
             local_auth_id = row.get("local_auth_id", {}).get("value", "")
             if len(qid) == 0:

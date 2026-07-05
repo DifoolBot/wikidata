@@ -2,7 +2,6 @@ import json
 from datetime import date, timedelta
 
 import pywikibot as pwb
-
 import viaf.authority_sources
 from viaf.firebird_viaf_reporting import FirebirdViafReporting
 from viaf.paths import DATA_DIR

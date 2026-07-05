@@ -11,7 +11,9 @@
 order:
   - P244   # Library of Congress authority ID (LC)
   - P227   # GND ID (DNB)
+  - P268   # BNF
   - P269   # IdRef ID (SUDOC)
+  - P245   # JPG
   # - P396 # SBN author ID (ICCU)
   # - P691 # NL CR AUT ID (NKC)
 
