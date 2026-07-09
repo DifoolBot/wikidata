@@ -2,6 +2,8 @@ import json
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from shared_lib.config import get_env
+
 
 class DatabaseHandler(ABC):
     """Backend-independent base for the small per-project tracking/reporting databases.
@@ -17,6 +19,11 @@ class DatabaseHandler(ABC):
     as Firebird's ``EXECUTE PROCEDURE`` / ``UPDATE OR INSERT`` statements or
     schema scripts (``SET TERM`` vs ``DELIMITER``) - callers that embed those
     still need backend-specific SQL strings.
+
+    Credentials: config JSONs should only contain the non-secret connection
+    details (DB_HOST, DB_PORT, DB_NAME). DB_USER and DB_PASSWORD are taken
+    from the WD_DB_USER / WD_DB_PASSWORD variables in the repo-root .env
+    when the JSON omits them; a JSON value, if present, still wins.
     """
 
     def __init__(
@@ -28,10 +35,19 @@ class DatabaseHandler(ABC):
             self.create_config(config_path, Path(create_script))
 
         if not config_path.exists():
-            raise FileNotFoundError(f"Configuration file '{config_filename}' not found.")
+            raise FileNotFoundError(
+                f"Configuration file '{config_filename}' not found."
+            )
 
         with config_path.open(encoding="utf-8") as f:
             self.config = json.load(f)
+
+        for config_key, env_var in (
+            ("DB_USER", "WD_DB_USER"),
+            ("DB_PASSWORD", "WD_DB_PASSWORD"),
+        ):
+            if config_key not in self.config:
+                self.config[config_key] = get_env(env_var)
 
     @abstractmethod
     def get_connection(self):

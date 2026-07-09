@@ -43,6 +43,7 @@ htmlcov/
 .coverage
 .coverage.*
 .cache
+external_data_cache.pkl
 nosetests.xml
 coverage.xml
 *.cover
@@ -168,5 +169,12 @@ apicache/
 *.json
 *.rdf
 wiki.txt
-ecartico/
 *.lock
+!.vscode/launch.json
+!.vscode/settings.json
+
+# remove_sitelinks runtime state (work queue, caches, Firebird DB)
+projects/remove_sitelinks/data/
+
+# viaf runtime state (db config, progress, qlever work files, wiki output)
+projects/viaf/data/

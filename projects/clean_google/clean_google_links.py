@@ -1,3 +1,4 @@
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pywikibot
@@ -5,6 +6,7 @@ import requests
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from shared_lib.config import get_env
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -12,24 +14,11 @@ repo = site.data_repository()
 # see https://www.wikidata.org/wiki/Talk:Q4937233
 # query: https://qlever.dev/wikidata/c1T82F
 
-API_KEY = "YOUR_API_KEY_HERE"
+API_KEY = get_env("GOOGLE_KG_API_KEY", required=False)
 
 # Global cache
 _url_cache = {}
 _classify_cache = {}
-
-
-# Your interface functions (stubs here)
-def remove_property(item_id, property_id, claim_id):
-    print(f"Removing property {property_id} (claim {claim_id}) from {item_id}")
-    # Call your actual interface here
-
-
-def remove_reference_value(item_id, property_id, claim_id, ref_hash):
-    print(
-        f"Removing reference value from {item_id}, property {property_id}, claim {claim_id}, ref {ref_hash}"
-    )
-    # Call your actual interface here
 
 
 def resolve_url(url):
@@ -67,9 +56,6 @@ def extract_google_query(url):
     query_value = params.get("q", [None])[0]
 
     return query_value
-
-
-import requests
 
 
 def get_kg_ids(query: str, api_key: str):
@@ -124,15 +110,8 @@ def get_kg_ids(query: str, api_key: str):
 
 
 # Example usage:
-# api_key = "YOUR_API_KEY"
 # ids = get_kg_ids("Hazel Crane", api_key)
 # print(ids)  # {'freebase_id': '/m/04my8sb', 'google_kg_id': '/g/11b6c4z0w5'}
-
-
-# Example usage:
-# api_key = "YOUR_API_KEY"
-# ids = get_kg_ids("Hazel Crane", api_key)
-# print(ids)  # {'freebase_id': '/m/xxxx', 'google_kg_id': '/g/xxxx'}
 
 
 def _classify_google_url(url):
@@ -162,9 +141,10 @@ def _classify_google_url(url):
             result["is_search"] = True
 
         # Check for Knowledge Graph (kgmid param)
-        if not "kgmid" in query_params:
+        if "kgmid" not in query_params:
             q = extract_google_query(url)
-            if q:
+            # Knowledge Graph lookup by search text needs a Google API key
+            if q and API_KEY:
                 ids = get_kg_ids(q, api_key=API_KEY)
                 if ids["google_kg_id"]:
                     result["is_knowledge_graph"] = True
@@ -304,7 +284,7 @@ def load_items_from_file(filename):
 def main():
     # Example input list from qlever
     # items = ["Q847100"]
-    items = load_items_from_file("C:\\Users\\User\\Downloads\\wikidata_iNxxeO.csv")
+    items = load_items_from_file(Path(__file__).parent / "input" / "items.txt")
     for qid in items:
         print(f"Processing {qid}...")
         process_item(qid, test=False)

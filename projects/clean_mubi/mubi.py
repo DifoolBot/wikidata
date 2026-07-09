@@ -1,7 +1,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
-from urllib.parse import parse_qs, urlparse
+from pathlib import Path
 
 import pywikibot
 import requests
@@ -121,10 +121,6 @@ class MubiStrategy(IdentifierStrategy):
         if not script_tag:
             raise ValueError("Could not find __NEXT_DATA__ script tag")
 
-        script_tag = soup.find("script", id="__NEXT_DATA__")
-        if not script_tag:
-            raise ValueError("Could not find __NEXT_DATA__ script tag")
-
         # Load JSON
         # Navigate to castMember.id
         try:
@@ -180,29 +176,33 @@ def process_item(qid, test: bool, strategy: IdentifierStrategy):
     main_id = None
     main_url = None
     if len(main_ids) == 0:
-        print(f"No {strategy.name} IDs found for {qid}")
+        print(f"No {strategy.name()} IDs found for {qid}")
     elif len(main_ids) > 1:
-        print(f"Multiple {strategy.name} IDs found for {qid}: {list(main_ids.keys())}")
+        print(
+            f"Multiple {strategy.name()} IDs found for {qid}: {list(main_ids.keys())}"
+        )
         return
     else:
         main_id = list(main_ids.keys())[0]
         if len(main_ids[main_id]) > 1:
-            print(f"Multiple reference URLs for {strategy.name} ID {main_id} in {qid}")
+            print(
+                f"Multiple reference URLs for {strategy.name()} ID {main_id} in {qid}"
+            )
             return
         if len(main_ids[main_id]) > 0:
             main_url = list(main_ids[main_id])[0]
     ref_urls = strategy.get_ref_urls(item)
     if len(ref_urls) == 0:
-        print(f"No {strategy.name} reference URLs found for {qid}")
+        print(f"No {strategy.name()} reference URLs found for {qid}")
         return
     if len(strategy.get_ids_from_urls(ref_urls)) > 1:
-        print(f"Multiple {strategy.name} reference URLs found for {qid}")
+        print(f"Multiple {strategy.name()} reference URLs found for {qid}")
         return
     ref_url = ref_urls[0]
     if main_url:
         if len(strategy.get_ids_from_urls([main_url, ref_url])) > 1:
             print(
-                f"{strategy.name} ID {main_id} has a different reference URL in {qid}"
+                f"{strategy.name()} ID {main_id} has a different reference URL in {qid}"
             )
             return
 
@@ -260,7 +260,7 @@ def process_item(qid, test: bool, strategy: IdentifierStrategy):
                         if strategy.extract_id_from_url(
                             url
                         ) != strategy.extract_id_from_url(ref_url):
-                            print(f"Unknown {strategy.name} URL found in references")
+                            print(f"Unknown {strategy.name()} URL found in references")
                             return
                         ref_index = claim.sources.index(src)
                         page.remove_ref_value(
@@ -294,7 +294,7 @@ def load_items_from_file(filename):
 def main():
     # Example input list from qlever
     items = ["Q113847934"]
-    # items = load_items_from_file("D:\\python\\wikidata\\projects\\clean_url\\mubi.txt")
+    # items = load_items_from_file(Path(__file__).parent / "input" / "mubi.txt")
     for qid in items:
         print(f"Processing {qid}...")
         process_item(qid, strategy=MubiStrategy(), test=False)

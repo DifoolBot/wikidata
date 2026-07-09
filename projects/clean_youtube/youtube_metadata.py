@@ -1,5 +1,3 @@
-import os
-import random
 import re
 from pathlib import Path
 from typing import Optional
@@ -7,14 +5,13 @@ from urllib.parse import parse_qs, urlparse
 
 import pywikibot
 import requests
-from database_handler import DatabaseHandler
-from dotenv import load_dotenv
 from pywikibot.data import sparql
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 import shared_lib.date_value as date_value
-import requests
+from shared_lib.config import SCHEMAS_DIR, get_env
+from shared_lib.database_handler import DatabaseHandler
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -24,8 +21,7 @@ edit_group = "fa3ffa532b70"  # "{:x}".format(random.randrange(0, 2**48))
 # https://qlever.dev/wikidata/euqcXi
 # https://qlever.dev/wikidata/?query=PREFIX+wd%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fentity%2F%3E%0APREFIX+wdt%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2Fdirect%2F%3E%0APREFIX+p%3A+%3Chttp%3A%2F%2Fwww.wikidata.org%2Fprop%2F%3E%0APREFIX+xsd%3A+%3Chttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23%3E%0APREFIX+wikibase%3A+%3Chttp%3A%2F%2Fwikiba.se%2Fontology%23%3E%0ASELECT+DISTINCT+%3Fitem+WHERE+%7B%0A++VALUES+%3Fprop+%7B%0A++++p%3AP854+p%3AP856+p%3AP953+p%3AP973+p%3AP1325+p%3AP2699+p%3AP2888+p%3AP8214%0A++%7D%0A++%3Fitem+%3Fprop+%3Fstatement+.%0A++%3Fstatement+%3FpsDirect+%3Furl+.%0A++FILTER%28%0A++++CONTAINS%28STR%28%3Furl%29%2C+%22youtube.com%22%29+%7C%7C%0A++++CONTAINS%28STR%28%3Furl%29%2C+%22youtu.be%22%29%0A++%29%0A%0A%7D%0A
 
-load_dotenv()  # reads .env file in the current directory
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+YOUTUBE_API_KEY = get_env("YOUTUBE_API_KEY")
 YOUTUBE_VIDEOS_API_URL = "https://www.googleapis.com/youtube/v3/videos"
 YOUTUBE_CHANNELS_API_URL = "https://www.googleapis.com/youtube/v3/channels"
 
@@ -52,7 +48,7 @@ class ChannelHandleTracker(DatabaseHandler):
 
     def __init__(self):
         file_path = Path(__file__).parent / "channel_handles.json"
-        create_script = Path("schemas/channel_handles.sql")
+        create_script = SCHEMAS_DIR / "channel_handles.sql"
         super().__init__(file_path, create_script)
 
     def get_handle(self, channel_id: str) -> tuple[bool, str | None]:
@@ -771,7 +767,7 @@ def main():
     # print(lookup_channel_qid("UCmh7afBz-uWwOSSNTqUBAhg"))
     tracker = ChannelHandleTracker()  # shared across all items
     # items = ["Q123306649"]
-    items = load_items_from_file(r"D:\python\wikidata\projects\clean_url\items.csv")
+    items = load_items_from_file(Path(__file__).parent / "input" / "items.csv")
     for qid in items:
         pywikibot.output(f"Processing {qid}...")
         try:
