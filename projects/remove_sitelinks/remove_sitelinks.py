@@ -30,6 +30,7 @@ edit_group = "ece1e2aa4e61"  # "{:x}".format(random.randrange(0, 2**48))
 # EXISTS: Q9022737 -> I can't find de.wikipedia link in history << father/child
 # Kosinsky edits: Q14120514 - language
 # NEVER EXISTED: Q56871179 -> should be deleted
+# Q873432 -> rename Ram Charan -> Ram Charan (consultant) daarna delete
 
 SUPPORTED_LANGS = [
     "en",
@@ -672,7 +673,68 @@ def _get_old_version_snapshot(item: pywikibot.ItemPage, revid: int | str) -> dic
 
 
 @rate_limit(10)  # 1 call every 10 seconds
-def find_title_from_history(
+def find_title_from_removal_comment(
+    item: pywikibot.ItemPage,
+    lang: str,
+    _comment_cache: dict[str, list[str]] | None = None,
+) -> str | None:
+    """
+    Recover the deleted page title from the newest sitelink-removal edit summary.
+
+    When a client-wiki page is deleted, Wikibase auto-removes the sitelink with a
+    summary like ``/* clientsitelink-remove:1||enwiki */ <Title>``, where <Title>
+    is the exact page title that was deleted. Scanning newest-first returns the
+    *final* title, which is what we want when a page was renamed before deletion
+    (the old title may now be a different, live article). Compare with
+    find_title_from_history_snapshots, which walks oldest-first and would return
+    the pre-rename title.
+
+    Only edit summaries are inspected (one cheap API call), no per-revision
+    snapshots are fetched.
+    """
+    wiki_key = f"{lang}wiki"
+    pywikibot.output(f"  Searching removal comments for '{wiki_key}' sitelink...")
+
+    qid = item.title()
+    if _comment_cache is not None and qid in _comment_cache:
+        comments = _comment_cache[qid]
+    else:
+        req = Request(
+            site=site,
+            parameters={
+                "action": "query",
+                "prop": "revisions",
+                "titles": qid,
+                "rvprop": "comment",
+                "rvlimit": "500",
+                "rvdir": "older",  # newest -> oldest
+            },
+        )
+        data = req.submit()
+
+        comments = []
+        for _, page in data["query"]["pages"].items():
+            comments = [rev.get("comment", "") for rev in page.get("revisions", [])]
+
+        if _comment_cache is not None:
+            _comment_cache[qid] = comments
+
+    # e.g. "/* clientsitelink-remove:1||enwiki */ Ram Charan (consultant)"
+    pattern = re.compile(
+        r"clientsitelink-remove:\d+\|\|" + re.escape(wiki_key) + r"\s*\*/\s*(.+?)\s*$"
+    )
+    for comment in comments:  # newest first
+        m = pattern.search(comment)
+        if m:
+            title = m.group(1)
+            pywikibot.output(f"  Found '{title}' in sitelink-removal comment.")
+            return title
+
+    return None
+
+
+@rate_limit(10)  # 1 call every 10 seconds
+def find_title_from_history_snapshots(
     item: pywikibot.ItemPage,
     lang: str,
     max_check_count: int = 5,
@@ -685,6 +747,10 @@ def find_title_from_history(
     into a single "run", and only the newest revision of each run is fetched in
     full. This covers every distinct editing session with the fewest getOldVersion
     calls.
+
+    This walks oldest-first and returns the earliest recorded title; for the
+    title actually deleted (after any rename), try find_title_from_removal_comment
+    first.
     """
     wiki_key = f"{lang}wiki"
     pywikibot.output(f"  Searching revision history for '{wiki_key}' sitelink...")
@@ -772,6 +838,7 @@ def process_lang(
     lang: str,
     lang_entries: list[dict],
     _revision_cache: dict[str, list[dict]],
+    _comment_cache: dict[str, list[str]],
     page_title_buffer: dict[tuple[str, str], str | None] | None = None,
 ) -> bool:
     """
@@ -800,8 +867,19 @@ def process_lang(
         page_title_buffer=page_title_buffer,
     )
     if not title:
-        pywikibot.output(f"[{lang}] Title not in sources; checking revision history...")
-        title = find_title_from_history(item, lang, _revision_cache=_revision_cache)
+        pywikibot.output(
+            f"[{lang}] Title not in sources; checking sitelink-removal comments..."
+        )
+        title = find_title_from_removal_comment(
+            item, lang, _comment_cache=_comment_cache
+        )
+    if not title:
+        pywikibot.output(
+            f"[{lang}] Not in removal comments; checking revision history snapshots..."
+        )
+        title = find_title_from_history_snapshots(
+            item, lang, _revision_cache=_revision_cache
+        )
 
     if not title:
         pywikibot.output(f"[{lang}] Could not determine original title. Skipping.")
@@ -863,9 +941,9 @@ def process_item(
         page = cwd.WikiDataPage(item, test=dry_run)
         langs_done: set[str] = set()
 
-        revision_cache: dict[str, list[dict]] = (
-            {}
-        )  # lives for this item's lifetime only
+        # These caches live for this item's lifetime only, shared across langs.
+        revision_cache: dict[str, list[dict]] = {}
+        comment_cache: dict[str, list[str]] = {}
 
         for lang in sorted(wp_refs.keys()):
             if lang not in SUPPORTED_LANGS and lang != "unknown":
@@ -876,6 +954,7 @@ def process_item(
                 lang,
                 wp_refs[lang],
                 _revision_cache=revision_cache,
+                _comment_cache=comment_cache,
                 page_title_buffer=page_title_buffer,
             ):
                 langs_done.add(lang)
