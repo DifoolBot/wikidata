@@ -26,13 +26,18 @@ Special labels (shown instead of the numeric score):
   …, Instance of         - appended when right item is not instance-of human (Q5)
 
 Usage (on Toolforge):
-  python viaf_score.py [--rescore] [--dry-run] [--limit N]
+  python viaf_score.py [--rescore] [--dry-run] [--first N] [--skip M] [--keep-done]
 
 Options:
-  --rescore   Remove and recompute all existing scores (default: skip rows
-              that already have a score).
-  --dry-run   Print the new wikitext to stdout instead of saving.
-  --limit N   Process at most N rows per section (useful for testing).
+  --rescore    Remove and recompute all existing scores (default: skip sections
+               that already have a score).
+  --dry-run    Print the new wikitext to stdout instead of saving.
+  --first N    Score at most N rows across the whole page (default: all).
+  --skip M     Skip the first M scorable rows before scoring.  Combine with
+               --first to process a window (e.g. --first 10 --skip 10) for
+               testing or to run a big rescore in resumable chunks.
+  --keep-done  Keep rows whose score marks a done action instead of removing
+               them (the daily add-only run uses this).
 """
 
 import re
@@ -54,8 +59,14 @@ from pywikibot.data import api
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
 SITE = pywikibot.Site("wikidata", "wikidata")
 
-# Wikidata API rate-limit courtesy delay between entity fetches (seconds)
-API_DELAY = 0.5
+# Wikidata API rate-limit courtesy delay between API calls (seconds).  Kept
+# small: pywikibot already honours maxlag and the server read rate limits, so
+# this is just courtesy.  It is paid per *batch*, not per entity.
+API_DELAY = 0.1
+
+# wbgetentities accepts up to 50 ids per request; we prefetch row entities in
+# batches of this size to slash round-trips.
+BATCH_SIZE = 50
 
 # Sections with these headings are not processed (e.g. intro / actions)
 IGNORE_HEADERS = {"==Actions==", "==Columns=="}
@@ -95,38 +106,73 @@ _person_cache: dict[tuple[str, str], "Person"] = {}
 _country_cache: dict[str, Optional[str]] = {}
 
 
-def get_entity(qid: str) -> Optional[dict]:
-    """Return the entity dict for *qid*, fetching from the API if needed.
+def _wbgetentities(ids: list[str]) -> dict:
+    """Raw ``wbgetentities`` call for up to 50 *ids* (claims only).
 
-    Fetches only claims via a single ``wbgetentities`` call.  We deliberately
-    skip sitelinks/labels/descriptions: the scorer never uses them, and
+    We skip sitelinks/labels/descriptions: the scorer never uses them and
     requesting sitelinks makes the response far heavier for well-connected
-    items.  This also avoids the extra ``isRedirectPage`` query round-trip that
-    ``pywikibot.ItemPage.get()`` triggers.
+    items.  ``redirects=yes`` follows redirects, returning the target's claims
+    under the *requested* id with ``entity["id"]`` set to the target.
+    """
+    resp = api.Request(
+        site=SITE,
+        parameters={
+            "action": "wbgetentities",
+            "ids": "|".join(ids),
+            "props": "claims",
+            "redirects": "yes",
+            "format": "json",
+        },
+    ).submit()
+    return resp.get("entities", {})
 
-    The result is normalized to ``{"entities": {<id>: {"claims": {...}}}}``.
-    ``redirects=yes`` follows a redirect and returns the *target*'s claims;
-    since the target's ``id`` differs from the requested *qid*, we key the dict
-    by that target id so callers can spot a redirect via
-    ``next(iter(entities)) != qid``.
+
+def _store_entity(qid: str, entities: dict) -> dict:
+    """Normalize one entity from a wbgetentities response and cache it.
+
+    The stored shape is ``{"entities": {<id>: {"claims": {...}}}}``.  For a
+    redirect the inner key is the *target* id (``entity["id"]``), so callers can
+    detect a redirect via ``next(iter(entities)) != qid``.
+    """
+    ent = entities.get(qid, {})
+    actual = ent.get("id", qid)  # target id when qid is a redirect
+    data = {"entities": {actual: ent}}
+    _entity_cache[qid] = data
+    return data
+
+
+def prefetch_entities(qids: list[str]) -> None:
+    """Batch-fetch every not-yet-cached QID in *qids* into ``_entity_cache``.
+
+    This is the big lever for runtime: instead of one API round-trip per entity
+    (two per row) we fetch up to ``BATCH_SIZE`` at a time, so scoring afterwards
+    is served from cache.  Order-preserving de-duplication keeps the batches
+    tight.
+    """
+    todo = [q for q in dict.fromkeys(qids) if q not in _entity_cache]
+    for i in range(0, len(todo), BATCH_SIZE):
+        batch = todo[i : i + BATCH_SIZE]
+        try:
+            entities = _wbgetentities(batch)
+            for qid in batch:
+                _store_entity(qid, entities)
+        except Exception as exc:
+            log.warning("Batch fetch failed for %s...: %s", batch[:3], exc)
+            # Leave them uncached; get_entity will retry individually on demand.
+        time.sleep(API_DELAY)
+
+
+def get_entity(qid: str) -> Optional[dict]:
+    """Return the entity dict for *qid*, fetching a single one if not cached.
+
+    Most row entities are pre-loaded by :func:`prefetch_entities`; this
+    per-entity path remains for lazily-discovered ones (e.g. place-of-birth
+    lookups during country resolution).
     """
     if qid in _entity_cache:
         return _entity_cache[qid]
     try:
-        resp = api.Request(
-            site=SITE,
-            parameters={
-                "action": "wbgetentities",
-                "ids": qid,
-                "props": "claims",
-                "redirects": "yes",
-                "format": "json",
-            },
-        ).submit()
-        ent = resp.get("entities", {}).get(qid, {})
-        actual = ent.get("id", qid)  # target id when qid is a redirect
-        data = {"entities": {actual: ent}}
-        _entity_cache[qid] = data
+        data = _store_entity(qid, _wbgetentities([qid]))
         time.sleep(API_DELAY)
         return data
     except Exception as exc:
@@ -699,40 +745,26 @@ def _row_is_done(score_cell: str) -> bool:
 ScoreMap = dict[tuple[str, str], QIDPairScore]
 
 
-def score_section(lines: list[str], pid: str, limit: Optional[int]) -> ScoreMap:
-    """Compute a :class:`QIDPairScore` for every eligible row in one section.
+def _section_rows(lines: list[str], pid: str) -> list[dict]:
+    """Parse one section's scorable rows into ``{pid, viaf, q1, ext_id, q2}``.
 
-    This is the network-bound half of the pipeline (it calls the API via
-    ``create_item``).  It returns a map keyed by the ``(q1, q2)`` pair rather
-    than by line position, so the result can later be applied to a *different*
-    revision of the page (see :func:`apply_section`).  Rows beyond *limit* are
-    left out of the map (they render as "?" when applied).
+    Row layout is fixed by the bot that writes the page:
+      |-  | viaf-url  | {{Q|Q1}}  | PID|ExternalID  | {{Q|Q2}}  | [compare]
     """
-    score_map: ScoreMap = {}
+    rows: list[dict] = []
     i = 0
-    processed = 0
     while i < len(lines):
         if lines[i].strip() == "|-" and i + 5 < len(lines):
-            # Expected structure:
-            #   i+0  |-
-            #   i+1  | https://viaf.org/viaf/...
-            #   i+2  | {{Q|Q1}}
-            #   i+3  | PID|ExternalID
-            #   i+4  | {{Q|Q2}}
-            #   i+5  | [... compare]
             viaf = _extract_viaf(lines[i + 1])
             q1 = _extract_qid(lines[i + 2])
             ext_id = _extract_external_id(lines[i + 3])
             q2 = _extract_qid(lines[i + 4])
             if q1 and q2 and viaf and ext_id:
-                if limit is None or processed < limit:
-                    log.info("Scoring %s ↔ %s (VIAF %s)", q1, q2, viaf)
-                    pair = create_item(q1, q2, viaf, pid, ext_id)
-                    processed += 1
-                    if pair is not None:
-                        score_map[(q1, q2)] = pair
+                rows.append(
+                    {"pid": pid, "viaf": viaf, "q1": q1, "ext_id": ext_id, "q2": q2}
+                )
         i += 1
-    return score_map
+    return rows
 
 
 def apply_section(
@@ -741,20 +773,61 @@ def apply_section(
     """Apply a precomputed *score_map* to one section's *lines* (no network).
 
     Steps (matching Delphi ProcessText → RemoveDone → InsertData):
-      1. Strip the existing score column header and values.
+      1. Remember the existing score cells, then strip the score column.
       2. Remove rows whose score marks a done action (unless *remove_done*
          is False, in which case they are kept and labelled like any other).
       3. Re-insert the score column header and per-row score cells (original
          row order preserved; the table stays browser-sortable via "sortable").
 
-    Rows not present in *score_map* (e.g. added to the page after scoring, or
-    beyond the scoring limit) keep the placeholder "?".
+    A row absent from *score_map* (not scored this run — e.g. outside a
+    FIRST/SKIP window) keeps its previous score cell, so a partial run only
+    touches the rows it actually rescored.  A row with no previous score falls
+    back to the placeholder "?".
     """
+    existing = _existing_score_cells(lines)
     lines = _remove_score_column(lines)
     if remove_done:
         lines = _remove_done_rows(lines, score_map)
-    lines = _insert_score_column(lines, score_map)
+    lines = _insert_score_column(lines, score_map, existing)
     return lines
+
+
+def _existing_score_cells(lines: list[str]) -> dict[tuple[str, str], str]:
+    """Map ``(q1, q2)`` → current Score-cell text for already-scored rows.
+
+    Used so a partial (windowed) run preserves the scores of rows it did not
+    recompute.  Detection mirrors :func:`_remove_score_column`: the score cell
+    is the last cell of a row block that is not a data cell (QID / URL / link).
+    """
+    existing: dict[tuple[str, str], str] = {}
+    n = len(lines)
+    i = 0
+    while i < n:
+        if lines[i].strip() == "|-":
+            j = i + 1
+            q1 = q2 = ""
+            while j < n and lines[j].strip() not in ("|-", "|}"):
+                m = re.search(r"\{\{Q\|(Q\d+)\}\}", lines[j])
+                if m:
+                    if not q1:
+                        q1 = m.group(1)
+                    elif not q2:
+                        q2 = m.group(1)
+                j += 1
+            if q1 and q2 and j - 1 > i:
+                last = lines[j - 1].strip()
+                if last.startswith("|"):
+                    cell = last[1:].strip()
+                    if not (
+                        cell.startswith("{{")
+                        or cell.startswith("http")
+                        or cell.startswith("[http")
+                    ):
+                        existing[(q1, q2)] = cell
+            i = j
+        else:
+            i += 1
+    return existing
 
 
 def _remove_done_rows(lines: list[str], score_map: ScoreMap) -> list[str]:
@@ -826,12 +899,20 @@ def _remove_score_column(lines: list[str]) -> list[str]:
     return cleaned
 
 
-def _insert_score_column(lines: list[str], score_map: ScoreMap) -> list[str]:
+def _insert_score_column(
+    lines: list[str],
+    score_map: ScoreMap,
+    existing: Optional[dict[tuple[str, str], str]] = None,
+) -> list[str]:
     """
     Add '! Score' after the last '!' header line and insert a per-row score
     cell, keeping the original row order.  Mirrors Delphi InsertHeader +
-    InsertData.  Rows missing from *score_map* get the placeholder "?".
+    InsertData.
+
+    Per row, the label is: the freshly computed score from *score_map* if
+    present; otherwise the row's previous cell from *existing*; otherwise "?".
     """
+    existing = existing or {}
 
     # --- Insert '! Score' header after last '!' header line
     last_header_idx = -1
@@ -892,7 +973,10 @@ def _insert_score_column(lines: list[str], score_map: ScoreMap) -> list[str]:
             elif not q2:
                 q2 = _extract_qid(ln)
         pair = score_map.get((q1, q2)) if q1 and q2 else None
-        label = pair.text if pair is not None else "?"
+        if pair is not None:
+            label = pair.text
+        else:
+            label = existing.get((q1, q2), "?")
         new_body.extend(block + [f"| {label}"])
 
     return pre + new_body + post
@@ -977,18 +1061,45 @@ def _scorable_sections(
 
 
 def score_wikitext(
-    original_text: str, rescore: bool = False, limit: Optional[int] = None
+    original_text: str,
+    rescore: bool = False,
+    first: Optional[int] = None,
+    skip: int = 0,
 ) -> PageScoreMap:
-    """Compute scores for every scorable row (network-bound).
+    """Compute scores for the scorable rows (network-bound).
+
+    Rows across all scorable sections are taken in document order; *skip* of
+    them are skipped and then at most *first* are scored (``first=None`` scores
+    the rest).  This windowing lets you test a slice (FIRST 10 SKIP 0, then
+    FIRST 10 SKIP 10) and lets a large rescore be run in resumable chunks.
 
     Returns a map keyed by ``(pid, q1, q2)`` so it can be applied to a *later*
     revision of the page — see :func:`apply_wikitext`.
     """
     sections = split_into_sections(original_text)
-    page_map: PageScoreMap = {}
+    rows: list[dict] = []
     for sec, pid in _scorable_sections(sections, rescore, log_details=True):
-        for (q1, q2), pair in score_section(list(sec["lines"]), pid, limit).items():
-            page_map[(pid, q1, q2)] = pair
+        rows.extend(_section_rows(sec["lines"], pid))
+
+    window = rows[skip : (skip + first) if first is not None else None]
+    log.info(
+        "FIRST %s SKIP %d: scoring %d of %d scorable rows",
+        first if first is not None else "ALL",
+        skip,
+        len(window),
+        len(rows),
+    )
+
+    # Batch-load every entity the window needs up front (2 QIDs per row),
+    # so create_item below is served from cache instead of one call per entity.
+    prefetch_entities([r["q1"] for r in window] + [r["q2"] for r in window])
+
+    page_map: PageScoreMap = {}
+    for r in window:
+        log.info("Scoring %s ↔ %s (VIAF %s)", r["q1"], r["q2"], r["viaf"])
+        pair = create_item(r["q1"], r["q2"], r["viaf"], r["pid"], r["ext_id"])
+        if pair is not None:
+            page_map[(r["pid"], r["q1"], r["q2"])] = pair
     return page_map
 
 
@@ -1036,7 +1147,8 @@ def apply_wikitext(
 def process_wikitext(
     original_text: str,
     rescore: bool = False,
-    limit: Optional[int] = None,
+    first: Optional[int] = None,
+    skip: int = 0,
     remove_done: bool = True,
 ) -> Optional[str]:
     """Compute + apply against the *same* text and return the rebuilt wikitext
@@ -1046,7 +1158,7 @@ def process_wikitext(
     bot instead scores one revision and applies to a freshly re-read revision;
     see :func:`process_page`.
     """
-    page_map = score_wikitext(original_text, rescore=rescore, limit=limit)
+    page_map = score_wikitext(original_text, rescore=rescore, first=first, skip=skip)
     return apply_wikitext(
         original_text, page_map, rescore=rescore, remove_done=remove_done
     )
@@ -1055,14 +1167,15 @@ def process_wikitext(
 def process_page(
     rescore: bool = False,
     dry_run: bool = False,
-    limit: Optional[int] = None,
+    first: Optional[int] = None,
+    skip: int = 0,
     remove_done: bool = True,
 ) -> None:
     """Score the live page, then apply the scores to a freshly re-read copy.
 
-    Scoring can take many minutes (one API round-trip per entity), during which
-    the page may be edited.  To avoid discarding a whole run on a concurrent
-    edit — or clobbering it — we split the work:
+    Scoring can take a while, during which the page may be edited.  To avoid
+    discarding a whole run on a concurrent edit — or clobbering it — we split
+    the work:
 
       1. Read a snapshot and compute the score map from it.
       2. Re-read the page (resetting the edit-conflict base to the latest
@@ -1075,7 +1188,7 @@ def process_page(
     # 1. Snapshot + compute (slow).
     page.get(force=True)
     base_revid = page.latest_revision_id
-    page_map = score_wikitext(page.text, rescore=rescore, limit=limit)
+    page_map = score_wikitext(page.text, rescore=rescore, first=first, skip=skip)
 
     # 2. Re-read so we apply onto (and conflict-check against) the latest rev.
     page.get(force=True)
@@ -1128,7 +1241,18 @@ def main() -> None:
         "--dry-run", action="store_true", help="Print result to stdout, do not save"
     )
     parser.add_argument(
-        "--limit", type=int, default=None, help="Process at most N rows per section"
+        "--first",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Score at most N rows (across the whole page); default: all",
+    )
+    parser.add_argument(
+        "--skip",
+        type=int,
+        default=0,
+        metavar="M",
+        help="Skip the first M scorable rows before scoring (for chunking/testing)",
     )
     parser.add_argument(
         "--keep-done",
@@ -1140,7 +1264,8 @@ def main() -> None:
     process_page(
         rescore=args.rescore,
         dry_run=args.dry_run,
-        limit=args.limit,
+        first=args.first,
+        skip=args.skip,
         remove_done=not args.keep_done,
     )
 

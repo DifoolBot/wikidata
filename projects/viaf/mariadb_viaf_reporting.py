@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 
 from viaf.paths import DATA_DIR
@@ -10,11 +11,12 @@ from shared_lib.database_handler_mariadb import MariaDbDatabaseHandler
 class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
     """MariaDB counterpart of FirebirdViafReporting (see firebird_viaf_reporting.py).
 
-    Assumes a MariaDB schema with the same QDONE/QDUPLICATES/QDUPLOCAL/QERROR/
-    QIGNORE tables and add_duplicate/add_dup_local/add_error/add_done/
-    start_new_session/get_stats procedures as schemas/viaf.sql - that schema
-    still needs to be ported to MariaDB (CREATE PROCEDURE/DELIMITER syntax)
-    before this class can actually run against a real database.
+    Assumes a MariaDB schema mirroring schemas/viaf.sql (same ADDED / DUPLICATES /
+    DUPLICATE_LOCAL_AUTH_IDS / ERRORS / IGNORED tables and add_done / add_error /
+    add_duplicate / add_duplicate_local_auth_id / clean_up /
+    cleanup_duplicate_local_auth_ids / get_stats / end_session procedures). That
+    schema still needs to be ported to MariaDB (CREATE PROCEDURE / DELIMITER
+    syntax) before this class can run against a real database.
     """
 
     def __init__(self) -> None:
@@ -23,19 +25,19 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
         super().__init__(config_filename, create_script)
 
     def has_done(self, qid: str) -> bool:
-        return self.has_record("QDONE", "QCODE=?", (qid,))
+        return self.has_record("ADDED", "QID=?", (qid,))
 
     def has_duplicate(self, qid: str) -> bool:
-        return self.has_record("QDUPLICATES", "(QID=? OR DUPLICATE_QID=?)", (qid, qid))
+        return self.has_record("DUPLICATES", "(QID=? OR DUPLICATE_QID=?)", (qid, qid))
 
     def has_duplicate_local_auth_id(self, qid: str) -> bool:
-        return self.has_record("QDUPLOCAL", "QID=?", (qid,))
+        return self.has_record("DUPLICATE_LOCAL_AUTH_IDS", "QID=?", (qid,))
 
     def has_error(self, qid: str) -> bool:
-        return self.has_record("QERROR", "QCODE=? AND NOT RETRY", (qid,))
+        return self.has_record("ERRORS", "QID=? AND NOT RETRY", (qid,))
 
     def has_ignore(self, qid: str) -> bool:
-        return self.has_record("QIGNORE", "QCODE=?", (qid,))
+        return self.has_record("IGNORED", "QID=?", (qid,))
 
     def add_duplicate(
         self, qid: str, duplicate_qid: str, local_auth_id: str | None, viaf_id: str
@@ -46,7 +48,7 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
     def add_duplicate_local_auth_id(
         self, qid: str, local_auth_id: str, viaf_cluster_id: str | None
     ) -> None:
-        sql = "CALL add_dup_local(?, ?, ?)"
+        sql = "CALL add_duplicate_local_auth_id(?, ?, ?)"
         self.execute_procedure(sql, (qid, local_auth_id, viaf_cluster_id))
 
     def add_error(self, qid: str, msg: str) -> None:
@@ -58,19 +60,33 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
         sql = "CALL add_done(?)"
         self.execute_procedure(sql, (qid,))
 
+    def add_not_found(self, qid: str, pid: str) -> None:
+        sql = "CALL add_not_found(?, ?)"
+        self.execute_procedure(sql, (qid, pid))
+
+    def has_recent_not_found(self, qid: str, pid: str, cutoff: datetime) -> bool:
+        return self.has_record(
+            "NOT_FOUND", "QID=? AND PID=? AND CHECKED_DATE >= ?", (qid, pid, cutoff)
+        )
+
+    def purge_not_found_before(self, cutoff: datetime) -> None:
+        self.execute_procedure(
+            "DELETE FROM NOT_FOUND WHERE CHECKED_DATE < ?", (cutoff,)
+        )
+
     def count_duplicates(self) -> int:
-        rows = self.execute_query("SELECT COUNT(*) FROM QDUPLICATES")
+        rows = self.execute_query("SELECT COUNT(*) FROM DUPLICATES")
         return rows[0][0] if rows else 0
 
     def get_duplicates(self) -> list[tuple[str, str, str, str]]:
         sql = (
-            "SELECT QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES "
+            "SELECT QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM DUPLICATES "
             "ORDER BY 1, 2 LIMIT 1000"
         )
         return self.execute_query(sql)
 
     def get_duplicate_local_auth_ids(self) -> Iterator[tuple[str, set[str], str]]:
-        sql = "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLOCAL ORDER BY viaf_id, qid, local_auth_id"
+        sql = "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM DUPLICATE_LOCAL_AUTH_IDS ORDER BY viaf_id, qid, local_auth_id"
         rows = self.execute_query(sql)
         last_viaf_id: str | None = None
         last_qid: str | None = None
@@ -95,6 +111,10 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
 
         return None
 
+    def run_maintenance(self) -> None:
+        self.execute_procedure("CALL clean_up()")
+        self.execute_procedure("CALL cleanup_duplicate_local_auth_ids()")
+
     def end_session(self, pid: str) -> None:
-        sql = "CALL start_new_session(?)"
+        sql = "CALL end_session(?)"
         self.execute_procedure(sql, (pid,))

@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 
 import viaf.viaf_bot
@@ -14,19 +15,19 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
         super().__init__(config_filename, create_script)
 
     def has_done(self, qid: str) -> bool:
-        return self.has_record("QDONE", "QCODE=?", (qid,))
+        return self.has_record("ADDED", "QID=?", (qid,))
 
     def has_duplicate(self, qid: str) -> bool:
-        return self.has_record("QDUPLICATES", "(QID=? OR DUPLICATE_QID=?)", (qid, qid))
+        return self.has_record("DUPLICATES", "(QID=? OR DUPLICATE_QID=?)", (qid, qid))
 
     def has_duplicate_local_auth_id(self, qid: str) -> bool:
-        return self.has_record("QDUPLOCAL", "QID=?", (qid,))
+        return self.has_record("DUPLICATE_LOCAL_AUTH_IDS", "QID=?", (qid,))
 
     def has_error(self, qid: str) -> bool:
-        return self.has_record("QERROR", "QCODE=? AND NOT RETRY", (qid,))
+        return self.has_record("ERRORS", "QID=? AND NOT RETRY", (qid,))
 
     def has_ignore(self, qid: str) -> bool:
-        return self.has_record("QIGNORE", "QCODE=?", (qid,))
+        return self.has_record("IGNORED", "QID=?", (qid,))
 
     def add_duplicate(
         self, qid: str, duplicate_qid: str, local_auth_id: str | None, viaf_id: str
@@ -37,7 +38,7 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
     def add_duplicate_local_auth_id(
         self, qid: str, local_auth_id: str, viaf_cluster_id: str | None
     ) -> None:
-        sql = "EXECUTE PROCEDURE add_dup_local(?, ?, ?)"
+        sql = "EXECUTE PROCEDURE add_duplicate_local_auth_id(?, ?, ?)"
         self.execute_procedure(sql, (qid, local_auth_id, viaf_cluster_id))
 
     def add_error(self, qid: str, msg: str) -> None:
@@ -49,17 +50,31 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
         sql = "EXECUTE PROCEDURE add_done(?)"
         self.execute_procedure(sql, (qid,))
 
+    def add_not_found(self, qid: str, pid: str) -> None:
+        sql = "EXECUTE PROCEDURE add_not_found(?, ?)"
+        self.execute_procedure(sql, (qid, pid))
+
+    def has_recent_not_found(self, qid: str, pid: str, cutoff: datetime) -> bool:
+        return self.has_record(
+            "NOT_FOUND", "QID=? AND PID=? AND CHECKED_DATE >= ?", (qid, pid, cutoff)
+        )
+
+    def purge_not_found_before(self, cutoff: datetime) -> None:
+        self.execute_procedure(
+            "DELETE FROM NOT_FOUND WHERE CHECKED_DATE < ?", (cutoff,)
+        )
+
     def count_duplicates(self) -> int:
-        rows = self.execute_query("SELECT COUNT(*) FROM QDUPLICATES")
+        rows = self.execute_query("SELECT COUNT(*) FROM DUPLICATES")
         return rows[0][0] if rows else 0
 
     def get_duplicates(self) -> list[tuple[str, str, str, str]]:
         # cap the list at 1000 items to keep the wiki result page manageable
-        sql = "SELECT first 1000 QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLICATES ORDER BY 1, 2"
+        sql = "SELECT first 1000 QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID FROM DUPLICATES ORDER BY 1, 2"
         return self.execute_query(sql)
 
     def get_duplicate_local_auth_ids(self) -> Iterator[tuple[str, set[str], str]]:
-        sql = "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM QDUPLOCAL order by viaf_id,qid,local_auth_id"
+        sql = "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM DUPLICATE_LOCAL_AUTH_IDS order by viaf_id,qid,local_auth_id"
         rows = self.execute_query(sql)
         last_viaf_id: str | None = None
         last_qid: str | None = None
@@ -84,6 +99,10 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
 
         return None
 
+    def run_maintenance(self) -> None:
+        self.execute_procedure("EXECUTE PROCEDURE clean_up")
+        self.execute_procedure("EXECUTE PROCEDURE cleanup_duplicate_local_auth_ids")
+
     def end_session(self, pid: str) -> None:
-        sql = "EXECUTE PROCEDURE start_new_session(?)"
+        sql = "EXECUTE PROCEDURE end_session(?)"
         self.execute_procedure(sql, (pid,))

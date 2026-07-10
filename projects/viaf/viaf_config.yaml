@@ -23,7 +23,7 @@ ignore:
   - P213 # ISNI (too many false positives)
   - P2163 # FAST ID (nothing found)
 
-# Once the QDUPLICATES table for the source being processed reaches this many
+# Once the DUPLICATES table for the source being processed reaches this many
 # rows, stop processing that source, publish the duplicates report to Wikidata,
 # and move on to the next source. A report larger than this is unwieldy for
 # editors to work through. Set to null to disable the cap.
@@ -32,3 +32,8 @@ max_duplicates: 150
 # After a full pass through all authority sources completes, wait this many
 # days before starting the next pass (nothing is processed during this period).
 cooldown_days: 28
+
+# Items VIAF reports as 'not_found' are cached and skipped for this many days,
+# so the limited daily quota isn't wasted re-checking them. After the period
+# passes they are checked again. Set to null to disable caching.
+not_found_cache_days: 365

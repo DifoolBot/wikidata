@@ -2,6 +2,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from datetime import datetime
 from enum import Enum, auto
 
 import pywikibot as pwb
@@ -26,7 +27,7 @@ class SessionOutcome(Enum):
     COMPLETED = auto()
     # the VIAF API reported its daily rate limit was hit
     RATE_LIMITED = auto()
-    # the QDUPLICATES table reached the configured max_duplicates cap
+    # the DUPLICATES table reached the configured max_duplicates cap
     MAX_DUPLICATES = auto()
 
 
@@ -83,6 +84,18 @@ class ReportBackend(ABC):
         pass
 
     @abstractmethod
+    def add_not_found(self, qid: str, pid: str) -> None:
+        pass
+
+    @abstractmethod
+    def has_recent_not_found(self, qid: str, pid: str, cutoff: datetime) -> bool:
+        pass
+
+    @abstractmethod
+    def purge_not_found_before(self, cutoff: datetime) -> None:
+        pass
+
+    @abstractmethod
     def count_duplicates(self) -> int:
         pass
 
@@ -96,6 +109,12 @@ class ReportBackend(ABC):
 
     @abstractmethod
     def get_stats(self) -> tuple[int, int, int] | None:
+        pass
+
+    @abstractmethod
+    def run_maintenance(self) -> None:
+        """Housekeeping run at daily start and before publishing a report
+        (retry transient errors, normalize/de-duplicate the duplicate-locals)."""
         pass
 
     @abstractmethod
@@ -156,6 +175,9 @@ class ViafBot:
         self.auth_src = auth_src
         self.test = False
         self.report = report
+        # when set, skip items VIAF returned 'not_found' for (under this source)
+        # since this instant, and cache new not_found results
+        self.not_found_cutoff: datetime | None = None
 
     def generate_duplicate_locals_report(self):
         self.write_to_wiki(self.make_duplicate_locals_wikitext())
@@ -178,7 +200,7 @@ class ViafBot:
 
         Unless the pass was cut short by the VIAF API rate limit, the
         accumulated duplicate/wikitext reports are published and a new
-        reporting session is started (which clears QDUPLICATES/QERROR).
+        reporting session is started (which clears the per-session tables).
 
         Returns the SessionOutcome describing how the pass ended.
         """
@@ -186,6 +208,7 @@ class ViafBot:
             output_file=output_file, max_duplicates=max_duplicates
         )
         if outcome != SessionOutcome.RATE_LIMITED:
+            self.report.run_maintenance()
             self.generate_duplicate_locals_report()
             self.generate_duplicates_report()
             self.end_session()
@@ -272,6 +295,10 @@ class ViafBot:
                 return
             if self.report.has_ignore(record.qid):
                 return
+            if self.not_found_cutoff is not None and self.report.has_recent_not_found(
+                record.qid, self.auth_src.pid, self.not_found_cutoff
+            ):
+                return
 
             viaf_code = self.auth_src.viaf_code
             self.auth_src.compute_viaf_search_key(record)
@@ -285,6 +312,8 @@ class ViafBot:
             else:
                 lookup = client.query_viaf_sourceid(viaf_code, record.viaf_search_key)
             if lookup.status != "found":
+                if lookup.status == "not_found" and self.not_found_cutoff is not None:
+                    self.report.add_not_found(record.qid, self.auth_src.pid)
                 raise RuntimeError(f"status {lookup.status}")
             if not lookup.viaf_cluster_id:
                 raise RuntimeError(f"no viaf_cluster_id")
@@ -361,11 +390,11 @@ class ViafBot:
             raise
         except RuntimeError as e:
             pwb.warning(f"Runtime error: {e}")
-            self.report.add_error(record.qid, e.__repr__())
+            self.report.add_error(record.qid, str(e))
             time.sleep(SLEEP_AFTER_RUNTIMEERROR)
         except Exception as e:
             pwb.error(f"Exception: {e}")
-            self.report.add_error(record.qid, e.__repr__())
+            self.report.add_error(record.qid, str(e))
             time.sleep(SLEEP_AFTER_ERROR)
 
     def make_duplicates_wikitext(self):
@@ -573,7 +602,7 @@ class ViafBot:
         Stops early, leaving the remaining rows (plus the header) in output_file
         for the next run, if either:
           - the VIAF API reports its rate limit was hit (RATE_LIMITED), or
-          - the QDUPLICATES table reaches max_duplicates rows (MAX_DUPLICATES).
+          - the DUPLICATES table reaches max_duplicates rows (MAX_DUPLICATES).
 
         If every row is processed the file is removed and COMPLETED is returned.
         """
@@ -615,7 +644,7 @@ class ViafBot:
                 and self.report.count_duplicates() >= max_duplicates
             ):
                 pwb.warning(
-                    f"QDUPLICATES reached {max_duplicates} rows; "
+                    f"DUPLICATES reached {max_duplicates} rows; "
                     "publishing report and moving on."
                 )
                 remaining_lines = lines[index:]

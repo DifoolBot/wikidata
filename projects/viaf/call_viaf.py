@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
 import viaf.authority_sources
@@ -51,6 +51,20 @@ def main() -> None:
 
     index = _resume_index(ordered_pids, progress.get("current_pid"))
 
+    # Items VIAF reported 'not_found' for are cached and skipped until this
+    # cutoff; older cache entries are purged so they get re-checked.
+    not_found_cutoff: datetime | None = None
+    if config.not_found_cache_days is not None:
+        not_found_cutoff = datetime.now() - timedelta(days=config.not_found_cache_days)
+
+    # Daily housekeeping before any processing: retry transient errors,
+    # normalize/de-duplicate the duplicate-locals report, and drop expired
+    # not_found cache entries.
+    maintenance = FirebirdViafReporting()
+    maintenance.run_maintenance()
+    if not_found_cutoff is not None:
+        maintenance.purge_not_found_before(not_found_cutoff)
+
     # Process sources in order. A source that finishes (either its qlever rows
     # are exhausted or the duplicates cap is hit) publishes its report and we
     # advance to the next one; when the VIAF daily rate limit is hit we stop and
@@ -62,6 +76,7 @@ def main() -> None:
 
         bot = ViafBot(auth_src, report=FirebirdViafReporting())
         bot.test = False
+        bot.not_found_cutoff = not_found_cutoff
         outcome = bot.run_session(
             output_file=str(DATA_DIR / f"qlever_viaf_index_{pid}.txt"),
             max_duplicates=config.max_duplicates,
