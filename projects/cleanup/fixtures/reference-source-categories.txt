@@ -1,0 +1,48 @@
+== Reference source category rules ==
+This page defines rules used by the [[User:Difool/WikidataCleanup|WikidataCleanup tool]] to classify references as weak sources that can be automatically removed when a stronger source is also present on the same statement.
+
+Each section corresponds to a source category. References are classified by checking whether their snaks include a matching property (as a direct snak) or a matching "stated in" (P248) value.
+
+=== How to use this page ===
+Each table row lists:
+* '''Property''': the property PID that triggers the classification when present as a direct snak in the reference
+* '''Notes''': any relevant context or edge cases
+
+The tool checks each condition independently: a reference matches the category if it contains the listed property as a direct snak '''or''' if its P248 value matches the {{P|P9073}} of the listed property.
+
+=== Aggregator sources ===
+Aggregators collect and republish data from primary sources but do not independently verify it. Category key: <code>aggregator</code>
+
+{| class="wikitable sortable"
+! Property  !!  Notes
+|-
+| {{P|P214}}  ||  International authority file aggregating national library data
+|-
+| {{P|P213}}  ||  ISO standard identifier aggregating data from multiple registries
+|-
+| {{P|P1871}} || Consortium of European Research Libraries authority file
+|}
+
+=== Community sources ===
+Community-maintained databases where data is crowd-sourced without formal editorial oversight. Category key: <code>community</code>
+
+{| class="wikitable sortable"
+! Property  !!   Notes
+|-
+| {{P|P1953}}   || Community-maintained music database
+|-
+| {{P|P648}}   || Community-maintained book database (Internet Archive project)
+|-
+| {{P|P434}}  || Community-maintained music metadata database
+|}
+
+=== Redundant sources ===
+Sources that are redundant because a specific, more authoritative source covering the same domain is also present on the same statement. Category key: <code>redundant</code>
+
+Each row defines one redundancy pair: the '''Weak source''' is removed when the '''Strong source''' is present elsewhere in the same statement's reference list.
+
+{| class="wikitable sortable"
+! Weak property   !! Strong property  !! Notes
+|-
+| {{P|P2163}}  || {{P|P244}}   || FAST is derived from LC headings; remove FAST ref when LC ref is present on the same statement
+|}

@@ -32,6 +32,7 @@ from cleanup.detectors import (
     detect_low_precision_dates,
     detect_obsolete_snaks_in_references,
     detect_merge_wiki_import_refs,
+    detect_redundant_ref_url,
     detect_ref_categories,
     restore_entity_ids,
 )
@@ -225,6 +226,7 @@ def main(*args: str) -> None:
             "low_precision_dates",
             "obsolete_snaks",
             "merge_wiki_import_refs",
+            "redundant_ref_url",
         }
     )
 
@@ -277,6 +279,9 @@ def main(*args: str) -> None:
     )
     DETECTORS["merge_wiki_import_refs"] = functools.partial(
         detect_merge_wiki_import_refs, wikipedia_editions=wp_eds
+    )
+    DETECTORS["redundant_ref_url"] = functools.partial(
+        detect_redundant_ref_url, rules=url_rules
     )
 
     # Database tracker

@@ -48,6 +48,7 @@ from cleanup.detectors import (
     ACTION_REMOVE_CLAIM,
     ACTION_REMOVE_OBSOLETE_SNAKS,
     ACTION_REMOVE_QUALIFIER,
+    ACTION_REMOVE_REDUNDANT_REF_URL,
     ACTION_REMOVE_REFS,
     ACTION_SET_MUL_LABEL,
     ACTION_SPLIT_REFERENCE_URLS,
@@ -631,6 +632,42 @@ def build_payload(
             descriptions.append(
                 f"remove obsolete snaks {obsolete_pids} from reference "
                 f"on {diff['pid']}"
+            )
+
+        elif action == ACTION_REMOVE_REDUNDANT_REF_URL:
+            claim_id = diff["claim_id"]
+
+            if claim_id in claim_payloads and "remove" in claim_payloads[claim_id]:
+                continue
+
+            claim = _find_claim(item, claim_id)
+            if claim is None:
+                continue
+
+            if claim_id not in claim_payloads:
+                claim_payloads[claim_id] = claim.toJSON()
+
+            entry = claim_payloads[claim_id]
+            ref_hash = diff["ref_hash"]
+            snak_pid = diff["snak_pid"]
+            snak_hash = diff["snak_hash"]
+
+            ref = next(
+                (r for r in entry.get("references", []) if r.get("hash") == ref_hash),
+                None,
+            )
+            if ref:
+                snaks = ref.get("snaks", {})
+                kept = [s for s in snaks.get(snak_pid, []) if s.get("hash") != snak_hash]
+                if kept:
+                    snaks[snak_pid] = kept
+                else:
+                    snaks.pop(snak_pid, None)
+                    order = ref.get("snaks-order", [])
+                    ref["snaks-order"] = [p for p in order if p != snak_pid]
+
+            descriptions.append(
+                f"remove redundant reference URL (P854) on {diff['pid']}"
             )
 
         elif action == ACTION_NORMALIZE:

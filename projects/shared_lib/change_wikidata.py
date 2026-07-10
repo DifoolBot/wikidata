@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, List, Literal, Optional, Set
 
-# from weakref import ref
-
 import pywikibot as pwb
 
 import shared_lib.constants as wd
@@ -19,13 +17,11 @@ from shared_lib.date_value import (
     Date,
 )
 from shared_lib.qualifier_handler import QualifierHandler
+from shared_lib.wikidata_site import REPO
+
+# from weakref import ref
 
 MAX_LAG_BACKOFF_SECS = 10 * 60
-
-SITE = pwb.Site("wikidata", "wikidata")
-SITE.login()
-SITE.get_tokens("csrf")
-REPO = SITE.data_repository()
 
 
 class TextColor:
@@ -301,6 +297,13 @@ class StateInReference(Reference):
         self.identifier_pid = identifier_pid
         self.identifier = identifier
 
+    def is_strong_reference(self) -> bool:
+        # a VIAF stated-in reference counts as weak, mirroring is_weak_source
+        return self.state_in_qid not in (
+            wd.QID_VIRTUAL_INTERNATIONAL_AUTHORITY_FILE,
+            wd.QID_VIAF_ID,
+        )
+
     def is_equal_reference(self, src) -> bool:
         if wd.PID_STATED_IN in src:
             for claim in src[wd.PID_STATED_IN]:
@@ -329,6 +332,10 @@ class WikipediaReference(Reference):
     def __init__(self, wikipedia_qid: str, url: str):
         self.wikipedia_qid = wikipedia_qid
         self.url = url
+
+    def is_strong_reference(self) -> bool:
+        # imported-from-Wikipedia is a weak source, mirroring is_weak_source
+        return False
 
     def is_equal_reference(self, src) -> bool:
         if wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT in src:
@@ -664,6 +671,29 @@ class AddQualifier(Action):
 
 
 class RemoveReferences(Action):
+    def __init__(self, wd_page: "WikiDataPage", pid: str, reference: Reference):
+        self.wd_page = wd_page
+        self.pid = pid
+        self.reference = reference
+
+    def prepare(self):
+        pass
+
+    def apply(self):
+        if self.pid in self.wd_page.claims:
+            for claim in self.wd_page.claims[self.pid]:
+                self.wd_page.delete_reference(
+                    claim, self.reference, is_update=False, can_delete_claim=False
+                )
+
+    def post_apply(self):
+        pass
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"delete_claim"}
+
+
+class EndReferences(Action):
     def __init__(self, wd_page: "WikiDataPage", pid: str, reference: Reference):
         self.wd_page = wd_page
         self.pid = pid
@@ -1301,6 +1331,74 @@ class RemoveReference(Action):
         if found:
             claim.sources = new_sources
             self.wd_page.reference_deleted(claim)
+
+    def post_apply(self):
+        pass
+
+
+class EndReference(Action):
+    def __init__(
+        self,
+        wd_page: "WikiDataPage",
+        claim_snak: str,
+        ref_hash: str,
+        end_date: Date,
+    ):
+        self.wd_page = wd_page
+        self.claim_snak = claim_snak
+        self.ref_hash = ref_hash
+        self.end_date = end_date
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"change_claim"}
+
+    def prepare(self):
+        pass
+
+    def apply(self):
+
+        def get_hash_for_ref(source):
+            for pid, ref_list in source.items():
+                for ref in ref_list:
+                    return ref.hash
+            return None
+
+        def get_claim():
+            for pid, claim_list in self.wd_page.claims.items():
+                for claim in claim_list:
+                    if claim.snak != self.claim_snak:
+                        continue
+                    return claim
+            return None
+
+        def has_end_date(source):
+            return wd.PID_END_TIME in source
+
+        claim = get_claim()
+        if not claim:
+            return
+        if not claim.sources:
+            return
+        new_sources = []
+        found = False
+        for source in claim.sources:
+            if get_hash_for_ref(source) == self.ref_hash:
+                if has_end_date(source):
+                    print(
+                        "found reference with hash, but already has end date, skipping"
+                    )
+                else:
+                    found = True
+                    print("found reference with hash, adding end date")
+                    end_date_claim = pwb.Claim(REPO, wd.PID_END_TIME, is_reference=True)
+                    end_date_claim.setTarget(self.end_date.create_wikidata_item())
+                    source[wd.PID_END_TIME] = [end_date_claim]
+
+            new_sources.append(source)
+
+        if found:
+            claim.sources = new_sources
+            self.wd_page.reference_changed(claim)
 
     def post_apply(self):
         pass
@@ -2562,6 +2660,14 @@ class WikiDataPage:
         """
         self._add_action(RemoveReferences(self, pid, reference))
 
+    def end_references(self, pid: str, reference: Reference):
+        """
+        Creates an action to delete a statement from the page.
+
+        :param statement: The WikidataEntity to delete.
+        """
+        self._add_action(EndReferences(self, pid, reference))
+
     def move_references(
         self,
         from_statement: Statement,
@@ -2657,6 +2763,9 @@ class WikiDataPage:
 
     def remove_reference(self, claim_snak: str, ref_hash: str):
         self._add_action(RemoveReference(self, claim_snak, ref_hash))
+
+    def end_reference(self, claim_snak: str, ref_hash: str, end_date: Date):
+        self._add_action(EndReference(self, claim_snak, ref_hash, end_date))
 
     def _prepare_entity(
         self, statement: WikidataEntity, reference: Optional[Reference] = None

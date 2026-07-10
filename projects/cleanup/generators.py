@@ -271,6 +271,19 @@ QUERIES: dict[str, str] = {
         LIMIT {limit}
     """,
 
+    # ── redundant_ref_url ─────────────────────────────────────────────────────
+    # Items where a statement is itself a URL value (P2699 url claim) and also
+    # carries a P854 reference URL — a candidate for the reference URL being
+    # redundant with the statement's own URL.  The detector confirms the match.
+    "redundant_ref_url": """
+        SELECT DISTINCT ?item WHERE {
+          ?item p:P2699 ?statement .
+          ?statement prov:wasDerivedFrom ?ref .
+          ?ref pr:P854 ?url .
+        }
+        LIMIT {limit}
+    """,
+
     # ── wikimedia / inferred / aggregator / community / redundant / obsolete ──
     # Items with references containing P143 (imported from) or P3452 (inferred).
     # These cover the most common weak reference patterns.

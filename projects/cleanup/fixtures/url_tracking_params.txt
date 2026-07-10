@@ -1,0 +1,39 @@
+This page lists URL query parameters that are automatically stripped from URLs by [[User:Difool/WikidataCleanup|WikidataCleanup]]. The data is cached locally for seven days.
+== Format ==
+The table has three columns:
+
+* '''Hostname''' – the domain to match. A plain hostname such as <code>twitter.com</code> also matches subdomains like <code>fr.twitter.com</code> or <code>m.twitter.com</code>. A hostname starting with a dot such as <code>.scholar.google</code> matches any country-code variant like <code>scholar.google.com.au</code> or <code>scholar.google.co.uk</code>.
+* '''Mode''' – either <code>always</code> (the parameter is always removed) or <code>recognition</code> (the parameter is only removed when the URL is being matched against a known external ID pattern).
+* '''Parameters''' – a comma-separated list of URL query parameter names to remove.
+
+== Adding entries ==
+Before adding a new entry, verify that the parameter serves no purpose other than tracking or personalisation and carries no information relevant to identifying the source. Parameters that affect which content is displayed (such as a user ID or article identifier) should not be added.
+
+== Data ==
+{| class="wikitable sortable"
+! Hostname !! Mode !! Parameters !! Notes
+|-
+| * || always || utm_source, utm_medium, utm_content, utm_campaign || tracking params
+|-
+| twitter.com || always || fbclid || tracking params
+|-
+| .scholar.google || always || oi, view_op, sortby || built-in, listed for reference
+|-
+| linkedin.com || always || original_referer, challengeId, submissionId, trk, viewAsMember, isSelfProfile, rcm || built-in, listed for reference
+|-
+| youtube.com || recognition || t, ab_channel || UI/functional params
+|-
+| youtube.com || always || mode, si, app, sub_confirmation, view_as, disable_polymer, ved, usg || tracking
+|-
+| .amazon || always || ref, ref_, store_ref, isDramIntegrated, shoppingPortalEnabled, ccs_id, dib, dib_tag || tracking tag; feature flags
+|-
+| facebook.com || always || mibextid || tracking
+|-
+| imdb.com || always || ref_, pf_rd_m, pf_rd_p, pf_rd_r, pf_rd_s, pf_rd_t, pf_rd_i || tracking
+|-
+| open.spotify.com || always || si || tracking
+|-
+| instagram.com || always || igsh || tracking
+|-
+| .books.google || always || redir_esc, gbpv || navigation param
+|}

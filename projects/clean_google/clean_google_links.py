@@ -7,6 +7,24 @@ import requests
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.config import get_env
+from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
+
+# URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
+# the search.
+QLEVER_URL_PROPERTIES = [
+    "P854",
+    "P856",
+    "P953",
+    "P973",
+    "P1325",
+    "P2699",
+    "P2888",
+    "P8214",
+]
+# only items whose URL value contains one of these substrings are collected
+QLEVER_DOMAIN_SUBSTRINGS = ["google.com/search"]
+
+ITEMS_FILE = Path(__file__).parent / "input" / "items.txt"
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -281,10 +299,19 @@ def load_items_from_file(filename):
         return [line.strip() for line in f if line.strip()]
 
 
+def fetch_and_fill_items() -> int:
+    """Query qlever for items with a Google search URL and write their QIDs to ITEMS_FILE."""
+    query = build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
+    count = fetch_qids_to_file(query, ITEMS_FILE)
+    print(f"Wrote {count} items to {ITEMS_FILE}")
+    return count
+
+
 def main():
     # Example input list from qlever
     # items = ["Q847100"]
-    items = load_items_from_file(Path(__file__).parent / "input" / "items.txt")
+    # fetch_and_fill_items()
+    items = load_items_from_file(ITEMS_FILE)
     for qid in items:
         print(f"Processing {qid}...")
         process_item(qid, test=False)

@@ -38,6 +38,7 @@ DETECTOR_LABELS = {
     "replace_wrong_property": "replace property",
     "split_reference_urls": "split multiple reference URLs",
     "merge_wiki_import_refs": "merge Wikimedia import references",
+    "redundant_ref_url": "remove redundant reference URL (P854)",
 }
 
 # ── Per-change log phrasing (used by apply.py) ───────────────────────────────
@@ -52,6 +53,7 @@ REMOVE_REFS_KINDS = {
     "inferred": "inferred",
     "obsolete": "obsolete-ID",
     "self_stated_in": "tautological stated-in",
+    "redundant_ref_url": "redundant-URL",
 }
 DEFAULT_REMOVE_REFS_KIND = "weak"
 

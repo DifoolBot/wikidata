@@ -12,6 +12,24 @@ import shared_lib.constants as wd
 import shared_lib.date_value as date_value
 from shared_lib.config import SCHEMAS_DIR, get_env
 from shared_lib.database_handler import DatabaseHandler
+from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
+
+# URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
+# the search.
+QLEVER_URL_PROPERTIES = [
+    "P854",
+    "P856",
+    "P953",
+    "P973",
+    "P1325",
+    "P2699",
+    "P2888",
+    "P8214",
+]
+# only items whose URL value contains one of these substrings are collected
+QLEVER_DOMAIN_SUBSTRINGS = ["youtube.com", "youtu.be"]
+
+ITEMS_FILE = Path(__file__).parent / "input" / "items.csv"
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -763,11 +781,20 @@ def load_items_from_file(filename):
         return [line.strip() for line in f if line.strip()]
 
 
+def fetch_and_fill_items() -> int:
+    """Query qlever for items with a YouTube URL and write their QIDs to ITEMS_FILE."""
+    query = build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
+    count = fetch_qids_to_file(query, ITEMS_FILE)
+    pywikibot.output(f"Wrote {count} items to {ITEMS_FILE}")
+    return count
+
+
 def main():
     # print(lookup_channel_qid("UCmh7afBz-uWwOSSNTqUBAhg"))
+    # fetch_and_fill_items()
     tracker = ChannelHandleTracker()  # shared across all items
     # items = ["Q123306649"]
-    items = load_items_from_file(Path(__file__).parent / "input" / "items.csv")
+    items = load_items_from_file(ITEMS_FILE)
     for qid in items:
         pywikibot.output(f"Processing {qid}...")
         try:

@@ -389,7 +389,9 @@ SQL SECURITY DEFINER
 AS
 BEGIN
   update qerror set retry=true 
-  where retry=False and error containing 'connection';
+  where retry=False and 
+    (error containing 'connection' or
+    error containing 'object is not iterable');
     
   delete from qtodo q 
 where exists (select * from qdone z where z.QCODE=q.qcode);
@@ -467,6 +469,7 @@ BEGIN
     VALUES (:PID,:CHECKED,:ADDED,:NOT_FOUND);
   update qdone set CURRENT_SESSION = False;
   DELETE FROM QDUPLICATES;
+  delete from qduplocal;
   DELETE FROM QERROR;
 END
 ^

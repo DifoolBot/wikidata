@@ -1,0 +1,126 @@
+== URL deprecation blocklist ==
+This page lists domains and URL patterns that are considered non-qualifying for notability purposes on Wikidata. It is intended to be used by bots and tools to automatically apply [[Help:Ranks|deprecated rank]] to URL-type statements where the domain is known to be a self-created profile platform, press release distributor, wiki farm, or similar non-independent source.
+
+=== How to use this page ===
+Each section corresponds to a deprecation reason. Each table row lists:
+* '''Pattern''': the domain or URL prefix to match
+* '''Match type''': either '''prefix''' (match from start of URL) or '''regex''' (full regular expression)
+* '''Example URL''': a representative example
+* '''Notes''': any relevant context or edge cases
+* '''Added''': date added to the list
+
+Bots should match URLs against the pattern column using the specified match type, apply deprecated rank, and set "reason for deprecated rank" to the item corresponding to the section heading.
+
+For '''prefix''' matching, normalize URLs by stripping the <code>https://</code>, <code>http://</code> and <code>www.</code> prefix before matching.
+
+=== URLs to remove ===
+URLs that should be removed entirely rather than deprecated, because they are
+structural mirrors of data already present in Wikidata (e.g. as identifiers)
+or are otherwise never independently useful as references.
+Deprecation reason: n/a — statement should be deleted.
+
+{| class="wikitable sortable"
+! Pattern !! Match type !! Example URL !! Notes !! Added
+|-
+| fr.dbpedia.org/resource/ || prefix || http://fr.dbpedia.org/resource/Félix_Delep || DBpedia mirrors Wikipedia/Wikidata data; not an independent source || 2026-04-28
+|-
+| viaf.org/en/viaf/ || prefix || http://viaf.org/en/viaf/LC%7Cno2020021715 || VIAF is already covered by a dedicated identifier property (P214); redundant as a URL statement || 2026-04-28
+|}
+
+=== Self-created profile platforms ===
+Platforms where anyone can create a profile without editorial review. Deprecation reason: {{Q|Q139894521}}
+
+{| class="wikitable sortable"
+! Pattern !! Match type !! Example URL !! Notes !! Added
+|-
+| about.me || prefix || https://about.me/paulmarkmorris || Personal profile platform || 2026-03-26
+|-
+| f6s.com || prefix || https://www.f6s.com/ainstin-dennis || Startup founder profiles, self-registered || 2026-03-26
+|-
+| wellfound.com || prefix || https://wellfound.com/u/ainstin-s-dennis || Formerly AngelList talent, self-created || 2026-03-26
+|-
+| viberate.com || prefix || https://www.viberate.com/ || Music industry profiles, self-created || 2026-03-26
+|-
+| sites.google.com || prefix || https://sites.google.com/ || Self-created Google Sites pages || 2026-03-26
+|-
+| medium.com/@ || prefix || https://medium.com/@ahmedsharyrahman/ahmed-shary-rahman-reflections-on-leadership-at-beximco-c07811ae863f || User-published articles only. Publication URLs (medium.com/publication-name/) are context-dependent and not covered by this rule || 2026-03-26
+|-
+| trakt.tv || prefix || https://trakt.tv/ || User-created TV tracking profiles || 2026-03-26
+|-
+| featured.com/p/ || prefix || https://featured.com/p/saeed-darabi || Paid expert profile platform, profile pages are self-created directory listings not editorial coverage || 2026-03-27
+|-
+| theorg.com || prefix || https://theorg.com/org/money-pantry-media-llc/org-chart/saeed-darabi || Company org chart platform, entries added by the company or individual themselves || 2026-03-27
+|-
+| clippings.me || prefix || https://www.clippings.me/shaunlewis || Journalist portfolio platform, self-created || 2026-06-06
+|-
+| peoplepill.com || prefix || https://peoplepill.com/i/chichi-evans || Biographical data aggregator, user-contributed and scraped from public sources, no independent editorial content || 2026-06-06
+|}
+
+=== Wiki farms without editorial oversight ===
+Wikis that accept articles about anyone without meaningful editorial review, widely used to fake Wikidata notability. Deprecation reason: {{Q|Q139894533}}
+
+{| class="wikitable sortable"
+! Pattern !! Match type !! Example URL !! Notes !! Added
+|-
+| wikialpha.co || prefix || https://wikialpha.co/wiki/Ainstin_S_Dennis || Accepts articles about anyone || 2026-03-26
+|-
+| wikitia.com || prefix || https://wikitia.com/wiki/Paul_Mark_Morris || Accepts articles about anyone || 2026-03-26
+|-
+| knowlepedia.org || prefix || https://knowlepedia.org/wiki/Ainstin_S_Dennis || Accepts articles about anyone || 2026-03-26
+|-
+| wikipoint.org || prefix || https://wikipoint.org/wiki/Ainstin_S_Dennis || Accepts articles about anyone || 2026-03-26
+|-
+| winsaa.org || prefix || https://winsaa.org/wiki/Ainstin_S_Dennis || Accepts articles about anyone || 2026-03-26
+|-
+| grokipedia.com || prefix || https://grokipedia.com/page/Cyrus_Kapadia || Wiki farm, accepts articles about anyone without editorial review || 2026-03-27
+|-
+| en.everybodywiki.com || prefix || https://en.everybodywiki.com/Nick_Luna || Wiki that contains deleted Wikipedia articles as well as articles that do not meet Wikipedias' requirements || 2026-05-29
+|-
+| ([a-z-]+\.)?everybodywiki\.com/ || regex || https://en.everybodywiki.com/Shaun_Michael_Lewis || Wiki farm with language subdomains; accepts articles about anyone || 2026-06-06
+|-
+| wikigenius.org || prefix || https://wikigenius.org/wiki/John_W._DenBoer || Wiki farm with lenient notability; marketed to individuals and businesses wanting an encyclopedia presence || 2026-06-06
+|-
+| encyc.org || prefix || https://encyc.org/wiki/John_DenBoer || Small open wiki accepting articles rejected by Wikipedia, no meaningful editorial oversight || 2026-06-06
+|-
+| ([a-z-]+\.)?wikialpha\.org/ || regex || https://en.wikialpha.org/wiki/Nawras_Gamin || wikialpha.org subdomain variant; wikialpha.co already listed || 2026-06-06
+|}
+
+=== Press release distributors ===
+Services that distribute press releases for payment, with no independent editorial judgment. Deprecation reason: {{Q|Q139894537}}
+
+{| class="wikitable sortable"
+! Pattern !! Match type !! Example URL !! Notes !! Added
+|-
+| prweb.com || prefix || https://www.prweb.com/ || Paid press release distribution || 2026-03-26
+|-
+| prlog.org || prefix || https://www.prlog.org/ || Paid press release distribution || 2026-03-26
+|-
+| businesswire.com || prefix || https://www.businesswire.com/ || Paid press release distribution || 2026-03-26
+|-
+| prnewswire.com || prefix || https://www.prnewswire.com/ || Paid press release distribution || 2026-03-26
+|-
+| globenewswire.com || prefix || https://www.globenewswire.com/ || Paid press release distribution || 2026-03-26
+|-
+| privateequitywire.co.uk || prefix || https://www.privateequitywire.co.uk/stirling-square-capital-partners-invests-isoclima/ || Paid press release distribution || 2026-05-23
+|-
+| openpr.com/news/ || prefix || https://www.openpr.com/news/4401243/the-role-of-structural-discipline-in-long-term-infrastructure || Paid press release distribution || 2026-05-23
+|}
+
+=== Sponsored or contributed content ===
+Pages that are editorially published but where the content is paid for or contributed by the subject. Matched by URL prefix on the full path. Deprecation reason: {{Q|Q139894548}}
+
+{| class="wikitable sortable"
+! Pattern !! Match type !! Example URL !! Notes !! Added
+|-
+| usatoday.com/story/special/contributor-content/ || prefix || https://www.usatoday.com/story/special/contributor-content/ || Paid contributor content, not editorial journalism || 2026-03-26
+|-
+| forbes.com/councils/ || prefix || https://www.forbes.com/councils/ || Forbes Councils is a paid membership publishing program || 2026-03-26
+|-
+| rollingstone.com/culture-council/ || prefix || https://www.rollingstone.com/culture-council/ || Rolling Stone Culture Council is a paid membership publishing program || 2026-04-23
+|-
+| business-standard.com/content/specials || prefix || https://www.business-standard.com/content/specials/no-mba-no-corporate-experience-just-execution-how-these-20-year-olds-125020301012_1.html || Partner content: advertorials, contributed pieces, or paid features || 2026-05-23
+|-
+| bignewsnetwork.com/news/ || prefix || https://www.bignewsnetwork.com/news/278872566/aaron-zambo-discusses-risk-management-environmental-oversight-and-public-infrastructure-stability || News‑style portal that republishes contributed promotional articles || 2026-05-23
+|-
+| voyagela.com/interview/hidden-gems- || prefix || https://voyagela.com/interview/hidden-gems-meet-sahar-andrade-mb-bch-of-sahar-consulting-llc || Community‑submitted promotional profiles || 2026-05-23
+|}

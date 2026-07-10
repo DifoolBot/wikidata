@@ -110,6 +110,7 @@ ACTION_UPGRADE_PRECISE_DATE = "upgrade_precise_date"
 ACTION_CHANGE_PROPERTY = "change_property"
 ACTION_SPLIT_REFERENCE_URLS = "split_reference_urls"
 ACTION_MERGE_WIKI_IMPORT_REFS = "merge_wiki_import_refs"
+ACTION_REMOVE_REDUNDANT_REF_URL = "remove_redundant_ref_url"
 
 # ==== PIDs and QIDs ==========================================================
 
@@ -2465,6 +2466,150 @@ def detect_clean_urls(item: dict, rules: UrlStripRules) -> list[dict]:
     return diffs
 
 
+# ==== Detector: redundant reference URL ======================================
+
+# Language/locale query params that recognition-mode cleaning also strips.
+_LANG_QUERY_PARAMS = {"hl", "lang", "locale", "lr"}
+
+
+def _normalize_url_for_compare(raw, rules: "UrlStripRules") -> str | None:
+    """
+    Normalise a URL for redundancy comparison (recognition mode).
+
+    Mirrors normForCompare() in detectRemoveRedundantRefUrl(): percent-decode,
+    strip tracking + recognition + language params, drop the fragment, strip a
+    leading "www.", and remove a trailing slash, so that e.g.
+    "https://www.example.com/x/" and "https://example.com/x" compare equal.
+    Returns None when the value is not a usable string.
+    """
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        parsed = urlsplit(unquote(raw.strip()))
+        host = (parsed.hostname or "").lower()
+        if host.startswith("www."):
+            host = host[4:]
+
+        strip = set(rules.params_for(rules.always, host))
+        strip |= set(rules.params_for(rules.recognition, host))
+        strip |= _LANG_QUERY_PARAMS
+        kept = [
+            tok
+            for tok in parsed.query.split("&")
+            if tok and unquote_plus(tok.split("=", 1)[0]) not in strip
+        ]
+
+        netloc = f"{host}:{parsed.port}" if parsed.port else host
+        rebuilt = urlunsplit(
+            (parsed.scheme.lower(), netloc, parsed.path, "&".join(kept), "")
+        )
+        return rebuilt[:-1] if rebuilt.endswith("/") else rebuilt
+    except Exception:
+        return raw
+
+
+def detect_redundant_ref_url(item: dict, rules: "UrlStripRules") -> list[dict]:
+    """
+    Detect P854 (reference URL) snaks whose value is already asserted by the
+    statement itself — either the mainsnak value (when the claim's property is
+    URL-datatype) or a URL-datatype qualifier.
+
+    Per matching reference (mirrors detectRemoveRedundantRefUrl() exactly):
+      - If nothing meaningful remains after dropping the redundant P854 (only
+        P813/P1476/P1810 metadata left), emit ACTION_REMOVE_REFS to delete the
+        whole reference.
+      - Otherwise emit ACTION_REMOVE_REDUNDANT_REF_URL to strip only the
+        redundant P854 snak, keeping the rest of the reference.
+
+    Deprecated claims and splittable references are skipped.  Requires the
+    UrlStripRules so URLs can be normalised in recognition mode for comparison.
+    """
+    METADATA = {PID_RETRIEVED, PID_TITLE, PID_SUBJECT_NAMED_AS}
+    diffs = []
+
+    for pid, claims in (item.get("claims") or {}).items():
+        for claim in claims:
+            if claim.get("rank") == "deprecated":
+                continue
+
+            statement_urls: set[str] = set()
+            mainsnak = claim.get("mainsnak", {})
+            if mainsnak.get("datatype") == "url":
+                norm = _normalize_url_for_compare(
+                    mainsnak.get("datavalue", {}).get("value"), rules
+                )
+                if norm:
+                    statement_urls.add(norm)
+            for q_snaks in (claim.get("qualifiers") or {}).values():
+                for snak in q_snaks:
+                    if snak.get("datatype") == "url":
+                        norm = _normalize_url_for_compare(
+                            snak.get("datavalue", {}).get("value"), rules
+                        )
+                        if norm:
+                            statement_urls.add(norm)
+
+            if not statement_urls:
+                continue
+
+            for ref in claim.get("references") or []:
+                if _is_splittable_reference(ref)[0]:
+                    continue
+                snaks = ref.get("snaks") or {}
+                p854_snaks = snaks.get(PID_REFERENCE_URL, [])
+
+                redundant = [
+                    s
+                    for s in p854_snaks
+                    if (
+                        n := _normalize_url_for_compare(
+                            s.get("datavalue", {}).get("value"), rules
+                        )
+                    )
+                    is not None
+                    and n in statement_urls
+                ]
+                if not redundant:
+                    continue
+
+                redundant_ids = {id(s) for s in redundant}
+                kept_p854 = [s for s in p854_snaks if id(s) not in redundant_ids]
+                remaining_pids = [
+                    p
+                    for p in snaks
+                    if p != PID_REFERENCE_URL or kept_p854
+                ]
+                has_real_content = any(p not in METADATA for p in remaining_pids)
+
+                if not has_real_content:
+                    diffs.append(
+                        {
+                            "detector": "redundant_ref_url",
+                            "action": ACTION_REMOVE_REFS,
+                            "pid": pid,
+                            "claim_id": claim["id"],
+                            "ref_hash": ref.get("hash"),
+                            "removed_keys": list(snaks.keys()),
+                        }
+                    )
+                else:
+                    for s in redundant:
+                        diffs.append(
+                            {
+                                "detector": "redundant_ref_url",
+                                "action": ACTION_REMOVE_REDUNDANT_REF_URL,
+                                "pid": pid,
+                                "claim_id": claim["id"],
+                                "ref_hash": ref.get("hash"),
+                                "snak_pid": PID_REFERENCE_URL,
+                                "snak_hash": s.get("hash"),
+                                "reference_url": s.get("datavalue", {}).get("value"),
+                            }
+                        )
+
+    return diffs
+
+
 # ==== Detector registry ======================================================
 
 #: Map detector id → detect function.
@@ -2491,6 +2636,7 @@ DETECTORS: dict[str, Callable] = {
     #   "low_precision_dates"     → functools.partial(detect_low_precision_dates, classifier=clf)
     #   "obsolete_snaks"          → functools.partial(detect_obsolete_snaks_in_references, rules=rules)
     #   "merge_wiki_import_refs"  → functools.partial(detect_merge_wiki_import_refs, wikipedia_editions=we)
+    #   "redundant_ref_url"       → functools.partial(detect_redundant_ref_url, rules=url_rules)
     # Ref-category detectors run via detect_ref_categories() (single shared pass):
     #   "wikimedia", "aggregator", "community", "redundant",
     #   "inferred", "obsolete", "self_stated_in"

@@ -9,6 +9,24 @@ from bs4 import BeautifulSoup
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
+from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
+
+# URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
+# the search.
+QLEVER_URL_PROPERTIES = [
+    "P854",
+    "P856",
+    "P953",
+    "P973",
+    "P1325",
+    "P2699",
+    "P2888",
+    "P8214",
+]
+# only items whose URL value contains one of these substrings are collected
+QLEVER_DOMAIN_SUBSTRINGS = ["mubi.com"]
+
+ITEMS_FILE = Path(__file__).parent / "input" / "mubi.txt"
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -194,7 +212,9 @@ def process_item(qid, test: bool, strategy: IdentifierStrategy):
     ref_urls = strategy.get_ref_urls(item)
     if len(ref_urls) == 0:
         print(f"No {strategy.name()} reference URLs found for {qid}")
+        # todo; determine url + remove exact match if present
         return
+
     if len(strategy.get_ids_from_urls(ref_urls)) > 1:
         print(f"Multiple {strategy.name()} reference URLs found for {qid}")
         return
@@ -206,7 +226,7 @@ def process_item(qid, test: bool, strategy: IdentifierStrategy):
             )
             return
 
-    if not main_id:
+    if not main_id and ref_url:
         # not yet a mubi_id, fetch it
         main_id = strategy.fetch_id(ref_url)
 
@@ -224,7 +244,7 @@ def process_item(qid, test: bool, strategy: IdentifierStrategy):
                 did_add_ref_url = True
                 break
 
-    if not did_add_ref_url:
+    if not did_add_ref_url and ref_url:
         page.add_statement(
             cwd.ExternalIDStatement(None, strategy.property_id(), str(main_id)),
             reference=cwd.URLReference(ref_url),
@@ -291,10 +311,19 @@ def load_items_from_file(filename):
         return [line.strip() for line in f if line.strip()]
 
 
+def fetch_and_fill_items() -> int:
+    """Query qlever for items with a MUBI URL and write their QIDs to ITEMS_FILE."""
+    query = build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
+    count = fetch_qids_to_file(query, ITEMS_FILE)
+    print(f"Wrote {count} items to {ITEMS_FILE}")
+    return count
+
+
 def main():
     # Example input list from qlever
-    items = ["Q113847934"]
-    # items = load_items_from_file(Path(__file__).parent / "input" / "mubi.txt")
+    # items = ["Q113847934"]
+    # fetch_and_fill_items()
+    items = load_items_from_file(ITEMS_FILE)
     for qid in items:
         print(f"Processing {qid}...")
         process_item(qid, strategy=MubiStrategy(), test=False)
