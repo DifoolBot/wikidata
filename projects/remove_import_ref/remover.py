@@ -49,9 +49,7 @@ def remove_reference(
         print(f"  {qid}: reference {ref_hash} no longer present, skipping")
         return
 
-    summary = SUMMARY.format(
-        dbcode=dbcode
-    )  # + EDITGROUP_SUFFIX.format(batch_id=batch_id)
+    summary = SUMMARY.format(dbcode=dbcode) + EDITGROUP_SUFFIX.format(batch_id=batch_id)
     target_claim.removeSources(
         [snak for snaks in target_ref.values() for snak in snaks],
         summary=summary,
