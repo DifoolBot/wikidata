@@ -138,6 +138,8 @@ def main() -> None:
 
         if not matches:
             append_line(os.path.join(HERE, cfg["done_file"]), f"{qid}\tno-match")
+
+        item_failed = False
         for m in matches:
             line = (f"{m['qid']},{m['claim_property']},{m['project_qid']},"
                     f"{m['dbcode']},{m['ref_hash']},{m['revid']},{m['action']}")
@@ -146,14 +148,23 @@ def main() -> None:
                 append_line(os.path.join(HERE, cfg["matched_file"]), line)
                 if not dry_run:
                     from .remover import remove_reference
-                    remove_reference(site, m["qid"], m["claim_id"], m["ref_hash"],
-                                     m["dbcode"], batch_id)
+                    try:
+                        remove_reference(site, m["qid"], m["claim_id"],
+                                         m["ref_hash"], m["dbcode"], batch_id)
+                    except Exception as exc:  # noqa: BLE001 -- one bad save must
+                        # not kill the batch; leave the item un-done so it is
+                        # retried (idempotently) on the next run.
+                        item_failed = True
+                        print(f"  {qid}: SAVE FAILED {exc}", flush=True)
+                        append_line(os.path.join(HERE, cfg["log_file"]),
+                                    f"{qid}\t{m['ref_hash']}\tSAVE-FAILED\t{exc}")
             else:  # multi-snak ref: log for review, never edit
                 print(f"  REVIEW {line}", flush=True)
                 append_line(os.path.join(HERE, cfg["skipped_file"]), line)
-            if not dry_run:
-                append_line(os.path.join(HERE, cfg["done_file"]),
-                            f"{m['qid']}\t{m['action']}")
+
+        # Mark the whole item done only if nothing failed.
+        if not dry_run and matches and not item_failed:
+            append_line(os.path.join(HERE, cfg["done_file"]), f"{qid}\tdone")
 
         time.sleep(cfg.get("sleep_between_items_secs", 0.5))
 
