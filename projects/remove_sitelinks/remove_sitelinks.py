@@ -1,15 +1,17 @@
+import argparse
 import json
+import os
 import random
 import re
 from collections import Counter
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 import pywikibot
 import requests
-from database_handler import DatabaseHandler
 from pywikibot.data import sparql
 from pywikibot.data.api import Request
 
@@ -96,13 +98,30 @@ NON_ARTICLE_PROJECTS = {
 # Database tracker
 # ---------------------------------------------------------------------------
 
+# Backend selection: MariaDB on Toolforge (set WD_DB_BACKEND=mariadb), else the
+# local Firebird database. Both use the same StatusTracker below; only the
+# connection details (data/remove_sitelinks.json) and schema differ.
+_use_mariadb = os.environ.get("WD_DB_BACKEND", "").lower() == "mariadb"
+_DB_CREATE_SCRIPT = Path(
+    "schemas/remove_sitelinks_mariadb.sql"
+    if _use_mariadb
+    else "schemas/remove_sitelinks.sql"
+)
 
-class FirebirdStatusTracker(DatabaseHandler):
+if TYPE_CHECKING:
+    # Give the type checker one concrete base; both backends share this interface.
+    from database_handler_firebird import FirebirdDatabaseHandler as _DBHandler
+elif _use_mariadb:
+    from database_handler_mariadb import MariaDbDatabaseHandler as _DBHandler
+else:
+    from database_handler_firebird import FirebirdDatabaseHandler as _DBHandler
+
+
+class StatusTracker(_DBHandler):
 
     def __init__(self):
         file_path = DATA_DIR / "remove_sitelinks.json"
-        create_script = Path("schemas/sitelinks.sql")
-        super().__init__(file_path, create_script)
+        super().__init__(file_path, _DB_CREATE_SCRIPT)
 
     def is_processed(self, qid: str) -> bool:
         """Return True if the QID has any existing record (success or failure)."""
@@ -110,16 +129,16 @@ class FirebirdStatusTracker(DatabaseHandler):
         return bool(rows)
 
     def mark_success(self, qid: str, summary: str = "") -> None:
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO qids (qid, status, summary) VALUES (?, ?, ?)",
-            (qid, "success", summary),
+        self.upsert(
+            "qids", {"qid": qid, "status": "success", "summary": summary}, ["qid"]
         )
 
     def mark_failed(self, qid: str, error: Exception) -> None:
         trimmed_error = str(error)[:255]
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO qids (qid, status, error_msg) VALUES (?, ?, ?)",
-            (qid, "failed", trimmed_error),
+        self.upsert(
+            "qids",
+            {"qid": qid, "status": "failed", "error_msg": trimmed_error},
+            ["qid"],
         )
 
     def is_wikimedia_cat(self, qid: str) -> bool | None:
@@ -138,9 +157,10 @@ class FirebirdStatusTracker(DatabaseHandler):
 
     def set_wikimedia_cat(self, qid: str, is_wikimedia_cat: bool) -> None:
         """Cache the Wikimedia category status for a QID."""
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO wikimedia_cats (qid, is_wikimedia_cat) VALUES (?, ?)",
-            (qid, 1 if is_wikimedia_cat else 0),
+        self.upsert(
+            "wikimedia_cats",
+            {"qid": qid, "is_wikimedia_cat": 1 if is_wikimedia_cat else 0},
+            ["qid"],
         )
 
 
@@ -540,7 +560,7 @@ def _source_get_urls(source: dict, pid: str) -> list[str]:
     ]
 
 
-def is_wikimedia_cat(qid: str, tracker: FirebirdStatusTracker) -> bool:
+def is_wikimedia_cat(qid: str, tracker: StatusTracker) -> bool:
     b = tracker.is_wikimedia_cat(qid)
     if b is not None:
         return b
@@ -585,7 +605,7 @@ def is_wikimedia_cat(qid: str, tracker: FirebirdStatusTracker) -> bool:
 
 def can_ignore_multiple_language_source(
     source: dict,
-    tracker: FirebirdStatusTracker,
+    tracker: StatusTracker,
 ) -> bool:
     # must include inferred from (P3452) with a Wikipedia cat
     # only these are allowed
@@ -641,7 +661,7 @@ def _normalize_wiki_lang(lang: str) -> str:
 def _analyze_source(
     source: dict,
     sitelinks: dict,
-    tracker: FirebirdStatusTracker,
+    tracker: StatusTracker,
     page_title_buffer: dict[tuple[str, str], str | None] | None = None,
 ) -> dict:
     """
@@ -750,7 +770,7 @@ def _deleted_commons_media(claim: pywikibot.Claim) -> str | None:
 
 def collect_wikipedia_refs(
     item: pywikibot.ItemPage,
-    tracker: FirebirdStatusTracker,
+    tracker: StatusTracker,
     page_title_buffer: dict[tuple[str, str], str | None] | None = None,
 ) -> dict[str, list[dict]]:
     """
@@ -1198,7 +1218,7 @@ def process_lang(
 
 def process_item(
     qid: str,
-    tracker: FirebirdStatusTracker,
+    tracker: StatusTracker,
     dry_run: bool = True,
 ) -> None:
     """Fetch a Wikidata item and run the full cleanup pipeline."""
@@ -1219,7 +1239,8 @@ def process_item(
         )
         if not wp_refs:
             pywikibot.output("No Wikipedia references with missing sitelinks found.")
-            tracker.mark_success(qid, "No refs found")
+            if not dry_run:
+                tracker.mark_success(qid, "No refs found")
             return
 
         pywikibot.output(f"Languages with stale refs: {sorted(wp_refs.keys())}")
@@ -1247,17 +1268,19 @@ def process_item(
 
         page.summary = EDIT_SUMMARY.format(lang=", ".join(sorted(langs_done)))
         page.edit_group = edit_group
-        if page.apply():
-            summary = page.used_summary or ""
-            if dry_run:
-                summary = f"(DRY RUN) {summary}"
-            tracker.mark_success(qid, summary)
-        else:
-            tracker.mark_success(qid, "Nothing done")
+        applied = page.apply()
+        # Dry-run makes no Wikidata edits (WikiDataPage test=dry_run) and records
+        # nothing, so a test run never blocks a later real run via is_processed.
+        if not dry_run:
+            if applied:
+                tracker.mark_success(qid, page.used_summary or "")
+            else:
+                tracker.mark_success(qid, "Nothing done")
 
     except Exception as e:
         pywikibot.error(f"Error processing {qid}: {e}")
-        tracker.mark_failed(qid, e)
+        if not dry_run:
+            tracker.mark_failed(qid, e)
 
 
 def _format_progress(done: int, total: int, start_time: datetime) -> str:
@@ -1279,7 +1302,7 @@ def _format_progress(done: int, total: int, start_time: datetime) -> str:
     )
 
 
-def iterate_text_file(tracker: FirebirdStatusTracker, dry_run: bool = True) -> None:
+def iterate_text_file(tracker: StatusTracker, dry_run: bool = True) -> None:
     """Process every QID listed (one per line) in items.txt."""
     with ITEMS_FILE.open(encoding="utf-8") as fh:
         qids = [line.strip() for line in fh if line.strip()]
@@ -1293,7 +1316,7 @@ def iterate_text_file(tracker: FirebirdStatusTracker, dry_run: bool = True) -> N
     pywikibot.output(_format_progress(total, total, start_time))
 
 
-def remove_processed_items_from_items_file(tracker: FirebirdStatusTracker) -> int:
+def remove_processed_items_from_items_file(tracker: StatusTracker) -> int:
     """Remove already-processed QIDs from ITEMS_FILE and return removed count."""
     if not ITEMS_FILE.exists():
         pywikibot.warning(f"{ITEMS_FILE} does not exist. No items removed.")
@@ -1557,39 +1580,38 @@ def test():
 
 
 def main():
-    # Unrecognized Wikipedia URL format: https://ru.wikipedia.org/?oldid=101945374
-    # print(_get_page_title_from_revision("ru", 101945374))
+    parser = argparse.ArgumentParser(
+        description=(
+            "End 'imported from Wikipedia' references whose source page was "
+            "deleted/moved, on items lacking the sitelink."
+        )
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="actually edit Wikidata (default: dry-run - no edits, no DB writes)",
+    )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help=(
+            "refetch items.txt via qlever (all supported languages) before "
+            "processing; slow, so run it only occasionally"
+        ),
+    )
+    args = parser.parse_args()
 
-    # process_item(
-    #     "Q56751510",
-    #     tracker=FirebirdStatusTracker(),
-    #     dry_run=True,
-    # )  # try 1
-    # process_item("Q100418518", dry_run=True, )  # try 2
-    # process_item("Q100226976", dry_run=True, )  # try 3 - permalink
-    # process_item(
-    #    "Q100534439", tracker=FirebirdStatusTracker(), dry_run=True
-    # )  # try 4 - remove
+    dry_run = not args.save
+    tracker = StatusTracker()
 
-    fetch_and_fill_items_txt_qlever_all()
-    remove_processed_items_from_items_file(FirebirdStatusTracker())
-    iterate_text_file(tracker=FirebirdStatusTracker(), dry_run=False)
-    # fetch_and_fill_items_txt_qlever("no", append=True)
+    if args.refresh:
+        fetch_and_fill_items_txt_qlever_all()
 
-    # test()
-    # Q100226976 - permalink
+    if not dry_run:
+        # Drop already-processed QIDs from the queue before a real run.
+        remove_processed_items_from_items_file(tracker)
 
-    # print(get_page_status("Albert Einstein", "en"))
-    # print(
-    #     _parse_wikipedia_url(
-    #         "https://en.wikipedia.org/wiki/Clint_Eastwood#Spiritual_beliefs"
-    #     )
-    # )
-
-    # check: Q101468124 - Mike Moradian - English page is deleted, recovered title = Westlake High School (California)
-    # check: Q101248584
-    # check: Q11500551 - en page is later created
-    # check Q115633065 - 50 revisions -> 1 user-run candidates to inspect.
+    iterate_text_file(tracker=tracker, dry_run=dry_run)
 
 
 if __name__ == "__main__":

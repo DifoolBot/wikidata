@@ -104,3 +104,13 @@ class FirebirdDatabaseHandler(DatabaseHandler):
         sql = f"SELECT FIRST 1 * FROM {table} WHERE {condition}"
         result = self.execute_query(sql, params)
         return len(result) > 0
+
+    def upsert(self, table: str, values: dict, key_columns: list[str]) -> None:
+        """Insert a row, or update it if one with the same key already exists."""
+        columns = list(values.keys())
+        placeholders = ", ".join("?" for _ in columns)
+        sql = (
+            f"UPDATE OR INSERT INTO {table} ({', '.join(columns)}) "
+            f"VALUES ({placeholders}) MATCHING ({', '.join(key_columns)})"
+        )
+        self.execute_procedure(sql, tuple(values.values()))

@@ -83,5 +83,20 @@ class MariaDbDatabaseHandler(DatabaseHandler):
         result = self.execute_query(sql, params)
         return len(result) > 0
 
+    def upsert(self, table: str, values: dict, key_columns: list[str]) -> None:
+        """Insert a row, or update it if one with the same key already exists."""
+        columns = list(values.keys())
+        placeholders = ", ".join("?" for _ in columns)
+        updates = ", ".join(
+            f"{c}=VALUES({c})" for c in columns if c not in key_columns
+        )
+        if not updates:  # all columns are key columns -> no-op update
+            updates = f"{key_columns[0]}={key_columns[0]}"
+        sql = (
+            f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders}) "
+            f"ON DUPLICATE KEY UPDATE {updates}"
+        )
+        self.execute_procedure(sql, tuple(values.values()))
+
     def _adapt_sql(self, sql: str) -> str:
         return sql.replace("?", "%s")
