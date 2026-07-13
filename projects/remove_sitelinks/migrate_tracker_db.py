@@ -64,16 +64,36 @@ def export(include_failed: bool = False) -> None:
     print(f"Exported to {DUMP}")
 
 
-def import_() -> None:
+def import_(batch_size: int = 5000) -> None:
     from database_handler_mariadb import MariaDbDatabaseHandler
 
     handler = MariaDbDatabaseHandler(CONFIG)
     dump = json.loads(DUMP.read_text(encoding="utf-8"))
-    for table, cols in TABLES.items():
-        rows = dump.get(table, [])
-        for record in rows:
-            handler.upsert(table, {c: record.get(c) for c in cols}, ["qid"])
-        print(f"Imported {len(rows)} rows into {table}")
+
+    # One connection, batched executemany (pymysql collapses each batch into a
+    # single multi-row INSERT ... ON DUPLICATE KEY UPDATE) - far faster than a
+    # connection per row.
+    conn = handler.get_connection()
+    try:
+        cur = conn.cursor()
+        for table, cols in TABLES.items():
+            rows = dump.get(table, [])
+            if not rows:
+                continue
+            placeholders = ", ".join(["%s"] * len(cols))
+            updates = ", ".join(f"{c}=VALUES({c})" for c in cols if c != "qid")
+            sql = (
+                f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({placeholders}) "
+                f"ON DUPLICATE KEY UPDATE {updates}"
+            )
+            data = [tuple(r.get(c) for c in cols) for r in rows]
+            for i in range(0, len(data), batch_size):
+                cur.executemany(sql, data[i : i + batch_size])
+                conn.commit()
+                done = min(i + batch_size, len(data))
+                print(f"{table}: {done}/{len(data)}")
+    finally:
+        conn.close()
 
 
 def main() -> None:
