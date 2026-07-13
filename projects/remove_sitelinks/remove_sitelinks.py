@@ -1,6 +1,7 @@
 import json
 import random
 import re
+from collections import Counter
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -19,7 +20,7 @@ from shared_lib.rate_limiter import rate_limit
 from shared_lib.wikidata_site import REPO as repo
 from shared_lib.wikidata_site import SITE as site
 
-edit_group = "ece1e2aa4e61"  # "{:x}".format(random.randrange(0, 2**48))
+edit_group = format(random.randrange(0, 2**48))  # "ece1e2aa4e61"
 
 # check remove message:
 # https://www.wikidata.org/wiki/Q10266249#Q10266249$B9B396CF-EAE9-463E-B8E7-45CEB56D8AF0
@@ -67,6 +68,18 @@ WIKIPEDIA_EDITIONS_CACHE_FILE = DATA_DIR / "wikipedia_editions_cache.txt"
 
 # Output items file used by routines that write/read QID lists
 ITEMS_FILE = DATA_DIR / "items.txt"
+
+# Log of P143-only references we could not match to the item's own deleted page
+# (no sitelink-removal comment and no history snapshot); for manual review.
+UNRESOLVED_P143_LOG = DATA_DIR / "unresolved_p143_refs.txt"
+
+# Log of statements skipped because their Commons media value was deleted (the
+# statement can't be edited without the whole save failing); for manual review.
+DELETED_MEDIA_LOG = DATA_DIR / "deleted_media_refs.txt"
+
+# Log of references whose source page was renamed within mainspace and still
+# exists (often a missing sitelink or duplicate); left unchanged, for review.
+RENAMED_STILL_EXISTS_LOG = DATA_DIR / "renamed_still_exists_refs.txt"
 
 # Projects that are not article namespaces we treat specially
 NON_ARTICLE_PROJECTS = {
@@ -217,18 +230,40 @@ class PageStatus(Enum):
     DELETED = "deleted"
     RESTORED = "restored"
     MOVED_TO_DRAFT = "moved_to_draft"
+    MOVED_TO_USER = "moved_to_user"
+    MOVED_OUT_OF_MAINSPACE = "moved_out_of_mainspace"
+    RENAMED_IN_MAINSPACE = "renamed_in_mainspace"
     NEVER_EXISTED = "never_existed"
+
+
+# Statuses that mean the page was removed from mainspace and its reference can be
+# ended (with the associated date).
+_REMOVED_STATUSES = (
+    PageStatus.DELETED,
+    PageStatus.MOVED_TO_DRAFT,
+    PageStatus.MOVED_TO_USER,
+    PageStatus.MOVED_OUT_OF_MAINSPACE,
+)
+
+# How many mainspace renames to follow before giving up (guards against cycles).
+_MAX_RENAME_DEPTH = 10
 
 
 _page_status_cache: dict[tuple[str, str], tuple[PageStatus, str | None]] = {}
 
 
 @rate_limit(30)  # 1 call every 5 seconds
-def _get_page_status(title: str, lang: str) -> tuple[PageStatus, str | None]:
-    """Return the current status of a Wikipedia page and deletion date or draft target if applicable.
+def _get_page_status(
+    title: str, lang: str, _depth: int = 0
+) -> tuple[PageStatus, str | None]:
+    """Return the current status of a Wikipedia page and a date if applicable.
 
-    Returns a tuple of (status, detail) where detail is either a deletion timestamp
-    for deleted pages, a draft target title for moved-to-draft pages, or None.
+    Returns a tuple of (status, detail) where detail is a timestamp for deleted
+    pages and for pages moved out of mainspace (to Draft or User space), or None.
+
+    A page renamed *within* mainspace is followed to its final title: if that
+    chain ends in a removal (delete/move-out) the removal status+date is
+    returned; otherwise RENAMED_IN_MAINSPACE (the content still exists somewhere).
     """
     key = (title, lang)
 
@@ -261,28 +296,60 @@ def _get_page_status(title: str, lang: str) -> tuple[PageStatus, str | None]:
             result = (PageStatus.RESTORED, None)
             _page_status_cache[key] = result
             return result
-        if action == "move":
+        # "move" is a normal page move; "move_redir" is a move that overwrote an
+        # existing redirect at the target (both mean the page was renamed). A move
+        # out of the article namespace (0) removes the page from mainspace: to
+        # Draft (ns 118) = draftified, to User (ns 2) = userfied, or to any other
+        # namespace (e.g. hu.wiki parks candidates in the Wikipedia/Project ns 4).
+        # A move within mainspace (ns 0) is a rename: follow the new title, since
+        # the article may live on there (or have been deleted after the rename).
+        if action in ("move", "move_redir"):
             params = getattr(entry, "params", {})
             if isinstance(params, dict):
                 target_ns = params.get("target_ns")
+                moved_status = None
                 if target_ns == 118:
+                    moved_status = PageStatus.MOVED_TO_DRAFT
+                elif target_ns == 2:
+                    moved_status = PageStatus.MOVED_TO_USER
+                elif target_ns not in (0, None):
+                    moved_status = PageStatus.MOVED_OUT_OF_MAINSPACE
+                if moved_status is not None:
                     move_date = (
                         str(entry.timestamp()) if hasattr(entry, "timestamp") else None
                     )
-                    result = (PageStatus.MOVED_TO_DRAFT, move_date)
+                    result = (moved_status, move_date)
                     _page_status_cache[key] = result
                     return result
+
+                # Rename within mainspace (ns 0): follow the new title.
+                target_title = params.get("target_title")
+                if target_title and _depth < _MAX_RENAME_DEPTH:
+                    tgt_status, tgt_detail = get_page_status(
+                        target_title, lang, _depth=_depth + 1
+                    )
+                    if tgt_status in _REMOVED_STATUSES:
+                        result = (tgt_status, tgt_detail)  # renamed, then removed
+                    else:
+                        # content still exists (or unresolvable) under a new title
+                        result = (PageStatus.RENAMED_IN_MAINSPACE, None)
+                else:
+                    result = (PageStatus.RENAMED_IN_MAINSPACE, None)
+                _page_status_cache[key] = result
+                return result
 
     result = (PageStatus.NEVER_EXISTED, None)
     _page_status_cache[key] = result
     return result
 
 
-def get_page_status(title: str, lang: str) -> tuple[PageStatus, str | None]:
+def get_page_status(
+    title: str, lang: str, _depth: int = 0
+) -> tuple[PageStatus, str | None]:
     key = (title, lang)
     if key in _page_status_cache:
         return _page_status_cache[key]
-    return _get_page_status(title, lang)
+    return _get_page_status(title, lang, _depth=_depth)
 
 
 @rate_limit(5)  # 1 call every 5 seconds
@@ -306,6 +373,35 @@ def _get_page_title_from_revision(lang: str, revid: int | str) -> str | None:
     pages = qry["pages"]
     page_data = next(iter(pages.values()))
     return page_data["title"]
+
+
+@rate_limit(5)  # 1 call every 5 seconds
+def _get_page_title_from_pageid(lang: str, pageid: int | str) -> str | None:
+    """Resolve a page id (curid) to its title, or None if the page is gone.
+
+    A deleted page id comes back with a ``missing`` marker and no title (the
+    public API cannot map a deleted id to its title), so we return None just as
+    for an invalid revision id.
+    """
+    if str(pageid) == "0":
+        raise ValueError("Page ID 0 is invalid and cannot be queried.")
+
+    wiki_site = pywikibot.Site(lang, "wikipedia")
+
+    result = wiki_site.simple_request(
+        action="query",
+        pageids=pageid,
+        prop="info",
+    ).submit()
+
+    qry = result.get("query")
+    if not qry or "pages" not in qry:
+        return None
+    pages = qry["pages"]
+    page_data = next(iter(pages.values()))
+    if "missing" in page_data:
+        return None
+    return page_data.get("title")
 
 
 def _parse_wikipedia_url(
@@ -342,51 +438,80 @@ def _parse_wikipedia_url(
 
     params = parse_qs(parsed.query)
 
-    def _get_title_from_oldid(_lang: str, _oldid: str) -> str | None:
-        key = (_lang, _oldid)
+    def _buffered_title(_lang: str, _key: str, resolver, _id: str) -> str | None:
+        cache_key = (_lang, _key)
         if page_title_buffer is not None:
-            if key not in page_title_buffer:
-                page_title_buffer[key] = _get_page_title_from_revision(_lang, _oldid)
-            return page_title_buffer[key]
-        return _get_page_title_from_revision(_lang, _oldid)
+            if cache_key not in page_title_buffer:
+                page_title_buffer[cache_key] = resolver(_lang, _id)
+            return page_title_buffer[cache_key]
+        return resolver(_lang, _id)
 
-    def _get_title_and_oldid_from_params():
+    def _get_title_from_oldid(_lang: str, _oldid: str) -> str | None:
+        return _buffered_title(_lang, _oldid, _get_page_title_from_revision, _oldid)
+
+    def _get_title_from_curid(_lang: str, _curid: str) -> str | None:
+        return _buffered_title(
+            _lang, f"curid:{_curid}", _get_page_title_from_pageid, _curid
+        )
+
+    def _get_title_and_ids_from_params():
         title = None
         oldid = None
+        curid = None
         if "title" in params:
             title = params["title"][0].replace("_", " ")
         if "oldid" in params:
             oldid = params["oldid"][0]
-        if not title and not oldid:
+        if "curid" in params:
+            curid = params["curid"][0]
+        if not title and not oldid and not curid:
             if parsed.path.startswith("/wiki/"):
-                if parsed.path.startswith("/wiki/Special:Permalink/"):
-                    permalink = parsed.path[len("/wiki/Special:Permalink/") :]
-                    # should be a number followed by an optional title, e.g. "973360753" or "973360753/Nenad_Zivkovic_(footballer,_born_2002)"
-                    m = re.match(r"^(\d+)(?:/.*)?$", permalink)
-                    if not m:
-                        raise ValueError(
-                            f"Unrecognized Wikipedia permalink format: {url}"
-                        )
-                    oldid = m.group(1)
+                subpath = parsed.path[len("/wiki/") :]
+                # Special:Permalink and its alias Special:PermanentLink, matched
+                # case-insensitively (e.g. "Special:PermaLink"), optionally
+                # followed by "/Some_Title" - a revision id followed by an
+                # optional page-title hint.
+                perma = re.match(
+                    r"^Special:Perma(?:nent)?link/(\d+)(?:/.*)?$",
+                    subpath,
+                    re.IGNORECASE,
+                )
+                if perma:
+                    oldid = perma.group(1)
+                elif subpath.lower().startswith("special:"):
+                    # Any other Special: page is not a normal article URL.
+                    raise ValueError(f"Unrecognized Wikipedia URL format: {url}")
                 else:
-                    title = (
-                        parsed.path[len("/wiki/") :].replace("_", " ").replace("_", " ")
-                    )
+                    title = subpath.replace("_", " ")
             elif parsed.path.startswith(f"/{lang}-"):
                 # language variant like http://zh.wikipedia.org/zh-tw/%E9%AB%98%E7%AB%8B
                 title = parsed.path.split("/", 2)[-1].replace("_", " ")
 
-        return title, oldid
+        return title, oldid, curid
 
-    has_invalid_oldid = False
-    title, oldid = _get_title_and_oldid_from_params()
+    has_invalid_id = False
+    param_title, oldid, curid = _get_title_and_ids_from_params()
+    title = param_title
+    # oldid (a revision) and curid (a page id) are both numeric handles we try to
+    # resolve to a title; when the page/revision is deleted they cannot be
+    # resolved, so fall back to the title= param if present, else give up on the
+    # URL (title stays None, no error).
     if oldid:
-        title = _get_title_from_oldid(lang, oldid)
-        if not title:
-            # invalid oldid, ignore the URL
-            has_invalid_oldid = True
+        resolved = _get_title_from_oldid(lang, oldid)
+        if resolved:
+            title = resolved
+        else:
+            has_invalid_id = True
+            title = param_title
+    elif curid:
+        resolved = _get_title_from_curid(lang, curid)
+        if resolved:
+            title = resolved
+        else:
+            has_invalid_id = True
+            title = param_title
 
-    if not has_invalid_oldid and not title:
+    if not has_invalid_id and not title:
         raise ValueError(f"Unrecognized Wikipedia URL format: {url}")
 
     return {"language": lang, "project": "wikipedia", "title": title}
@@ -481,12 +606,22 @@ def can_ignore_multiple_language_source(
     return True
 
 
-def is_user_page_url(lang: str, title: str) -> bool:
-    if title.startswith("User:"):
-        return True
-    if lang == "de" and title.startswith("Benutzer:"):
-        return True
-    return False
+def _title_is_non_article(lang: str, title: str) -> bool:
+    """True if *title* on *lang*wiki is in a non-article (non-main) namespace.
+
+    Import URLs sometimes point at a User page, a File/Archivo page, a Category,
+    a Portal, etc. rather than an article; those don't correspond to a missing
+    article sitelink and are ignored. The namespace is resolved from the wiki's
+    own table, so it works for every language and every namespace alias
+    (e.g. "Archivo:" = File on es.wiki). pywikibot caches the Site per language.
+    """
+    if ":" not in title:
+        return False  # no prefix -> main namespace
+    try:
+        site = pywikibot.Site(lang, "wikipedia")
+        return pywikibot.Page(site, title).namespace().id != 0
+    except Exception:
+        return False
 
 
 LANG_NORMALIZATIONS = {
@@ -523,7 +658,7 @@ def _analyze_source(
         "has_missing_sitelink": False,
         "imported_from_qid": None,
         "import_url": None,
-        "has_user_url": False,
+        "has_non_article_url": False,
     }
 
     for qid in _source_get_qids(source, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT):
@@ -558,9 +693,10 @@ def _analyze_source(
             raise ValueError(f"Unrecognized wikimedia project in URL: {url}")
         if not lang:
             raise ValueError(f"Could not determine language from URL: {url}")
-        if is_user_page_url(lang, title):
-            # ignore user page URLs, they don't correspond to missing article sitelinks
-            result["has_user_url"] = True
+        if _title_is_non_article(lang, title):
+            # ignore non-article URLs (User, File, Category, ...): they don't
+            # correspond to a missing article sitelink
+            result["has_non_article_url"] = True
             continue
         if result["import_url"]:
             raise ValueError(
@@ -577,8 +713,8 @@ def _analyze_source(
             if f"{lang}wiki" not in sitelinks:
                 result["has_missing_sitelink"] = True
 
-    if result["has_user_url"] and not result["import_url"]:
-        # user urls don't need a sitelink
+    if result["has_non_article_url"] and not result["import_url"]:
+        # non-article urls don't need a sitelink
         result["has_missing_sitelink"] = False
     return result
 
@@ -591,6 +727,27 @@ def _get_ref_hash(source: dict) -> str | None:
     return None
 
 
+def _deleted_commons_media(claim: pywikibot.Claim) -> str | None:
+    """Return the filename if *claim* is a commonsMedia statement whose file was
+    deleted from Commons, else None.
+
+    Such a statement cannot be edited: Wikibase re-validates the media value on
+    save and rejects the whole edit with `no-such-media`. Callers skip it so the
+    item's other references can still be updated.
+    """
+    if getattr(claim, "type", None) != "commonsMedia":
+        return None
+    target = claim.getTarget()
+    if target is None:
+        return None
+    try:
+        if target.exists():
+            return None
+        return target.title(with_ns=False)
+    except Exception:
+        return None
+
+
 def collect_wikipedia_refs(
     item: pywikibot.ItemPage,
     tracker: FirebirdStatusTracker,
@@ -599,6 +756,9 @@ def collect_wikipedia_refs(
     """
     Scan all non-deprecated claims for sources that point to a Wikipedia edition
     whose sitelink is absent from the item.
+
+    Statements whose Commons media value was deleted are skipped (and logged):
+    they cannot be saved, and would fail the whole edit.
 
     Returns a dict keyed by language code, each value being a list of
     {claim, source, analysis} entries.
@@ -610,6 +770,8 @@ def collect_wikipedia_refs(
         for claim in claim_list:
             if claim.getRank() == "deprecated":
                 continue
+
+            collected = []
             for source in claim.sources:
                 analysis = _analyze_source(
                     source,
@@ -619,6 +781,21 @@ def collect_wikipedia_refs(
                 )
                 if not analysis["has_missing_sitelink"]:
                     continue
+                collected.append((source, analysis))
+            if not collected:
+                continue
+
+            deleted_file = _deleted_commons_media(claim)
+            if deleted_file is not None:
+                pywikibot.warning(
+                    f"[{item.title()}] Skipping {claim.getID()} reference(s): "
+                    f"Commons file '{deleted_file}' is deleted, so the statement "
+                    f"cannot be edited (logged to {DELETED_MEDIA_LOG.name})."
+                )
+                _log_deleted_media(item.title(), claim.getID(), deleted_file)
+                continue
+
+            for source, analysis in collected:
                 lang = analysis["language"] or "unknown"
                 by_lang.setdefault(lang, []).append(
                     {"claim": claim, "source": source, "analysis": analysis}
@@ -632,36 +809,40 @@ def collect_wikipedia_refs(
 # ---------------------------------------------------------------------------
 
 
-def find_title_from_sources(
+def titles_from_reference(
     lang: str,
-    entries: list[dict],
+    entry: dict,
     page_title_buffer: dict[tuple[str, str], str | None] | None = None,
-) -> str | None:
-    titles = set()
-    """Extract a page title directly from import-URL claims in the sources."""
-    for entry in entries:
-        for url in _source_get_urls(entry["source"], wd.PID_WIKIMEDIA_IMPORT_URL):
-            info = _parse_wikipedia_url(url, page_title_buffer=page_title_buffer)
-            if not info:
-                raise ValueError(f"Unrecognized URL format: {url}")
-            if info["language"] != lang:
-                raise ValueError(
-                    f"URL language mismatch: expected '{lang}', got '{info['language']}' in URL {url}"
-                )
-            title = info["title"]
-            if not title:
-                continue
-            if is_user_page_url(lang, title):
-                # ignore user page URLs, they don't correspond to missing article sitelinks
-                continue
-            titles.add(title)
-    if len(titles) > 1:
-        raise ValueError(
-            f"Multiple distinct titles found in sources for {lang}: {titles}"
-        )
-    if titles:
-        return titles.pop()
-    return None
+) -> list[str]:
+    """Return the article title(s) carried by one reference's P4656 import URLs.
+
+    A reference that only has P143 (imported from) and no import URL yields an
+    empty list. Non-article URLs (User, File, Category, ...) are ignored. Order
+    is preserved, duplicates removed.
+    """
+    titles: list[str] = []
+    for url in _source_get_urls(entry["source"], wd.PID_WIKIMEDIA_IMPORT_URL):
+        info = _parse_wikipedia_url(url, page_title_buffer=page_title_buffer)
+        if not info:
+            raise ValueError(f"Unrecognized URL format: {url}")
+        if info["project"] != "wikipedia":
+            continue
+        url_lang = info["language"]
+        if url_lang in SUBDOMAIN_CORRECTIONS:
+            url_lang = SUBDOMAIN_CORRECTIONS[url_lang]
+        if url_lang != lang:
+            raise ValueError(
+                f"URL language mismatch: expected '{lang}', got '{url_lang}' in URL {url}"
+            )
+        title = info["title"]
+        if not title:
+            continue
+        if _title_is_non_article(lang, title):
+            # ignore non-article URLs (User, File, Category, ...)
+            continue
+        if title not in titles:
+            titles.append(title)
+    return titles
 
 
 @rate_limit(5)  # 1 call every 5 seconds
@@ -673,31 +854,32 @@ def _get_old_version_snapshot(item: pywikibot.ItemPage, revid: int | str) -> dic
 
 
 @rate_limit(10)  # 1 call every 10 seconds
-def find_title_from_removal_comment(
+def find_newest_sitelink_removal(
     item: pywikibot.ItemPage,
     lang: str,
-    _comment_cache: dict[str, list[str]] | None = None,
-) -> str | None:
+    _comment_cache: dict[str, list[tuple[str, str]]] | None = None,
+) -> tuple[str, str] | None:
     """
-    Recover the deleted page title from the newest sitelink-removal edit summary.
+    Return the newest sitelink-removal (title, timestamp) for *lang*, or None.
 
     When a client-wiki page is deleted, Wikibase auto-removes the sitelink with a
     summary like ``/* clientsitelink-remove:1||enwiki */ <Title>``, where <Title>
-    is the exact page title that was deleted. Scanning newest-first returns the
-    *final* title, which is what we want when a page was renamed before deletion
-    (the old title may now be a different, live article). Compare with
+    is the exact page title that was deleted and the revision timestamp is when
+    the sitelink was removed. Scanning newest-first returns the *final* removal,
+    which is what we want when a page was renamed before deletion (the old title
+    may now be a different, live article). Compare with
     find_title_from_history_snapshots, which walks oldest-first and would return
     the pre-rename title.
 
-    Only edit summaries are inspected (one cheap API call), no per-revision
-    snapshots are fetched.
+    Only edit summaries/timestamps are inspected (one cheap API call), no
+    per-revision snapshots are fetched.
     """
     wiki_key = f"{lang}wiki"
     pywikibot.output(f"  Searching removal comments for '{wiki_key}' sitelink...")
 
     qid = item.title()
     if _comment_cache is not None and qid in _comment_cache:
-        comments = _comment_cache[qid]
+        revisions = _comment_cache[qid]
     else:
         req = Request(
             site=site,
@@ -705,30 +887,35 @@ def find_title_from_removal_comment(
                 "action": "query",
                 "prop": "revisions",
                 "titles": qid,
-                "rvprop": "comment",
+                "rvprop": "comment|timestamp",
                 "rvlimit": "500",
                 "rvdir": "older",  # newest -> oldest
             },
         )
         data = req.submit()
 
-        comments = []
+        revisions = []
         for _, page in data["query"]["pages"].items():
-            comments = [rev.get("comment", "") for rev in page.get("revisions", [])]
+            revisions = [
+                (rev.get("comment", ""), rev.get("timestamp", ""))
+                for rev in page.get("revisions", [])
+            ]
 
         if _comment_cache is not None:
-            _comment_cache[qid] = comments
+            _comment_cache[qid] = revisions
 
     # e.g. "/* clientsitelink-remove:1||enwiki */ Ram Charan (consultant)"
     pattern = re.compile(
         r"clientsitelink-remove:\d+\|\|" + re.escape(wiki_key) + r"\s*\*/\s*(.+?)\s*$"
     )
-    for comment in comments:  # newest first
+    for comment, timestamp in revisions:  # newest first
         m = pattern.search(comment)
         if m:
             title = m.group(1)
-            pywikibot.output(f"  Found '{title}' in sitelink-removal comment.")
-            return title
+            pywikibot.output(
+                f"  Found '{title}' removed on {timestamp} in sitelink-removal comment."
+            )
+            return title, timestamp
 
     return None
 
@@ -749,7 +936,7 @@ def find_title_from_history_snapshots(
     calls.
 
     This walks oldest-first and returns the earliest recorded title; for the
-    title actually deleted (after any rename), try find_title_from_removal_comment
+    title actually deleted (after any rename), try find_newest_sitelink_removal
     first.
     """
     wiki_key = f"{lang}wiki"
@@ -819,17 +1006,33 @@ def find_title_from_history_snapshots(
 # ---------------------------------------------------------------------------
 
 
-def end_wikipedia_refs_for_lang(
-    page: cwd.WikiDataPage, lang_entries: list[dict], end_date: cwd.Date
-) -> bool:
-    """Queue removal of all reference sources in *lang_entries*. Returns True if any were queued."""
-    did_something = False
-    for entry in lang_entries:
-        ref_hash = _get_ref_hash(entry["source"])
-        if ref_hash:
-            page.end_reference(entry["claim"].snak, ref_hash, end_date=end_date)
-            did_something = True
-    return did_something
+def _iso_to_date(timestamp: str) -> cwd.Date:
+    """Convert an ISO-8601 timestamp (e.g. '2022-06-25T19:39:13Z') to a Date."""
+    dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    return Date(year=dt.year, month=dt.month, day=dt.day)
+
+
+def _log_unresolved_p143(qid: str, lang: str, entry: dict) -> None:
+    """Append an unmatchable P143-only reference to UNRESOLVED_P143_LOG for review."""
+    prop = entry["claim"].getID()
+    ref_hash = _get_ref_hash(entry["source"]) or "?"
+    when = datetime.now().isoformat(timespec="seconds")
+    with UNRESOLVED_P143_LOG.open("a", encoding="utf-8") as fh:
+        fh.write(f"{when}\t{qid}\t{lang}\t{prop}\t{ref_hash}\n")
+
+
+def _log_deleted_media(qid: str, prop: str, filename: str) -> None:
+    """Append a skipped deleted-Commons-media statement to DELETED_MEDIA_LOG."""
+    when = datetime.now().isoformat(timespec="seconds")
+    with DELETED_MEDIA_LOG.open("a", encoding="utf-8") as fh:
+        fh.write(f"{when}\t{qid}\t{prop}\t{filename}\n")
+
+
+def _log_renamed_still_exists(qid: str, lang: str, title: str) -> None:
+    """Append a renamed-but-still-existing source page to RENAMED_STILL_EXISTS_LOG."""
+    when = datetime.now().isoformat(timespec="seconds")
+    with RENAMED_STILL_EXISTS_LOG.open("a", encoding="utf-8") as fh:
+        fh.write(f"{when}\t{qid}\t{lang}\t{title}\n")
 
 
 @rate_limit(10)
@@ -838,15 +1041,22 @@ def process_lang(
     lang: str,
     lang_entries: list[dict],
     _revision_cache: dict[str, list[dict]],
-    _comment_cache: dict[str, list[str]],
+    _comment_cache: dict[str, list[tuple[str, str]]],
     page_title_buffer: dict[tuple[str, str], str | None] | None = None,
 ) -> bool:
     """
-    Full pipeline for one language edition:
-      1. Skip if the sitelink already exists.
-      2. Recover the original page title from sources or revision history.
-      3. Verify the page is deleted on the target Wikipedia.
-      4. Queue reference removal.
+    Full pipeline for one language edition.
+
+    P4656 and P143-only references are matched differently:
+      * a P4656 import URL may point to a *different* page than the item (a
+        spouse, relative, category, list), so it uses its own URL title and is
+        ended on that title's deletion/move date only when that page is deleted;
+      * a P143-only reference always refers to the item's own page, so it is
+        ended on the date of the newest sitelink removal. When there is no
+        removal comment, the item's own former title is recovered from the
+        revision-history snapshot (then resolved via the deletion log). If
+        neither yields a title, the reference is left unchanged and logged to
+        UNRESOLVED_P143_LOG for manual review.
     """
     item: pywikibot.ItemPage = page.item
     wiki_key = f"{lang}wiki"
@@ -861,48 +1071,124 @@ def process_lang(
         f"[{lang}] No sitelink - investigating {len(lang_entries)} source(s)..."
     )
 
-    title = find_title_from_sources(
-        lang,
-        lang_entries,
-        page_title_buffer=page_title_buffer,
-    )
-    if not title:
+    # Newest sitelink removal (item's own page title + when it was removed),
+    # used for P143-only references, which always refer to the item's own page.
+    removal = find_newest_sitelink_removal(item, lang, _comment_cache=_comment_cache)
+    removal_date = _iso_to_date(removal[1]) if removal else None
+
+    # Collect the P4656 title(s) each reference carries. A P4656 URL may point to
+    # a *different* page than the item (a spouse, relative, category, list), so
+    # each is resolved on its own and never used to match a P143-only ref.
+    entry_titles: list[tuple[dict, list[str]]] = []
+    has_p143_only = False
+    for entry in lang_entries:
+        titles = titles_from_reference(lang, entry, page_title_buffer=page_title_buffer)
+        entry_titles.append((entry, titles))
+        if not titles:
+            has_p143_only = True
+
+    # The item's own former page title, for P143-only refs, when there is no
+    # removal comment. Recovered from the item's own revision history (its former
+    # sitelink) - never from P4656, which may be a different page.
+    item_page_title = None
+    if has_p143_only and removal is None:
         pywikibot.output(
-            f"[{lang}] Title not in sources; checking sitelink-removal comments..."
+            f"[{lang}] P143-only ref(s) without a removal comment; checking "
+            f"revision history snapshots for the item's own page..."
         )
-        title = find_title_from_removal_comment(
-            item, lang, _comment_cache=_comment_cache
-        )
-    if not title:
-        pywikibot.output(
-            f"[{lang}] Not in removal comments; checking revision history snapshots..."
-        )
-        title = find_title_from_history_snapshots(
+        item_page_title = find_title_from_history_snapshots(
             item, lang, _revision_cache=_revision_cache
         )
 
-    if not title:
-        pywikibot.output(f"[{lang}] Could not determine original title. Skipping.")
-        return False
+    # Build an end plan of (entry, title, forced_date):
+    #   * P4656 ref           -> (entry, url_title, None): resolved via del. log.
+    #   * P143-only + removal -> (entry, item_page, removal_date): removal date
+    #     used directly (the page may since have been recreated).
+    #   * P143-only + history -> (entry, item_page, None): resolved via del. log.
+    #   * P143-only, neither  -> undeterminable: skip, warn, log for review.
+    plan: list[tuple[dict, str, cwd.Date | None]] = []
+    for entry, titles in entry_titles:
+        if titles:
+            for title in titles:
+                plan.append((entry, title, None))
+        elif removal is not None:
+            plan.append((entry, removal[0], removal_date))
+        elif item_page_title is not None:
+            plan.append((entry, item_page_title, None))
+        else:
+            _log_unresolved_p143(item.title(), lang, entry)
+            pywikibot.warning(
+                f"[{lang}] P143-only reference on {entry['claim'].getID()} "
+                f"cannot be matched to the item's own page (no removal comment, "
+                f"no history snapshot); leaving it unchanged "
+                f"(logged to {UNRESOLVED_P143_LOG.name})."
+            )
 
-    pywikibot.output(f"[{lang}] Recovered title: '{title}'")
+    # Resolve each distinct title (forced_date is None) via the deletion log and
+    # sort into: removed (-> end date), renamed-but-still-exists (-> leave + log),
+    # and any other "not deleted" status (-> puzzling, may fail below).
+    end_dates: dict[str, cwd.Date | None] = {}
+    puzzling: dict[str, PageStatus] = {}
+    for _, title, forced_date in plan:
+        if forced_date is not None or title in end_dates:
+            continue
+        status, detail = get_page_status(title, lang)
+        if status in _REMOVED_STATUSES:
+            if not detail:
+                raise RuntimeError(
+                    f"Deletion date not found for '{title}' on {lang}.wikipedia"
+                )
+            pywikibot.output(
+                f"[{lang}] '{title}' removed from {lang}.wikipedia on {detail}."
+            )
+            end_dates[title] = _iso_to_date(detail)
+        elif status == PageStatus.RENAMED_IN_MAINSPACE:
+            pywikibot.warning(
+                f"[{lang}] '{title}' was renamed within mainspace and still "
+                f"exists; leaving its reference(s) unchanged "
+                f"(logged to {RENAMED_STILL_EXISTS_LOG.name})."
+            )
+            _log_renamed_still_exists(item.title(), lang, title)
+            end_dates[title] = None
+        else:
+            pywikibot.warning(
+                f"[{lang}] '{title}' is not deleted (status: {status.name}); "
+                f"leaving its reference(s) unchanged."
+            )
+            end_dates[title] = None
+            puzzling[title] = status
 
-    status, deletion_date = get_page_status(title, lang)
-    if status != PageStatus.DELETED and status != PageStatus.MOVED_TO_DRAFT:
+    # Safety: fail loudly only when nothing was ended AND at least one title is
+    # "not deleted" for a puzzling reason. Renamed-but-still-exists titles are
+    # benign (logged above) and don't count; a removal date on any reference
+    # (forced or resolved) is enough to rescue the item.
+    has_forced = any(forced_date is not None for _, _, forced_date in plan)
+    ended_any = has_forced or any(d is not None for d in end_dates.values())
+    if puzzling and not ended_any:
+        if len(puzzling) == 1:
+            title, status = next(iter(puzzling.items()))
+            raise RuntimeError(
+                f"Page '{title}' on {lang}.wikipedia is not deleted "
+                f"(status: {status.name})."
+            )
+        status_counts = Counter(status.name for status in puzzling.values())
+        summary = ", ".join(f"{name}: {n}" for name, n in sorted(status_counts.items()))
         raise RuntimeError(
-            f"Page '{title}' on {lang}.wikipedia is not deleted (status: {status.name})."
+            f"None of the {len(puzzling)} recovered titles on {lang}.wikipedia "
+            f"are deleted ({summary})."
         )
 
-    if not deletion_date:
-        raise RuntimeError(f"Deletion date not found for '{title}' on {lang}.wikipedia")
-
-    pywikibot.output(
-        f"[{lang}] '{title}' is deleted on {lang}.wikipedia on {deletion_date}."
-    )
-    deletion_date_obj = None
-    dt = datetime.fromisoformat(deletion_date.replace("Z", "+00:00"))
-    deletion_date_obj = Date(year=dt.year, month=dt.month, day=dt.day)
-    return end_wikipedia_refs_for_lang(page, lang_entries, end_date=deletion_date_obj)
+    # End each reference that resolved to an end date.
+    did_something = False
+    for entry, title, forced_date in plan:
+        end_date = forced_date if forced_date is not None else end_dates.get(title)
+        if end_date is None:
+            continue
+        ref_hash = _get_ref_hash(entry["source"])
+        if ref_hash:
+            page.end_reference(entry["claim"].snak, ref_hash, end_date=end_date)
+            did_something = True
+    return did_something
 
 
 # ---------------------------------------------------------------------------
@@ -943,7 +1229,7 @@ def process_item(
 
         # These caches live for this item's lifetime only, shared across langs.
         revision_cache: dict[str, list[dict]] = {}
-        comment_cache: dict[str, list[str]] = {}
+        comment_cache: dict[str, list[tuple[str, str]]] = {}
 
         for lang in sorted(wp_refs.keys()):
             if lang not in SUPPORTED_LANGS and lang != "unknown":
@@ -1275,7 +1561,7 @@ def main():
     # print(_get_page_title_from_revision("ru", 101945374))
 
     # process_item(
-    #     "Q5959278",
+    #     "Q56751510",
     #     tracker=FirebirdStatusTracker(),
     #     dry_run=True,
     # )  # try 1
@@ -1285,7 +1571,7 @@ def main():
     #    "Q100534439", tracker=FirebirdStatusTracker(), dry_run=True
     # )  # try 4 - remove
 
-    # fetch_and_fill_items_txt_qlever_all()
+    fetch_and_fill_items_txt_qlever_all()
     remove_processed_items_from_items_file(FirebirdStatusTracker())
     iterate_text_file(tracker=FirebirdStatusTracker(), dry_run=False)
     # fetch_and_fill_items_txt_qlever("no", append=True)
