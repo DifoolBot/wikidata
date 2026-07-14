@@ -9,19 +9,23 @@
 # source not listed follows afterwards in its default order. You only need to
 # list the ones whose order you care about.
 order:
+  - P691   # NL CR AUT ID (NKC)
   - P244   # Library of Congress authority ID (LC)
   - P227   # GND ID (DNB)
   - P268   # BNF
   - P269   # IdRef ID (SUDOC)
   - P245   # JPG
-  # - P396 # SBN author ID (ICCU)
-  # - P691 # NL CR AUT ID (NKC)
-
+  
 # Authority sources to skip entirely, by Wikidata property id (PID). These are
 # never processed, even if also listed in "order".
 ignore:
-  - P213 # ISNI (too many false positives)
-  - P2163 # FAST ID (nothing found)
+  - P213   # ISNI (too many false positives)
+  - P2163  # FAST ID (nothing found)
+  - P1280  # CONOR.SI ID
+  - P396   # SBN author ID
+  - P950   # National Library of Spain SpMaBN ID (BNE v1.0)
+  - P3988  # National Library Board Singapore ID
+
 
 # Once the DUPLICATES table for the source being processed reaches this many
 # rows, stop processing that source, publish the duplicates report to Wikidata,
