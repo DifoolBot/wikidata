@@ -494,4 +494,11 @@ class AuthoritySources:
         return self._sources_by_pid[pid]
 
     def all_pids(self) -> list[str]:
-        return list(self._sources_by_pid.keys())
+        """PIDs ordered by VIAF authority-source code (e.g. BNF -> P268), so the
+        default processing order is stable rather than declaration order."""
+        return [
+            source.pid
+            for source in sorted(
+                self._sources_by_pid.values(), key=lambda source: source.viaf_code
+            )
+        ]

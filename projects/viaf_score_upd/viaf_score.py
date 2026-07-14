@@ -26,7 +26,8 @@ Special labels (shown instead of the numeric score):
   …, Instance of         - appended when right item is not instance-of human (Q5)
 
 Usage (on Toolforge):
-  python viaf_score.py [--rescore] [--dry-run] [--first N] [--skip M] [--keep-done]
+  python viaf_score.py [--rescore] [--dry-run] [--first N] [--skip M]
+                       [--pid Pxxx] [--keep-done]
 
 Options:
   --rescore    Remove and recompute all existing scores (default: skip sections
@@ -36,6 +37,8 @@ Options:
   --skip M     Skip the first M scorable rows before scoring.  Combine with
                --first to process a window (e.g. --first 10 --skip 10) for
                testing or to run a big rescore in resumable chunks.
+  --pid Pxxx   Only update the section for this property (e.g. --pid P244);
+               every other section is left untouched.
   --keep-done  Keep rows whose score marks a done action instead of removing
                them (the daily add-only run uses this).
 """
@@ -1023,14 +1026,18 @@ PageScoreMap = dict[tuple[str, str, str], QIDPairScore]
 
 
 def _scorable_sections(
-    sections: list[dict], rescore: bool, log_details: bool = False
+    sections: list[dict],
+    rescore: bool,
+    log_details: bool = False,
+    only_pid: Optional[str] = None,
 ):
     """Yield ``(sec, pid)`` for each section that should be (re)scored.
 
     The same gating is used by both the compute pass (:func:`score_wikitext`)
     and the apply pass (:func:`apply_wikitext`) so they always agree on which
     sections to touch.  Set *log_details* only on the compute pass to avoid
-    duplicate log lines.
+    duplicate log lines.  When *only_pid* is given, every other section is
+    skipped, so only that one property's section is scored and rewritten.
     """
     for sec in sections:
         header = sec["header"]
@@ -1045,6 +1052,10 @@ def _scorable_sections(
         if not pid:
             if log_details:
                 log.warning("Could not determine PID for section: %s", header)
+            continue
+
+        # Restrict to a single property's section when asked.
+        if only_pid and pid != only_pid:
             continue
 
         # A section that already has a Score column is left alone unless the
@@ -1065,6 +1076,7 @@ def score_wikitext(
     rescore: bool = False,
     first: Optional[int] = None,
     skip: int = 0,
+    only_pid: Optional[str] = None,
 ) -> PageScoreMap:
     """Compute scores for the scorable rows (network-bound).
 
@@ -1072,13 +1084,16 @@ def score_wikitext(
     them are skipped and then at most *first* are scored (``first=None`` scores
     the rest).  This windowing lets you test a slice (FIRST 10 SKIP 0, then
     FIRST 10 SKIP 10) and lets a large rescore be run in resumable chunks.
+    When *only_pid* is given, only that property's section is considered.
 
     Returns a map keyed by ``(pid, q1, q2)`` so it can be applied to a *later*
     revision of the page — see :func:`apply_wikitext`.
     """
     sections = split_into_sections(original_text)
     rows: list[dict] = []
-    for sec, pid in _scorable_sections(sections, rescore, log_details=True):
+    for sec, pid in _scorable_sections(
+        sections, rescore, log_details=True, only_pid=only_pid
+    ):
         rows.extend(_section_rows(sec["lines"], pid))
 
     window = rows[skip : (skip + first) if first is not None else None]
@@ -1108,6 +1123,7 @@ def apply_wikitext(
     page_map: PageScoreMap,
     rescore: bool = False,
     remove_done: bool = True,
+    only_pid: Optional[str] = None,
 ) -> Optional[str]:
     """Apply a precomputed *page_map* to *current_text* (no network).
 
@@ -1129,7 +1145,7 @@ def apply_wikitext(
 
     sections = split_into_sections(current_text)
     changed = False
-    for sec, pid in _scorable_sections(sections, rescore):
+    for sec, pid in _scorable_sections(sections, rescore, only_pid=only_pid):
         local = by_pid.get(pid)
         if local is None:
             log.info("Skipping section for %s (not scored this run)", pid)
@@ -1150,6 +1166,7 @@ def process_wikitext(
     first: Optional[int] = None,
     skip: int = 0,
     remove_done: bool = True,
+    only_pid: Optional[str] = None,
 ) -> Optional[str]:
     """Compute + apply against the *same* text and return the rebuilt wikitext
     (or ``None`` when nothing changed).
@@ -1158,9 +1175,15 @@ def process_wikitext(
     bot instead scores one revision and applies to a freshly re-read revision;
     see :func:`process_page`.
     """
-    page_map = score_wikitext(original_text, rescore=rescore, first=first, skip=skip)
+    page_map = score_wikitext(
+        original_text, rescore=rescore, first=first, skip=skip, only_pid=only_pid
+    )
     return apply_wikitext(
-        original_text, page_map, rescore=rescore, remove_done=remove_done
+        original_text,
+        page_map,
+        rescore=rescore,
+        remove_done=remove_done,
+        only_pid=only_pid,
     )
 
 
@@ -1170,6 +1193,7 @@ def process_page(
     first: Optional[int] = None,
     skip: int = 0,
     remove_done: bool = True,
+    only_pid: Optional[str] = None,
 ) -> None:
     """Score the live page, then apply the scores to a freshly re-read copy.
 
@@ -1188,7 +1212,9 @@ def process_page(
     # 1. Snapshot + compute (slow).
     page.get(force=True)
     base_revid = page.latest_revision_id
-    page_map = score_wikitext(page.text, rescore=rescore, first=first, skip=skip)
+    page_map = score_wikitext(
+        page.text, rescore=rescore, first=first, skip=skip, only_pid=only_pid
+    )
 
     # 2. Re-read so we apply onto (and conflict-check against) the latest rev.
     page.get(force=True)
@@ -1200,7 +1226,11 @@ def process_page(
         )
 
     new_text = apply_wikitext(
-        page.text, page_map, rescore=rescore, remove_done=remove_done
+        page.text,
+        page_map,
+        rescore=rescore,
+        remove_done=remove_done,
+        only_pid=only_pid,
     )
     if new_text is None:
         log.info("No changes needed.")
@@ -1255,6 +1285,12 @@ def main() -> None:
         help="Skip the first M scorable rows before scoring (for chunking/testing)",
     )
     parser.add_argument(
+        "--pid",
+        default=None,
+        metavar="Pxxx",
+        help="Only update the section for this property (e.g. P244); default: all",
+    )
+    parser.add_argument(
         "--keep-done",
         action="store_true",
         help="Keep rows whose score marks a done action instead of removing them",
@@ -1267,6 +1303,7 @@ def main() -> None:
         first=args.first,
         skip=args.skip,
         remove_done=not args.keep_done,
+        only_pid=args.pid,
     )
 
 

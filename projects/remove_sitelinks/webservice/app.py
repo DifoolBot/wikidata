@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "projects"))
 sys.path.insert(0, str(REPO_ROOT / "projects" / "shared_lib"))
 
+
 def _select_handler():
     """Pick the DB backend: WD_DB_BACKEND if set, else Firebird locally with a
     fall back to MariaDB when the Firebird driver isn't installed (the Toolforge
@@ -40,15 +41,19 @@ def _select_handler():
     backend = os.environ.get("WD_DB_BACKEND", "").lower()
     if backend == "mariadb":
         from database_handler_mariadb import MariaDbDatabaseHandler as handler
+
         return handler
     if backend == "firebird":
         from database_handler_firebird import FirebirdDatabaseHandler as handler
+
         return handler
     try:
         from database_handler_firebird import FirebirdDatabaseHandler as handler
+
         return handler
     except ImportError:
         from database_handler_mariadb import MariaDbDatabaseHandler as handler
+
         return handler
 
 
@@ -80,20 +85,41 @@ REVIEW_LOGS = {
 # /failed/<key> filter. (key, human label, SQL condition on error_msg). The
 # conditions are constants (never user input), so string-building is safe.
 CATEGORIES = [
-    ("exists", "Recovered page still exists on Wikipedia (category, spouse, list, …)",
-     "error_msg LIKE '%status: EXISTS%'"),
-    ("redirect", "Recovered page is now a redirect",
-     "error_msg LIKE '%status: REDIRECT%'"),
-    ("never_existed", "No page found (title never existed)",
-     "error_msg LIKE '%status: NEVER_EXISTED%'"),
-    ("none_deleted", "None of the recovered titles are deleted",
-     "error_msg LIKE '%are deleted%'"),
-    ("multiple_urls", "Multiple import URLs in one reference",
-     "error_msg LIKE '%Multiple import URLs%'"),
-    ("multiple_langs", "Multiple languages in one reference",
-     "error_msg LIKE '%Multiple languages%'"),
-    ("unrecognized", "Unrecognised import-URL format",
-     "error_msg LIKE '%Unrecognized%'"),
+    (
+        "exists",
+        "Recovered page still exists on Wikipedia (category, spouse, list, …)",
+        "error_msg LIKE '%status: EXISTS%'",
+    ),
+    (
+        "redirect",
+        "Recovered page is now a redirect",
+        "error_msg LIKE '%status: REDIRECT%'",
+    ),
+    (
+        "never_existed",
+        "No page found (title never existed)",
+        "error_msg LIKE '%status: NEVER_EXISTED%'",
+    ),
+    (
+        "none_deleted",
+        "None of the recovered titles are deleted",
+        "error_msg LIKE '%are deleted%'",
+    ),
+    (
+        "multiple_urls",
+        "Multiple import URLs in one reference",
+        "error_msg LIKE '%Multiple import URLs%'",
+    ),
+    (
+        "multiple_langs",
+        "Multiple languages in one reference",
+        "error_msg LIKE '%Multiple languages%'",
+    ),
+    (
+        "unrecognized",
+        "Unrecognised import-URL format",
+        "error_msg LIKE '%Unrecognized%'",
+    ),
 ]
 CAT_BY_KEY = {key: (label, cond) for key, label, cond in CATEGORIES}
 LABEL_BY_KEY = {key: label for key, label, _ in CATEGORIES}
@@ -102,33 +128,33 @@ LABEL_BY_KEY["other"] = "Other / uncategorised"
 # One-line explanation shown on each /failed/<key> page.
 DESCRIPTIONS = {
     "exists": "The Wikipedia page recovered for these items is still live (often a "
-              "category, spouse or list article, or an article renamed and still "
-              "existing), so the reference was left unchanged.",
+    "category, spouse or list article, or an article renamed and still "
+    "existing), so the reference was left unchanged.",
     "redirect": "The recovered page is now a redirect, so it was treated as "
-                "still-existing and left unchanged.",
+    "still-existing and left unchanged.",
     "never_existed": "No trace of the recovered title was found on Wikipedia - it "
-                     "was never created, or the deletion log had nothing.",
+    "was never created, or the deletion log had nothing.",
     "none_deleted": "None of the titles recovered for the item resolved to a "
-                    "deleted or moved-out page, so the item was failed for review.",
+    "deleted or moved-out page, so the item was failed for review.",
     "multiple_urls": "One reference carried more than one import URL, which the bot "
-                     "does not try to disambiguate.",
+    "does not try to disambiguate.",
     "multiple_langs": "One reference mixed more than one Wikipedia language edition.",
     "unrecognized": "The import URL did not parse as a recognised Wikipedia article "
-                    "URL.",
+    "URL.",
     "other": "Failures that do not fall into any of the categories above.",
 }
 
 # One-line explanation shown on each /log/<key> page.
 LOG_DESCRIPTIONS = {
     "unresolved_p143": "P143-only references that could not be tied to the item's "
-                       "own deleted page (no sitelink-removal comment and no history "
-                       "snapshot). Left unchanged.",
+    "own deleted page (no sitelink-removal comment and no history "
+    "snapshot). Left unchanged.",
     "deleted_media": "Statements skipped because their Commons media file was "
-                     "deleted - editing them would fail the whole save. Left "
-                     "unchanged.",
+    "deleted - editing them would fail the whole save. Left "
+    "unchanged.",
     "renamed": "References whose source page was renamed within mainspace and still "
-               "exists (often a missing sitelink or a duplicate item). Left "
-               "unchanged.",
+    "exists (often a missing sitelink or a duplicate item). Left "
+    "unchanged.",
 }
 
 app = Flask(__name__)
@@ -165,11 +191,12 @@ STYLE = """
   table { border-collapse: collapse; margin: .4rem 0; width: 100%; } td, th { padding: .25rem .8rem; text-align: left; }
   tr:nth-child(even) { background: #f6f6f6; } .num { text-align: right; font-variant-numeric: tabular-nums; }
   .big { font-size: 1.8rem; font-weight: 600; } .muted { color: #888; font-size: .85rem; }
-  code { color: #666; }
+  code { color: #666; } nav a { margin-right: 1rem; }
 </style>
 """
 
 INDEX_TEMPLATE = STYLE + """
+<nav class="muted"><a href="/">remove_sitelinks</a><a href="/viaf">viaf</a></nav>
 <h1>remove_sitelinks &mdash; status</h1>
 <p><span class="big">{{ total | comma }}</span> items recorded &nbsp;
    ({{ success | comma }} success, {{ failed | comma }} failed) &middot;
@@ -230,13 +257,13 @@ LOG_TEMPLATE = STYLE + """
 @app.route("/")
 def index():
     handler = _DBHandler(CONFIG)
-    counts = dict(handler.execute_query("SELECT status, COUNT(*) FROM qids GROUP BY status"))
+    counts = dict(
+        handler.execute_query("SELECT status, COUNT(*) FROM qids GROUP BY status")
+    )
     raw = handler.execute_query(_breakdown_sql())  # (key, count)
     # Firebird pads a CASE of unequal-length literals with trailing spaces.
     errors = [
-        (k, LABEL_BY_KEY.get(k, k), n)
-        for key, n in raw
-        for k in [str(key).strip()]
+        (k, LABEL_BY_KEY.get(k, k), n) for key, n in raw for k in [str(key).strip()]
     ]
     last_rows = handler.execute_query("SELECT MAX(created_at) FROM qids")
     last = last_rows[0][0] if last_rows and last_rows[0] else None
@@ -303,6 +330,13 @@ def log(key):
         shown=min(len(rows), DISPLAY_LIMIT),
         rows=rows[:DISPLAY_LIMIT],
     )
+
+
+from remove_sitelinks.webservice.viaf_page import (
+    viaf_bp,
+)  # noqa: E402  (same-dir module, imported after app)
+
+app.register_blueprint(viaf_bp)
 
 
 if __name__ == "__main__":

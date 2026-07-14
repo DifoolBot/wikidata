@@ -67,18 +67,15 @@ sql tools                                   # then: CREATE DATABASE s57805__viaf
 # load schema (step 1) and migrate data (step 3, --import)
 ```
 
-### 6. Status website  (code; medium)  ← read the constraint first
-- **Toolforge allows one webservice per tool.** `difoolbot.toolforge.org/` is
-  already the remove_sitelinks status page. VIAF **cannot be a second
-  webservice**. Options:
-  - **Recommended:** turn the webservice into a small multi-tool dashboard — a
-    landing page at `/` linking to `/remove-sitelinks` and `/viaf`, with each
-    project's page as a Flask blueprint. Move `webservice/` up to a shared
-    location (or keep remove_sitelinks' app as the host and add a VIAF blueprint).
-  - Or run VIAF's status under a **separate tool**.
-- VIAF page content: `GET_STATS` counts, DUPLICATES count + a sample list
-  (linked to Wikidata), recent ERRORS, PDONE progress. These are read-only and
-  can query the tables directly (no stored procedures needed for the page).
+### 6. Status website  (code; DONE — VIAF blueprint added to the webservice)
+- One webservice per tool, so VIAF was added to the existing one rather than a
+  second service: `remove_sitelinks/webservice/viaf_page.py` is a `viaf`
+  blueprint (registered by `app.py`) at `/viaf`, `/viaf/duplicates`,
+  `/viaf/errors`. remove_sitelinks stays at `/`; a nav links the two.
+- Reads the VIAF DB directly (its own config + backend fallback), so it needs
+  `data/viaf_mariadb.json` present on Toolforge (created for the bot anyway).
+- Deploy: `git pull` + `toolforge webservice python3.11 restart` (same webservice
+  dir/venv/symlink — no new setup; the venv already has pymysql).
 
 ### 7. Scheduling  (wrapper DONE — `toolforge_run.sh`)
 - `projects/viaf/toolforge_run.sh` sets `WD_DB_BACKEND=mariadb`, `PYTHONPATH`,

@@ -141,9 +141,17 @@ breakdown, the queue size and the review-log counts. Deploy it as the tool's
 webservice (separate venv from the bot):
 
 ```bash
+mkdir -p ~/www/python
 ln -s ~/wikidata/projects/remove_sitelinks/webservice ~/www/python/src
-python3 -m venv ~/www/python/venv
-~/www/python/venv/bin/pip install -r ~/www/python/src/requirements.txt
+
+# Build the venv INSIDE the python3.11 container (the bastion's python is a
+# different version and lacks venv/ensurepip):
+toolforge webservice python3.11 shell
+  python3 -m venv ~/www/python/venv
+  ~/www/python/venv/bin/pip install --upgrade pip
+  ~/www/python/venv/bin/pip install -r ~/www/python/src/requirements.txt
+  exit
+
 toolforge webservice python3.11 start      # restart / stop likewise
 ```
 Then browse to `https://<toolname>.toolforge.org/`. It reads the same

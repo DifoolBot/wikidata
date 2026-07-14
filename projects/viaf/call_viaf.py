@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
 import viaf.authority_sources
+from viaf.codes_sync import push_order
 from viaf.paths import DATA_DIR
 from viaf.viaf_bot import SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
@@ -74,6 +75,9 @@ def main() -> None:
     # normalize/de-duplicate the duplicate-locals report, and drop expired
     # not_found cache entries.
     maintenance = _make_report()
+    # Mirror the yaml-derived processing order + skips into CODES, so the bot and
+    # the status webservice read a single place (the DB).
+    push_order(maintenance, ordered_pids, ignored)
     maintenance.run_maintenance()
     if not_found_cutoff is not None:
         maintenance.purge_not_found_before(not_found_cutoff)
