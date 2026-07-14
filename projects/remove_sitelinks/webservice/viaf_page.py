@@ -38,15 +38,19 @@ def _handler():
     backend = os.environ.get("WD_DB_BACKEND", "").lower()
     if backend == "mariadb":
         from database_handler_mariadb import MariaDbDatabaseHandler as handler
+
         return handler(VIAF_DATA / "viaf_mariadb.json")
     if backend == "firebird":
         from database_handler_firebird import FirebirdDatabaseHandler as handler
+
         return handler(VIAF_DATA / "viaf.json")
     try:
         from database_handler_firebird import FirebirdDatabaseHandler as handler
+
         return handler(VIAF_DATA / "viaf.json")
     except ImportError:
         from database_handler_mariadb import MariaDbDatabaseHandler as handler
+
         return handler(VIAF_DATA / "viaf_mariadb.json")
 
 
@@ -135,12 +139,13 @@ CONFIG_TEMPLATE = STYLE + """
 {% endif %}
 
 <h2>Processing order</h2>
-<p class="muted">Sources in the order the bot processes them (from the CODES table;
-order is empty until the bot or `python -m viaf.codes_sync` has run).</p>
+<p class="muted">Sources in the order the bot processes them.</p>
 <table>
-  <tr><th class="num">#</th><th>PID</th><th>Description</th></tr>
-  {% for pid, desc in order %}
-  <tr><td class="num">{{ loop.index }}</td><td>{{ pid }}</td><td>{{ desc }}</td></tr>
+  <tr><th class="num">#</th><th>PID</th><th>Description</th><th>Last run</th></tr>
+  {% for pid, desc, last in order %}
+  <tr><td class="num">{{ loop.index }}</td>
+      <td><a href="https://www.wikidata.org/wiki/Property:{{ pid }}" target="_blank" rel="noopener">{{ pid }}</a></td>
+      <td>{{ desc }}</td><td>{{ last }}</td></tr>
   {% endfor %}
 </table>
 
@@ -148,7 +153,7 @@ order is empty until the bot or `python -m viaf.codes_sync` has run).</p>
 <table>
   <tr><th>PID</th><th>Description</th></tr>
   {% for pid, desc in ignore %}
-  <tr><td>{{ pid }}</td><td>{{ desc }}</td></tr>
+  <tr><td><a href="https://www.wikidata.org/wiki/Property:{{ pid }}" target="_blank" rel="noopener">{{ pid }}</a></td><td>{{ desc }}</td></tr>
   {% endfor %}
 </table>
 """
@@ -242,6 +247,10 @@ def config_page():
     ignore = h.execute_query(
         "SELECT PID, DESCRIPTION FROM CODES WHERE DO_IGNORE ORDER BY PID"
     )
+    # Latest finished date per source, to show when each was last run.
+    last_done = dict(
+        h.execute_query("SELECT PID, MAX(DONE_DATE) FROM PDONE GROUP BY PID")
+    )
     cfg = _config()  # yaml-only settings; None if PyYAML missing
     return render_template_string(
         CONFIG_TEMPLATE,
@@ -249,6 +258,6 @@ def config_page():
         max_duplicates=cfg.max_duplicates if cfg else None,
         cooldown_days=cfg.cooldown_days if cfg else None,
         not_found_cache_days=cfg.not_found_cache_days if cfg else None,
-        order=[(pid, desc or "") for pid, desc in order],
+        order=[(pid, desc or "", _date(last_done.get(pid))) for pid, desc in order],
         ignore=[(pid, desc or "") for pid, desc in ignore],
     )

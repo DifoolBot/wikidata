@@ -32,7 +32,10 @@ def push_order(report, ordered_pids: list[str], ignore: Iterable[str]) -> None:
 def main() -> None:
     """Sync viaf_config.yaml's order + skips into CODES, without running the bot.
 
-        python -m viaf.codes_sync        # or: python projects/viaf/codes_sync.py
+    Run from the repo root; the script puts projects/ on sys.path itself:
+        python projects/viaf/codes_sync.py                        # local (Firebird)
+        WD_DB_BACKEND=mariadb python projects/viaf/codes_sync.py   # Toolforge (MariaDB)
+    (`python -m viaf.codes_sync` also works, but only with PYTHONPATH=projects set.)
     """
     import os
     import sys
