@@ -33,10 +33,26 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "projects"))
 sys.path.insert(0, str(REPO_ROOT / "projects" / "shared_lib"))
 
-if os.environ.get("WD_DB_BACKEND", "").lower() == "mariadb":
-    from database_handler_mariadb import MariaDbDatabaseHandler as _DBHandler
-else:
-    from database_handler_firebird import FirebirdDatabaseHandler as _DBHandler
+def _select_handler():
+    """Pick the DB backend: WD_DB_BACKEND if set, else Firebird locally with a
+    fall back to MariaDB when the Firebird driver isn't installed (the Toolforge
+    webservice venv has pymysql only, so no env var is needed there)."""
+    backend = os.environ.get("WD_DB_BACKEND", "").lower()
+    if backend == "mariadb":
+        from database_handler_mariadb import MariaDbDatabaseHandler as handler
+        return handler
+    if backend == "firebird":
+        from database_handler_firebird import FirebirdDatabaseHandler as handler
+        return handler
+    try:
+        from database_handler_firebird import FirebirdDatabaseHandler as handler
+        return handler
+    except ImportError:
+        from database_handler_mariadb import MariaDbDatabaseHandler as handler
+        return handler
+
+
+_DBHandler = _select_handler()
 
 CONFIG = DATA_DIR / "remove_sitelinks.json"
 DISPLAY_LIMIT = 500  # max QIDs listed on a /failed/<key> page
