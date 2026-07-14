@@ -48,14 +48,20 @@ The tracker supports two DB backends: **Firebird** locally (default) and
 
 ```bash
 ssh login.toolforge.org && become <toolname>
-cat ~/.my.cnf                    # note the user (sNNNNN) + password
-sql tools                        # opens the MariaDB client
+cat ~/replica.my.cnf             # note the user (sNNNNN) + password (same creds for ToolsDB)
+sql tools                        # opens the MariaDB client on ToolsDB
 ```
 ```sql
 CREATE DATABASE sNNNNN__remove_sitelinks;   -- must be prefixed with your DB user + __
 ```
+Exit the client, then load the schema. `sql tools <db>` does not select the
+database, so use the `mariadb` client directly (database as a positional arg):
 ```bash
-sql tools sNNNNN__remove_sitelinks < ~/wikidata/schemas/remove_sitelinks_mariadb.sql
+mariadb --defaults-file=~/replica.my.cnf -h tools.db.svc.wikimedia.cloud \
+    sNNNNN__remove_sitelinks < ~/wikidata/schemas/remove_sitelinks_mariadb.sql
+# verify:
+mariadb --defaults-file=~/replica.my.cnf -h tools.db.svc.wikimedia.cloud \
+    sNNNNN__remove_sitelinks -e "SHOW TABLES;"
 ```
 
 ### 2. Config
@@ -67,7 +73,7 @@ sql tools sNNNNN__remove_sitelinks < ~/wikidata/schemas/remove_sitelinks_mariadb
 Repo-root `.env` (secrets, gitignored):
 ```
 WD_DB_USER=sNNNNN
-WD_DB_PASSWORD=<from ~/.my.cnf>
+WD_DB_PASSWORD=<from ~/replica.my.cnf>
 ```
 Venv needs `pymysql`, `pywikibot`, `requests`, `python-dotenv` (no `firebird-driver`).
 
@@ -127,3 +133,18 @@ toolforge jobs run remove-sitelinks --image python3.11 \
 ```
 `toolforge jobs list` / `toolforge jobs logs remove-sitelinks` to inspect. Invoke
 via `bash …` so the script's executable bit doesn't matter.
+
+### 4. Status page (optional webservice)
+
+`webservice/app.py` is a small Flask page showing DB counts, the failure
+breakdown, the queue size and the review-log counts. Deploy it as the tool's
+webservice (separate venv from the bot):
+
+```bash
+ln -s ~/wikidata/projects/remove_sitelinks/webservice ~/www/python/src
+python3 -m venv ~/www/python/venv
+~/www/python/venv/bin/pip install -r ~/www/python/src/requirements.txt
+toolforge webservice python3.11 start      # restart / stop likewise
+```
+Then browse to `https://<toolname>.toolforge.org/`. It reads the same
+`data/remove_sitelinks.json` + repo-root `.env` for the DB connection.
