@@ -1,14 +1,27 @@
 import json
+import os
 from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
 import viaf.authority_sources
-from viaf.firebird_viaf_reporting import FirebirdViafReporting
 from viaf.paths import DATA_DIR
 from viaf.viaf_bot import SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
 
 PROGRESS_FILE = DATA_DIR / "viaf_progress.json"
+
+
+def _make_report():
+    """Reporting backend: MariaDB on Toolforge (WD_DB_BACKEND=mariadb), else the
+    local Firebird database. Only the selected backend is imported, so the other
+    driver (firebird-driver / pymysql) need not be installed."""
+    if os.environ.get("WD_DB_BACKEND", "").lower() == "mariadb":
+        from viaf.mariadb_viaf_reporting import MariaDbViafReporting
+
+        return MariaDbViafReporting()
+    from viaf.firebird_viaf_reporting import FirebirdViafReporting
+
+    return FirebirdViafReporting()
 
 
 def _load_progress() -> dict:
@@ -60,7 +73,7 @@ def main() -> None:
     # Daily housekeeping before any processing: retry transient errors,
     # normalize/de-duplicate the duplicate-locals report, and drop expired
     # not_found cache entries.
-    maintenance = FirebirdViafReporting()
+    maintenance = _make_report()
     maintenance.run_maintenance()
     if not_found_cutoff is not None:
         maintenance.purge_not_found_before(not_found_cutoff)
@@ -74,7 +87,7 @@ def main() -> None:
         pid = ordered_pids[index]
         auth_src = authority_sources.get(pid)
 
-        bot = ViafBot(auth_src, report=FirebirdViafReporting())
+        bot = ViafBot(auth_src, report=_make_report())
         bot.test = False
         bot.not_found_cutoff = not_found_cutoff
         outcome = bot.run_session(
