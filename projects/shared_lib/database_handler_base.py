@@ -72,7 +72,10 @@ class DatabaseHandler(ABC):
         conn = self.get_connection()
         try:
             cur = conn.cursor()
-            cur.execute(self._adapt_sql(sql), params)
+            # Pass None (not an empty tuple) when there are no params: PyMySQL
+            # only does '%' substitution when params is not None, and a literal
+            # '%' in the SQL (e.g. a LIKE pattern) would otherwise raise.
+            cur.execute(self._adapt_sql(sql), params or None)
             return cur.fetchall()
         finally:
             conn.close()
@@ -81,7 +84,7 @@ class DatabaseHandler(ABC):
         conn = self.get_connection()
         try:
             cur = conn.cursor()
-            cur.execute(self._adapt_sql(sql), params)
+            cur.execute(self._adapt_sql(sql), params or None)
             conn.commit()
         finally:
             conn.close()
