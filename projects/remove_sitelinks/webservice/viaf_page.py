@@ -16,6 +16,8 @@ from flask import Blueprint, render_template_string
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VIAF_DATA = REPO_ROOT / "projects" / "viaf" / "data"
 DISPLAY_LIMIT = 500
+# Sessions shown on the status page; the rest are one click away.
+RECENT_SESSIONS = 5
 
 viaf_bp = Blueprint("viaf", __name__)
 
@@ -71,24 +73,46 @@ def _date(value) -> str:
 
 
 def _config():
-    """The ViafConfig (order / ignore / settings), or None if PyYAML isn't
-    installed in the webservice venv or the config can't be read."""
+    """The settings from viaf_config.yaml, or the reason they can't be read.
+
+    Returns (config, None) or (None, reason). The reason is surfaced on the page
+    instead of being swallowed: a silently missing Settings block looks exactly
+    like one that was never meant to be there. Needs PyYAML in the webservice
+    venv, which is not the same venv the bot runs from.
+    """
     try:
         from viaf.viaf_config import load_config
 
-        return load_config()
-    except Exception:
-        return None
+        return load_config(), None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
 
+
+# Shared by the index (most recent few) and the full sessions page.
+SESSIONS_TABLE = """
+<table>
+  <tr><th>Source</th><th>Description</th><th class="num">Checked</th><th class="num">Added</th><th class="num">Not found</th><th>Finished</th></tr>
+  {% for pid, desc, checked, added, nf, done in pdone %}
+  <tr><td><a href="https://www.wikidata.org/wiki/Property:{{ pid }}" target="_blank" rel="noopener">{{ pid }}</a></td>
+      <td>{{ desc }}</td><td class="num">{{ checked | comma }}</td><td class="num">{{ added | comma }}</td>
+      <td class="num">{{ nf | comma }}</td><td>{{ done }}</td></tr>
+  {% endfor %}
+</table>
+"""
 
 INDEX_TEMPLATE = STYLE + """
 <h1>VIAF &mdash; status</h1>
-{% if current_pid %}
-<p class="muted">Active source: <b>{{ current_pid }}</b>{% if current_desc %} &mdash; {{ current_desc }}{% endif %}{% if cooldown_until %} &middot; in cooldown until {{ cooldown_until }}{% endif %}</p>
-{% elif cooldown_until %}
+{% if not current_pid and cooldown_until %}
 <p class="muted">In cooldown until {{ cooldown_until }}.</p>
 {% endif %}
+
 <h2>Current session</h2>
+{% if current_pid %}
+<p class="muted">Active source:
+  <a href="https://www.wikidata.org/wiki/Property:{{ current_pid }}" target="_blank" rel="noopener"><b>{{ current_pid }}</b></a>
+  {%- if current_desc %} &mdash; {{ current_desc }}{% endif -%}
+  {%- if cooldown_until %} &middot; in cooldown until {{ cooldown_until }}{% endif %}</p>
+{% endif %}
 <p><span class="big">{{ added | comma }}</span> added &nbsp;
    ({{ checked | comma }} checked, {{ errors | comma }} error(s) of which {{ not_found | comma }} not-found)</p>
 {% if total_rows %}
@@ -108,17 +132,20 @@ INDEX_TEMPLATE = STYLE + """
   <tr><td><a href="{{ url_for('viaf.errors') }}">Errors</a></td><td class="num">{{ errors | comma }}</td></tr>
   <tr><td>not-found cache</td><td class="num">{{ not_found_cache | comma }}</td></tr>
 </table>
-<p><a href="{{ url_for('viaf.config_page') }}">Settings &amp; processing order &rarr;</a></p>
+<p><a href="{{ url_for('viaf.config_page') }}">Processing order &rarr;</a></p>
 
 <h2>Recent sessions</h2>
-<table>
-  <tr><th>Source</th><th>Description</th><th class="num">Checked</th><th class="num">Added</th><th class="num">Not found</th><th>Finished</th></tr>
-  {% for pid, desc, checked, added, nf, done in pdone %}
-  <tr><td>{{ pid }}</td><td>{{ desc }}</td><td class="num">{{ checked | comma }}</td><td class="num">{{ added | comma }}</td>
-      <td class="num">{{ nf | comma }}</td><td>{{ done }}</td></tr>
-  {% endfor %}
-</table>
+""" + SESSIONS_TABLE + """
+{% if pdone_total > pdone | length %}
+<p><a href="{{ url_for('viaf.sessions') }}">All {{ pdone_total | comma }} sessions &rarr;</a></p>
+{% endif %}
 """
+
+SESSIONS_TEMPLATE = STYLE + """
+<p><a href="{{ url_for('viaf.index') }}">&larr; VIAF status</a></p>
+<h1>VIAF &mdash; sessions</h1>
+<p><b>{{ pdone_total | comma }}</b> finished session(s), newest first.</p>
+""" + SESSIONS_TABLE
 
 LIST_TEMPLATE = STYLE + """
 <p><a href="{{ url_for('viaf.index') }}">&larr; VIAF status</a></p>
@@ -140,13 +167,16 @@ LIST_TEMPLATE = STYLE + """
 CONFIG_TEMPLATE = STYLE + """
 <p><a href="{{ url_for('viaf.index') }}">&larr; VIAF status</a></p>
 <h1>VIAF &mdash; configuration</h1>
-{% if settings_ok %}
 <h2>Settings</h2>
+{% if settings_ok %}
 <table>
   <tr><td>Max duplicates per source</td><td class="num">{{ max_duplicates if max_duplicates is not none else 'off' }}</td></tr>
   <tr><td>Cooldown after a full pass (days)</td><td class="num">{{ cooldown_days }}</td></tr>
   <tr><td>not-found cache (days)</td><td class="num">{{ not_found_cache_days if not_found_cache_days is not none else 'off' }}</td></tr>
 </table>
+<p class="muted">From <code>viaf_config.yaml</code>, which is also what the bot reads.</p>
+{% else %}
+<p class="muted">Unavailable &mdash; <code>viaf_config.yaml</code> could not be read: {{ settings_error }}</p>
 {% endif %}
 
 <h2>Processing order</h2>
@@ -190,6 +220,14 @@ def _state(handler) -> dict:
         "total_rows": total,
         "remaining_rows": remaining,
     }
+
+
+def _session_rows(pdone, codes: dict) -> list[tuple]:
+    """PDONE rows with the source's description filled in and the date trimmed."""
+    return [
+        (pid, codes.get(pid) or "", checked, added, nf, _date(done))
+        for pid, checked, added, nf, done in pdone
+    ]
 
 
 def _eta_days(state: dict) -> int | None:
@@ -238,10 +276,8 @@ def index():
         duplicates=_one(h, "SELECT COUNT(*) FROM DUPLICATES"),
         dup_locals=_one(h, "SELECT COUNT(*) FROM DUPLICATE_LOCAL_AUTH_IDS"),
         not_found_cache=_one(h, "SELECT COUNT(*) FROM NOT_FOUND"),
-        pdone=[
-            (pid, codes.get(pid) or "", checked, add, nf, _date(done))
-            for pid, checked, add, nf, done in pdone[:DISPLAY_LIMIT]
-        ],
+        pdone=_session_rows(pdone[:RECENT_SESSIONS], codes),
+        pdone_total=len(pdone),
         current_pid=current_pid,
         current_desc=(codes.get(current_pid) or "") if current_pid else "",
         cooldown_until=state.get("cooldown_until"),
@@ -251,6 +287,20 @@ def index():
         done_rows=done_rows,
         pct=(done_rows / total * 100) if total and done_rows is not None else None,
         eta_days=_eta_days(state),
+    )
+
+
+@viaf_bp.route("/viaf/sessions")
+def sessions():
+    h = _handler()
+    codes = dict(h.execute_query("SELECT PID, DESCRIPTION FROM CODES"))
+    pdone = h.execute_query(
+        "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE ORDER BY ID DESC"
+    )
+    return render_template_string(
+        SESSIONS_TEMPLATE,
+        pdone=_session_rows(pdone, codes),
+        pdone_total=len(pdone),
     )
 
 
@@ -303,10 +353,11 @@ def config_page():
     last_done = dict(
         h.execute_query("SELECT PID, MAX(DONE_DATE) FROM PDONE GROUP BY PID")
     )
-    cfg = _config()  # yaml-only settings; None if PyYAML missing
+    cfg, settings_error = _config()  # settings live only in the yaml
     return render_template_string(
         CONFIG_TEMPLATE,
         settings_ok=cfg is not None,
+        settings_error=settings_error,
         max_duplicates=cfg.max_duplicates if cfg else None,
         cooldown_days=cfg.cooldown_days if cfg else None,
         not_found_cache_days=cfg.not_found_cache_days if cfg else None,
