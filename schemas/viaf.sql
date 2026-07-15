@@ -89,6 +89,7 @@ CREATE TABLE CODES
   DESCRIPTION varchar(100),
   DO_IGNORE boolean DEFAULT false NOT NULL,
   IS_EMPTY boolean DEFAULT false NOT NULL,
+  SORT_ORDER integer,   /* processing order; NULL = default (after prioritised) */
   CONSTRAINT PK_CODES PRIMARY KEY (PID)
 );
 

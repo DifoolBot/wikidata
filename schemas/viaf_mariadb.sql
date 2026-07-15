@@ -12,6 +12,14 @@
 -- Firebird `timestamp` -> DATETIME (not TIMESTAMP: DATETIME has no UTC shift and
 -- no 2038 limit, so migrated values are stored exactly as-is).
 
+-- Collation is pinned to utf8mb4_unicode_ci everywhere, on the database as well
+-- as the tables. Stored-procedure parameters inherit the *database* collation,
+-- while `CHARSET=utf8mb4` alone gives a table the charset's default collation
+-- (utf8mb4_general_ci); if those differ, `WHERE QID = p_qid` inside a procedure
+-- fails with error 1267 (illegal mix of collations). Procedures capture the
+-- database collation when created, so re-create them after changing it.
+ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- ======================= TABLES =======================
 
 -- QIDs a VIAF id was added to during the current session.
@@ -19,7 +27,7 @@ CREATE TABLE IF NOT EXISTS ADDED (
   QID         VARCHAR(16) NOT NULL,
   ADDED_DATE  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (QID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- QIDs that could not be processed; RETRY marks transient errors to try again.
 CREATE TABLE IF NOT EXISTS ERRORS (
@@ -29,13 +37,13 @@ CREATE TABLE IF NOT EXISTS ERRORS (
   RETRY       BOOLEAN      NOT NULL DEFAULT FALSE,
   NOTE        VARCHAR(255),
   PRIMARY KEY (QID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- QIDs to skip permanently.
 CREATE TABLE IF NOT EXISTS IGNORED (
   QID VARCHAR(16) NOT NULL,
   PRIMARY KEY (QID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- (item, authority source) pairs VIAF returned 'not_found' for, cached so they
 -- are not re-queried for a while. Persists across sessions.
@@ -44,7 +52,7 @@ CREATE TABLE IF NOT EXISTS NOT_FOUND (
   PID           VARCHAR(16) NOT NULL,
   CHECKED_DATE  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (QID, PID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Items sharing a VIAF cluster with another item (reported, then cleared).
 CREATE TABLE IF NOT EXISTS DUPLICATES (
@@ -55,7 +63,7 @@ CREATE TABLE IF NOT EXISTS DUPLICATES (
   VIAF_ID        VARCHAR(25),
   PRIMARY KEY (ID),
   UNIQUE KEY UQ_DUPLICATES (QID, DUPLICATE_QID, LOCAL_AUTH_ID, VIAF_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Items whose VIAF cluster lists several local authority ids (reported, then cleared).
 CREATE TABLE IF NOT EXISTS DUPLICATE_LOCAL_AUTH_IDS (
@@ -64,7 +72,7 @@ CREATE TABLE IF NOT EXISTS DUPLICATE_LOCAL_AUTH_IDS (
   LOCAL_AUTH_ID  VARCHAR(255),
   VIAF_ID        VARCHAR(25),
   PRIMARY KEY (ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Authority-source config, read by an external report.
 CREATE TABLE IF NOT EXISTS CODES (
@@ -73,8 +81,9 @@ CREATE TABLE IF NOT EXISTS CODES (
   DESCRIPTION  VARCHAR(100),
   DO_IGNORE    BOOLEAN      NOT NULL DEFAULT FALSE,
   IS_EMPTY     BOOLEAN      NOT NULL DEFAULT FALSE,
+  SORT_ORDER   INT,  -- processing order; NULL = default (after prioritised)
   PRIMARY KEY (PID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Per-session stats archive, read by an external report.
 CREATE TABLE IF NOT EXISTS PDONE (
@@ -85,7 +94,7 @@ CREATE TABLE IF NOT EXISTS PDONE (
   NOT_FOUND  INT,
   DONE_DATE  DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ======================= INDEXES =======================
 
