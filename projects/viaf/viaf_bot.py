@@ -12,6 +12,7 @@ from viaf.authority_sources import AuthorityRecord, AuthoritySource
 from viaf.paths import DATA_DIR
 from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
+from viaf.wdqs_client import WdqsQueryError
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
@@ -29,6 +30,10 @@ class SessionOutcome(Enum):
     RATE_LIMITED = auto()
     # the DUPLICATES table reached the configured max_duplicates cap
     MAX_DUPLICATES = auto()
+    # WDQS stayed unreachable, so duplicates could not be verified. Each item
+    # costs a VIAF lookup (~1000/day) before its duplicate check runs, so
+    # carrying on would spend that budget on items we cannot verify anyway.
+    WDQS_UNAVAILABLE = auto()
 
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
@@ -198,16 +203,20 @@ class ViafBot:
     ) -> SessionOutcome:
         """Run one qlever-based pass over the current authority source.
 
-        Unless the pass was cut short by the VIAF API rate limit, the
-        accumulated duplicate/wikitext reports are published and a new
-        reporting session is started (which clears the per-session tables).
+        Unless the pass was cut short (by the VIAF API rate limit, or by WDQS
+        being unreachable), the accumulated duplicate/wikitext reports are
+        published and a new reporting session is started (which clears the
+        per-session tables).
 
         Returns the SessionOutcome describing how the pass ended.
         """
         outcome = self.iterate_qlever(
             output_file=output_file, max_duplicates=max_duplicates
         )
-        if outcome != SessionOutcome.RATE_LIMITED:
+        if outcome not in (
+            SessionOutcome.RATE_LIMITED,
+            SessionOutcome.WDQS_UNAVAILABLE,
+        ):
             self.report.run_maintenance()
             self.generate_duplicate_locals_report()
             self.generate_duplicates_report()
@@ -393,6 +402,13 @@ class ViafBot:
             self.change_wikidata(record)
         except ViafRateLimitExceeded:
             # Not a per-item failure - let the caller (iterate_qlever) stop the run.
+            raise
+        except WdqsQueryError:
+            # Also not a per-item failure. WDQS held up long enough that its own
+            # retries gave up, so the next item would almost certainly fail the
+            # same way - after spending another VIAF lookup to get there. Stop
+            # the run instead and keep the remaining daily budget; this item's
+            # line stays in the qlever file and is retried on the next run.
             raise
         except RuntimeError as e:
             pwb.warning(f"Runtime error: {e}")
@@ -674,6 +690,11 @@ class ViafBot:
                 pwb.warning(f"{e}; stopping for now.")
                 remaining_lines = lines[index:]
                 outcome = SessionOutcome.RATE_LIMITED
+                break
+            except WdqsQueryError as e:
+                pwb.warning(f"{e}; stopping to preserve the VIAF daily budget.")
+                remaining_lines = lines[index:]
+                outcome = SessionOutcome.WDQS_UNAVAILABLE
                 break
             processed += 1
             if processed % 100 == 0 or processed == total_lines:

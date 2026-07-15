@@ -99,8 +99,13 @@ def main() -> None:
             max_duplicates=config.max_duplicates,
         )
 
-        if outcome == SessionOutcome.RATE_LIMITED:
-            # used today's VIAF budget; resume this same source next run
+        if outcome in (
+            SessionOutcome.RATE_LIMITED,
+            SessionOutcome.WDQS_UNAVAILABLE,
+        ):
+            # Either today's VIAF budget is used up, or WDQS is unreachable and
+            # every further item would spend a VIAF lookup we cannot verify.
+            # Either way: resume this same source on the next run.
             _save_progress(current_pid=pid)
             return
 
