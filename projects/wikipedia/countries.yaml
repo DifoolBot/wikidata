@@ -1077,3 +1077,23 @@ Q33296:
 Q217196:
     code: None
     description: Crown of Castile
+
+Q12548:
+    code: None
+    description: Holy Roman Empire
+
+Q115:
+    code: ETH
+    description: Ethiopia
+
+Q1028:
+    code: MAR
+    description: Morocco
+
+Q171150:
+    code: None
+    description: Kingdom of Hungary
+
+Q188586:
+    code: None
+    description: Kingdom of Sicily

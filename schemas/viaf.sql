@@ -120,6 +120,9 @@ CREATE TABLE STATE
   SESSION_START date,
   TOTAL_ROWS integer,
   REMAINING_ROWS integer,
+  /* when CODES.DESCRIPTION was last refreshed from the property labels on */
+  /* Wikidata; those move rarely, so the bot only re-reads them occasionally */
+  DESCRIPTIONS_SYNCED date,
   CONSTRAINT PK_STATE PRIMARY KEY (ID),
   CONSTRAINT CK_STATE_SINGLE_ROW CHECK (ID = 1)
 );

@@ -110,6 +110,9 @@ CREATE TABLE IF NOT EXISTS STATE (
   SESSION_START   DATE,
   TOTAL_ROWS      INT,
   REMAINING_ROWS  INT,
+  -- when CODES.DESCRIPTION was last refreshed from the property labels on
+  -- Wikidata; those move rarely, so the bot only re-reads them occasionally
+  DESCRIPTIONS_SYNCED DATE,
   PRIMARY KEY (ID),
   CONSTRAINT CK_STATE_SINGLE_ROW CHECK (ID = 1)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
