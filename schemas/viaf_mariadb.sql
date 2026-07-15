@@ -96,6 +96,24 @@ CREATE TABLE IF NOT EXISTS PDONE (
   PRIMARY KEY (ID)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Bot state: which source is being processed and how far along it is. One row,
+-- pinned to ID = 1. This lives in the database rather than a JSON file so the
+-- bot and the status webservice read one source of truth, and so the session's
+-- identity cannot drift from the session's data (ADDED / ERRORS / PDONE).
+-- TOTAL_ROWS is the qlever row count when the source's file was fetched;
+-- REMAINING_ROWS counts down as rows are processed, so the two give progress
+-- and, with SESSION_START, an estimate of how long the pass will take.
+CREATE TABLE IF NOT EXISTS STATE (
+  ID              INT  NOT NULL DEFAULT 1,
+  CURRENT_PID     VARCHAR(16),
+  COOLDOWN_UNTIL  DATE,
+  SESSION_START   DATE,
+  TOTAL_ROWS      INT,
+  REMAINING_ROWS  INT,
+  PRIMARY KEY (ID),
+  CONSTRAINT CK_STATE_SINGLE_ROW CHECK (ID = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ======================= INDEXES =======================
 
 CREATE INDEX IF NOT EXISTS IDX_DUPLICATES_QID           ON DUPLICATES (QID);

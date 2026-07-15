@@ -105,6 +105,25 @@ CREATE TABLE PDONE
   CONSTRAINT PK_PDONE PRIMARY KEY (ID)
 );
 
+/* Bot state: which source is being processed and how far along it is. One row, */
+/* pinned to ID = 1. This lives in the database rather than a JSON file so the */
+/* bot and the status webservice read one source of truth, and so the session's */
+/* identity cannot drift from the session's data (ADDED / ERRORS / PDONE). */
+/* TOTAL_ROWS is the qlever row count when the source's file was fetched; */
+/* REMAINING_ROWS counts down as rows are processed, so the two give progress */
+/* and, with SESSION_START, an estimate of how long the pass will take. */
+CREATE TABLE STATE
+(
+  ID integer NOT NULL,
+  CURRENT_PID PID,
+  COOLDOWN_UNTIL date,
+  SESSION_START date,
+  TOTAL_ROWS integer,
+  REMAINING_ROWS integer,
+  CONSTRAINT PK_STATE PRIMARY KEY (ID),
+  CONSTRAINT CK_STATE_SINGLE_ROW CHECK (ID = 1)
+);
+
 /******************** INDEXES *********************/
 
 CREATE INDEX IDX_DUPLICATES_QID ON DUPLICATES (QID);
