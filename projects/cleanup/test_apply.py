@@ -25,6 +25,7 @@ from cleanup.detectors import (
     ACTION_ADD_MUL_ALIAS,
     ACTION_REMOVE_ALIAS,
     ACTION_REMOVE_CLAIM,
+    ACTION_REMOVE_REDUNDANT_REF_URL,
     ACTION_REMOVE_REFS,
 )
 
@@ -247,3 +248,52 @@ class TestRemoveRefsSummaries:
         item = self._item()
         _, descriptions = build_payload(item, [self._diff("mystery")])
         assert descriptions == ["remove weak reference on P373"]
+
+
+# ==== ACTION_REMOVE_REDUNDANT_REF_URL ========================================
+
+
+class TestRemoveRedundantRefUrl:
+    def _claim(self, ref_snaks: dict, snaks_order: list) -> FakeClaim:
+        return FakeClaim(
+            "Q1$u",
+            {
+                "id": "Q1$u",
+                "references": [
+                    {"hash": "r1", "snaks": ref_snaks, "snaks-order": snaks_order}
+                ],
+            },
+        )
+
+    def _diff(self) -> dict:
+        return {
+            "detector": "redundant_ref_url",
+            "action": ACTION_REMOVE_REDUNDANT_REF_URL,
+            "pid": "P856",
+            "claim_id": "Q1$u",
+            "ref_hash": "r1",
+            "snak_pid": "P854",
+            "snak_hash": "s1",
+        }
+
+    def test_strips_one_p854_snak_keeping_others(self):
+        ref_snaks = {
+            "P854": [{"hash": "s1"}, {"hash": "s2"}],
+            "P143": [{"hash": "h"}],
+        }
+        item = FakeItem(claims={"P856": [self._claim(ref_snaks, ["P854", "P143"])]})
+        payload, descriptions = build_payload(item, [self._diff()])
+        ref = payload["claims"][0]["references"][0]
+        # The matching snak is gone; the other P854 and P143 remain.
+        assert ref["snaks"]["P854"] == [{"hash": "s2"}]
+        assert "P143" in ref["snaks"]
+        assert ref["snaks-order"] == ["P854", "P143"]
+        assert descriptions == ["remove redundant reference URL (P854) on P856"]
+
+    def test_removes_p854_property_and_order_when_last_snak(self):
+        ref_snaks = {"P854": [{"hash": "s1"}], "P813": [{"hash": "t"}]}
+        item = FakeItem(claims={"P856": [self._claim(ref_snaks, ["P854", "P813"])]})
+        payload, _ = build_payload(item, [self._diff()])
+        ref = payload["claims"][0]["references"][0]
+        assert "P854" not in ref["snaks"]
+        assert ref["snaks-order"] == ["P813"]

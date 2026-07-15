@@ -192,3 +192,7 @@ projects/precision_fixer/precision_check_wiki.txt
 # wikipedia: work file listing templates the extractor did not match, for
 # review before folding them into languages.yaml (written by wikipedia_extractor)
 projects/wikipedia/unmatched_templates.yaml
+
+# clean_mubi: regenerated work queue (mubi.py fetches the qids from qlever
+# into input/mubi.txt; fetch_qids_to_file creates the directory)
+projects/clean_mubi/input/mubi.txt

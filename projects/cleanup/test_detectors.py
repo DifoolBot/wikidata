@@ -35,6 +35,8 @@ from cleanup.detectors import (
     detect_merge_wiki_import_refs,
     clean_url,
     restore_entity_ids,
+    detect_redundant_ref_url,
+    _normalize_url_for_compare,
     _parse_wikibase_time,
     _normalize_wikimedia_import_url,
     _normalize_date_value,
@@ -62,6 +64,7 @@ from cleanup.detectors import (
     ACTION_CHANGE_PROPERTY,
     ACTION_SPLIT_REFERENCE_URLS,
     ACTION_MERGE_WIKI_IMPORT_REFS,
+    ACTION_REMOVE_REDUNDANT_REF_URL,
     PID_REASON_FOR_PREFERRED_RANK,
     PID_REASON_FOR_DEPRECATED_RANK,
     PID_WIKIMEDIA_IMPORT_URL,
@@ -3378,6 +3381,219 @@ class TestDetectMergeWikiImportRefs:
         ref_p143 = self._p143_ref("Q328")
         item = self._item([ref_p4656, ref_p143])
         assert detect_merge_wiki_import_refs(item, wp) == []
+
+
+# ==== _normalize_url_for_compare =============================================
+
+
+class TestNormalizeUrlForCompare:
+    def _rules(self, **kw):
+        return UrlStripRules(**kw)
+
+    def test_trailing_slash_and_www_stripped(self):
+        r = self._rules()
+        a = _normalize_url_for_compare("https://www.example.com/x/", r)
+        b = _normalize_url_for_compare("https://example.com/x", r)
+        assert a == b
+
+    def test_fragment_dropped(self):
+        r = self._rules()
+        assert _normalize_url_for_compare(
+            "https://example.com/x#section", r
+        ) == _normalize_url_for_compare("https://example.com/x", r)
+
+    def test_recognition_and_lang_params_stripped(self):
+        r = self._rules(recognition={"youtube.com": ["t"]})
+        a = _normalize_url_for_compare("https://youtube.com/watch?v=1&t=30&hl=en", r)
+        b = _normalize_url_for_compare("https://youtube.com/watch?v=1", r)
+        assert a == b
+
+    def test_percent_decoded(self):
+        r = self._rules()
+        assert _normalize_url_for_compare(
+            "https://example.com/a%20b", r
+        ) == _normalize_url_for_compare("https://example.com/a b", r)
+
+    def test_non_string_returns_none(self):
+        assert _normalize_url_for_compare(None, self._rules()) is None
+        assert _normalize_url_for_compare("", self._rules()) is None
+
+
+# ==== detect_redundant_ref_url ===============================================
+
+
+class TestDetectRedundantRefUrl:
+    def _rules(self):
+        return UrlStripRules()
+
+    def _url_snak(self, pid, url, hash_=None):
+        s = {
+            "property": pid,
+            "snaktype": "value",
+            "datatype": "url",
+            "datavalue": {"value": url, "type": "string"},
+        }
+        if hash_:
+            s["hash"] = hash_
+        return s
+
+    def _item_snak(self, pid, qid):
+        return {
+            "property": pid,
+            "snaktype": "value",
+            "datatype": "wikibase-item",
+            "datavalue": {"value": {"id": qid}, "type": "wikibase-entityid"},
+        }
+
+    def test_url_claim_with_only_redundant_p854_removes_whole_ref(self):
+        url = "https://example.com/x"
+        claims = {
+            "P856": [
+                {
+                    "id": "Q1$a",
+                    "mainsnak": self._url_snak("P856", url),
+                    "references": [
+                        {
+                            "hash": "r1",
+                            "snaks": {"P854": [self._url_snak("P854", url, "s1")]},
+                            "snaks-order": ["P854"],
+                        }
+                    ],
+                }
+            ]
+        }
+        diffs = detect_redundant_ref_url({"claims": claims}, self._rules())
+        assert len(diffs) == 1
+        assert diffs[0]["action"] == ACTION_REMOVE_REFS
+        assert diffs[0]["ref_hash"] == "r1"
+
+    def test_redundant_p854_with_other_content_strips_only_the_snak(self):
+        # The reference also carries a P248 (stated in), which is real content
+        # and keeps the reference non-splittable, so only the P854 is stripped.
+        url = "https://example.com/x"
+        claims = {
+            "P856": [
+                {
+                    "id": "Q1$a",
+                    "mainsnak": self._url_snak("P856", url),
+                    "references": [
+                        {
+                            "hash": "r1",
+                            "snaks": {
+                                "P854": [self._url_snak("P854", url, "s1")],
+                                "P248": [self._item_snak("P248", "Q328")],
+                            },
+                            "snaks-order": ["P854", "P248"],
+                        }
+                    ],
+                }
+            ]
+        }
+        diffs = detect_redundant_ref_url({"claims": claims}, self._rules())
+        assert len(diffs) == 1
+        d = diffs[0]
+        assert d["action"] == ACTION_REMOVE_REDUNDANT_REF_URL
+        assert d["snak_pid"] == "P854"
+        assert d["snak_hash"] == "s1"
+
+    def test_url_qualifier_match_trailing_slash(self):
+        # Mirrors the Q23 case: P973 url qualifier == reference P854 (slash diff).
+        claims = {
+            "P485": [
+                {
+                    "id": "Q1$b",
+                    "mainsnak": self._item_snak("P485", "Q14708020"),
+                    "qualifiers": {
+                        "P973": [self._url_snak("P973", "https://x.example/02527/")]
+                    },
+                    "references": [
+                        {
+                            "hash": "r2",
+                            "snaks": {
+                                "P854": [self._url_snak("P854", "https://x.example/02527")],
+                                "P813": [
+                                    {
+                                        "property": "P813",
+                                        "snaktype": "value",
+                                        "datatype": "time",
+                                        "datavalue": {
+                                            "value": {"time": "+2020-01-01T00:00:00Z"},
+                                            "type": "time",
+                                        },
+                                    }
+                                ],
+                            },
+                            "snaks-order": ["P854", "P813"],
+                        }
+                    ],
+                }
+            ]
+        }
+        diffs = detect_redundant_ref_url({"claims": claims}, self._rules())
+        # Only P854 + P813 (metadata) -> whole reference removed.
+        assert len(diffs) == 1
+        assert diffs[0]["action"] == ACTION_REMOVE_REFS
+
+    def test_non_matching_url_ignored(self):
+        claims = {
+            "P856": [
+                {
+                    "id": "Q1$a",
+                    "mainsnak": self._url_snak("P856", "https://example.com/x"),
+                    "references": [
+                        {
+                            "hash": "r1",
+                            "snaks": {
+                                "P854": [self._url_snak("P854", "https://other.com/y")]
+                            },
+                            "snaks-order": ["P854"],
+                        }
+                    ],
+                }
+            ]
+        }
+        assert detect_redundant_ref_url({"claims": claims}, self._rules()) == []
+
+    def test_deprecated_claim_skipped(self):
+        url = "https://example.com/x"
+        claims = {
+            "P856": [
+                {
+                    "id": "Q1$a",
+                    "rank": "deprecated",
+                    "mainsnak": self._url_snak("P856", url),
+                    "references": [
+                        {
+                            "hash": "r1",
+                            "snaks": {"P854": [self._url_snak("P854", url)]},
+                            "snaks-order": ["P854"],
+                        }
+                    ],
+                }
+            ]
+        }
+        assert detect_redundant_ref_url({"claims": claims}, self._rules()) == []
+
+    def test_non_url_claim_without_url_qualifier_ignored(self):
+        # An item claim with no URL mainsnak/qualifier yields no statement URLs.
+        claims = {
+            "P485": [
+                {
+                    "id": "Q1$b",
+                    "mainsnak": self._item_snak("P485", "Q1"),
+                    "references": [
+                        {
+                            "hash": "r2",
+                            "snaks": {
+                                "P854": [self._url_snak("P854", "https://example.com/x")]
+                            },
+                            "snaks-order": ["P854"],
+                        }
+                    ],
+                }
+            ]
+        }
+        assert detect_redundant_ref_url({"claims": claims}, self._rules()) == []
 
 
 # ==== JSON fixture export ====================================================
