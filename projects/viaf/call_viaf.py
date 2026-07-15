@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
 import viaf.authority_sources
-from viaf.codes_sync import push_order
+from viaf.codes_sync import push_order, sync_descriptions
 from viaf.paths import DATA_DIR
 from viaf.viaf_bot import SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
@@ -20,6 +20,17 @@ def _make_report():
     from viaf.firebird_viaf_reporting import FirebirdViafReporting
 
     return FirebirdViafReporting()
+
+
+# Property labels are stable, so re-reading them from Wikidata this often is
+# plenty; it costs one API call per source on the days it does run.
+DESCRIPTION_SYNC_DAYS = 30
+
+
+def _descriptions_stale(last_synced: date | None) -> bool:
+    return last_synced is None or (date.today() - last_synced).days >= (
+        DESCRIPTION_SYNC_DAYS
+    )
 
 
 def _resume_index(ordered_pids: list[str], current_pid: str | None) -> int:
@@ -61,6 +72,14 @@ def main() -> None:
     # Mirror the yaml-derived processing order + skips into CODES, so the bot and
     # the status webservice read a single place (the DB).
     push_order(report, ordered_pids, ignored)
+    # Descriptions come from the property labels on Wikidata, so they follow
+    # renames there instead of going stale. Occasional, not every run.
+    if _descriptions_stale(state.descriptions_synced):
+        changed = sync_descriptions(report, authority_sources.all_pids())
+        report.set_descriptions_synced(date.today())
+        for pid, old, new in changed:
+            pwb.output(f"CODES description {pid}: {old!r} -> {new!r}")
+        pwb.output(f"Synced descriptions from Wikidata; {len(changed)} changed.")
     report.run_maintenance()
     if not_found_cutoff is not None:
         report.purge_not_found_before(not_found_cutoff)

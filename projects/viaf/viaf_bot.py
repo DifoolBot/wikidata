@@ -58,11 +58,12 @@ SLEEP_AFTER_RUNTIMEERROR = 2  # sec
 class BotState:
     """The bot's place in its pass over the authority sources (the STATE row).
 
-    current_pid     source to process next (None before the first ever run)
-    cooldown_until  no work until this date, set after a full pass completes
-    session_start   when current_pid's qlever file was fetched
-    total_rows      rows that file held when fetched
-    remaining_rows  rows still unprocessed
+    current_pid          source to process next (None before the first ever run)
+    cooldown_until       no work until this date, set after a full pass completes
+    session_start        when current_pid's qlever file was fetched
+    total_rows           rows that file held when fetched
+    remaining_rows       rows still unprocessed
+    descriptions_synced  when CODES.DESCRIPTION last came from Wikidata
     """
 
     current_pid: str | None = None
@@ -70,6 +71,7 @@ class BotState:
     session_start: date | None = None
     total_rows: int | None = None
     remaining_rows: int | None = None
+    descriptions_synced: date | None = None
 
 
 class ReportBackend(ABC):
@@ -173,6 +175,11 @@ class ReportBackend(ABC):
         """Update how many qlever rows are still unprocessed."""
         pass
 
+    @abstractmethod
+    def set_descriptions_synced(self, day: date) -> None:
+        """Record that CODES.DESCRIPTION was just refreshed from Wikidata."""
+        pass
+
 
 def _add_viaf(
     item: pwb.ItemPage,
@@ -259,6 +266,17 @@ class ViafBot:
         if not formatter or "$1" not in formatter:
             return local_auth_id
         return f"[{formatter.replace('$1', local_auth_id)} {local_auth_id}]"
+
+    def _report_heading(self) -> str:
+        """Section heading for this source's report.
+
+        {{P|Pxxx}} renders the property's label in the reader's own language and
+        follows renames on Wikidata, so the heading cannot go stale the way a
+        description baked in here does. It is also the form viaf_score's
+        _extract_pid looks for first: its plain-text fallback map names only 30
+        of the 54 sources, and a section it cannot resolve to a PID is skipped.
+        """
+        return "=={{P|" + self.auth_src.pid + "}}==\n"
 
     def _report_summary(self, what: str) -> str:
         """Edit summary naming the section just appended, e.g.
@@ -522,7 +540,7 @@ class ViafBot:
             time.sleep(SLEEP_AFTER_ERROR)
 
     def make_duplicates_wikitext(self):
-        heading = "=={description}==\n".format(description=self.auth_src.description)
+        heading = self._report_heading()
         header = '\n{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! VIAF\n! QID on the item\n! ID from cluster\n! 2nd QID\n! class="unsortable" | Compare'
         body = ""
         line = "\n|-\n| https://viaf.org/viaf/{viaf_id}\n| {{{{Q|{qid}}}}}\n| {auth_code}|{local_auth_id}\n| {{{{Q|{duplicate_qid}}}}}\n| {compare}"
@@ -570,7 +588,7 @@ class ViafBot:
         return wikitext
 
     def make_duplicate_locals_wikitext(self):
-        heading = "=={description}==\n".format(description=self.auth_src.description)
+        heading = self._report_heading()
         header = '\n{| class="wikitable sortable" style="vertical-align:bottom;"\n|-\n! VIAF\n! QID on the item\n! ID from cluster'
         body = ""
         line = "\n|-\n| https://viaf.org/viaf/{viaf_id}\n| {{{{Q|{qid}}}}}\n|{local_auth_ids}"

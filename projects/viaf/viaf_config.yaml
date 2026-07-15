@@ -22,7 +22,6 @@ ignore:
   - P213   # ISNI (too many false positives)
   - P2163  # FAST ID (nothing found)
   - P1280  # CONOR.SI ID
-  - P396   # SBN author ID
   - P950   # National Library of Spain SpMaBN ID (BNE v1.0)
   - P3988  # National Library Board Singapore ID
 

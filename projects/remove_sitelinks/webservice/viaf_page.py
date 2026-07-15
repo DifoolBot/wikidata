@@ -115,8 +115,7 @@ INDEX_TEMPLATE = STYLE + """
 
 <h2>Current session</h2>
 {% if current_pid %}
-<p class="source">Active source:
-  <a href="https://www.wikidata.org/wiki/Property:{{ current_pid }}" target="_blank" rel="noopener"><b>{{ current_pid }}</b></a>
+<p class="source"><a href="https://www.wikidata.org/wiki/Property:{{ current_pid }}" target="_blank" rel="noopener"><b>{{ current_pid }}</b></a>
   {%- if current_desc %} &mdash; <b>{{ current_desc }}</b>{% endif -%}
   {%- if cooldown_until %} <span class="muted">&middot; in cooldown until {{ cooldown_until }}</span>{% endif %}</p>
 {% endif %}
@@ -146,7 +145,7 @@ INDEX_TEMPLATE = STYLE + """
 <h2>Reports</h2>
 <table>
   <tr><td><a href="{{ url_for('viaf.duplicates') }}">Duplicate items</a></td><td class="num">{{ duplicates | comma }}</td></tr>
-  <tr><td>Duplicate local authority ids</td><td class="num">{{ dup_locals | comma }}</td></tr>
+  <tr><td><a href="{{ url_for('viaf.duplicate_locals') }}">Duplicate local authority ids</a></td><td class="num">{{ dup_locals | comma }}</td></tr>
   <tr><td><a href="{{ url_for('viaf.errors') }}">Errors</a></td><td class="num">{{ errors | comma }}</td></tr>
   <tr><td>not-found cache</td><td class="num">{{ not_found_cache | comma }}</td></tr>
 </table>
@@ -364,6 +363,24 @@ def duplicates():
         LIST_TEMPLATE,
         title="Duplicate items",
         columns=["Item", "Duplicate of", "Local auth id", "VIAF id"],
+        total=len(rows),
+        shown=min(len(rows), DISPLAY_LIMIT),
+        rows=rows[:DISPLAY_LIMIT],
+    )
+
+
+@viaf_bp.route("/viaf/duplicate-locals")
+def duplicate_locals():
+    h = _handler()
+    # Same order the wiki report uses, so the two read alike.
+    rows = h.execute_query(
+        "SELECT QID, LOCAL_AUTH_ID, VIAF_ID FROM DUPLICATE_LOCAL_AUTH_IDS "
+        "ORDER BY VIAF_ID, QID, LOCAL_AUTH_ID"
+    )
+    return render_template_string(
+        LIST_TEMPLATE,
+        title="Duplicate local authority ids",
+        columns=["Item", "Local auth id", "VIAF id"],
         total=len(rows),
         shown=min(len(rows), DISPLAY_LIMIT),
         rows=rows[:DISPLAY_LIMIT],

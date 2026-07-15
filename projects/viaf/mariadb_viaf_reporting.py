@@ -129,17 +129,25 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
     def get_state(self) -> BotState:
         rows = self.execute_query(
             "SELECT CURRENT_PID, COOLDOWN_UNTIL, SESSION_START, TOTAL_ROWS, "
-            "REMAINING_ROWS FROM STATE WHERE ID = 1"
+            "REMAINING_ROWS, DESCRIPTIONS_SYNCED FROM STATE WHERE ID = 1"
         )
         if not rows:
             return BotState()
-        current_pid, cooldown_until, session_start, total_rows, remaining_rows = rows[0]
+        (
+            current_pid,
+            cooldown_until,
+            session_start,
+            total_rows,
+            remaining_rows,
+            descriptions_synced,
+        ) = rows[0]
         return BotState(
             current_pid=current_pid,
             cooldown_until=_as_date(cooldown_until),
             session_start=_as_date(session_start),
             total_rows=total_rows,
             remaining_rows=remaining_rows,
+            descriptions_synced=_as_date(descriptions_synced),
         )
 
     def save_progress(self, current_pid: str, cooldown_until: date | None) -> None:
@@ -155,6 +163,9 @@ class MariaDbViafReporting(MariaDbDatabaseHandler, ReportBackend):
 
     def set_remaining_rows(self, remaining: int) -> None:
         self._upsert_state("REMAINING_ROWS = ?", (remaining,))
+
+    def set_descriptions_synced(self, day: date) -> None:
+        self._upsert_state("DESCRIPTIONS_SYNCED = ?", (day,))
 
     def _upsert_state(self, assignments: str, params: tuple) -> None:
         """Update the single STATE row, creating it if this is a fresh database."""

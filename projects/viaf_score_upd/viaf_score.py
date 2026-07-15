@@ -74,6 +74,13 @@ BATCH_SIZE = 50
 # Sections with these headings are not processed (e.g. intro / actions)
 IGNORE_HEADERS = {"==Actions==", "==Columns=="}
 
+# The viaf bot writes two tables under the same {{P|Pxxx}} heading: duplicate
+# items, which pairs the item with a second QID, and duplicate local authority
+# ids, which has no second QID and so no pair to score. Only the first carries
+# this column. Either table is omitted when it has no rows, so their order on
+# the page says nothing - the columns are what tell them apart.
+SCORABLE_COLUMN = "! 2nd QID"
+
 # Wikidata property IDs used during scoring
 P_BIRTH_DATE = "P569"
 P_DEATH_DATE = "P570"
@@ -659,48 +666,14 @@ def _extract_external_id(line: str) -> str:
 
 def _extract_pid(header: str) -> str:
     """
-    Parse the section header to find the property ID.
-    Accepts '=={{P|P691}}==' or plain text titles mapped in the Delphi source.
+    Parse the section header to find the property ID, e.g. '=={{P|P691}}=='.
+
+    The viaf bot writes headings in that form (it renders the property label in
+    the reader's own language, and follows renames on Wikidata). A heading
+    without a {{P|Pxxx}} is not a property section; the caller reports it.
     """
-    # Try {{P|Pxxx}} form first
     m = re.search(r"\{\{P\|(P\d+)\}\}", header)
-    if m:
-        return m.group(1)
-    # Fall back to the text-to-PID map from ExtractPID in the Delphi source
-    title = re.sub(r"^=+\s*|\s*=+$", "", header).strip()
-    _MAP = {
-        "CONOR.SI ID": "P1280",
-        "National Library of Israel J9U ID": "P8189",
-        "Library of Congress authority ID": "P244",
-        "IdRef ID": "P269",
-        "GND ID": "P227",
-        "NL CR AUT ID": "P691",
-        "ISNI": "P213",
-        "Bibliothèque nationale de France ID": "P268",
-        "NUKAT ID": "P1207",
-        "Union List of Artist Names ID": "P245",
-        "Nationale Thesaurus voor Auteursnamen ID": "P1006",
-        "BAnQ authority ID": "P3280",
-        "CANTIC ID": "P9984",
-        "Libraries Australia ID": "P409",
-        "NSK ID": "P1375",
-        "DBC author ID": "P3846",
-        "PLWABN ID": "P7293",
-        "Canadiana Name Authority ID": "P8179",
-        "National Library of Korea ID": "P5034",
-        "CiNii Books author ID": "P271",
-        "Vatican Library VcBA ID": "P8034",
-        "RERO ID (obsolete),": "P3065",
-        "RISM ID": "P5504",
-        "Portuguese National Library author ID": "P1005",
-        "BNMM authority ID": "P3788",
-        "EGAXA ID": "P1309",
-        "NDL Authority ID": "P349",
-        "Libris-URI": "P5587",
-        "National Library of Latvia ID": "P1368",
-        "NORAF ID": "P1015",
-    }
-    return _MAP.get(title, "")
+    return m.group(1) if m else ""
 
 
 # ---------------------------------------------------------------------------
@@ -1056,6 +1029,19 @@ def _scorable_sections(
 
         # Restrict to a single property's section when asked.
         if only_pid and pid != only_pid:
+            continue
+
+        # Both of a property's tables resolve to the same PID, and the score map
+        # is grouped by PID, so without this the duplicate-local-authority-ids
+        # table would be scored against the duplicate-items map - stamping every
+        # one of its rows with "?".
+        if not any(line.strip() == SCORABLE_COLUMN for line in sec["lines"]):
+            if log_details:
+                log.info(
+                    "Skipping %s (no '%s' column: nothing to score here)",
+                    header,
+                    SCORABLE_COLUMN.lstrip("! "),
+                )
             continue
 
         # A section that already has a Score column is left alone unless the
