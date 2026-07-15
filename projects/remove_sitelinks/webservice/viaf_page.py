@@ -31,6 +31,13 @@ STYLE = """
   code { color: #666; } nav a { margin-right: 1rem; }
   .bar { background: #eee; border-radius: 3px; height: 8px; overflow: hidden; margin: .3rem 0; }
   .bar span { background: #3584e4; display: block; height: 100%; }
+  .source { font-size: 1.05rem; }
+  .pie-wrap { display: flex; align-items: center; gap: 1.4rem; flex-wrap: wrap; margin: .6rem 0 1rem; }
+  .pie { width: 110px; height: 110px; border-radius: 50%; flex: none; }
+  .legend { width: auto; } .legend tr:nth-child(even) { background: none; }
+  .legend td { padding: .1rem .6rem .1rem 0; }
+  .swatch { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px;
+            vertical-align: middle; margin-right: .45rem; }
 </style>
 <nav class="muted"><a href="/">remove_sitelinks</a><a href="/viaf">viaf</a></nav>
 """
@@ -108,13 +115,24 @@ INDEX_TEMPLATE = STYLE + """
 
 <h2>Current session</h2>
 {% if current_pid %}
-<p class="muted">Active source:
+<p class="source">Active source:
   <a href="https://www.wikidata.org/wiki/Property:{{ current_pid }}" target="_blank" rel="noopener"><b>{{ current_pid }}</b></a>
-  {%- if current_desc %} &mdash; {{ current_desc }}{% endif -%}
-  {%- if cooldown_until %} &middot; in cooldown until {{ cooldown_until }}{% endif %}</p>
+  {%- if current_desc %} &mdash; <b>{{ current_desc }}</b>{% endif -%}
+  {%- if cooldown_until %} <span class="muted">&middot; in cooldown until {{ cooldown_until }}</span>{% endif %}</p>
 {% endif %}
-<p><span class="big">{{ added | comma }}</span> added &nbsp;
-   ({{ checked | comma }} checked, {{ errors | comma }} error(s) of which {{ not_found | comma }} not-found)</p>
+<p><span class="big">{{ added | comma }}</span> added of {{ checked | comma }} checked</p>
+{% if pie_legend %}
+<div class="pie-wrap">
+  <div class="pie" style="background: {{ pie_gradient }}"></div>
+  <table class="legend">
+    {% for s in pie_legend %}
+    <tr><td><span class="swatch" style="background: {{ s.colour }}"></span>{{ s.label }}</td>
+        <td class="num">{{ s.count | comma }}</td>
+        <td class="num muted">{{ '%.1f' % s.pct }}%</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
 {% if total_rows %}
 <p>{{ done_rows | comma }} of {{ total_rows | comma }} rows done{% if pct is not none %} ({{ '%.1f' % pct }}%){% endif %},
    {{ remaining_rows | comma }} to go.</p>
@@ -222,6 +240,26 @@ def _state(handler) -> dict:
     }
 
 
+def _pie(slices: list[tuple[str, int, str]]):
+    """A CSS conic-gradient plus its legend, for a small pie chart.
+
+    Takes (label, count, colour) and returns (gradient, legend rows). A plain
+    gradient keeps this dependency-free: no JS, no charting library, no external
+    request. Returns ('', []) when there is nothing to chart.
+    """
+    total = sum(count for _, count, _ in slices)
+    if total <= 0:
+        return "", []
+    stops, legend, running = [], [], 0.0
+    for label, count, colour in slices:
+        pct = count / total * 100
+        # each slice spans from where the last one ended to its own end
+        stops.append(f"{colour} {running:.2f}% {running + pct:.2f}%")
+        legend.append({"label": label, "count": count, "pct": pct, "colour": colour})
+        running += pct
+    return f"conic-gradient({', '.join(stops)})", legend
+
+
 def _session_rows(pdone, codes: dict) -> list[tuple]:
     """PDONE rows with the source's description filled in and the date trimmed."""
     return [
@@ -267,6 +305,15 @@ def index():
     current_pid = state.get("current_pid")
     total, remaining = state.get("total_rows"), state.get("remaining_rows")
     done_rows = (total - remaining) if total and remaining is not None else None
+    # What became of the items checked this session: every checked item is either
+    # added or an error, and most errors are VIAF simply not knowing the item.
+    pie_gradient, pie_legend = _pie(
+        [
+            ("added", added, "#2ec27e"),
+            ("not found", not_found, "#f5c211"),
+            ("other errors", errors - not_found, "#e01b24"),
+        ]
+    )
     return render_template_string(
         INDEX_TEMPLATE,
         added=added,
@@ -287,6 +334,8 @@ def index():
         done_rows=done_rows,
         pct=(done_rows / total * 100) if total and done_rows is not None else None,
         eta_days=_eta_days(state),
+        pie_gradient=pie_gradient,
+        pie_legend=pie_legend,
     )
 
 
