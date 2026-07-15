@@ -188,3 +188,7 @@ projects/viaf_score_upd/sample_out.txt
 
 # precision_fixer: generated wiki preview (items.txt is the input)
 projects/precision_fixer/precision_check_wiki.txt
+
+# wikipedia: work file listing templates the extractor did not match, for
+# review before folding them into languages.yaml (written by wikipedia_extractor)
+projects/wikipedia/unmatched_templates.yaml
