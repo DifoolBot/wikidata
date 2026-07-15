@@ -98,9 +98,9 @@ CREATE TABLE IF NOT EXISTS PDONE (
 
 -- ======================= INDEXES =======================
 
-CREATE INDEX IDX_DUPLICATES_QID           ON DUPLICATES (QID);
-CREATE INDEX IDX_DUPLICATES_DUPLICATE_QID ON DUPLICATES (DUPLICATE_QID);
-CREATE INDEX IDX_DUPLICATE_LOCALS_QID     ON DUPLICATE_LOCAL_AUTH_IDS (QID);
+CREATE INDEX IF NOT EXISTS IDX_DUPLICATES_QID           ON DUPLICATES (QID);
+CREATE INDEX IF NOT EXISTS IDX_DUPLICATES_DUPLICATE_QID ON DUPLICATES (DUPLICATE_QID);
+CREATE INDEX IF NOT EXISTS IDX_DUPLICATE_LOCALS_QID     ON DUPLICATE_LOCAL_AUTH_IDS (QID);
 
 -- ===================== PROCEDURES ======================
 -- Parameters are renamed to p_* to avoid ambiguity with same-named columns
@@ -170,7 +170,9 @@ CREATE OR REPLACE PROCEDURE CLEAN_UP ()
 BEGIN
   UPDATE ERRORS SET RETRY = TRUE
     WHERE RETRY = FALSE
-      AND (MESSAGE LIKE '%connection%' OR MESSAGE LIKE '%object is not iterable%');
+      AND (MESSAGE LIKE '%connection%'
+        OR MESSAGE LIKE '%object is not iterable%'
+        OR MESSAGE LIKE '%WDQS query failed%');
 END$$
 
 -- Normalize and de-duplicate the duplicate-local-auth-id report.

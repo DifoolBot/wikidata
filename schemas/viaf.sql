@@ -177,7 +177,8 @@ BEGIN
   UPDATE ERRORS SET RETRY = true
     WHERE RETRY = false
       AND (MESSAGE CONTAINING 'connection'
-        OR MESSAGE CONTAINING 'object is not iterable');
+        OR MESSAGE CONTAINING 'object is not iterable'
+        OR MESSAGE CONTAINING 'WDQS query failed');
 END^
 
 /* Normalize and de-duplicate the duplicate-local-auth-id report. */

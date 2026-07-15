@@ -268,13 +268,19 @@ class ViafBot:
         self.report.add_done(qid=record.qid)
 
     def get_duplicate_qids(self, record: AuthorityRecord):
+        """Items other than record.qid that already carry this VIAF id.
+
+        A WdqsQueryError propagates: process_record records it as an error and
+        skips the item, so the VIAF id is never added on the strength of a
+        duplicate check that did not actually run.
+        """
         duplicate_qids = []
         query = 'SELECT DISTINCT ?item WHERE {{ ?item p:P214 ?statement0. ?statement0 (ps:P214) "{viaf_id}". FILTER (?item != wd:{qid})}} LIMIT 5'.format(
             viaf_id=record.viaf_cluster_id, qid=record.qid
         )
 
         bindings = viaf.wdqs_client.query_wdqs(query)
-        if not bindings:
+        if not bindings:  # query ran, matched nothing
             return duplicate_qids
         for row in bindings:
             other_qid = (
@@ -532,8 +538,11 @@ class ViafBot:
                     """
 
         query = query_template.format(pid=self.auth_src.pid, index=index)
+        # A WdqsQueryError propagates rather than ending the paging loop: only an
+        # empty result means this source is exhausted, a failed query means we do
+        # not know, and must not report the source as finished.
         rows = viaf.wdqs_client.query_wdqs(query)
-        if not rows:
+        if not rows:  # query ran, no rows left at this offset
             return False
         for row in rows:
             qid = (

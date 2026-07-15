@@ -179,7 +179,7 @@ def index():
     # PID -> description, for the active source and the PDONE table.
     codes = dict(h.execute_query("SELECT PID, DESCRIPTION FROM CODES"))
     pdone = h.execute_query(
-        "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE ORDER BY ID DESC"
+        "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE ORDER BY DONE_DATE DESC, ID DESC"
     )
     progress = _progress()
     current_pid = progress.get("current_pid")
