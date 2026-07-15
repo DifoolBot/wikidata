@@ -1124,12 +1124,16 @@ def apply_wikitext(
     rescore: bool = False,
     remove_done: bool = True,
     only_pid: Optional[str] = None,
+    changed_pids: Optional[list[str]] = None,
 ) -> Optional[str]:
     """Apply a precomputed *page_map* to *current_text* (no network).
 
     Returns the rebuilt wikitext, or ``None`` when nothing changed.  Because
     the map is keyed by QID pair, this can safely run against a revision read
     *after* scoring: a row deleted meanwhile is simply skipped.
+
+    Pass a list as *changed_pids* to collect the properties whose sections were
+    actually rewritten, in page order; the edit summary names them.
 
     A section that has no computed scores is left untouched.  This matters when
     a *new* section appears in the fresh revision (the section-adding bot ran
@@ -1154,6 +1158,8 @@ def apply_wikitext(
         if new_lines != sec["lines"]:
             sec["lines"] = new_lines
             changed = True
+            if changed_pids is not None and pid not in changed_pids:
+                changed_pids.append(pid)
 
     if not changed:
         return None
@@ -1185,6 +1191,26 @@ def process_wikitext(
         remove_done=remove_done,
         only_pid=only_pid,
     )
+
+
+# Above this many, naming every property would swamp the edit summary; a full
+# rescore touches every section on the page.
+MAX_SUMMARY_PIDS = 4
+
+
+def _score_summary(changed_pids: list[str], rescore: bool) -> str:
+    """Edit summary naming the sections actually rewritten, e.g.
+    'rescored Score column: [[Property:P244|P244]]'.
+
+    Falls back to a count once too many sections changed to list, which is what
+    a full rescore looks like.
+    """
+    action = "rescored Score column" if rescore else "add/update Score column"
+    if 0 < len(changed_pids) <= MAX_SUMMARY_PIDS:
+        where = ", ".join(f"[[Property:{pid}|{pid}]]" for pid in changed_pids)
+    else:
+        where = f"all sections ({len(changed_pids)})"
+    return f"{action}: {where}"
 
 
 def process_page(
@@ -1225,22 +1251,26 @@ def process_page(
             page.latest_revision_id,
         )
 
+    changed_pids: list[str] = []
     new_text = apply_wikitext(
         page.text,
         page_map,
         rescore=rescore,
         remove_done=remove_done,
         only_pid=only_pid,
+        changed_pids=changed_pids,
     )
     if new_text is None:
         log.info("No changes needed.")
         return
 
+    summary = _score_summary(changed_pids, rescore=rescore)
+
     if dry_run:
         print(new_text)
+        log.info("Would save with summary: %s", summary)
         return
 
-    summary = "add/update Score column" + (" (rescored)" if rescore else "")
     page.text = new_text
     try:
         # minor for the non-destructive daily add-only run; major when rescoring.

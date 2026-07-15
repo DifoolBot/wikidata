@@ -3,7 +3,7 @@
 #
 # Invoke via `bash` so the file's executable bit is irrelevant (it is often
 # lost when committed from Windows).  Pass viaf_score.py's own flags through
-# (--rescore, --keep-done, --dry-run, --limit N).
+# (--rescore, --keep-done, --dry-run, --first N, --skip M).
 #
 # One-off dry-run (print result, do not save):
 #   toolforge jobs run viafscore --image python3.11 --wait \
@@ -16,6 +16,10 @@
 # Weekly recompute (rescore all, remove done rows; major edit):
 #   toolforge jobs run viafscore-weekly --image python3.11 --schedule "17 4 * * 0" \
 #       --command "bash $HOME/wikidata/projects/viaf_score_upd/toolforge_run.sh --rescore"
+#
+# One section only (e.g. rescore just the LoC / P244 section):
+#   toolforge jobs run viafscore-p244 --image python3.11 --wait \
+#       --command "bash $HOME/wikidata/projects/viaf_score_upd/toolforge_run.sh --rescore --pid P244"
 #
 # Assumes: repo cloned at $HOME/wikidata, venv at $HOME/venv, pywikibot config
 # in $HOME/.pywikibot. Override with VENV / PYWIKIBOT_DIR env vars.

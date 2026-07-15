@@ -2,8 +2,10 @@ import os
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
 from enum import Enum, auto
+from functools import cached_property
 
 import pywikibot as pwb
 import requests
@@ -50,6 +52,24 @@ DEFAULT_QLEVER_FILE = str(DATA_DIR / "qlever_viaf_index.txt")
 MAX_LAG_BACKOFF_SECS = 10 * 60
 SLEEP_AFTER_ERROR = 10  # sec
 SLEEP_AFTER_RUNTIMEERROR = 2  # sec
+
+
+@dataclass(frozen=True)
+class BotState:
+    """The bot's place in its pass over the authority sources (the STATE row).
+
+    current_pid     source to process next (None before the first ever run)
+    cooldown_until  no work until this date, set after a full pass completes
+    session_start   when current_pid's qlever file was fetched
+    total_rows      rows that file held when fetched
+    remaining_rows  rows still unprocessed
+    """
+
+    current_pid: str | None = None
+    cooldown_until: date | None = None
+    session_start: date | None = None
+    total_rows: int | None = None
+    remaining_rows: int | None = None
 
 
 class ReportBackend(ABC):
@@ -131,6 +151,28 @@ class ReportBackend(ABC):
     def end_session(self, pid: str) -> None:
         pass
 
+    @abstractmethod
+    def get_state(self) -> BotState:
+        """The single STATE row: where the bot is in its pass over the sources."""
+        pass
+
+    @abstractmethod
+    def save_progress(self, current_pid: str, cooldown_until: date | None) -> None:
+        """Record which source to run next, and any cooldown before restarting."""
+        pass
+
+    @abstractmethod
+    def start_source_session(self, pid: str, total_rows: int) -> None:
+        """Record that a fresh qlever file of *total_rows* rows was just fetched
+        for *pid*: the moment the row count is knowable, since later runs read an
+        already-truncated file."""
+        pass
+
+    @abstractmethod
+    def set_remaining_rows(self, remaining: int) -> None:
+        """Update how many qlever rows are still unprocessed."""
+        pass
+
 
 def _add_viaf(
     item: pwb.ItemPage,
@@ -189,11 +231,57 @@ class ViafBot:
         # since this instant, and cache new not_found results
         self.not_found_cutoff: datetime | None = None
 
+    @cached_property
+    def formatter_url(self) -> str | None:
+        """This authority source's formatter URL (P1630), e.g. 'https://www.idref.fr/$1'.
+
+        Read once per source and used to link local authority ids in the reports.
+        None when the property has no usable formatter URL, in which case the
+        reports fall back to plain unlinked ids.
+        """
+        try:
+            claims = pwb.PropertyPage(REPO, self.auth_src.pid).get().get("claims", {})
+        except Exception as e:
+            pwb.warning(f"No formatter URL for {self.auth_src.pid}: {e}")
+            return None
+        for claim in claims.get(wd.PID_FORMATTER_URL, []):
+            if claim.getRank() == "deprecated":
+                continue
+            target = claim.getTarget()
+            if target:
+                return str(target)
+        return None
+
+    def local_auth_id_link(self, local_auth_id: str) -> str:
+        """Wikitext for a local authority id: an external link when the source has
+        a formatter URL, otherwise the bare id."""
+        formatter = self.formatter_url
+        if not formatter or "$1" not in formatter:
+            return local_auth_id
+        return f"[{formatter.replace('$1', local_auth_id)} {local_auth_id}]"
+
+    def _report_summary(self, what: str) -> str:
+        """Edit summary naming the section just appended, e.g.
+        'add duplicate items for IdRef ID ([[Property:P269|P269]])'.
+
+        Both reports head their section with the source's description, so the
+        page history otherwise cannot say which authority source an edit was
+        for; the linked property makes that clear at a glance.
+        """
+        pid = self.auth_src.pid
+        return f"add {what} for {self.auth_src.description} ([[Property:{pid}|{pid}]])"
+
     def generate_duplicate_locals_report(self):
-        self.write_to_wiki(self.make_duplicate_locals_wikitext())
+        self.write_to_wiki(
+            self.make_duplicate_locals_wikitext(),
+            self._report_summary("duplicate local authority ids"),
+        )
 
     def generate_duplicates_report(self):
-        self.write_to_wiki(self.make_duplicates_wikitext())
+        self.write_to_wiki(
+            self.make_duplicates_wikitext(),
+            self._report_summary("duplicate items"),
+        )
 
     def end_session(self):
         self.report.end_session(self.auth_src.pid)
@@ -491,8 +579,7 @@ class ViafBot:
             qid, local_auth_id_set, viaf_id = row
             links = set()
             for local_auth_id in local_auth_id_set:
-                link = f"[https://d-nb.info/gnd/{local_auth_id} {local_auth_id}]"
-                links.add(link)
+                links.add(self.local_auth_id_link(local_auth_id))
             local_auth_ids = ", ".join(sorted(links))
             body = body + line.format(
                 viaf_id=viaf_id,
@@ -514,12 +601,12 @@ class ViafBot:
         with open(WIKI_FILE, "w", encoding="utf-8") as outfile:
             outfile.write(wikitext)
 
-    def write_to_wiki(self, wikitext) -> None:
+    def write_to_wiki(self, wikitext, summary: str) -> None:
         if not wikitext:
             return
         page = pwb.Page(SITE, PAGE_TITLE)
         page.text = page.text + "\n" + wikitext
-        page.save(summary="upd", minor=False)
+        page.save(summary=summary, minor=False)
 
     def iterate(self):
         index = 1_300_000
@@ -663,6 +750,9 @@ class ViafBot:
             if count == 0:
                 pwb.warning("No qlever rows to process.")
                 return SessionOutcome.COMPLETED
+            # Only knowable here: later runs read a file already truncated to the
+            # rows still to do, so this is the one chance to record the total.
+            self.report.start_source_session(self.auth_src.pid, count)
         else:
             pwb.output(f"Using existing qlever file: {output_file}")
 
@@ -716,8 +806,12 @@ class ViafBot:
                 pwb.output(
                     f"Processed {processed}/{total_lines} valid items ({pct:.1f}%), malformed lines skipped: {malformed}"
                 )
+                # Keep the status page's progress live during a long run, not just
+                # at the stops below. One UPDATE per 100 rows is negligible.
+                self.report.set_remaining_rows(total_lines - processed)
 
         if outcome != SessionOutcome.COMPLETED:
+            self.report.set_remaining_rows(len(remaining_lines))
             with open(output_file, "w", encoding="utf-8") as fh:
                 fh.write(header + "\n")
                 fh.writelines(remaining_lines)
@@ -726,6 +820,7 @@ class ViafBot:
             )
             return outcome
 
+        self.report.set_remaining_rows(0)
         try:
             os.remove(output_file)
             pwb.output(f"Removed temporary qlever file {output_file}")

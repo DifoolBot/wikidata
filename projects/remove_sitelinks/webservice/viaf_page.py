@@ -5,8 +5,9 @@ Toolforge - same pattern as app.py) and reads the VIAF database. VIAF uses two
 config files, one per backend (data/viaf.json vs data/viaf_mariadb.json).
 """
 
-import json
+import math
 import os
+from datetime import date
 from pathlib import Path
 
 from flask import Blueprint, render_template_string
@@ -14,7 +15,6 @@ from flask import Blueprint, render_template_string
 # viaf_page.py -> webservice/ -> remove_sitelinks/ -> projects/ -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
 VIAF_DATA = REPO_ROOT / "projects" / "viaf" / "data"
-PROGRESS_FILE = VIAF_DATA / "viaf_progress.json"
 DISPLAY_LIMIT = 500
 
 viaf_bp = Blueprint("viaf", __name__)
@@ -27,6 +27,8 @@ STYLE = """
   tr:nth-child(even) { background: #f6f6f6; } .num { text-align: right; font-variant-numeric: tabular-nums; }
   .big { font-size: 1.8rem; font-weight: 600; } .muted { color: #888; font-size: .85rem; }
   code { color: #666; } nav a { margin-right: 1rem; }
+  .bar { background: #eee; border-radius: 3px; height: 8px; overflow: hidden; margin: .3rem 0; }
+  .bar span { background: #3584e4; display: block; height: 100%; }
 </style>
 <nav class="muted"><a href="/">remove_sitelinks</a><a href="/viaf">viaf</a></nav>
 """
@@ -89,6 +91,15 @@ INDEX_TEMPLATE = STYLE + """
 <h2>Current session</h2>
 <p><span class="big">{{ added | comma }}</span> added &nbsp;
    ({{ checked | comma }} checked, {{ errors | comma }} error(s) of which {{ not_found | comma }} not-found)</p>
+{% if total_rows %}
+<p>{{ done_rows | comma }} of {{ total_rows | comma }} rows done{% if pct is not none %} ({{ '%.1f' % pct }}%){% endif %},
+   {{ remaining_rows | comma }} to go.</p>
+<div class="bar"><span style="width: {{ '%.1f' % (pct or 0) }}%"></span></div>
+<p class="muted">
+  {%- if session_start %}Started {{ session_start }}{% endif -%}
+  {%- if eta_days is not none %} &middot; ~{{ eta_days }} more day(s) at the current rate{% endif -%}
+</p>
+{% endif %}
 
 <h2>Reports</h2>
 <table>
@@ -159,13 +170,46 @@ CONFIG_TEMPLATE = STYLE + """
 """
 
 
-def _progress() -> dict:
-    if not PROGRESS_FILE.exists():
+def _state(handler) -> dict:
+    """The bot's STATE row: which source is running, and how far along.
+
+    Empty when the bot has never run. Read from the database (not a file) so this
+    page needs no access to the bot's runtime directory.
+    """
+    rows = handler.execute_query(
+        "SELECT CURRENT_PID, COOLDOWN_UNTIL, SESSION_START, TOTAL_ROWS, "
+        "REMAINING_ROWS FROM STATE WHERE ID = 1"
+    )
+    if not rows:
         return {}
-    try:
-        return json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    pid, cooldown_until, session_start, total, remaining = rows[0]
+    return {
+        "current_pid": pid.strip() if pid else None,
+        "cooldown_until": _date(cooldown_until),
+        "session_start": _date(session_start),
+        "total_rows": total,
+        "remaining_rows": remaining,
+    }
+
+
+def _eta_days(state: dict) -> int | None:
+    """Whole days until the current source finishes, from its rate so far.
+
+    None while there is nothing to extrapolate from: no counts, nothing done
+    yet, or the session started today (no elapsed time to measure a rate over).
+    """
+    total, remaining = state.get("total_rows"), state.get("remaining_rows")
+    start = state.get("session_start")
+    if not total or remaining is None or not start:
+        return None
+    done = total - remaining
+    if done <= 0 or remaining <= 0:
+        return None
+    elapsed = (date.today() - date.fromisoformat(start)).days
+    if elapsed < 1:
+        return None
+    per_day = done / elapsed
+    return math.ceil(remaining / per_day) if per_day else None
 
 
 @viaf_bp.route("/viaf")
@@ -181,8 +225,10 @@ def index():
     pdone = h.execute_query(
         "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE ORDER BY DONE_DATE DESC, ID DESC"
     )
-    progress = _progress()
-    current_pid = progress.get("current_pid")
+    state = _state(h)
+    current_pid = state.get("current_pid")
+    total, remaining = state.get("total_rows"), state.get("remaining_rows")
+    done_rows = (total - remaining) if total and remaining is not None else None
     return render_template_string(
         INDEX_TEMPLATE,
         added=added,
@@ -198,7 +244,13 @@ def index():
         ],
         current_pid=current_pid,
         current_desc=(codes.get(current_pid) or "") if current_pid else "",
-        cooldown_until=progress.get("cooldown_until"),
+        cooldown_until=state.get("cooldown_until"),
+        session_start=state.get("session_start"),
+        total_rows=total,
+        remaining_rows=remaining,
+        done_rows=done_rows,
+        pct=(done_rows / total * 100) if total and done_rows is not None else None,
+        eta_days=_eta_days(state),
     )
 
 

@@ -1,11 +1,18 @@
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import viaf.viaf_bot
 from viaf.paths import DATA_DIR
 
 from shared_lib.database_handler_firebird import FirebirdDatabaseHandler
+
+
+def _as_date(value) -> date | None:
+    """DATE columns come back as date (or datetime on some drivers)."""
+    if isinstance(value, datetime):
+        return value.date()
+    return value
 
 
 class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend):
@@ -106,3 +113,38 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
     def end_session(self, pid: str) -> None:
         sql = "EXECUTE PROCEDURE end_session(?)"
         self.execute_procedure(sql, (pid,))
+
+    def get_state(self) -> viaf.viaf_bot.BotState:
+        rows = self.execute_query(
+            "SELECT CURRENT_PID, COOLDOWN_UNTIL, SESSION_START, TOTAL_ROWS, "
+            "REMAINING_ROWS FROM STATE WHERE ID = 1"
+        )
+        if not rows:
+            return viaf.viaf_bot.BotState()
+        current_pid, cooldown_until, session_start, total_rows, remaining_rows = rows[0]
+        return viaf.viaf_bot.BotState(
+            current_pid=current_pid.strip() if current_pid else None,
+            cooldown_until=_as_date(cooldown_until),
+            session_start=_as_date(session_start),
+            total_rows=total_rows,
+            remaining_rows=remaining_rows,
+        )
+
+    def save_progress(self, current_pid: str, cooldown_until: date | None) -> None:
+        self._upsert_state(
+            "CURRENT_PID = ?, COOLDOWN_UNTIL = ?", (current_pid, cooldown_until)
+        )
+
+    def start_source_session(self, pid: str, total_rows: int) -> None:
+        self._upsert_state(
+            "CURRENT_PID = ?, SESSION_START = ?, TOTAL_ROWS = ?, REMAINING_ROWS = ?",
+            (pid, date.today(), total_rows, total_rows),
+        )
+
+    def set_remaining_rows(self, remaining: int) -> None:
+        self._upsert_state("REMAINING_ROWS = ?", (remaining,))
+
+    def _upsert_state(self, assignments: str, params: tuple) -> None:
+        """Update the single STATE row, creating it if this is a fresh database."""
+        self.execute_procedure("UPDATE OR INSERT INTO STATE (ID) VALUES (1) MATCHING (ID)")
+        self.execute_procedure(f"UPDATE STATE SET {assignments} WHERE ID = 1", params)
