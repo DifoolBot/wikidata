@@ -185,3 +185,6 @@ projects/viaf/data/
 /sandbox/
 # viaf_score_upd: call_bot.py FILE-mode output (sample_in.txt is its input)
 projects/viaf_score_upd/sample_out.txt
+
+# precision_fixer: generated wiki preview (items.txt is the input)
+projects/precision_fixer/precision_check_wiki.txt
