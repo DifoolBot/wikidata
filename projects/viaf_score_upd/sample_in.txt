@@ -1,0 +1,101 @@
+=={{P|P244}}==
+
+Checked: 5924; Added: 3616; Not found: 1980
+{| class="wikitable sortable" style="vertical-align:bottom;"
+|-
+! VIAF
+! QID on the item
+! ID from cluster
+! 2nd QID
+! class="unsortable" | Compare
+|-
+| https://viaf.org/viaf/93086533
+| {{Q|Q136689800}}
+| LC|no97061405
+| {{Q|Q1277286}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136689800+Q1277286&language=en compare]
+|-
+| https://viaf.org/viaf/274146094242500331665
+| {{Q|Q136713972}}
+| LC|n97852523
+| {{Q|Q60640}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136713972+Q60640&language=en compare]
+|-
+| https://viaf.org/viaf/49406530
+| {{Q|Q136714029}}
+| LC|no2018102573
+| {{Q|Q713620}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136714029+Q713620&language=en compare]
+|-
+| https://viaf.org/viaf/311066732
+| {{Q|Q136719450}}
+| LC|no98081658
+| {{Q|Q55674361}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136719450+Q55674361&language=en compare]
+|-
+| https://viaf.org/viaf/56998002
+| {{Q|Q136722135}}
+| LC|n99280878
+| {{Q|Q17322344}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136722135+Q17322344&language=en compare]
+|-
+| https://viaf.org/viaf/121367031
+| {{Q|Q136734338}}
+| LC|n2006216602
+| {{Q|Q5621048}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136734338+Q5621048&language=en compare]
+|-
+| https://viaf.org/viaf/49790669
+| {{Q|Q136734675}}
+| LC|n79060451
+| {{Q|Q126831}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136734675+Q126831&language=en compare]
+|-
+| https://viaf.org/viaf/47522231
+| {{Q|Q136734759}}
+| LC|n2014074143
+| {{Q|Q90432}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136734759+Q90432&language=en compare]
+|-
+| https://viaf.org/viaf/161235963
+| {{Q|Q136745390}}
+| LC|no2017132552
+| {{Q|Q1376420}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136745390+Q1376420&language=en compare]
+|-
+| https://viaf.org/viaf/1354153411779441700001
+| {{Q|Q136750889}}
+| LC|n80103598
+| {{Q|Q709999}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136750889+Q709999&language=en compare]
+|-
+| https://viaf.org/viaf/25146332807318731087
+| {{Q|Q136766653}}
+| LC|n82248253
+| {{Q|Q1611853}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136766653+Q1611853&language=en compare]
+|-
+| https://viaf.org/viaf/224441193
+| {{Q|Q136769262}}
+| LC|n82109571
+| {{Q|Q1270855}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136769262+Q1270855&language=en compare]
+|-
+| https://viaf.org/viaf/86538806
+| {{Q|Q136772373}}
+| LC|n95110189
+| {{Q|Q3913010}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136772373+Q3913010&language=en compare]
+|-
+| https://viaf.org/viaf/24318446
+| {{Q|Q136772972}}
+| LC|no2004090445
+| {{Q|Q269572}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136772972+Q269572&language=en compare]
+|-
+| https://viaf.org/viaf/14576830
+| {{Q|Q136773373}}
+| LC|no2008050900
+| {{Q|Q6084777}}
+| [https://dicare.toolforge.org/wikidata-diff/?qids=Q136773373+Q6084777&language=en compare]
+|}

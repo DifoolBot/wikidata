@@ -178,3 +178,10 @@ projects/remove_sitelinks/data/
 
 # viaf runtime state (db config, progress, qlever work files, wiki output)
 projects/viaf/data/
+
+# One-off scripts and their data: finished investigations kept for reference,
+# out of the project folders and out of source control. Nothing here is
+# deployed, so promote anything that turns out to be load-bearing.
+/sandbox/
+# viaf_score_upd: call_bot.py FILE-mode output (sample_in.txt is its input)
+projects/viaf_score_upd/sample_out.txt
