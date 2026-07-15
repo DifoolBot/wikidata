@@ -19,6 +19,11 @@ import shared_lib.constants as wd
 from shared_lib.wikidata_site import REPO, SITE
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
+# An "unknown value" (somevalue) claim has no id behind it. Wikidata's RDF export
+# skolemises the blank node into an IRI under this prefix, so it arrives from
+# qlever/WDQS looking like an ordinary value. Note it is a real IRI, not a blank
+# node: isBlank() does not match it, only the prefix does.
+WIKIDATA_GENID_PREFIX = "http://www.wikidata.org/.well-known/genid/"
 
 
 class SessionOutcome(Enum):
@@ -314,6 +319,15 @@ class ViafBot:
                 record.qid, self.auth_src.pid, self.not_found_cutoff
             ):
                 return
+
+            # Bail out before the VIAF lookup: there is no id to search for, and
+            # compute_viaf_search_key would happily normalise the genid IRI into a
+            # plausible-looking key, spending one of the ~1000 daily VIAF calls on
+            # a certain miss.
+            if record.wikidata_external_id.startswith(WIKIDATA_GENID_PREFIX):
+                raise RuntimeError(
+                    f"Skipping, because the {self.auth_src.pid} is an unknown value"
+                )
 
             viaf_code = self.auth_src.viaf_code
             self.auth_src.compute_viaf_search_key(record)
