@@ -2,7 +2,8 @@ from collections.abc import Iterator
 from datetime import date, datetime
 from pathlib import Path
 
-import viaf.viaf_bot
+# Not viaf_bot: that would pull in pywikibot and log in on import.
+import viaf.report_backend
 from viaf.paths import DATA_DIR
 
 from shared_lib.database_handler_firebird import FirebirdDatabaseHandler
@@ -15,7 +16,7 @@ def _as_date(value) -> date | None:
     return value
 
 
-class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend):
+class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.report_backend.ReportBackend):
     def __init__(self) -> None:
         config_filename = DATA_DIR / "viaf.json"
         create_script = Path("schemas/viaf.sql")
@@ -114,13 +115,13 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
         sql = "EXECUTE PROCEDURE end_session(?)"
         self.execute_procedure(sql, (pid,))
 
-    def get_state(self) -> viaf.viaf_bot.BotState:
+    def get_state(self) -> viaf.report_backend.BotState:
         rows = self.execute_query(
             "SELECT CURRENT_PID, COOLDOWN_UNTIL, SESSION_START, TOTAL_ROWS, "
             "REMAINING_ROWS, DESCRIPTIONS_SYNCED FROM STATE WHERE ID = 1"
         )
         if not rows:
-            return viaf.viaf_bot.BotState()
+            return viaf.report_backend.BotState()
         (
             current_pid,
             cooldown_until,
@@ -129,7 +130,7 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.viaf_bot.ReportBackend
             remaining_rows,
             descriptions_synced,
         ) = rows[0]
-        return viaf.viaf_bot.BotState(
+        return viaf.report_backend.BotState(
             current_pid=current_pid.strip() if current_pid else None,
             cooldown_until=_as_date(cooldown_until),
             session_start=_as_date(session_start),

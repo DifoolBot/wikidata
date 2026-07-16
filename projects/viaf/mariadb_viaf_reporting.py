@@ -3,7 +3,8 @@ from datetime import date, datetime
 from pathlib import Path
 
 from viaf.paths import DATA_DIR
-from viaf.viaf_bot import BotState, ReportBackend
+# Not from viaf_bot: that would pull in pywikibot and log in on import.
+from viaf.report_backend import BotState, ReportBackend
 
 from shared_lib.database_handler_mariadb import MariaDbDatabaseHandler
 
