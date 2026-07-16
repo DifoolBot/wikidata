@@ -10,7 +10,7 @@ import os
 from datetime import date
 from pathlib import Path
 
-from flask import Blueprint, render_template_string
+from flask import Blueprint, render_template_string, request
 
 # viaf_page.py -> webservice/ -> remove_sitelinks/ -> projects/ -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -146,10 +146,11 @@ INDEX_TEMPLATE = STYLE + """
 <table>
   <tr><td><a href="{{ url_for('viaf.duplicates') }}">Duplicate items</a></td><td class="num">{{ duplicates | comma }}</td></tr>
   <tr><td><a href="{{ url_for('viaf.duplicate_locals') }}">Duplicate local authority ids</a></td><td class="num">{{ dup_locals | comma }}</td></tr>
-  <tr><td><a href="{{ url_for('viaf.errors') }}">Errors</a></td><td class="num">{{ errors | comma }}</td></tr>
+  <tr><td><a href="{{ url_for('viaf.errors', kind='not_found') }}">Not found</a></td><td class="num">{{ not_found | comma }}</td></tr>
+  <tr><td><a href="{{ url_for('viaf.errors', kind='other') }}">Other errors</a></td><td class="num">{{ other_errors | comma }}</td></tr>
   <tr><td>not-found cache</td><td class="num">{{ not_found_cache | comma }}</td></tr>
 </table>
-<p><a href="{{ url_for('viaf.config_page') }}">Processing order &rarr;</a></p>
+<p><a href="{{ url_for('viaf.config_page') }}">Settings &amp; processing order &rarr;</a></p>
 
 <h2>Recent sessions</h2>
 """ + SESSIONS_TABLE + """
@@ -169,10 +170,13 @@ LIST_TEMPLATE = STYLE + """
 <h1>{{ title }}</h1>
 <p><b>{{ total | comma }}</b> row(s){% if total > shown %}, showing first {{ shown | comma }}{% endif %}.</p>
 <table>
-  <tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr>
+  <tr>{% for c in columns %}<th>{{ c.label }}</th>{% endfor %}</tr>
   {% for row in rows %}
   <tr>{% for cell in row %}<td>
-    {%- if cell is string and cell.startswith('Q') and cell[1:].isdigit() -%}
+    {%- set col = columns[loop.index0] -%}
+    {%- if cell and col.url -%}
+      <a href="{{ col.url }}{{ cell }}" target="_blank" rel="noopener">{{ cell }}</a>
+    {%- elif cell is string and cell.startswith('Q') and cell[1:].isdigit() -%}
       <a href="https://www.wikidata.org/wiki/{{ cell }}" target="_blank" rel="noopener">{{ cell }}</a>
     {%- else -%}{{ cell }}{%- endif -%}
   </td>{% endfor %}</tr>
@@ -239,6 +243,25 @@ def _state(handler) -> dict:
     }
 
 
+VIAF_URL = "https://viaf.org/viaf/"
+
+# VIAF not knowing an item is routine and is most of the ERRORS table; anything
+# else is worth reading. The bot writes "status not_found" for the former (see
+# ViafBot.process_record), so the message is what separates them.
+NOT_FOUND_CLAUSE = "MESSAGE LIKE '%status not_found%'"
+
+
+def _col(label: str, url: str | None = None) -> dict:
+    """A column of a list table.
+
+    *url* is a prefix the cell's value is appended to. Without it the cell is
+    plain text, unless it looks like a QID. Linking has to be declared per
+    column rather than sniffed from the value: a VIAF id and an IdRef id are
+    both bare numbers, so guessing would point local authority ids at viaf.org.
+    """
+    return {"label": label, "url": url}
+
+
 def _pie(slices: list[tuple[str, int, str]]):
     """A CSS conic-gradient plus its legend, for a small pie chart.
 
@@ -292,9 +315,10 @@ def index():
     h = _handler()
     added = _one(h, "SELECT COUNT(*) FROM ADDED")
     errors = _one(h, "SELECT COUNT(*) FROM ERRORS")
-    not_found = _one(
-        h, "SELECT COUNT(*) FROM ERRORS WHERE MESSAGE LIKE '%status not_found%'"
-    )
+    # Same clause the /viaf/errors filter uses, so a row's count and the page it
+    # links to cannot drift apart.
+    not_found = _one(h, f"SELECT COUNT(*) FROM ERRORS WHERE {NOT_FOUND_CLAUSE}")
+    other_errors = errors - not_found
     # PID -> description, for the active source and the PDONE table.
     codes = dict(h.execute_query("SELECT PID, DESCRIPTION FROM CODES"))
     pdone = h.execute_query(
@@ -310,7 +334,7 @@ def index():
         [
             ("added", added, "#2ec27e"),
             ("not found", not_found, "#f5c211"),
-            ("other errors", errors - not_found, "#e01b24"),
+            ("other errors", other_errors, "#e01b24"),
         ]
     )
     return render_template_string(
@@ -318,6 +342,7 @@ def index():
         added=added,
         errors=errors,
         not_found=not_found,
+        other_errors=other_errors,
         checked=added + errors,
         duplicates=_one(h, "SELECT COUNT(*) FROM DUPLICATES"),
         dup_locals=_one(h, "SELECT COUNT(*) FROM DUPLICATE_LOCAL_AUTH_IDS"),
@@ -342,8 +367,12 @@ def index():
 def sessions():
     h = _handler()
     codes = dict(h.execute_query("SELECT PID, DESCRIPTION FROM CODES"))
+    # Newest first. ID is the tie-break, not the sort: the migration from
+    # Firebird carried the old surrogate ids over, so they need not run in
+    # date order.
     pdone = h.execute_query(
-        "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE ORDER BY ID DESC"
+        "SELECT PID, CHECKED, ADDED, NOT_FOUND, DONE_DATE FROM PDONE "
+        "ORDER BY DONE_DATE DESC, ID DESC"
     )
     return render_template_string(
         SESSIONS_TEMPLATE,
@@ -362,7 +391,12 @@ def duplicates():
     return render_template_string(
         LIST_TEMPLATE,
         title="Duplicate items",
-        columns=["Item", "Duplicate of", "Local auth id", "VIAF id"],
+        columns=[
+            _col("Item"),
+            _col("Duplicate of"),
+            _col("Local auth id"),
+            _col("VIAF id", VIAF_URL),
+        ],
         total=len(rows),
         shown=min(len(rows), DISPLAY_LIMIT),
         rows=rows[:DISPLAY_LIMIT],
@@ -380,7 +414,7 @@ def duplicate_locals():
     return render_template_string(
         LIST_TEMPLATE,
         title="Duplicate local authority ids",
-        columns=["Item", "Local auth id", "VIAF id"],
+        columns=[_col("Item"), _col("Local auth id"), _col("VIAF id", VIAF_URL)],
         total=len(rows),
         shown=min(len(rows), DISPLAY_LIMIT),
         rows=rows[:DISPLAY_LIMIT],
@@ -390,13 +424,23 @@ def duplicate_locals():
 @viaf_bp.route("/viaf/errors")
 def errors():
     h = _handler()
+    # ?kind=not_found / ?kind=other split the table the same way the pie does;
+    # without it, the page lists every error as before.
+    kind = request.args.get("kind")
+    if kind == "not_found":
+        where, title = f"WHERE {NOT_FOUND_CLAUSE}", "Not found"
+    elif kind == "other":
+        where, title = f"WHERE NOT ({NOT_FOUND_CLAUSE})", "Other errors"
+    else:
+        where, title = "", "Errors"
     rows = h.execute_query(
-        "SELECT QID, MESSAGE, ERROR_DATE FROM ERRORS ORDER BY ERROR_DATE DESC, QID"
+        f"SELECT QID, MESSAGE, ERROR_DATE FROM ERRORS {where} "
+        "ORDER BY ERROR_DATE DESC, QID"
     )
     return render_template_string(
         LIST_TEMPLATE,
-        title="Errors",
-        columns=["Item", "Message", "When"],
+        title=title,
+        columns=[_col("Item"), _col("Message"), _col("When")],
         total=len(rows),
         shown=min(len(rows), DISPLAY_LIMIT),
         rows=rows[:DISPLAY_LIMIT],
