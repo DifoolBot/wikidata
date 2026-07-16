@@ -210,20 +210,24 @@ class ViafBot:
         return outcome
 
     def change_wikidata(self, record: AuthorityRecord) -> None:
-        if not record.qid.startswith("Q"):  # ignore property pages and lexeme pages
-            return
+        # These three used to return silently, so the row was consumed and left no
+        # trace in ADDED or ERRORS at all. They are reported like every other
+        # skip below: a redirect in particular is worth seeing, since it means
+        # someone merged the item (often after reading these very reports).
+        if not record.qid.startswith("Q"):
+            raise RuntimeError("Skipping, because it is not an item")
 
         item = pwb.ItemPage(REPO, record.qid)
 
         try:
             if not item.exists():
-                return
+                raise RuntimeError("Skipping, because the item does not exist")
         except pwb.exceptions.MaxlagTimeoutError as ex:
             time.sleep(MAX_LAG_BACKOFF_SECS)
             raise RuntimeError("max lag timeout. sleeping. failed to add claim")
 
         if item.isRedirectPage():
-            return
+            raise RuntimeError("Skipping, because the item is a redirect")
 
         existing_claims = item.get().get("claims")
 
