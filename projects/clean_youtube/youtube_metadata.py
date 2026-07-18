@@ -659,27 +659,30 @@ def process_item(qid, tracker: ChannelHandleTracker, edit_group: str, test=True)
                 f"Video {video_id}: neither handle nor channel_id available"
             )
 
+        # Many videos have no defaultAudioLanguage; that only costs the P407
+        # qualifier (and titles the honest 'und' language), never the item.
+        # An unsupported code still fails loudly: that is a gap in the map.
         raw_lang = meta.get("audio_language")
-        if not raw_lang:
-            raise ValueError(
-                f"Video {video_id}: missing audio language in API response"
-            )
-        lang_code = raw_lang.split("-")[0]
-        if lang_code == "iw":
-            lang_code = "he"  # YouTube uses 'iw' for Hebrew, but Wikidata uses 'he'
-        lang_qid = language_code_to_qid(lang_code)  # raises if unsupported
+        lang_code = None
+        lang_qid = None
+        if raw_lang:
+            lang_code = raw_lang.split("-")[0]
+            if lang_code == "iw":
+                lang_code = "he"  # YouTube uses 'iw' for Hebrew, Wikidata 'he'
+            lang_qid = language_code_to_qid(lang_code)  # raises if unsupported
 
         publisher_qid = fetch_publisher_qid(channel_id, handle, tracker)
 
         pywikibot.output(
-            f"  Video {video_id}: '{meta['title']}' / handle: {handle} / lang: {lang_code}"
+            f"  Video {video_id}: '{meta['title']}' / handle: {handle} "
+            f"/ lang: {lang_code or 'unknown'}"
         )
 
         for prop_id, claim in claims_list:
 
             # P1476 title
             if not qualifier_already_exists(claim, wd.PID_TITLE):
-                title_lang = lang_code or "en"
+                title_lang = lang_code or "und"
                 page.add_qualifier(
                     prop_id,
                     claim,
