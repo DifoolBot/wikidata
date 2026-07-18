@@ -1,7 +1,9 @@
 -- MariaDB schema for the remove_sitelinks tracker (Toolforge / ToolsDB).
--- Load with:  sql tools <db_name> < schemas/remove_sitelinks_mariadb.sql
--- (the database itself must already exist, prefixed with your ToolsDB user, e.g.
---  CREATE DATABASE sNNNNN__remove_sitelinks;)
+-- Load with (the database itself must already exist, prefixed with your
+-- ToolsDB user, e.g. CREATE DATABASE sNNNNN__remove_sitelinks; via `sql tools`):
+--   mysql --defaults-file=$HOME/replica.my.cnf -h tools.db.svc.wikimedia.cloud \
+--     sNNNNN__remove_sitelinks < schemas/remove_sitelinks_mariadb.sql
+-- (`sql tools <db_name>` does NOT work: extra args are executed as a query.)
 
 CREATE TABLE IF NOT EXISTS qids (
   qid         VARCHAR(20)  NOT NULL,

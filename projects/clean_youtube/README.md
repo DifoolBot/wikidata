@@ -74,10 +74,13 @@ become <toolname>
 #    WD_DB_PASSWORD=<password from ~/replica.my.cnf>
 git clone <repo-url> $HOME/wikidata
 
-# 2. Create the ToolsDB database and load the schema (bastion, no venv needed)
+# 2. Create the ToolsDB database and load the schema (bastion, no venv needed).
+#    NB: `sql tools` treats extra arguments as a query, not a database name, so
+#    load the schema with plain mysql instead.
 sql tools
 > CREATE DATABASE <user>__youtube;
-sql tools <user>__youtube < $HOME/wikidata/schemas/youtube_mariadb.sql
+mysql --defaults-file=$HOME/replica.my.cnf -h tools.db.svc.wikimedia.cloud \
+  <user>__youtube < $HOME/wikidata/schemas/youtube_mariadb.sql
 
 # 3. Write projects/clean_youtube/channel_handles.json by hand (the interactive
 #    create_config prompt cannot run inside a job):
@@ -87,9 +90,12 @@ sql tools <user>__youtube < $HOME/wikidata/schemas/youtube_mariadb.sql
 toolforge jobs run venv --image python3.11 --wait \
   --command "python3 -m venv ~/venv && ~/venv/bin/pip install -r ~/wikidata/projects/clean_youtube/requirements.txt"
 
-# 5. Import the local data (dump scp'd to the project dir first)
-toolforge jobs run ytimport --image python3.11 --wait \
-  --command "WD_DB_BACKEND=mariadb ~/venv/bin/python ~/wikidata/projects/clean_youtube/migrate_youtube_to_mariadb.py --import"
+# 5. Import the local data (dump scp'd to data/ in the project dir first).
+#    Quick one-off, so running it on the bastion is fine; the venv works there
+#    when the bastion's Python matches the job image (both 3.11 currently):
+~/venv/bin/python ~/wikidata/projects/clean_youtube/migrate_youtube_to_mariadb.py --import
+#    If the venv refuses to run on the bastion, get a shell inside the runtime
+#    image instead:  webservice python3.11 shell  (then the same command)
 
 # 6. pywikibot config in $HOME/.pywikibot/ (same OAuth setup as remove_import_ref),
 #    then dry-run a few items as a job and inspect ~/youtube.out

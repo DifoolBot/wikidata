@@ -1,7 +1,9 @@
 -- MariaDB schema for the clean_youtube tracker (Toolforge / ToolsDB).
--- Load with:  sql tools <db_name> < schemas/youtube_mariadb.sql
--- (the database itself must already exist, prefixed with your ToolsDB user, e.g.
---  CREATE DATABASE sNNNNN__youtube;)
+-- Load with (the database itself must already exist, prefixed with your
+-- ToolsDB user, e.g. CREATE DATABASE sNNNNN__youtube; via `sql tools`):
+--   mysql --defaults-file=$HOME/replica.my.cnf -h tools.db.svc.wikimedia.cloud \
+--     sNNNNN__youtube < schemas/youtube_mariadb.sql
+-- (`sql tools <db_name>` does NOT work: extra args are executed as a query.)
 --
 -- Firebird counterpart (local dev): schemas/youtube.sql
 
