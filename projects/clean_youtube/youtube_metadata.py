@@ -1,31 +1,23 @@
+import argparse
+import os
+import random
 import re
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 import pywikibot
 import requests
-from pywikibot.data import sparql
-
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 import shared_lib.date_value as date_value
+from pywikibot.data import sparql
 from shared_lib.config import SCHEMAS_DIR, get_env
-from shared_lib.database_handler import DatabaseHandler
 from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
 
-# URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
-# the search.
-QLEVER_URL_PROPERTIES = [
-    "P854",
-    "P856",
-    "P953",
-    "P973",
-    "P1325",
-    "P2699",
-    "P2888",
-    "P8214",
-]
+# URL statement properties scanned for YouTube links, both on the items and in
+# the qlever query of fetch_and_fill_items; edit/expand to widen the search.
+URL_PROPERTIES = ["P854", "P856", "P953", "P973", "P1325", "P2699", "P2888", "P8214"]
 # only items whose URL value contains one of these substrings are collected
 QLEVER_DOMAIN_SUBSTRINGS = ["youtube.com", "youtu.be"]
 
@@ -33,7 +25,26 @@ ITEMS_FILE = Path(__file__).parent / "input" / "items.csv"
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
-edit_group = "fa3ffa532b70"  # "{:x}".format(random.randrange(0, 2**48))
+
+# Backend selection: MariaDB on Toolforge (set WD_DB_BACKEND=mariadb), else the
+# local Firebird database. Only the connection details (channel_handles.json)
+# and the create script differ.
+_use_mariadb = os.environ.get("WD_DB_BACKEND", "").lower() == "mariadb"
+_DB_CREATE_SCRIPT = SCHEMAS_DIR / (
+    "youtube_mariadb.sql" if _use_mariadb else "youtube.sql"
+)
+
+if TYPE_CHECKING:
+    # Give the type checker one concrete base; both backends share this interface.
+    from shared_lib.database_handler_firebird import (
+        FirebirdDatabaseHandler as _DBHandler,
+    )
+elif _use_mariadb:
+    from shared_lib.database_handler_mariadb import MariaDbDatabaseHandler as _DBHandler
+else:
+    from shared_lib.database_handler_firebird import (
+        FirebirdDatabaseHandler as _DBHandler,
+    )
 
 # query used:
 # https://qlever.dev/wikidata/euqcXi
@@ -58,7 +69,7 @@ URL_PROPERTIES = ["P854", "P856", "P953", "P973", "P1325", "P2699", "P2888", "P8
 # ---------------------------------------------------------------------------
 
 
-class ChannelHandleTracker(DatabaseHandler):
+class ChannelHandleTracker(_DBHandler):
     """
     Persists YouTube channelId -> handle lookups so we never call the
     channels.list API twice for the same channel across runs.
@@ -66,8 +77,7 @@ class ChannelHandleTracker(DatabaseHandler):
 
     def __init__(self):
         file_path = Path(__file__).parent / "channel_handles.json"
-        create_script = SCHEMAS_DIR / "channel_handles.sql"
-        super().__init__(file_path, create_script)
+        super().__init__(file_path, _DB_CREATE_SCRIPT)
 
     def get_handle(self, channel_id: str) -> tuple[bool, str | None]:
         """
@@ -85,26 +95,27 @@ class ChannelHandleTracker(DatabaseHandler):
 
     def save_handle(self, channel_id: str, handle: str | None) -> None:
         status = "found" if handle else "not_found"
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO channel_handles (channel_id, handle, status) "
-            "VALUES (?, ?, ?)",
-            (channel_id, handle, status),
+        self.upsert(
+            "channel_handles",
+            {"channel_id": channel_id, "handle": handle, "status": status},
+            ["channel_id"],
         )
 
     def save_error(self, channel_id: str) -> None:
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO channel_handles (channel_id, handle, status) "
-            "VALUES (?, ?, ?)",
-            (channel_id, None, "error"),
+        self.upsert(
+            "channel_handles",
+            {"channel_id": channel_id, "handle": None, "status": "error"},
+            ["channel_id"],
         )
 
     def mark_failed(self, qid: str, error: Exception) -> None:
         e = str(error)
         if len(e) > 255:
             e = e[:252] + "..."
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO qids (qid, status, error_msg) VALUES (?, ?, ?)",
-            (qid, "failed", e),
+        self.upsert(
+            "qids",
+            {"qid": qid, "status": "failed", "error_msg": e, "summary": None},
+            ["qid"],
         )
 
     def get_publisher(self, channel_key: str) -> tuple[bool, str | None]:
@@ -119,10 +130,17 @@ class ChannelHandleTracker(DatabaseHandler):
 
     def save_publisher(self, channel_key: str, qid: str | None) -> None:
         status = "found" if qid else "not_found"
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO channel_publishers (channel_key, publisher_qid, status) "
-            "VALUES (?, ?, ?)",
-            (channel_key, qid, status),
+        self.upsert(
+            "channel_publishers",
+            {"channel_key": channel_key, "publisher_qid": qid, "status": status},
+            ["channel_key"],
+        )
+
+    def save_publisher_error(self, channel_key: str) -> None:
+        self.upsert(
+            "channel_publishers",
+            {"channel_key": channel_key, "publisher_qid": None, "status": "error"},
+            ["channel_key"],
         )
 
     def is_processed(self, qid: str) -> bool:
@@ -130,10 +148,11 @@ class ChannelHandleTracker(DatabaseHandler):
         rows = self.execute_query("SELECT status FROM qids WHERE qid = ?", (qid,))
         return bool(rows)
 
-    def mark_success(self, qid: str, summary: str):
-        self.execute_procedure(
-            "UPDATE OR INSERT INTO qids (qid, status, summary) VALUES (?, ?, ?)",
-            (qid, "success", summary),
+    def mark_success(self, qid: str, summary: str) -> None:
+        self.upsert(
+            "qids",
+            {"qid": qid, "status": "success", "summary": summary, "error_msg": None},
+            ["qid"],
         )
 
 
@@ -284,6 +303,18 @@ def check_youtube_url(url: str) -> str | None:
     return None
 
 
+def check_api_response(response) -> None:
+    """Raise on API errors, quoting the API's message but never the request
+    URL (it contains the API key, which must not end up in logs or the DB)."""
+    if response.ok:
+        return
+    try:
+        message = response.json()["error"]["message"]
+    except Exception:
+        message = "(no error message in response)"
+    raise RuntimeError(f"YouTube API error {response.status_code}: {message}")
+
+
 def fetch_youtube_metadata(video_ids):
     """Fetch snippet+contentDetails for up to 50 video IDs in one call."""
     response = requests.get(
@@ -294,7 +325,11 @@ def fetch_youtube_metadata(video_ids):
             "part": "snippet,contentDetails",
             "maxResults": 50,
         },
+        timeout=30,
     )
+    # A quota/key error must be loud: silently returning {} would make every
+    # video look private/deleted.
+    check_api_response(response)
     data = response.json()
 
     results = {}
@@ -353,7 +388,9 @@ def fetch_channel_handles(
                     "id": ",".join(batch),
                     "part": "snippet",
                 },
+                timeout=30,
             )
+            check_api_response(response)
             data = response.json()
 
             returned_ids = set()
@@ -389,7 +426,7 @@ def fetch_channel_handles(
 # ---------------------------------------------------------------------------
 
 
-def lookup_handle_qid(handle: Optional[str]) -> str | None:
+def lookup_handle_qid(handle: str | None) -> str | None:
     """
     Query Wikidata for an item that has the given YouTube channel ID or handle.
     Returns the QID (e.g. 'Q12345') or None if not found.
@@ -415,7 +452,7 @@ def lookup_handle_qid(handle: Optional[str]) -> str | None:
     return None
 
 
-def lookup_channel_qid(channel_id: Optional[str]) -> str | None:
+def lookup_channel_qid(channel_id: str | None) -> str | None:
     """
     Query Wikidata for an item that has the given YouTube channel ID or handle.
     Returns the QID (e.g. 'Q12345') or None if not found.
@@ -465,7 +502,7 @@ def fetch_publisher_qid(
         if not qid:
             qid = lookup_channel_qid(channel_id)
     except Exception as e:
-        tracker.save_error(channel_key)
+        tracker.save_publisher_error(channel_key)
         raise ValueError(f"SPARQL lookup failed for '{channel_key}': {e}") from e
 
     pywikibot.output(f"  Publisher for '{channel_key}': {qid} (fetched)")
@@ -547,13 +584,15 @@ def is_link_rot(claim) -> bool:
     return False
 
 
-def process_item(qid, tracker: ChannelHandleTracker, test=True):
+def process_item(qid, tracker: ChannelHandleTracker, edit_group: str, test=True):
     if always_ignore(qid):
-        tracker.mark_success(qid, "Skipped (always-ignore list)")
+        if not test:
+            tracker.mark_success(qid, "Skipped (always-ignore list)")
         pywikibot.output(f"  Skipping {qid} (in always-ignore list)")
         return
     if specific_ignore(qid):
-        tracker.mark_success(qid, "Skipped (specific-ignore list)")
+        if not test:
+            tracker.mark_success(qid, "Skipped (specific-ignore list)")
         pywikibot.output(f"  Skipping {qid} (in specific-ignore list)")
         return
     item = pywikibot.ItemPage(repo, qid)
@@ -584,7 +623,8 @@ def process_item(qid, tracker: ChannelHandleTracker, test=True):
             video_to_claims.setdefault(video_id, []).append((prop_id, claim))
 
     if not video_to_claims:
-        tracker.mark_success(qid, "No YouTube URLs found")
+        if not test:
+            tracker.mark_success(qid, "No YouTube URLs found")
         pywikibot.output(f"  Not found any YouTube URLs on {qid}")
         return
 
@@ -624,18 +664,10 @@ def process_item(qid, tracker: ChannelHandleTracker, test=True):
             raise ValueError(
                 f"Video {video_id}: missing audio language in API response"
             )
-        lang_code = raw_lang.split("-")[0] if raw_lang else None
+        lang_code = raw_lang.split("-")[0]
         if lang_code == "iw":
             lang_code = "he"  # YouTube uses 'iw' for Hebrew, but Wikidata uses 'he'
-        if lang_code and not language_code_to_qid(lang_code):
-            raise ValueError(
-                f"Video {video_id}: language '{raw_lang}' not in LANGUAGE_MAP"
-            )
-        lang_qid = language_code_to_qid(lang_code) if lang_code else None
-        if not lang_qid:
-            raise ValueError(
-                f"Video {video_id}: could not resolve language code '{raw_lang}'"
-            )
+        lang_qid = language_code_to_qid(lang_code)  # raises if unsupported
 
         publisher_qid = fetch_publisher_qid(channel_id, handle, tracker)
 
@@ -749,12 +781,11 @@ def process_item(qid, tracker: ChannelHandleTracker, test=True):
     # Single commit for the entire page
     page.summary = "Add YouTube metadata qualifiers"
     if page.apply():
-        summary = page.used_summary or ""
-        if test:
-            summary = f"(DRY RUN) {summary}"
-        tracker.mark_success(qid, summary)
+        if not test:
+            tracker.mark_success(qid, page.used_summary or "")
     else:
-        tracker.mark_success(qid, "Nothing done")
+        if not test:
+            tracker.mark_success(qid, "Nothing done")
 
 
 # ---------------------------------------------------------------------------
@@ -764,7 +795,7 @@ def process_item(qid, tracker: ChannelHandleTracker, test=True):
 
 def check_video_availability(video_id: str) -> str:
     url = f"https://www.youtube.com/watch?v={video_id}"
-    response = requests.get(url, headers={"Accept-Language": "en-US"})
+    response = requests.get(url, headers={"Accept-Language": "en-US"}, timeout=30)
 
     if "Video unavailable" in response.text:
         response = "Video is deleted or removed"
@@ -783,27 +814,68 @@ def load_items_from_file(filename):
 
 def fetch_and_fill_items() -> int:
     """Query qlever for items with a YouTube URL and write their QIDs to ITEMS_FILE."""
-    query = build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
+    query = build_url_items_query(URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
     count = fetch_qids_to_file(query, ITEMS_FILE)
     pywikibot.output(f"Wrote {count} items to {ITEMS_FILE}")
     return count
 
 
-def main():
-    # print(lookup_channel_qid("UCmh7afBz-uWwOSSNTqUBAhg"))
-    # fetch_and_fill_items()
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Add YouTube metadata qualifiers to Wikidata YouTube URLs."
+    )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="really edit Wikidata and record results (default: dry run)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        metavar="N",
+        help="stop after processing N not-yet-done items",
+    )
+    parser.add_argument(
+        "--qid",
+        action="append",
+        default=[],
+        metavar="QID",
+        help="process only this QID, even if already processed (repeatable)",
+    )
+    parser.add_argument(
+        "--fetch-items",
+        action="store_true",
+        help=f"regenerate {ITEMS_FILE.name} from qlever and exit",
+    )
+    args = parser.parse_args()
+
+    if args.fetch_items:
+        fetch_and_fill_items()
+        return
+
+    edit_group = f"{random.randrange(0, 2**48):x}"
+    pywikibot.output(f"editgroup={edit_group} ({'SAVE' if args.save else 'dry run'})")
+
     tracker = ChannelHandleTracker()  # shared across all items
-    # items = ["Q123306649"]
-    items = load_items_from_file(ITEMS_FILE)
+    force = bool(args.qid)
+    items = args.qid or load_items_from_file(ITEMS_FILE)
+    processed = 0
     for qid in items:
+        if args.limit is not None and processed >= args.limit:
+            break
+        if not force and tracker.is_processed(qid):
+            continue
         pywikibot.output(f"Processing {qid}...")
+        processed += 1
         try:
-            if tracker.is_processed(qid):
-                continue
-            process_item(qid, tracker=tracker, test=False)
+            process_item(
+                qid, tracker=tracker, edit_group=edit_group, test=not args.save
+            )
         except Exception as e:
-            tracker.mark_failed(qid, e)
-            print(f"Error processing {qid}: {e}")
+            if args.save:
+                tracker.mark_failed(qid, e)
+            pywikibot.error(f"Error processing {qid}: {e}")
+    pywikibot.output(f"Done: {processed} item(s) processed.")
 
 
 if __name__ == "__main__":
