@@ -1381,6 +1381,14 @@ PREFIX pr: <http://www.wikidata.org/prop/reference/>
             ?item ?some_prop ?statement .
             ?statement prov:wasDerivedFrom ?ref .
             ?ref pr:P143 wd:{wiki_qid} .
+            # Skip references the bot has already ended (end time on the
+            # reference, pr:P582 - not a statement qualifier). An item is still
+            # returned while it has any un-ended matching reference, so
+            # partially-done items are not dropped; only items whose every
+            # matching reference is ended fall out, which is the point - they
+            # have no work left. This mirrors Wikidata's real state rather than
+            # the tracker DB's memory, so it holds across a DB reset/migration.
+            FILTER NOT EXISTS {{ ?ref pr:P582 ?end }}
             OPTIONAL {{
                 ?article schema:about ?item .
                 ?article schema:isPartOf <https://{lang}.wikipedia.org/> .
