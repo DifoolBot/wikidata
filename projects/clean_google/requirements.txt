@@ -1,0 +1,4 @@
+pywikibot==10.3.0     # edits go through pywikibot (shared_lib.change_wikidata)
+requests              # Google KG Search API + qlever + g.co redirect resolution
+python-dotenv         # repo-root .env: GOOGLE_KG_API_KEY
+requests_oauthlib     # OAuth1 login (owner-only consumer); needed for --save

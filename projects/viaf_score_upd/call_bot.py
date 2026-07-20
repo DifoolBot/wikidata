@@ -157,8 +157,8 @@ def test_file() -> None:
 
 
 def main() -> None:
-    viaf.process_page(rescore=True, dry_run=False, remove_done=True, only_pid="P244")
-    viaf.process_page(rescore=True, dry_run=False, remove_done=True, only_pid="P269")
+    viaf.process_page(rescore=True, dry_run=False, remove_done=True, only_pid="P245")
+    # viaf.process_page(rescore=True, dry_run=False, remove_done=True, only_pid="P269")
 
 
 if __name__ == "__main__":

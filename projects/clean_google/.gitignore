@@ -1,0 +1,7 @@
+# Runtime output -- state/logs, never commit (created at run time).
+output/*
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.pyc

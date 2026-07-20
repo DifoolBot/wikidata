@@ -13,6 +13,36 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": true
+        },
+        {
+            "name": "clean_youtube: dry-run one QID",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/projects/clean_youtube/youtube_metadata.py",
+            "args": ["--qid", "${input:qid}"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+        {
+            "name": "clean_youtube: custom args",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/projects/clean_youtube/youtube_metadata.py",
+            "args": "${command:pickArgs}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        }
+    ],
+    "inputs": [
+        {
+            "id": "qid",
+            "type": "promptString",
+            "description": "QID to process (dry run, bypasses the done-check)",
+            "default": "Q98940354"
         }
     ]
 }
