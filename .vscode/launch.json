@@ -26,6 +26,17 @@
             "justMyCode": false
         },
         {
+            "name": "clean_google: fetch-items",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/projects/clean_google/clean_google_links.py",
+            "args": ["--fetch-items"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
+        },
+        {
             "name": "clean_youtube: custom args",
             "type": "debugpy",
             "request": "launch",

@@ -43,8 +43,10 @@ QLEVER_URL_PROPERTIES = [
     "P2888",
     "P8214",
 ]
-# only items whose URL value contains one of these substrings are collected
-QLEVER_DOMAIN_SUBSTRINGS = ["google.com/search"]
+# only items whose URL value contains one of these substrings are collected.
+# "://g.co/" anchors right after the scheme so it matches exactly the g.co
+# host (unresolved short links) without catching domains that end in "g.co".
+QLEVER_DOMAIN_SUBSTRINGS = ["google.com/search", "://g.co/"]
 
 HERE = Path(__file__).parent
 ITEMS_FILE = HERE / "input" / "items.txt"
