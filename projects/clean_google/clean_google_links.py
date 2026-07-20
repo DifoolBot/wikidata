@@ -1,10 +1,14 @@
 """Replace Google search links on Wikidata items with proper identifiers.
 
-Google-search URLs in URL statements are removed; where a Knowledge Graph id
-can be derived (kgmid= parameter, or KG Search API lookup on the search text)
-a P646 Freebase ID / P2671 Google Knowledge Graph ID statement is added
-instead. Search URLs inside references are likewise stripped, with the KG id
-added as a reference value where it fits.
+Google-search URLs carrying an explicit kgmid= parameter are converted: the
+URL statement is removed and a P646 Freebase ID / P2671 Google Knowledge
+Graph ID statement is added instead. Search URLs inside references are
+likewise stripped, with the id added as a reference value where it fits.
+g.co short links are resolved via HTTP redirect first.
+
+Keyword-only search URLs (no kgmid=) are never touched: resolving the search
+text via the KG Search API is a relevance-ranked guess that regularly lands
+on the wrong entity, so those URLs are only logged for manual review.
 
 Dry-run by default. Pass --save to actually edit (requires pywikibot auth).
 
@@ -25,7 +29,6 @@ import requests
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-from shared_lib.config import get_env
 from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
 
 # URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
@@ -48,18 +51,13 @@ ITEMS_FILE = HERE / "input" / "items.txt"
 OUTPUT_DIR = HERE / "output"
 DONE_FILE = OUTPUT_DIR / "done.txt"
 FAILED_FILE = OUTPUT_DIR / "failed.txt"
+REVIEW_FILE = OUTPUT_DIR / "review.txt"
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
 
 # see https://www.wikidata.org/wiki/Talk:Q4937233
 # query: https://qlever.dev/wikidata/c1T82F
-
-# Mandatory (checked in main, so --help/--fetch-items work without it):
-# without the key, search URLs lacking a kgmid= parameter would be removed
-# with no attempt at a Knowledge Graph replacement. The `or ""` narrows the
-# type to str; main() guarantees it is non-empty before any lookup runs.
-API_KEY = get_env("GOOGLE_KG_API_KEY", required=False) or ""
 
 # Global cache
 _url_cache = {}
@@ -80,88 +78,6 @@ def resolve_url(url):
 
     _url_cache[url] = final_url
     return final_url
-
-
-def is_google_search_url(url):
-    """Check if URL is a Google search link."""
-    if "google.com/search" in url:
-        return True
-    return False
-
-
-def extract_google_query(url):
-
-    # Parse the URL
-    parsed_url = urlparse(url)
-
-    # Extract query parameters into a dictionary
-    params = parse_qs(parsed_url.query)
-
-    # Get the 'q' value (list of values, so take the first one)
-    query_value = params.get("q", [None])[0]
-
-    return query_value
-
-
-def get_kg_ids(query: str, api_key: str):
-    """
-    Query the Google Knowledge Graph Search API for a given search text
-    and return Freebase ID (/m/...) and Google KG ID (/g/...).
-
-    Args:
-        query (str): The search text (e.g., "Hazel Crane").
-        api_key (str): Your Google API key.
-
-    Returns:
-        dict: A dictionary with 'freebase_id' and 'google_kg_id' if found.
-    """
-    url = "https://kgsearch.googleapis.com/v1/entities:search"
-    params = {
-        "query": query,
-        "key": api_key,
-        "limit": 1,  # return only the top match
-        "indent": True,
-    }
-
-    response = requests.get(url, params=params, timeout=30)
-    if response.status_code != 200:
-        # A quota/key error must fail the item, not silently return "no id"
-        # (which would remove the search link without a replacement). Never
-        # include the request URL in the message: it embeds the API key.
-        raise RuntimeError(f"KG Search API returned HTTP {response.status_code}")
-    data = response.json()
-
-    result = {"freebase_id": None, "google_kg_id": None}
-
-    if "itemListElement" in data and data["itemListElement"]:
-        entity = data["itemListElement"][0]["result"]
-
-        # Normalize @id values like 'kg:/m/...' or 'kg:/g/...'
-        raw_id = entity.get("@id", "")
-        if raw_id.startswith("kg:"):
-            raw_id = raw_id.replace("kg:", "")
-
-        if raw_id.startswith("/m/"):
-            result["freebase_id"] = raw_id
-        elif raw_id.startswith("/g/"):
-            result["google_kg_id"] = raw_id
-
-        # Sometimes identifiers are listed separately
-        if "identifier" in entity:
-            for ident in entity["identifier"]:
-                if ident.startswith("kg:"):
-                    ident = ident.replace("kg:", "")
-                if ident.startswith("/m/"):
-                    result["freebase_id"] = ident
-                elif ident.startswith("/g/"):
-                    result["google_kg_id"] = ident
-
-    return result
-
-
-# Example usage:
-# ids = get_kg_ids("Hazel Crane", api_key)
-# print(ids)  # {'freebase_id': '/m/04my8sb', 'google_kg_id': '/g/11b6c4z0w5'}
 
 
 def _classify_google_url(url):
@@ -189,27 +105,10 @@ def _classify_google_url(url):
     if path.startswith("/search"):
         result["is_search"] = True
 
-    # Check for Knowledge Graph (kgmid param)
-    if "kgmid" not in query_params:
-        q = extract_google_query(url)
-        # Knowledge Graph lookup by search text needs a Google API key
-        if q:
-            ids = get_kg_ids(q, api_key=API_KEY)
-            if ids["google_kg_id"]:
-                result["is_knowledge_graph"] = True
-                result["id_value"] = ids["google_kg_id"]
-                result["property_id"] = wd.PID_GOOGLE_KNOWLEDGE_GRAPH_ID
-                result["url"] = url
-
-                return result
-            elif ids["freebase_id"]:
-                result["is_knowledge_graph"] = True
-                result["id_value"] = ids["freebase_id"]
-                result["property_id"] = wd.PID_FREEBASE_ID
-                result["url"] = url
-
-                return result
-
+    # Only an explicit kgmid= parameter identifies the entity reliably.
+    # Resolving the q= search text via the KG Search API is a relevance-ranked
+    # guess that regularly returns the wrong entity, so it is deliberately not
+    # attempted; kgmid-less search URLs go to review.txt instead.
     if "kgmid" in query_params:
         kgmid_value = query_params["kgmid"][0]
         result["is_knowledge_graph"] = True
@@ -241,10 +140,13 @@ def classify_google_url(url):
     return result
 
 
-def process_item(item_id, edit_group: str, test: bool) -> bool:
+def process_item(item_id, edit_group: str, test: bool) -> tuple[bool, list[str]]:
+    """Returns (changed, review_lines); review_lines are keyword-only search
+    URLs that were left untouched for manual handling."""
     item = pywikibot.ItemPage(repo, item_id)
     page = cwd.WikiDataPage(item, test=test)
     page.edit_group = edit_group
+    reviews: list[str] = []
 
     # Iterate over claims (properties)
     for prop_id, claims in page.claims.items():
@@ -259,13 +161,18 @@ def process_item(item_id, edit_group: str, test: bool) -> bool:
                         url = resolve_url(url)
 
                     c = classify_google_url(url)
-                    if c["is_search"]:
+                    has_id = bool(
+                        c["is_knowledge_graph"] and c["id_value"] and c["property_id"]
+                    )
+                    if c["is_search"] and not has_id:
+                        # No kgmid= to convert; leave the URL for manual review
+                        reviews.append(f"{item_id}\tstatement\t{prop_id}\t{url}")
+                    elif c["is_search"]:
                         # Remove entire property
                         page.remove_property(prop_id, claim)
-                    if c["is_knowledge_graph"] and c["id_value"] and c["property_id"]:
-                        kgmid = c["id_value"]
+                    if has_id:
                         page.add_statement(
-                            cwd.ExternalIDStatement("", c["property_id"], kgmid)
+                            cwd.ExternalIDStatement("", c["property_id"], c["id_value"])
                         )
 
             if prop_id == wd.PID_FREEBASE_ID:
@@ -294,32 +201,37 @@ def process_item(item_id, edit_group: str, test: bool) -> bool:
                             if not (c["is_search"] or c["is_knowledge_graph"]):
                                 continue
 
-                            if (
+                            has_id = bool(
                                 c["is_knowledge_graph"]
                                 and c["id_value"]
                                 and c["property_id"]
-                            ):
-                                if prop_id != c["property_id"]:
-                                    kgmid = c["id_value"]
-                                    page.add_ref_value(
-                                        prop_id,
-                                        claim,
-                                        claim.sources.index(source),
-                                        c["property_id"],
-                                        kgmid,
-                                    )
+                            )
+                            if not has_id:
+                                # No kgmid= to convert; leave for manual review
+                                reviews.append(
+                                    f"{item_id}\treference\t{prop_id}\t{url}"
+                                )
+                                continue
 
-                            if c["is_search"] or c["is_knowledge_graph"]:
-                                page.remove_ref_value(
+                            if prop_id != c["property_id"]:
+                                page.add_ref_value(
                                     prop_id,
                                     claim,
                                     claim.sources.index(source),
-                                    ref_prop,
-                                    ref_target,
+                                    c["property_id"],
+                                    c["id_value"],
                                 )
 
+                            page.remove_ref_value(
+                                prop_id,
+                                claim,
+                                claim.sources.index(source),
+                                ref_prop,
+                                ref_target,
+                            )
+
     page.summary = "remove google search links"
-    return page.apply()
+    return page.apply(), reviews
 
 
 def load_items_from_file(filename):
@@ -387,9 +299,6 @@ def main() -> None:
         fetch_and_fill_items()
         return
 
-    if not API_KEY:
-        get_env("GOOGLE_KG_API_KEY")  # raises with the .env path in the message
-
     edit_group = f"{random.randrange(0, 2**48):x}"
     print(f"editgroup={edit_group} ({'SAVE' if args.save else 'dry run'})", flush=True)
 
@@ -405,16 +314,25 @@ def main() -> None:
         print(f"Processing {qid}...", flush=True)
         processed += 1
         try:
-            changed = process_item(qid, edit_group=edit_group, test=not args.save)
+            changed, reviews = process_item(
+                qid, edit_group=edit_group, test=not args.save
+            )
         except Exception as e:
             pywikibot.error(f"Error processing {qid}: {e}")
             if args.save:
                 message = str(e).replace("\n", " ").replace("\t", " ")[:500]
                 append_line(FAILED_FILE, f"{qid}\t{message}")
             continue
+        for line in reviews:
+            print(f"  REVIEW {line}", flush=True)
         # Dry runs record nothing, so they never block a later --save.
         if args.save:
-            append_line(DONE_FILE, f"{qid}\t{'changed' if changed else 'no-change'}")
+            for line in reviews:
+                append_line(REVIEW_FILE, line)
+            note = "changed" if changed else "no-change"
+            if reviews:
+                note += f", review ({len(reviews)}x)"
+            append_line(DONE_FILE, f"{qid}\t{note}")
     print(f"Done: {processed} item(s) processed.", flush=True)
 
 
