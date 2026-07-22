@@ -29,7 +29,11 @@ import requests
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-from shared_lib.qlever import build_url_items_query, fetch_qids_to_file
+from shared_lib.qlever import (
+    build_ref_url_items_query,
+    build_url_items_query,
+    query_item_qids,
+)
 
 # URL statement properties scanned by fetch_and_fill_items; edit/expand to widen
 # the search.
@@ -104,7 +108,9 @@ def _classify_google_url(url):
     if not (netloc.startswith("google.") or netloc.startswith("www.google.")):
         return result
 
-    if path.startswith("/search"):
+    # /search/about/... is the "About Google Search" product site, a legitimate
+    # official-website target on items about Google products -- not a search.
+    if path.startswith("/search") and not path.startswith("/search/about"):
         result["is_search"] = True
 
     # Only an explicit kgmid= parameter identifies the entity reliably.
@@ -261,11 +267,24 @@ def append_line(path: Path, line: str) -> None:
 
 
 def fetch_and_fill_items() -> int:
-    """Query qlever for items with a Google search URL and write their QIDs to ITEMS_FILE."""
-    query = build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
-    count = fetch_qids_to_file(query, ITEMS_FILE)
-    print(f"Wrote {count} items to {ITEMS_FILE}")
-    return count
+    """Query qlever for items with a Google search URL and write their QIDs to
+    ITEMS_FILE (newest item first).
+
+    Two queries, matching what process_item cleans: URL statement values on
+    QLEVER_URL_PROPERTIES, and P854 reference URLs on any property.
+    """
+    qids: set[str] = set()
+    qids.update(
+        query_item_qids(
+            build_url_items_query(QLEVER_URL_PROPERTIES, QLEVER_DOMAIN_SUBSTRINGS)
+        )
+    )
+    qids.update(query_item_qids(build_ref_url_items_query(QLEVER_DOMAIN_SUBSTRINGS)))
+    ordered = sorted(qids, key=lambda qid: int(qid[1:]), reverse=True)
+    ITEMS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ITEMS_FILE.write_text("".join(f"{qid}\n" for qid in ordered), encoding="utf-8")
+    print(f"Wrote {len(ordered)} items to {ITEMS_FILE}")
+    return len(ordered)
 
 
 def main() -> None:

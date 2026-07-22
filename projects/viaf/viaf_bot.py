@@ -342,8 +342,12 @@ class ViafBot:
                 for nsid, content_id in lookup.source_mapping[self.auth_src.viaf_code]:
                     if self.auth_src.matches_viaf_external_id(nsid, content_id, record):
                         has_local_auth_id = True
-                    if nsid not in local_auth_ids:
-                        local_auth_ids.append(nsid)
+                    # Deduplicate on the canonical form so old/new-style
+                    # notations of the same record (e.g. RISM people/NNN vs
+                    # peNNN) are not counted as two distinct local auth ids.
+                    canonical = self.auth_src.canonical_local_auth_id(nsid)
+                    if canonical not in local_auth_ids:
+                        local_auth_ids.append(canonical)
 
             if AUTHORITY_SOURCE_CODE_WIKIDATA in lookup.source_mapping:
                 for other_qid, content_id in lookup.source_mapping[

@@ -76,6 +76,29 @@ SELECT DISTINCT ?item WHERE {{
 """
 
 
+def build_ref_url_items_query(domain_substrings: list[str]) -> str:
+    """Build a SPARQL query selecting items where any statement's reference
+    carries a reference URL (P854) containing one of domain_substrings.
+
+    Full scan over all reference values: fine on qlever, but far beyond the
+    public WDQS endpoints' 60s budget -- they answer 504.
+    """
+    domain_filter = " ||\n    ".join(
+        f'CONTAINS(STR(?url), "{domain}")' for domain in domain_substrings
+    )
+    return f"""PREFIX pr: <http://www.wikidata.org/prop/reference/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+SELECT DISTINCT ?item WHERE {{
+  ?item ?prop ?statement .
+  ?statement prov:wasDerivedFrom ?ref .
+  ?ref pr:P854 ?url .
+  FILTER(
+    {domain_filter}
+  )
+}}
+"""
+
+
 def fetch_qids_to_file(query: str, output_file: Path, var: str = "item") -> int:
     """Run query, write the resulting QIDs (one per line, newest item first) to
     output_file, return the count."""

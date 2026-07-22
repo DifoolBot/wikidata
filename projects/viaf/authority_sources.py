@@ -63,6 +63,17 @@ class AuthoritySource:
         """Checks if the given VIAF ID matches the normalized form of the authority ID."""
         return record.normalized_match(nsid)
 
+    def canonical_local_auth_id(self, nsid: str) -> str:
+        """Canonical form of a VIAF nsid, used only to deduplicate the local
+        authority ids collected from a cluster before the 'multiple ids' check.
+
+        VIAF sometimes lists the same source record under two notations (an old
+        and a new style); collapsing them here prevents a single record from
+        being mistaken for two conflated records. Default mirrors
+        normalized_match (strip spaces and dots); sources with prefix variants
+        override this."""
+        return nsid.replace(" ", "").replace(".", "")
+
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         """computes a VIAF search key using the authority-specific method."""
         record.compute_viaf_search_key()
@@ -122,6 +133,13 @@ class RismAuthoritySource(AuthoritySource):
     ):
         """Standard matching using the computed VIAF search key."""
         return record.matches_viaf_search_key(nsid)
+
+    def canonical_local_auth_id(self, nsid: str) -> str:
+        # VIAF lists RISM records under both the old (people/NNN) and new
+        # (peNNN) notation; collapse to the new form -- the same normalization
+        # compute_viaf_search_key applies -- so one record is not counted as
+        # two. e.g. "people/30091900" and "pe30091900" -> "pe30091900".
+        return nsid.replace("people", "pe").replace("_", "").replace("/", "")
 
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
         record.viaf_search_key = (
