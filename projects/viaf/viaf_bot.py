@@ -154,15 +154,17 @@ class ViafBot:
         return "=={{P|" + self.auth_src.pid + "}}==\n"
 
     def _report_summary(self, what: str) -> str:
-        """Edit summary naming the section just appended, e.g.
-        'add duplicate items for IdRef ID ([[Property:P269|P269]])'.
+        """Edit summary naming the section just appended, e.g. the wikitext
+        'add duplicate items for [[Property:P269]]', which Wikidata renders as
+        'add duplicate items for IdRef ID (P269)' with the property linked.
 
         Both reports head their section with the source's description, so the
         page history otherwise cannot say which authority source an edit was
-        for; the linked property makes that clear at a glance.
+        for; the linked property makes that clear at a glance. The description
+        is not printed literally as well -- Wikidata already expands the
+        property link to its label, so doing so would duplicate it.
         """
-        pid = self.auth_src.pid
-        return f"add {what} for {self.auth_src.description} ([[Property:{pid}|{pid}]])"
+        return f"add {what} for [[Property:{self.auth_src.pid}]]"
 
     def generate_duplicate_locals_report(self):
         self.write_to_wiki(
