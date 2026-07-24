@@ -11,10 +11,11 @@ import pywikibot as pwb
 import requests
 import viaf.wdqs_client
 from viaf.authority_sources import AuthorityRecord, AuthoritySource
+from viaf.exceptions import SkipRecord
 from viaf.paths import DATA_DIR
 # Re-exported: the bot's own callers import these from here.
 from viaf.report_backend import BotState, ReportBackend
-from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded
+from viaf.viaf_api_client import ViafApiClient, ViafRateLimitExceeded, ViafStatus
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
 from viaf.wdqs_client import WdqsQueryError
 
@@ -217,47 +218,47 @@ class ViafBot:
         # skip below: a redirect in particular is worth seeing, since it means
         # someone merged the item (often after reading these very reports).
         if not record.qid.startswith("Q"):
-            raise RuntimeError("Skipping, because it is not an item")
+            raise SkipRecord("Skipping, because it is not an item")
 
         item = pwb.ItemPage(REPO, record.qid)
 
         try:
             if not item.exists():
-                raise RuntimeError("Skipping, because the item does not exist")
+                raise SkipRecord("Skipping, because the item does not exist")
         except pwb.exceptions.MaxlagTimeoutError as ex:
             time.sleep(MAX_LAG_BACKOFF_SECS)
-            raise RuntimeError("max lag timeout. sleeping. failed to add claim")
+            raise SkipRecord("max lag timeout. sleeping. failed to add claim")
 
         if item.isRedirectPage():
-            raise RuntimeError("Skipping, because the item is a redirect")
+            raise SkipRecord("Skipping, because the item is a redirect")
 
         existing_claims = item.get().get("claims")
 
         if not item.botMayEdit():
-            raise RuntimeError("Skipping, because it cannot be edited by bots")
+            raise SkipRecord("Skipping, because it cannot be edited by bots")
 
         if not existing_claims:
-            raise RuntimeError("Skipping, because it has no claims")
+            raise SkipRecord("Skipping, because it has no claims")
 
         if wd.PID_VIAF_ID in existing_claims:
-            raise RuntimeError("Skipping, because it already has a VIAF ID")
+            raise SkipRecord("Skipping, because it already has a VIAF ID")
 
         if self.auth_src.pid not in existing_claims:
-            raise RuntimeError(f"Skipping, because it has no {self.auth_src.pid} PID")
+            raise SkipRecord(f"Skipping, because it has no {self.auth_src.pid} PID")
 
         found = False
         for claim in existing_claims[self.auth_src.pid]:
             claim_target = claim.getTarget()
             if claim_target == record.wikidata_external_id:
                 if claim.getRank() == "deprecated":
-                    raise RuntimeError(
+                    raise SkipRecord(
                         f"Skipping, because the {self.auth_src.pid} {record.wikidata_external_id} is deprecated"
                     )
                 found = True
                 break
 
         if not found:
-            raise RuntimeError(
+            raise SkipRecord(
                 f"Skipping, because it has no {self.auth_src.pid} {record.wikidata_external_id}"
             )
 
@@ -312,7 +313,7 @@ class ViafBot:
             # plausible-looking key, spending one of the ~1000 daily VIAF calls on
             # a certain miss.
             if record.wikidata_external_id.startswith(WIKIDATA_GENID_PREFIX):
-                raise RuntimeError(
+                raise SkipRecord(
                     f"Skipping, because the {self.auth_src.pid} is an unknown value"
                 )
 
@@ -320,19 +321,22 @@ class ViafBot:
             self.auth_src.compute_viaf_search_key(record)
 
             if not record.viaf_search_key:
-                raise RuntimeError("No search key")
+                raise SkipRecord("No search key")
 
             client = ViafApiClient()
             if viaf_code == "LC":
                 lookup = client.query_viaf_lccn(record.viaf_search_key)
             else:
                 lookup = client.query_viaf_sourceid(viaf_code, record.viaf_search_key)
-            if lookup.status != "found":
-                if lookup.status == "not_found" and self.not_found_cutoff is not None:
+            if lookup.status != ViafStatus.FOUND:
+                if (
+                    lookup.status == ViafStatus.NOT_FOUND
+                    and self.not_found_cutoff is not None
+                ):
                     self.report.add_not_found(record.qid, self.auth_src.pid)
-                raise RuntimeError(f"status {lookup.status}")
+                raise SkipRecord(f"status {lookup.status}")
             if not lookup.viaf_cluster_id:
-                raise RuntimeError(f"no viaf_cluster_id")
+                raise SkipRecord("no viaf_cluster_id")
 
             record.viaf_cluster_id = lookup.viaf_cluster_id
 
@@ -370,10 +374,10 @@ class ViafBot:
                         record.wikidata_external_id,
                         record.viaf_cluster_id,
                     )
-                raise RuntimeError(f"has duplicates: {duplicate_qids}")
+                raise SkipRecord(f"has duplicates: {duplicate_qids}")
 
             if len(local_auth_ids) == 0:
-                raise RuntimeError("no local_auth_ids")
+                raise SkipRecord("no local_auth_ids")
             if len(local_auth_ids) > 1:
                 self.report.add_duplicate_local_auth_id(
                     record.qid,
@@ -386,13 +390,13 @@ class ViafBot:
                         local_auth_id,
                         record.viaf_cluster_id,
                     )
-                raise RuntimeError(f"multiple local_auth_ids {local_auth_ids}")
+                raise SkipRecord(f"multiple local_auth_ids {local_auth_ids}")
             if not has_local_auth_id:
-                raise RuntimeError(f"local_auth_id not found")
+                raise SkipRecord("local_auth_id not found")
             # if len(reader.wikidata_ids) == 0:
-            #     raise RuntimeError("no wikidata_ids")
+            #     raise SkipRecord("no wikidata_ids")
             if len(other_wikidata_ids) > 1:
-                raise RuntimeError(f"multiple wikidata_ids {other_wikidata_ids}")
+                raise SkipRecord(f"multiple wikidata_ids {other_wikidata_ids}")
             # if not reader.has_wikidata_id:
             #     raise RuntimeError(f"wikidata_id not found")
 
@@ -415,11 +419,17 @@ class ViafBot:
             # the run instead and keep the remaining daily budget; this item's
             # line stays in the qlever file and is retried on the next run.
             raise
-        except RuntimeError as e:
-            pwb.warning(f"Runtime error: {e}")
+        except SkipRecord as e:
+            # Expected, recorded outcomes (status not_found, no viaf_cluster_id,
+            # has duplicates, multiple local_auth_ids, ...). They are stored in
+            # the DB report via add_error, so log them at info level -> the job's
+            # .out, keeping .err for the genuinely unexpected Exception below.
+            pwb.output(f"Skipped {record.qid}: {e}")
             self.report.add_error(record.qid, str(e))
             time.sleep(SLEEP_AFTER_RUNTIMEERROR)
         except Exception as e:
+            # Anything not explicitly a SkipRecord is unexpected (including a
+            # bare RuntimeError from a library): surface it on stderr.
             pwb.error(f"Exception: {e}")
             self.report.add_error(record.qid, str(e))
             time.sleep(SLEEP_AFTER_ERROR)

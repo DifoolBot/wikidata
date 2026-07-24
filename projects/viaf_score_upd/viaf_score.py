@@ -160,7 +160,8 @@ def prefetch_entities(qids: list[str]) -> None:
     tight.
     """
     todo = [q for q in dict.fromkeys(qids) if q not in _entity_cache]
-    for i in range(0, len(todo), BATCH_SIZE):
+    total = len(todo)
+    for i in range(0, total, BATCH_SIZE):
         batch = todo[i : i + BATCH_SIZE]
         try:
             entities = _wbgetentities(batch)
@@ -169,6 +170,7 @@ def prefetch_entities(qids: list[str]) -> None:
         except Exception as exc:
             log.warning("Batch fetch failed for %s...: %s", batch[:3], exc)
             # Leave them uncached; get_entity will retry individually on demand.
+        log.info("Prefetched %d/%d entities", min(i + BATCH_SIZE, total), total)
         time.sleep(API_DELAY)
 
 

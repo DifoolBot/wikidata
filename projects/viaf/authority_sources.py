@@ -1,6 +1,7 @@
 import requests
 
 import shared_lib.constants as wd
+from viaf.exceptions import SkipRecord
 
 READ_TIMEOUT = 20  # sec
 
@@ -85,7 +86,7 @@ class BnchlAuthoritySource(AuthoritySource):
     ) -> bool:
         """BNCHL-specific matching by prefixing 'BNC' to the VIAF search key."""
         if not record.viaf_search_key:
-            raise RuntimeError("viaf_search_key is empty")
+            raise SkipRecord("viaf_search_key is empty")
         return nsid == "BNC" + record.viaf_search_key
 
     def compute_viaf_search_key(self, record: AuthorityRecord) -> None:
@@ -107,7 +108,7 @@ class BnfAuthoritySource(AuthoritySource):
             return record.matches_viaf_search_key(nsid)
         else:
             if not record.viaf_search_key:
-                raise RuntimeError("No record.viaf_search_key")
+                raise SkipRecord("No record.viaf_search_key")
             # Convert a BNF catalog URL to an authority code
             nsid = nsid.replace("http://catalogue.bnf.fr/ark:/12148/", "")
             bnf_ark = compute_bnf_ark_from_8digits(record.viaf_search_key)
@@ -258,7 +259,7 @@ class SelibrAuthoritySource(AuthoritySource):
         response = requests.get(url, timeout=READ_TIMEOUT)
         if response.status_code != 200:
             # typical 404 NOT FOUND or 410 GONE
-            raise RuntimeError(f"Status code: {response.status_code}")
+            raise SkipRecord(f"Status code: {response.status_code}")
         payload = response.json()
         return payload["controlNumber"]
 

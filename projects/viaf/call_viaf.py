@@ -1,12 +1,55 @@
+import logging
 import os
+import sys
 from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
+import pywikibot.bot
 import viaf.authority_sources
 from viaf.codes_sync import push_order, sync_descriptions
 from viaf.paths import DATA_DIR
 from viaf.viaf_bot import SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
+
+from shared_lib.wikidata_site import ensure_login
+
+
+class _MaxLevelFilter(logging.Filter):
+    """Pass only records at or below *level* (the complement of setLevel)."""
+
+    def __init__(self, level: int) -> None:
+        super().__init__()
+        self.level = level
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno <= self.level
+
+
+def _setup_logging() -> None:
+    """Split pywikibot output by level: INFO and below to stdout, WARNING and
+    above to stderr.
+
+    By default pywikibot sends *everything* (info, warning, error) to stderr,
+    so an unattended job's ``.err`` file fills with expected progress lines and
+    the real errors are hard to spot. Routing the run's normal narrative to
+    ``.out`` keeps ``.err`` for genuinely unexpected problems only.
+    """
+    pywikibot.bot.init_handlers()  # let pywikibot do its one-time handler setup
+    logger = logging.getLogger("pywiki")
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+
+    out = logging.StreamHandler(sys.stdout)
+    out.addFilter(_MaxLevelFilter(logging.INFO))
+    out.setFormatter(logging.Formatter("%(message)s"))
+
+    err = logging.StreamHandler(sys.stderr)
+    err.setLevel(logging.WARNING)
+    err.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+    logger.addHandler(out)
+    logger.addHandler(err)
+    logger.propagate = False
 
 
 def _make_report():
@@ -40,6 +83,11 @@ def _resume_index(ordered_pids: list[str], current_pid: str | None) -> int:
 
 
 def main() -> None:
+    _setup_logging()
+    # Log in up front so a credential problem fails the run immediately rather
+    # than after the first source's worth of VIAF lookups (pywikibot would
+    # otherwise only log in on the first edit).
+    ensure_login()
     config = load_config()
     # The bot's state lives in the database alongside the session tables it
     # describes, so the status webservice reads it from the same place and the
