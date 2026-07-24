@@ -1,6 +1,20 @@
 import requests
 
 
+class ViafStatus:
+    """The possible values of :attr:`ViafLookupResult.status`.
+
+    Plain string constants (not an Enum) so existing string comparisons keep
+    working and ``str(result)`` still prints the bare value.
+    """
+
+    FOUND = "found"
+    NOT_FOUND = "not_found"
+    EMPTY = "empty"
+    REDIRECT = "redirect"
+    ABANDONED = "abandoned"
+
+
 class ViafRateLimitExceeded(Exception):
     """Raised when viaf.org reports (via HTTP 429) that the API rate limit was hit."""
 
@@ -93,12 +107,12 @@ class ViafApiClient:
             raise ViafRateLimitExceeded(retry_after)
 
         if response.status_code == 404:
-            return ViafLookupResult("not_found")
+            return ViafLookupResult(ViafStatus.NOT_FOUND)
 
         data = response.json()
         if not data:
             # seen with query_viaf_sourceid + LC
-            return ViafLookupResult("empty")
+            return ViafLookupResult(ViafStatus.EMPTY)
 
         # # Save to file with formatting
         # with open("output.json", "w", encoding="utf-8") as f:
@@ -110,13 +124,13 @@ class ViafApiClient:
             redirect = abandoned.get("ns0:redirect", {})
             return (
                 ViafLookupResult(
-                    "redirect", redirect_to=redirect.get("ns0:directto", {})
+                    ViafStatus.REDIRECT, redirect_to=redirect.get("ns0:directto", {})
                 )
                 if redirect
-                else ViafLookupResult("abandoned")
+                else ViafLookupResult(ViafStatus.ABANDONED)
             )
 
-        return ViafLookupResult("found", data=data)
+        return ViafLookupResult(ViafStatus.FOUND, data=data)
 
     def query_viaf_sourceid(self, code: str, local_auth_id: str) -> ViafLookupResult:
         url = f"{self.BASE_URL}sourceID/{code}%7C{local_auth_id}"
