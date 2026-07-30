@@ -1,0 +1,97 @@
+Q140594775	changed
+Q140420729	changed
+Q140294209	changed
+Q140264043	no-change, review (1x)
+Q140167728	changed
+Q140071165	changed
+Q140033596	no-change, review (1x)
+Q139565257	changed
+Q139266485	no-change, review (1x)
+Q138978847	changed
+Q137706687	no-change, review (1x)
+Q137385007	no-change, review (1x)
+Q137212772	changed
+Q136528916	no-change, review (2x)
+Q136528916	no-change, review (2x)
+Q135297621	changed
+Q134700811	no-change, review (1x)
+Q134611987	no-change, review (1x)
+Q134608422	no-change, review (1x)
+Q132673713	changed
+Q132146282	no-change, review (1x)
+Q132106080	changed
+Q131982214	changed
+Q131982195	changed
+Q131982178	changed
+Q131982117	changed
+Q131982072	changed
+Q131982063	changed
+Q131981904	changed
+Q131981805	changed
+Q131841348	changed
+Q131741745	changed
+Q131390283	no-change, review (1x)
+Q131293167	changed
+Q131289783	changed
+Q131289045	changed
+Q131289025	changed
+Q131288904	changed
+Q131010381	no-change, review (1x)
+Q130288517	changed
+Q129169933	changed
+Q128904304	no-change, review (1x)
+Q128904225	changed
+Q128904200	changed
+Q128802771	changed
+Q127104431	no-change, review (1x)
+Q123561180	changed
+Q123517579	changed
+Q123502033	changed
+Q123488648	no-change, review (1x)
+Q123460864	changed
+Q123460440	changed
+Q123460387	changed
+Q123419496	changed
+Q123142255	changed
+Q121008865	changed
+Q120670828	no-change, review (1x)
+Q117310174	changed
+Q117309919	changed
+Q117309901	changed
+Q117309858	changed
+Q117309764	changed
+Q117309733	changed
+Q115543458	changed
+Q111443119	changed
+Q108685097	changed
+Q67914838	no-change, review (1x)
+Q50840502	no-change, review (1x)
+Q21002644	no-change, review (1x)
+Q20545178	changed
+Q6429197	changed
+Q4809671	no-change, review (1x)
+Q4063549	no-change, review (1x)
+Q3112472	no-change, review (1x)
+Q131010381	changed
+Q140264043	no-change
+Q140033596	no-change
+Q139266485	changed
+Q137706687	no-change
+Q137385007	no-change, review (1x)
+Q136528916	no-change
+Q134700811	no-change
+Q134611987	no-change
+Q134608422	no-change
+Q132146282	no-change
+Q131390283	no-change
+Q131010381	no-change
+Q128904304	no-change, review (1x)
+Q127104431	no-change, review (1x)
+Q123488648	no-change, review (1x)
+Q120670828	no-change, review (1x)
+Q67914838	no-change, review (1x)
+Q50840502	no-change, review (1x)
+Q21002644	no-change, review (1x)
+Q4809671	no-change, review (1x)
+Q4063549	no-change, review (1x)
+Q3112472	no-change, review (1x)

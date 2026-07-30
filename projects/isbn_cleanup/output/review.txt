@@ -1,0 +1,11 @@
+Q137385007	ISBN : 978-2-900-87627-5	not a valid ISBN
+Q128904304	92-9137-268-6	not a valid ISBN
+Q127104431	978-2-8317-2022-7	valid ISBN but non-bibliographic item (['Q13442814'])
+Q123488648	978-3336669-2-8	not a valid ISBN
+Q120670828	9780996683173	valid ISBN but non-bibliographic item (['Q13442814'])
+Q67914838	978-0-615-14175-6	valid ISBN but non-bibliographic item (['Q5'])
+Q50840502	608	not a valid ISBN
+Q21002644	978-84-09-04080-3	valid ISBN but non-bibliographic item (['Q11707', 'Q1329623', 'Q207694', 'Q2385804', 'Q45400320', 'Q7075', 'Q737988', 'Q8343584'])
+Q4809671	978-1-3999-4356-7	valid ISBN but non-bibliographic item (['Q106760956', 'Q1110684'])
+Q4063549	978-5	not a valid ISBN
+Q3112472	978-3982501710	valid ISBN but non-bibliographic item (['Q1057179'])

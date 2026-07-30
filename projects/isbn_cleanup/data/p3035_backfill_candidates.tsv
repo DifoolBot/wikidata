@@ -1,0 +1,581 @@
+safe_batch	prefix_on_other_qid	is_publisher	is_person	qid_prefix_count	triage	status	list_prefix	qid	publisher	p31_types	existing_P3035	part_of_P749	replaces_P1365	replaced_by_P1366	aliases_en	batch_group	registry
+yes		yes		1	clean	missing	978-0-237	Q5415888	Evans Brothers	publishing house					Evans Brothers Limited | Evans Bros. | Evans Bros	commercial	
+yes		yes		1	clean	missing	978-0-385	Q1251563	Doubleday (publisher)	book publisher; printing company; publishing house; enterprise					Doubleday, Page & Company | Doubleday & McClure | The Doubleday Publishing Group | Doubleday, Doran & Company | Doubleday & McClure Company | Doubleday & Co. Inc.	commercial	
+yes		yes		1	clean	missing	978-0-390	Q4781383	Appleton-Century-Crofts	book publisher						commercial	
+yes		yes		1	clean	missing	978-0-396	Q5287721	Dodd, Mead	publishing house					DODD, MEAD AND COMPANY, lnc. | Dodd, Mead & Company | Dodd, Mead and Company | Dodd, Mead, and Company	commercial	
+yes		yes		1	clean	missing	978-0-405	Q85743069	Arno Press	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-426	Q7893865	Universal-Tandem Publishing Co Ltd	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-440	Q2075464	Dell Publishing	publishing house; comics publishing company					Dell Publishing Co. | Random House Publishing Group | Dell | Dell Publishing Company	commercial	
+yes		yes		1	clean	missing	978-0-449	Q2881141	Ballantine Books	publishing house; imprint; enterprise						commercial	
+yes		yes		1	clean	missing	978-0-450	Q7007462	New English Library	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-500	Q2733669	Thames & Hudson	publishing house; book publisher					Thames and Hudson | T&H	commercial	
+yes		yes		1	clean	missing	978-0-528	Q1586156	Rand McNally	business; enterprise; publishing house; map publishing company					Rand, McNally and Company | Rand, McNally & Co. | Rand McNally and Company | Rand McNally & Co. | Rand McNally & Company | RM Technologies, Inc. d/b/a Rand McNally | Rand McNally & Co. (Chicago)	commercial	
+yes		yes		1	clean	missing	978-0-531	Q1403309	Franklin Watts	publishing house					Grolier, Inc. | Grolier Incorporated	commercial	
+yes		yes		1	clean	missing	978-0-573	Q7411424	Samuel French Ltd	business; publishing house					Samuel French Inc. | Samuel French Incorporated | Samuel French	commercial	
+yes		yes		1	clean	missing	978-0-614	Q463779	American Concrete Institute	organization; academic publisher					ACI | National Association of Cement Users | NACU	commercial	
+yes		yes		1	clean	missing	978-0-673	Q7436348	Pearson Scott Foresman	education company					Pearson Scott Foresman	commercial	
+yes		yes		1	clean	missing	978-0-7011	Q3666843	Chatto & Windus	publishing house; book publisher					Chatto and Windus	commercial	
+yes		yes		1	clean	missing	978-0-7012	Q1623362	Hogarth Press	publishing house; book publisher						commercial	
+yes		yes		1	clean	missing	978-0-7022	Q7896194	University of Queensland Press	publishing house; university press					UQP	commercial	
+yes		yes		1	clean	missing	978-0-7044	Q223429	University of Birmingham	public research university; open-access publisher; educational organization						commercial	
+yes		yes		1	clean	missing	978-0-7055	Q17067645	Victoria University Press	publishing house; university press					Victoria University Press | VUP Press | THW Press | Victoria University of Wellington Press | Te Herenga Waka – Victoria University of Wellington Press | Te Herenga Waka Press | VUP	commercial	
+yes		yes		1	clean	missing	978-0-7110	Q5980753	Ian Allan Publishing	publishing house; book publisher					Ian Allan Publishing	commercial	
+yes		yes		1	clean	missing	978-0-7135	Q5536864	George Bell & Sons	book publisher						commercial	
+yes		yes		1	clean	missing	978-0-7145	Q6765097	Marion Boyars Publishers	publishing house					Marion Boyars | M. Boyars	commercial	
+yes		yes		1	clean	missing	978-0-7148	Q928675	Phaidon Press	book publisher					Phaidon	commercial	
+yes		yes		1	clean	missing	978-0-7153	Q5230412	David & Charles	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7156	Q15839178	Gerald Duckworth and Company	publishing house					Gerald Duckworth and Company	commercial	
+yes		yes		1	clean	missing	978-0-7171	Q5561874	Gill and Macmillan	business; book publisher; book distributor					Gill & Macmillan | Gill Books | Gill Education | Gill Distribution | M. H. Gill | M. H. Gill & Son	commercial	
+yes		yes		1	clean	missing	978-0-7187	Q170027	University of London	university; higher education institution; open-access publisher; educational organization					London University | Lond.	commercial	
+yes		yes		1	clean	missing	978-0-7188	Q6705969	Lutterworth Press	publishing house					The Lutterworth Press	commercial	
+yes		yes		1	clean	missing	978-0-7206	Q7176251	Peter Owen Publishers	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7230	Q7806522	Times Books	publishing house					New York Times Book Company	commercial	
+yes		yes		1	clean	missing	978-0-7232	Q3087181	Frederick Warne & Co	publishing house					F. Warne & Co | F. Warne and Co | Frederick Warne	commercial	
+yes		yes		1	clean	missing	978-0-7259	Q531285	University of Newcastle, Australia	public university; open-access publisher; nonprofit organization					The University of Newcastle | Newcastle University | UON | The University of Newcastle, Australia	commercial	
+yes		yes		1	clean	missing	978-0-7300	Q1180978	Deakin University	public university; open-access publisher					Deakin	commercial	
+yes		yes		1	clean	missing	978-0-7326	Q598841	Monash University	public university; open-access publisher; production company; nonprofit organization						commercial	
+yes		yes		1	clean	missing	978-0-7354	Q465230	American Institute of Physics	scientific society; publishing house; open-access publisher; archives; nonprofit organization					AIP | aip.org	commercial	
+yes		yes		1	clean	missing	978-0-7377	Q7368507	Greenhaven Press	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7385	Q4785161	Arcadia Publishing	business; book publisher					Arcadia Publishing Inc.	commercial	
+yes		yes		1	clean	missing	978-0-7407	Q4759092	Andrews McMeel Publishing, LLC	business; publishing house					Andrews McMeel Publishing, LLC	commercial	
+yes		yes		1	clean	missing	978-0-7445	Q7962224	Walker Books	publishing house					Walker Books UK | Walker Books Group | Walker	commercial	
+yes		yes		1	clean	missing	978-0-7494	Q6425762	Kogan Page	publishing house; book publisher						commercial	
+yes		yes		1	clean	missing	978-0-7506	Q5003044	Butterworth-Heinemann	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7679	Q4972414	Broadway Books	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7680	Q1427072	Society of Automotive Engineers	regulatory college; standards organization; company; business; engineering society; academic publisher					Society of Automotive Engineers | SAE | sae.org	commercial	
+yes		yes		1	clean	missing	978-0-7709	Q1041737	Carleton University	open-access publisher; museum; corporation; charitable organization; public university; neighborhood					carleton.ca	commercial	
+yes		yes		1	clean	missing	978-0-7715	Q5516836	Gage Educational Publishing Company	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7717	Q201492	McGill University	public research university; open-access publisher; university in Quebec					Royal institution of advanced learning | University of McGill College | McGill college | McGill | mcgill.ca	commercial	
+yes		yes		1	clean	missing	978-0-7735	Q6801272	McGill-Queen's University Press	university press					MQUP	commercial	
+yes		yes		1	clean	missing	978-0-7748	Q7895143	University of British Columbia Press	university press					UBC press	commercial	
+yes		yes		1	clean	missing	978-0-7818	Q16995475	Hippocrene Books	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-7892	Q4663952	Abbeville Publishing Group	publishing house					Abbeville Press	commercial	
+yes		yes		1	clean	missing	978-0-7918	Q466950	American Society of Mechanical Engineers	regulatory college; engineering society; academic publisher; organization					asme.org | ASME | ASME International	commercial	
+yes		yes		1	clean	missing	978-0-7972	Q1066492	Stellenbosch University	public university; open-access publisher					Maties | University of Stellenbosch | Universiteit van Stellenbosch | SU | sun.ac.za | Stellenbosch College | Victoria College	commercial	
+yes		yes		1	clean	missing	978-0-8019	Q5099225	Chilton Company	publishing house					Chilton Printing Co. | Chilton Publishing Co. | Chilton Book Co. | Chilton Research Services	commercial	
+yes		yes		1	clean	missing	978-0-8028	Q941589	William B. Eerdmans Publishing Company	business; book publisher					Wm. B. Eerdmans Publishing Company | W.B. Eerdmans | Eerdmans | William B. Eerdmans Publishing Co. | William B. Eerdmans Pub. Company | W.B. Eerdmans Pub. | Eerdmans Publishing Co. | Eerdmans Publishing Company	commercial	
+yes		yes		1	clean	missing	978-0-8036	Q5423798	F. A. Davis Company	publishing house					The F. A. Davis Company	commercial	
+yes		yes		1	clean	missing	978-0-8044	Q16993796	Frederick Ungar Publishing Company	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8048	Q3542453	Tuttle Publishing	business; publishing house					Charles E. Tuttle Company | C. E. Tuttle Co.	commercial	
+yes		yes		1	clean	missing	978-0-8059	Q5298728	Dorrance Publishing Co.	publishing house					Dorrance & Company | Dorrance and Company	commercial	
+yes		yes		1	clean	missing	978-0-8061	Q7896016	University of Oklahoma Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8069	Q7611458	Sterling Publishing	publishing house; book publisher						commercial	
+yes		yes		1	clean	missing	978-0-8071	Q16975504	Louisiana State University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8077	Q7691246	Teachers College, Columbia University	school of education; private not-for-profit educational institution; open-access publisher					Teachers College, Columbia University | Teachers College of Columbia University | Columbia University Graduate School of Education | Columbia University Teachers College | Columbia Teachers College	commercial	
+yes		yes		1	clean	missing	978-0-8078	Q7895937	University of North Carolina Press	university press; open-access publisher; nonprofit organization					Chapel Hill Press | Chapel Hill Publisher | University of North Carolina Chapel Hill Press | UNC Chapel Hill Press	commercial	
+yes		yes		1	clean	missing	978-0-8090	Q16995433	Hill and Wang	publishing house; imprint						commercial	
+yes		yes		1	clean	missing	978-0-8093	Q17062065	Southern Illinois University Press	university press					SIU Press	commercial	
+yes		yes		1	clean	missing	978-0-8118	Q5114023	Chronicle Books	book publisher; publishing house					Chronicle Books LLC	commercial	
+yes		yes		1	clean	missing	978-0-8126	Q7095992	Open Court Publishing Company	education company					Open Court	commercial	
+yes		yes		1	clean	missing	978-0-8128	Q7606787	Stein and Day Publishers	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8130	Q7894893	University Press of Florida	university press						commercial	
+yes		yes		1	clean	missing	978-0-8131	Q3551345	University Press of Kentucky	university press; book publisher					The University Press of Kentucky	commercial	
+yes		yes		1	clean	missing	978-0-8137	Q1503216	Geological Society of America	learned society; publishing house; open-access publisher; nonprofit organization					GSA | The Geological Society of America	commercial	
+yes		yes		1	clean	missing	978-0-8139	Q7896540	University of Virginia Press	university press					University Press of Virginia | UVA Press | UVAP	commercial	
+yes		yes		1	clean	missing	978-0-8141	Q6971937	National Council of Teachers of English	organization; learned society; open-access publisher					NCTE	commercial	
+yes		yes		1	clean	missing	978-0-8142	Q7080970	Ohio State University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8143	Q7976644	Wayne State University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8149	Q7914837	Vanguard Press	business; book publisher						commercial	
+yes		yes		1	clean	missing	978-0-8165	Q7895063	University of Arizona Press	university press; division					UA Press	commercial	
+yes		yes		1	clean	missing	978-0-8173	Q7895031	University of Alabama Press	university press					UAP	commercial	
+yes		yes		1	clean	missing	978-0-8194	Q2140443	SPIE	learned society; open-access publisher; engineering society					International Society for Optics and Photonics | Society of Photo-Optical Instrumentation Engineers | Society of Photographic Instrumentation Engineers | SPIE (Society of Photographic Instrumentation Engineers)	commercial	
+yes		yes		1	clean	missing	978-0-8195	Q7984073	Wesleyan University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8197	Q4927105	Bloch Publishing Company	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8203	Q7895456	University of Georgia Press	university press					UGA Press	commercial	
+yes		yes		1	clean	missing	978-0-8207	Q5316089	Duquesne University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8214	Q16947116	Ohio University Press	university press					Swallow Press	commercial	
+yes		yes		1	clean	missing	978-0-8218	Q465654	American Mathematical Society	mathematical society; open-access publisher; learned society; nonprofit organization					AMS | ams.org | American Mathematics Society	commercial	
+yes		yes		1	clean	missing	978-0-8222	Q5305776	Dramatists Play Service	business; publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8225	Q17031458	Lerner Publishing Group	publishing house					Twenty-First Century Books	commercial	
+yes		yes		1	clean	missing	978-0-8234	Q16939002	Holiday House	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8243	Q567368	Annual Reviews (publisher)	publishing house; nonprofit organization; academic publisher					Annual Reviews, Inc. | Annual Review of Biochemistry, Ltd.	commercial	
+yes		yes		1	clean	missing	978-0-8247	Q3288870	Marcel Dekker	publishing house					Marcel Dekker, Inc.	commercial	
+yes		yes		1	clean	missing	978-0-8248	Q4358493	University of Hawaii Press	university press; open-access publisher					University of Hawaiʻi Press | University Press of Hawai'i | University Press of Hawaii	commercial	
+yes		yes		1	clean	missing	978-0-8254	Q22023062	Kregel Publications	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-8263	Q7895914	University of New Mexico Press	university press					UNM Press	commercial	
+yes		yes		1	clean	missing	978-0-8265	Q7914458	Vanderbilt University Press	university press						commercial	
+yes		yes		1	clean	missing	978-0-8276	Q3296939	Jewish Publication Society of America	publishing house; book publisher					Jewish Publication Society of America | JPS | J.P.S.	commercial	
+yes		yes		1	clean	missing	978-0-8309	Q5732623	Herald House	publishing house					Herald Publishing House	commercial	
+yes		yes		1	clean	missing	978-0-8323	Q4914098	Binfords & Mort	publishing house						commercial	
+yes		yes		1	clean	missing	978-0-85600	Q967165	University of York	public university; higher education institution; publishing house; open-access publisher; educational organization; plate glass university; organization					York University | Ebor. | The University of York	commercial	
+yes		yes		1	clean	missing	978-0-9896415	Q56290281	Button Poetry	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-4019	Q3783780	Hay House	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-5098	Q3892930	Pan Macmillan	publishing house; imprint						commercial	
+yes		yes		1	clean	missing	978-1-55041	Q16980952	Fitzhenry & Whiteside	publishing house; book publisher						commercial	
+yes		yes		1	clean	missing	978-1-55054	Q5301168	Douglas & McIntyre	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-55861	Q7733667	The Feminist Press	nonprofit organization; publishing house					Feminist Press at the City University of New York	commercial	
+yes		yes		1	clean	missing	978-1-59460	Q17379963	Carolina Academic Press	education company						commercial	
+yes		yes		1	clean	missing	978-1-84091	Q5162682	Conran Octopus	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-84607	Q4834796	BBC Books	publishing house					BBC Publishing	commercial	
+yes		yes		1	clean	missing	978-1-85158	Q6736763	Mainstream Publishing	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-85671	Q151107	Michelin	publishing house; tire manufacturer					Manufacture Française Des Pneumatiques Michelin SCA | Kléber pneumatique | Michelin et Cie | Taurus pneus	commercial	
+yes		yes		1	clean	missing	978-1-935439	Q19880581	Ig Publishing	publishing house						commercial	
+yes		yes		1	clean	missing	978-1-940535	Q17152213	Boss Fight Books	book publisher						commercial	
+yes		yes		1	clean	missing	978-0-580	Q3778585	British Standards Institution	business; standards organization; company					British Standards Institution | BSI	institutional	ok
+yes		yes		1	clean	missing	978-0-7258	Q15575	Flinders University	public university; nonprofit organization					Flinders University of South Australia	institutional	ok
+yes		yes		1	clean	missing	978-0-7464	Q5001836	Business And Technology Education Council (BTEC)	educational organization						institutional	ok
+yes		yes		1	clean	missing	978-0-8024	Q2257594	Moody Publishers	higher education institution; private not-for-profit educational institution; Christian organization; Bible college					Moody Theological Seminary and Graduate School | Moody Theological Seminary and Graduate School--Michigan | Moody Bible Institute--Spokane	institutional	ok
+yes		yes		1	clean	missing	978-0-8031	Q621977	ASTM International	learned society; standards organization; company; business					A.S.T.M. | American Society for Testing of Materials | ASTM | American Society for Testing and Materials | American Society of Testing Materials | American society for testing materials	institutional	ok
+yes		yes		1	clean	missing	978-0-8106	Q3111510	National Education Association	education trade union; nonprofit corporation; professional association; organization					NEA | National Education Association of the United States | National Teachers Association	institutional	ok
+yes		yes		1	clean	missing	978-0-8169	Q465184	American Institute of Chemical Engineers	regulatory college; engineering society					AIChE | American Institute for Chemical Engineers	institutional	ok
+yes		yes		1	clean	missing	978-0-87290	Q1134188	Corning Museum of Glass	museum					cmog.org | The Corning Museum of Glass	institutional	ok
+yes		yes		1	clean	missing	978-0-948170	Q539216	Bibliographical Society	learned society					The Bibliographical Society	institutional	ok
+yes		yes		1	clean	missing	978-1-906097	Q1431365	Policy Exchange	think tank						institutional	ok
+yes		yes		1	clean	missing	978-1-936213	Q1572774	Unicode, Inc.	consortium; standards organization; 501(c)(3) organization; 501(c)(6) organization					The Unicode Consortium | Unicode Inc. | Unicode, Inc. | unicode.org	institutional	ok
+yes		yes		1	clean	missing	978-0-9753140	Q6723690	Machine Project	museum						institutional	unchecked
+		yes		1	clean	missing	978-0-8026	Q1411222	George Mason University	university; public educational institution of the United States					Mason | George Mason | GMU | gmu.edu | Mason University | G.M.U. | George Mason College	institutional	wrong-entity
+		yes		1	clean	missing	978-0-8138	Q1136919	Iowa State University	public research university; land-grant university; public educational institution of the United States; corporate body					Iowa State University of Science and Technology | Iowa State College | ISU | IAState | Iowa State | Iowa Agricultural College | Iowa State College of Agriculture and Mechanic Arts | Iowa Agricultural College and Model Farm | iastate.edu	institutional	wrong-entity
+		yes		1	clean	missing	978-0-8144	Q2842975	American Management Association	professional association; nonprofit organization; educational institution					AMAI	institutional	imprint/press
+		yes		1	clean	missing	978-0-8157	Q929154	Brookings Institution	think tank; institution; nonprofit organization					Brookings | Brookings Institute	institutional	imprint/press
+				1	clean	missing	978-0-319	Q548721	Ordnance Survey	state-owned enterprise; non-ministerial government department; national mapping agency					OS | UK Ordnance Survey | The British Ordnance Survey		
+		yes		5	clean	missing	978-0-325	Q6273015	Heinemann (publisher)	publishing house; business					William Heinemann Ltd.		
+		yes		2	clean	mismatch	978-0-335	Q2413375	Open University	public university; higher education institution; open-access publisher; educational organization; organization	978-1-78007				Open University, The | Open University		
+		yes		4	clean	missing	978-0-349	Q7576675	Sphere Books	publishing house							
+		yes		4	clean	missing	978-0-351	Q7576675	Sphere Books	publishing house							
+				1	clean	missing	978-0-379	Q7076174	Oceana Publications								
+				2	clean	missing	978-0-389	Q795454	Barnes & Noble	business; enterprise; public company; bookstore chain							
+	Q1336200	yes		1	clean	missing	978-0-399	Q3093062	G. P. Putnam's Sons	publishing house					Putnam | G.P. Putnam & Sons		
+	Q114718812	yes		6	clean	mismatch	978-0-413	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+		yes		6	clean	mismatch	978-0-416	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+		yes		6	clean	mismatch	978-0-417	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+	Q1508259			1	clean	missing	978-0-422	Q2164568	Tavistock Institute	charitable organization; scientific organization; training organization					Tavistock Institute | TIHR		
+		yes		6	clean	mismatch	978-0-423	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+		yes		1	clean	mismatch	978-0-424	Q7660203	Sydney University Press	publishing house	978-1-920899						
+		yes		1	clean	mismatch	978-0-425	Q2753848	Berkley Publishing	imprint	978-1-02				Berkley		
+		yes		5	clean	missing	978-0-431	Q6273015	Heinemann (book publisher)	publishing house; business					William Heinemann Ltd.		
+			yes	1	clean	missing	978-0-432	Q7175491	Peter Llewelyn Davies	human							
+		yes		5	clean	missing	978-0-434	Q6273015	Heinemann (book publisher)	publishing house; business					William Heinemann Ltd.		
+		yes		5	clean	missing	978-0-435	Q6273015	Heinemann (book publisher)	publishing house; business					William Heinemann Ltd.		
+		yes		4	clean	mismatch	978-0-439	Q1155729	Scholastic Corporation	business; book publisher; education company; public company; media distributor	978-1-07;978-1-4071				Scholastic | Scholastic Entertainment | Scholastic Corporation (United States) | SCHL | Scholastic Magazines, Inc. | Scholastic Magazines | Scholastic Magazine, Inc.		
+		yes		2	clean	missing	978-0-451	Q7005314	New American Library	publishing house					NAL		
+		yes		2	clean	missing	978-0-452	Q7005314	New American Library	publishing house					NAL		
+		yes		6	clean	mismatch	978-0-456	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+	Q5047019	yes		6	clean	mismatch	978-0-458	Q3296078	Methuen Publishing	publishing house	978-1-84275				Methuen & Co. | Methuen & Co. Ltd. | Methuan & Co., Ltd. | Methuan and Company, Limited | Methuen and Co		
+			yes	1	clean	missing	978-0-460	Q6106398	J. M. Dent	human					Joseph Malaby Dent		
+		yes		3	clean	mismatch	978-0-461	Q4043752	Marshall Cavendish	publishing house	978-0-85685;978-2-7365						
+		yes		1	clean	mismatch	978-0-472	Q7895770	University of Michigan Press	university press; open-access publisher	978-0-88286						
+	[NZ author-publisher collective block]	yes		1	clean	missing	978-0-477	Q17513775	Department of Scientific and Industrial Research (New Zealand)	government agency; research center; publishing house					DSIR		
+				1	clean	missing	978-0-478	Q3526359	Government of New Zealand	central government; government					New Zealand Government | Her Majesty's Government in New Zealand | Kāwanatanga o te Kuini i roto i Aotearoa) | His Majesty's Government in New Zealand | New Zealand government		
+		yes		2	clean	mismatch	978-0-485	Q4036513	Athlone Press	publishing house; book publisher	978-1-4411;978-1-84371				Continuum | Thoemmes Continuum		
+			yes	1	clean	missing	978-0-498	Q4723452	Alfred Smith Barnes	human					A. S. Barnes | A.S. Barnes | Alfred S. Barnes		
+			yes	1	clean	missing	978-0-510	Q5392787	Ernest Benn	human					Ernest J. P. Benn | Sir Ernest John Pickstone Benn, 2nd Baronet		
+		yes		4	clean	mismatch	978-0-516	Q1155729	Childrens Press	business; book publisher; education company; public company; media distributor	978-1-07;978-1-4071				Scholastic | Scholastic Entertainment | Scholastic Corporation (United States) | SCHL | Scholastic Magazines, Inc. | Scholastic Magazines | Scholastic Magazine, Inc.		
+			yes	1	clean	missing	978-0-540	Q5543381	George Philip (cartographer)	human							
+		yes		4	clean	mismatch	978-0-545	Q1155729	Scholastic Corporation	business; book publisher; education company; public company; media distributor	978-1-07;978-1-4071				Scholastic | Scholastic Entertainment | Scholastic Corporation (United States) | SCHL | Scholastic Magazines, Inc. | Scholastic Magazines | Scholastic Magazine, Inc.		
+			yes	1	clean	missing	978-0-562	Q7410238	Sampson Low	human					Sampson Low Snr.		
+				1	clean	missing	978-0-564	Q920404	British & Foreign Bible Society	charitable organization; Bible society; Christian missionary organization					Bible Society | BFBS | British & Foreign Bible Society | British and Foreign Bible Society -- Archives | British and Foreign Bible Society -- Records and correspondence		
+		yes		2	clean	missing	978-0-565	Q6373	British Museum	national museum; non-departmental public body; art museum; museum; charitable organization					BM | the British Museum		
+		yes		2	clean	missing	978-0-566	Q4805028	Gower Publishing	publishing house; book publisher							
+	Q99521181	yes		1	clean	missing	978-0-567	Q7667718	T. & T. Clark	imprint; book publisher							
+				1	clean	missing	978-0-574	Q7433601	Science Research Associates	business							
+		yes		2	clean	mismatch	978-0-576	Q5606574	Gregg Press	publishing house	978-0-8398						
+	Q80558647	yes		1	clean	missing	978-0-586	Q7131769	Panther Books	publishing house							
+		yes		2	clean	missing	978-0-589	Q7306689	Reed Publishing	publishing house					A. H. Reed Ltd | A. H. and A. W. Reed Ltd | Reed Methuen | Octopus Publishing (NZ) | Heinemann Reed | Reed Publishing (NZ) Ltd | Raupo Publishing (NZ) | A.H. & A.W. Reed Ltd | A. H. & A. W. Reed Ltd | AH & AW Reed		
+		yes		4	clean	mismatch	978-0-590	Q1155729	Scholastic Inc.	business; book publisher; education company; public company; media distributor	978-1-07;978-1-4071				Scholastic | Scholastic Entertainment | Scholastic Corporation (United States) | SCHL | Scholastic Magazines, Inc. | Scholastic Magazines | Scholastic Magazine, Inc.		
+		yes		2	clean	missing	978-0-600	Q5645521	Hamlyn (publishers)	publishing house					Paul Hamlyn publishers		
+		yes		2	clean	missing	978-0-601	Q5645521	Hamlyn (publishers)	publishing house					Paul Hamlyn publishers		
+				1	clean	missing	978-0-610	Q6385890	Kelly's Directory	business directory					Kelly's, Post Office and Harrod & Co Directory		
+				1	clean	missing	978-0-642	Q4824214	Australian Government Publishing Service	state publisher							
+				1	clean	missing	978-0-643	Q1117048	CSIRO	government organization; Government body of Australia; production company; research organization					Commonwealth Scientific and Industrial Research Organisation, Australia | CSIRO		
+		yes		5	clean	mismatch	978-0-669	Q568642	Lexington Books	book publisher; public company; corporation; holding company	978-1-4088;978-1-58234;978-0-7475						
+	Q116869489		yes	1	clean	missing	978-0-675	Q381489	Charles E. Merrill	human					Charles Edward Merrill | Charles Merrill		
+	Q116869733	yes		1	clean	missing	978-0-690	Q7795366	Thomas Y. Crowell Co.	publishing house					Thomas Y. Crowell Company | Thomas Y. Crowell & Company | Thomas Y. Crowell & Co. | T. Y. Crowell Co. | Crowell & Co.		
+				1	clean	missing	978-0-7005	Q6972786	National Foundation for Educational Research	foundation; charitable organization							
+		yes		1	clean	mismatch	978-0-7025	Q3635018	Bharatiya Vidya Bhavan	academic institution; publishing house; book publisher	978-81-7276;978-81-922719;978-1-85299;978-0-9807348				Bharatiya Vidya Bhavan Educational Trust | Bharatiya Vidya Bhavans | Bhavans | Bhavan's		
+		yes		3	clean	missing	978-0-7054	Q7806643	Time-Life	business; book publisher					Time–Life | Time-Life | TIME/LIFE | Time-Life Books		
+				1	clean	missing	978-0-7058	Q757600	Atomic Energy Research Establishment	laboratory					AERE | Harwell Laboratory		
+		yes		2	clean	missing	978-0-7062	Q2100540	Ward Lock & Co	publishing house					Ward, Lock, and Tyler | Ward and Lock | Ward & Lock		
+		yes		2	clean	missing	978-0-7063	Q2100540	Ward Lock & Co	publishing house					Ward, Lock, and Tyler | Ward and Lock | Ward & Lock		
+			yes	1	clean	missing	978-0-7068	Q6775031	Sceptre Press	human							
+				2	clean	mismatch	978-0-7078	Q333515	National Trust for Places of Historic Interest or Natural Beauty	national trust; nonprofit organization; collection	978-1-84359				National Trust for Places of Historic Interest or Natural Beauty		
+		yes		2	clean	missing	978-0-7081	Q127990	Australian National University	public university; Government body of Australia; production company; nonprofit organization					The Australian National University | ANU | Phoenix Prize for Spiritual Art | Australian National University, Central Administration		
+				1	clean	missing	978-0-7093	Q4916650	Birmingham City Council	metropolitan borough council							
+				1	clean	missing	978-0-7095	Q3366507	British Tourist Authority	tourism agency					British Tourist Authority		
+				1	clean	missing	978-0-7117	Q6161111	Jarrold Publishing	business; brick and mortar					The Jarrold Group | Jarrold & Sons | Jarrolds		
+				1	clean	missing	978-0-7123	Q23308	British Library	national library; reference library; research library; universal library; non-departmental public body; library building					BL | B.L. | The British Library | The British Museum Library		
+		yes		2	clean	missing	978-0-7131	Q5341603	Edward Arnold (publisher)	publishing house							
+			yes	1	clean	missing	978-0-7139	Q1263483	Allen Lane	human					Allen Lane Williams | Sir Allen Lane		
+		yes		2	clean	missing	978-0-7141	Q6373	British Museum	national museum; non-departmental public body; art museum; museum; charitable organization					BM | the British Museum		
+		yes		1	clean	mismatch	978-0-7152	Q7400934	Saint Andrew Press	publishing house	978-0-86153						
+			yes	1	clean	missing	978-0-7175	Q5343095	Hulton Press	human					Edward Hulton | Sir Edward George Warris Hulton		
+				1	clean	missing	978-0-7176	Q1478750	Health and Safety Executive	non-departmental public body					HSE		
+			yes	1	clean	missing	978-0-7181	Q15999138	Michael Joseph (publisher)	human							
+				1	clean	missing	978-0-7186	Q121027510	H. K. Lewis & Co. Ltd.								
+				1	clean	missing	978-0-7191	Q1457596	Cornmarket Press	privately held company					Haymarket Business Media | Haymarket Publications		
+				1	clean	missing	978-0-7200	Q2046319	National Museum Wales	Welsh Government sponsored body; museum service; museum network					Amgueddfa Cymru – National Museum Wales | National Museums and Galleries of Wales | National Museum Wales | National Museum of Wales | Amgueddfa Cymru | Museum Wales		
+			yes	1	clean	missing	978-0-7220	Q3894117	Frank Sheed	human					Francis Joseph Sheed | Francis J. Sheed		
+		yes		4	clean	missing	978-0-7221	Q7576675	Sphere Books	publishing house							
+				1	clean	missing	978-0-7263	Q14793	Summer Institute of Linguistics	non-governmental organization; scientific society; nonprofit organization; Christian organization							
+		yes		2	clean	missing	978-0-7267	Q5341603	Edward Arnold (publisher)	publishing house							
+	Q2018873			1	clean	missing	978-0-7279	Q919715	British Medical Association	organization; syndicate; professional order; medical association					BMA		
+				1	clean	missing	978-0-7282	Q5400694	Estates Gazette	magazine							
+				1	clean	missing	978-0-7287	Q59746	Arts Council of Great Britain	non-departmental public body; art institution							
+				1	clean	missing	978-0-7292	Q6972373	National Economic Development Office	organization					National Economic Development Office		
+				1	clean	missing	978-0-7308	Q7579486	South Australian Sports Institute	sport in a geographic region					sports in South Australia | South Australia sports | sports of South Australia | sporting in South Australia		
+				2	clean	missing	978-0-7313	Q705551	Art Gallery of New South Wales	art museum					AGNSW | Art Gallery NSW		
+		yes		2	clean	missing	978-0-7315	Q127990	Australian National University	public university; Government body of Australia; production company; nonprofit organization					The Australian National University | ANU | Phoenix Prize for Spiritual Art | Australian National University, Central Administration		
+		yes		2	clean	missing	978-0-7325	Q319078	University of Melbourne	public university; open-access publisher					Melbourne University | The University of Melbourne | UMelb | Melbourne Uni | UniMelb		
+				1	clean	missing	978-0-7333	Q781365	Australian Broadcasting Corporation	television network; statutory corporation; radio network; information; public broadcaster; organization					ABC | Australian Broadcasting Commission | Australian Broadcasting Company | ABC Australia | ABC (Australia) | ABC AU		
+		yes		2	clean	missing	978-0-7340	Q319078	University of Melbourne	public university; open-access publisher					Melbourne University | The University of Melbourne | UMelb | Melbourne Uni | UniMelb		
+				2	clean	missing	978-0-7347	Q705551	Art Gallery of New South Wales	art museum					AGNSW | Art Gallery NSW		
+				1	clean	missing	978-0-7357	Q7157694	New Riders Press	business							
+				2	clean	mismatch	978-0-7388	Q15679645	Xlibris Corporation	self-publishing company	978-1-4134				Xlibris Corporation | Xlibris Publishing		
+	Q1756332	yes		1	clean	missing	978-0-7434	Q7206385	Pocket Books	publishing house; imprint							
+		yes		1	clean	mismatch	978-0-7460	Q3552538	Usborne Publishing	publishing house	978-0-86020				Usborne Books		
+		yes		2	clean	missing	978-0-7472	Q15732516	Hodder Headline	publishing house					Headline		
+		yes		4	clean	missing	978-0-7474	Q7576675	Sphere Books	publishing house							
+		yes		1	clean	mismatch	978-0-7478	Q7498354	Shire Books	publishing house	978-0-85263						
+		yes		1	clean	mismatch	978-0-7487	Q6990753	Stanley Thornes	publishing house	978-0-85950						
+				1	clean	missing	978-0-7488	Q16996804	Improvement and Development Agency	organization					Local Government Improvement and Development		
+				1	clean	missing	978-0-7504	Q493517	National Assembly for Wales	legislature of a constituent state; unicameral legislature; elected legislative house					Welsh National Assembly | Welsh Assembly | Cynulliad Cenedlaethol Cymru | The National Assembly for Wales | National Assembly for Wales | National Assembly of Wales | Senedd Cymru | Welsh Parliament | Senedd Cymru – Welsh Parliament | The Senedd		
+		yes		2	clean	mismatch	978-0-7509	Q7739770	Sutton Publishing	business; book publisher	978-0-85033;978-1-86077				History Press		
+		yes		2	clean	mismatch	978-0-7512	Q5606574	Gregg Press	publishing house	978-0-8398						
+		yes		2	clean	mismatch	978-0-7513	Q1245484	Dorling Kindersley	book publisher	978-0-86318;978-1-4053;978-1-4093;978-3-8310				DK Publishing | DK Books | Dorling Kindersley		
+		yes		1	clean	mismatch	978-0-7514	Q1938327	Blackie and Son Limited	publishing house; editor	978-0-216				Blackie & Son		
+				1	clean	missing	978-0-7517	Q4836281	BPP Learning Media	business							
+		yes		2	clean	mismatch	978-0-7524	Q7739770	Tempus Publishing	business; book publisher	978-0-85033;978-1-86077				History Press		
+		yes		1	clean	mismatch	978-0-7525	Q7139729	Parragon	publishing house	978-1-4054;978-1-4075;978-1-4454;978-1-4723;978-1-84164				Parragon Books		
+		yes		1	clean	mismatch	978-0-7535	Q3138589	Virgin Books	publishing house	978-0-86369				Virgin Publishing		
+		yes		2	clean	missing	978-0-7546	Q4805028	Ashgate Publishing	publishing house; book publisher							
+	Q139067397	yes		2	clean	missing	978-0-7553	Q15732516	Headline Book Publishing	publishing house					Headline		
+				2	clean	missing	978-0-7607	Q795454	Barnes & Noble Books	business; enterprise; public company; bookstore chain							
+		yes		1	clean	mismatch	978-0-7611	Q4779613	Workman Publishing Company	book publisher	978-0-911104;978-1-56512						
+		yes		3	clean	mismatch	978-0-7614	Q4043752	Marshall Cavendish	publishing house	978-0-85685;978-2-7365						
+		yes		2	clean	missing	978-0-7618	Q3551348	University Press of America	publishing house							
+		yes		2	clean	mismatch	978-0-7619	Q251266	SAGE Publications	book publisher; academic publisher; open-access publisher	978-1-4129;978-1-84787;978-1-0718;978-1-0719;978-1-4522;978-1-4833;978-1-5063;978-1-5443;978-0-85702;978-1-5296;978-1-5297				sagepublishing.com | SAGE Publications Ltd | SAGE Publications | sagepub.com | SAGE Publishing | Sage Publications		
+				2	clean	mismatch	978-0-7641	Q3112947	Barron's Educational Series	business	978-1-84710				Kaplan International Colleges | Kaplan Inc | Kaplan, Inc		
+		yes		1	clean	mismatch	978-0-7643	Q7431284	Schiffer Publishing	publishing house	978-0-88740				Schiffer pub		
+				1	clean	missing	978-0-7645	Q1666494	International Data Group	business					International Data Corporation，IDC | IDC		
+			yes	1	clean	missing	978-0-7653	Q7815601	Tom Doherty	human							
+			yes	1	clean	missing	978-0-7657	Q6161945	Jason Aronson	human							
+		yes		1	clean	mismatch	978-0-7660	Q14705489	Enslow Publishers	publishing house	978-0-89490;978-1-4644						
+				1	clean	missing	978-0-7692	Q137691184	Warner Bros.	brand							
+		yes		2	clean	missing	978-0-7713	Q180865	University of Toronto	public research university; collegiate university; university in Ontario					UToronto | U of T | Univ. of Toronto | utoronto.ca | UofT | U. of T. | The University of Toronto		
+	Q7896496	yes		2	clean	missing	978-0-7727	Q180865	University of Toronto	public research university; collegiate university; university in Ontario					UToronto | U of T | Univ. of Toronto | utoronto.ca | UofT | U. of T. | The University of Toronto		
+	Q3402572	yes		1	clean	missing	978-0-7746	Q1067935	Université Laval	public research university; open-access publisher; university in Quebec; charitable organization					Université Laval | ulaval.ca		
+		yes		1	clean	mismatch	978-0-7766	Q7896044	University of Ottawa Press	university press	978-2-7603				UOP		
+	Q3402573	yes		1	clean	mismatch	978-0-7770	Q326282	Université du Québec	university system; open-access publisher	978-2-37745				University of Quebec | UQ | uquebec.ca		
+		yes		3	clean	missing	978-0-7835	Q7806643	Time-Life	business; book publisher					Time–Life | Time-Life | TIME/LIFE | Time-Life Books		
+		yes		1	clean	mismatch	978-0-7844	Q466880	American Society of Civil Engineers	regulatory college; professional association; engineering society; academic publisher	978-0-87262				ASCE | asce.org		
+		yes		2	clean	mismatch	978-0-7894	Q1245484	Dorling Kindersley	book publisher	978-0-86318;978-1-4053;978-1-4093;978-3-8310				DK Publishing | DK Books | Dorling Kindersley		
+		yes		2	clean	missing	978-0-7900	Q7306689	Reed Publishing	publishing house					A. H. Reed Ltd | A. H. and A. W. Reed Ltd | Reed Methuen | Octopus Publishing (NZ) | Heinemann Reed | Reed Publishing (NZ) Ltd | Raupo Publishing (NZ) | A.H. & A.W. Reed Ltd | A. H. & A. W. Reed Ltd | AH & AW Reed		
+		yes		1	clean	mismatch	978-0-7922	Q167186	National Geographic Society	scientific society; film production company; publishing house	978-1-4262				NGS | National Geographic Society | The National Geographic Society		
+				1	clean	missing	978-0-7928	Q1981249	MGM Home Entertainment	business					MGM/UA FAMILY ENTERTAINMENT | MGM/UA HOME VIDEO | MGM/UA Home Entertainment		
+				1	clean	missing	978-0-7935	Q3093066	G. Schirmer	music publisher					G. Schirmer, Inc.		
+		yes		5	clean	missing	978-0-7962	Q6273015	Heinemann (book publisher)	publishing house; business					William Heinemann Ltd.		
+				1	clean	missing	978-0-7969	Q11020151	Human Sciences Research Council (South Africa)	organization; research institute					HSRC | Human Sciences Research Council of South Africa | hsrc.ac.za		
+		yes		2	clean	mismatch	978-0-8039	Q251266	SAGE Publications	book publisher; academic publisher; open-access publisher	978-1-4129;978-1-84787;978-1-0718;978-1-0719;978-1-4522;978-1-4833;978-1-5063;978-1-5443;978-0-85702;978-1-5296;978-1-5297				sagepublishing.com | SAGE Publications Ltd | SAGE Publications | sagepub.com | SAGE Publishing | Sage Publications		
+				1	clean	missing	978-0-8074	Q1130842	Union of American Hebrew Congregations	religious organization; nonprofit organization					Reform Judaism | URJ | Union of American Hebrew Congregations | UAHC		
+			yes	1	clean	missing	978-0-8076	Q5537222	George Braziller	human							
+	Q98273361			1	clean	missing	978-0-8091	Q1305904	Paulist Fathers	organization; Catholic religious institute					C.S.P. | CSP | Missionary Society of Saint Paul the Apostle | Paulists		
+		yes		3	clean	missing	978-0-8094	Q7806643	Time-Life	business; book publisher					Time–Life | Time-Life | TIME/LIFE | Time-Life Books		
+				1	clean	missing	978-0-8095	Q4945073	Borgo Press	business							
+				1	clean	missing	978-0-8104	Q5686300	Hayden Books	video game publisher					Hayden Book Company, Inc. | Hayden Book Co		
+		yes		1	clean	mismatch	978-0-8110	Q3508593	Northwestern University Press	university press; book publisher	978-0-8101						
+				2	clean	mismatch	978-0-8120	Q3112947	Barron's Educational Series	business	978-1-84710				Kaplan International Colleges | Kaplan Inc | Kaplan, Inc		
+		yes		1	clean	mismatch	978-0-8135	Q4048631	Rutgers University Press	university press	978-1-896357						
+		yes		2	clean	missing	978-0-8191	Q3551348	University Press of America	publishing house							
+				1	clean	missing	978-0-8201	Q7432051	Scholars' Facsimiles & Reprints	business							
+				1	clean	missing	978-0-8213	Q320863	World Bank	specialized agency of the United Nations					WBG		
+				1	clean	missing	978-0-8220	Q5133092	CliffsNotes	website					Cliff's Notes | Cliffs Notes		
+				1	clean	missing	978-0-8224	Q5439506	Fearon Publishers	business							
+				1	clean	missing	978-0-8242	Q5628654	H. W. Wilson Company	organization					The H. W. Wilson Co | H.W. Wilson Co. | HW Wilson Co. | The HW Wilson Company | The H. W. Wilson Company		
+				1	clean	missing	978-0-8258	Q5040137	Carl Fischer Music	music publisher; sheet music publisher							
+		yes		2	clean	mismatch	978-0-8264	Q4036513	Continuum International Publishing Group	publishing house; book publisher	978-1-4411;978-1-84371				Continuum | Thoemmes Continuum		
+				1	clean	missing	978-0-8267	Q15891753	United Bible Societies	voluntary association; voluntary association; organization; nonprofit organization					UBS		
+	Q55085741	yes		1	clean	missing	978-0-8308	Q16994983	Inter-Varsity Press	publishing house; charitable organization							
+				1	clean	missing	978-0-8311	Q16996913	Industrial Press	business							
+				1	clean	missing	978-0-8329	Q7947585	WBusiness Books						New Win Publishing		
+		yes		1	clean	mismatch	978-0-8343	Q3403686	Funk & Wagnalls	publishing house	978-0-308				I.K. Funk & Company | Funk & Wagnalls Company | Funk & Wagnalls Inc. | Funk & Wagnalls Corporation | Funk & Wagnalls Co. | Funk and Wagnalls Co.		
+		yes		1	clean	mismatch	978-0-8351	Q1743971	Foreign Languages Press	publishing house	978-7-119;978-7-88718				Wàiwén chūbǎn shè | Waiwen chuban she		
+				1	clean	missing	978-0-8359	Q248	Intel Corporation	business; public company					N M Electronics | INTC | Intel Corporation | Intel Corp. | Intel Corp | intel.com		
+				1	clean	missing	978-0-8368	Q5522979	Gareth Stevens	business					Gareth Stevens Publishing		
+	Q21428306	yes		1	clean	missing	978-0-8405	Q392189	Université de Montréal	university in Quebec; public research university; charitable organization					Universite Laval Montreal | Universite de Montreal | University of Montreal | UdeM | Université Laval Montréal | umontreal.ca		
+	Q96310972			2	clean	missing	978-0-85112	Q41675	Guinness Publishing	periodical; literary work; written work							
+		yes		2	clean	missing	978-0-85763	Q7062009	Nosy Crow	publishing house					NosyCrow		
+				1	clean	missing	978-0-85985	Q7242598	Price Stern Sloan	business					PSS!		
+		yes		1	clean	mismatch	978-0-86554	Q6818315	Mercer University Press	university press	978-0-88146						
+	Q4744025			1	clean	missing	978-0-86612	Q19872202	American Hotel & Lodging Educational Institute	organization; trade association					American Hotel Association | American Hotel and Motel Association | AHLA		
+	Q2356394			1	clean	missing	978-0-87029	Q137603164	Abbey Press	Wikimedia disambiguation page							
+				1	clean	missing	978-0-88145	Q4972492	Broadway Play Publishing Inc	business							
+		yes		1	clean	mismatch	978-0-901272	Q262854	University of Lancaster	public research university; higher education institution; open-access publisher; educational organization; university; organization	978-0-901800;978-1-86220				The University of Lancaster | Lancaster University		
+				1	clean	missing	978-0-901283	Q29025015	Railway Development Society	advocacy group					Railway Development Society		
+				1	clean	missing	978-0-901793	Q7758091	Yorkshire Evening Press	newspaper					The York Press | York Press | The Evening Press | Evening Press | Yorkshire Evening Press		
+				1	clean	missing	978-0-902087	Q18160739	London Topographical Society	text publication society							
+				1	clean	missing	978-0-902756	Q1634372	Esperanto-Asocio de Britio	Esperanto organization					Esperanto-Asocio de Britio | EAB | British Esperanto Association		
+				1	clean	missing	978-0-903623	Q2925744	Potato Marketing Board	organization; marketing board					Potato Council		
+				1	clean	missing	978-0-904296	Q188313	County Borough of Blackburn	town; unparished area							
+				1	clean	missing	978-0-905455	Q20602688	Yorkshire Dales National Park	national park of England and Wales							
+				1	clean	missing	978-0-907660	Q7730763	Douglas Hyde Gallery	art gallery; art museum; nonprofit organization					The Douglas Hyde Gallery		
+				1	clean	missing	978-0-9526262	Q1739094	Kenwood Limited	business; subsidiary company; enterprise					Kenwood Appliances Ltd. | Kenwood		
+				1	clean	missing	978-0-9530528	Q16836764	BackCare	health charity; charitable organization							
+				1	clean	mismatch	978-0-9555481	Q3112472	World Radio TV Handbook	user guide	978-3982501710						
+				1	clean	missing	978-0-9563901	Q139759949	The Caravan Gallery								
+				1	clean	missing	978-0-9780735	Q6202358	Jingle Cats	musical group							
+			yes	1	clean	missing	978-0-9780937	Q258869	Bianca Beauchamp	human					Bianca Stéphanie Beauchamp		
+				2	clean	mismatch	978-1-4010	Q15679645	Xlibris	self-publishing company	978-1-4134				Xlibris Corporation | Xlibris Publishing		
+				1	clean	missing	978-1-4024	Q7237367	Practising Law Institute	nonprofit organization					PLI		
+	Q114715623;Q114716003;Q114717847;Q114718812;Q114722456;Q114728544;Q114728588;Q114728592;Q114728602;Q114728605;Q4683271;Q99521181	yes		5	clean	mismatch	978-1-4081	Q568642	Bloomsbury Publishing	book publisher; public company; corporation; holding company	978-1-4088;978-1-58234;978-0-7475						
+	Q14478377			1	clean	missing	978-1-4102	Q1115050	United States Army Command and General Staff College	staff college					USACGSC | CGSC | Infantry and Cavalry School | School of the Line		
+		yes		1	clean	mismatch	978-1-4143	Q5408143	Tyndale House	book publisher	978-0-8423				Tyndale House Publishers		
+	Q3030460;Q6778183;Q7888605			1	clean	missing	978-1-4231	Q7414	Disney	film production company; commercial organization; media conglomerate; business; public company					The Walt Disney Studio		
+	Q4050071	yes		1	clean	missing	978-1-4384	Q1140241	State University of New York	state university system; public university; state agency of New York					SUNY | The State University of New York | suny.edu		
+				1	clean	mismatch	978-1-4402	Q5423577	F+W	company	978-1-55870						
+	Q114718812	yes		5	clean	mismatch	978-1-4725	Q568642	Bloomsbury Publishing	book publisher; public company; corporation; holding company	978-1-4088;978-1-58234;978-0-7475						
+	Q114715623;Q114716003;Q114722456;Q114728544;Q114728592;Q114728605;Q4683271	yes		5	clean	mismatch	978-1-4729	Q568642	Bloomsbury Publishing	book publisher; public company; corporation; holding company	978-1-4088;978-1-58234;978-0-7475						
+		yes		2	clean	mismatch	978-1-4730	Q2413375	Open University	public university; higher education institution; open-access publisher; educational organization; organization	978-1-78007				Open University, The | Open University		
+	Q114718812	yes		5	clean	mismatch	978-1-4742	Q568642	Bloomsbury Publishing	book publisher; public company; corporation; holding company	978-1-4088;978-1-58234;978-0-7475						
+	Q99071608			1	clean	missing	978-1-56854	Q1364344	Liturgy Training Publications	Roman Catholic metropolitan archdiocese; organization					Metropolitan Archdiocese of Chicago | Archdiocese of Chicago | Diocese of Chicago		
+				1	clean	missing	978-1-58083	Q36901083	Stampley	family name							
+				1	clean	missing	978-1-59185	Q39086385	Charisma House								
+		yes		4	clean	missing	978-1-61988	Q633812	Archie Comics	business; book publisher; comics publishing company					MLJ Comics | MLJ Magazines | M.L.J. Magazines, Inc. | Archie Comic Publications | Archie Comic Publications, Inc.		
+		yes		4	clean	missing	978-1-62738	Q633812	Archie Comics	business; book publisher; comics publishing company					MLJ Comics | MLJ Magazines | M.L.J. Magazines, Inc. | Archie Comic Publications | Archie Comic Publications, Inc.		
+		yes		9	clean	mismatch	978-1-63858	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		9	clean	mismatch	978-1-64505	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		9	clean	mismatch	978-1-64827	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		4	clean	missing	978-1-68255	Q633812	Archie Comics	business; book publisher; comics publishing company					MLJ Comics | MLJ Magazines | M.L.J. Magazines, Inc. | Archie Comic Publications | Archie Comic Publications, Inc.		
+		yes		9	clean	mismatch	978-1-68579	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		1	clean	mismatch	978-1-74257	Q7008684	New Holland Publishers	book publisher	978-1-74110;978-1-84330;978-1-84537;978-1-84773				New Holland | Reed New Holland		
+		yes		5	clean	missing	978-1-78131	Q7269371	Aurum Press	publishing house; public company					Voyageur Press		
+		yes		1	clean	mismatch	978-1-78243	Q6833182	Michael O'Mara Books	publishing house	978-1-84317;978-1-85479						
+		yes		5	clean	missing	978-1-78361	Q5457150	Flame Tree Publishing	book publisher							
+				1	clean	mismatch	978-1-78389	Q685018	Future plc	business; enterprise; public company	978-1-85870				Future Publishing		
+			yes	1	clean	missing	978-1-78578	Q18704867	Icon Books	human							
+		yes		5	clean	missing	978-1-78758	Q5457150	Flame Tree Publishing	book publisher							
+		yes		2	clean	missing	978-1-78800	Q7062009	Nosy Crow	publishing house					NosyCrow		
+		yes		5	clean	missing	978-1-84092	Q7269371	The Quarto Group	publishing house; public company					Voyageur Press		
+	Q132794736	yes		2	clean	mismatch	978-1-84149	Q3355196	Orbit Books	publishing house; imprint; brand	978-2-36051;978-0-35652				Orbit Books		
+		yes		5	clean	missing	978-1-84451	Q5457150	Flame Tree Publishing	book publisher							
+	Q4822671	yes		5	clean	missing	978-1-84513	Q7269371	Aurum Press	publishing house; public company					Voyageur Press		
+		yes		5	clean	missing	978-1-84786	Q5457150	Flame Tree Publishing	book publisher							
+		yes		1	clean	mismatch	978-1-84866	Q7271329	Quercus (publisher)	publishing house	978-1-84916;978-1-906694						
+				1	clean	missing	978-1-85152	Q998470	Reed International Books	business; enterprise; public company					Reed Elsevier | RELX Group N.V | RELX PLC | relx.com | Reed Elsevier (United Kingdom)		
+				1	clean	missing	978-1-85249	Q925258	Campaign for Real Ale	consumer organization					CAMRA | Campaign for the Revitalisation of Ale		
+	Q4822671	yes		5	clean	missing	978-1-85410	Q7269371	Aurum Press	publishing house; public company					Voyageur Press		
+	Q132794736	yes		2	clean	mismatch	978-1-85723	Q3355196	Orbit Books	publishing house; imprint; brand	978-2-36051;978-0-35652				Orbit Books		
+	Q4650773			1	clean	missing	978-1-86396	Q103628739	ACP Magazines	media company							
+				1	clean	missing	978-1-870780	Q4969549	British Ballet Organisation	organization; dance organization					British Ballet Organization		
+				1	clean	missing	978-1-879016	Q358284	Orthodox Union	religious organization; Jewish organization					OU		
+		yes		1	clean	mismatch	978-1-881307	Q20708704	St. Anthony Messenger Press	publishing house; organization	978-0-89283						
+				1	clean	missing	978-1-892058	Q112274494	DreamHaven Books	company							
+				1	clean	missing	978-1-902827	Q4839029	BackTrack (magazine)	magazine							
+				1	clean	missing	978-1-903007	Q2926101	Brontë Parsonage Museum	historic house museum; independent museum					Haworth Parsonage (Bronte Museum)		
+		yes		5	clean	missing	978-1-904041	Q5457150	Flame Tree Publishing	book publisher							
+		yes		3	clean	mismatch	978-1-904879	Q4043752	Marshall Cavendish	publishing house	978-0-85685;978-2-7365						
+	Q96310972			2	clean	missing	978-1-904994	Q41675	Guinness World Records	periodical; literary work; written work							
+	Q4970116			1	clean	missing	978-1-905221	Q6054465	British Institute of International and Comparative Law	periodical					The international and comparative law quarterly		
+		yes		1	clean	mismatch	978-1-905881	Q3304316	Granta Publications	magazine; book publisher	978-0-903141;978-1-84708;978-1-86207				Granta Books		
+		yes		5	clean	missing	978-1-907332	Q7269371	Ivy Press	publishing house; public company					Voyageur Press		
+		yes		3	clean	missing	978-1-907426	Q96385614	Kelsey Media	publishing house							
+	Q1006283			2	clean	mismatch	978-1-907892	Q333515	The National Trust	national trust; nonprofit organization; collection	978-1-84359				National Trust for Places of Historic Interest or Natural Beauty		
+		yes		3	clean	missing	978-1-910554	Q96385614	Kelsey Media	publishing house							
+				1	clean	mismatch	978-1-911276	Q6914980	Mortons of Horncastle	business	978-0-9550221;978-1-906167						
+		yes		3	clean	missing	978-1-912151	Q96385614	Kelsey Media	publishing house							
+			yes	1	clean	missing	978-1-929068	Q238090	Sholom Aleichem	human					Solomon Naumovich Rabinovich | Sholem Aleychem | Sholom Aleykhem | Solem o Salom Alekem		
+	Q1423872		yes	1	clean	missing	978-1-931009	Q60738847	Total Immersion	human					Terrence James Laughlin		
+				1	clean	missing	978-1-932921	Q5691374	Healthwise	nonprofit organization					Healthwise		
+		yes		9	clean	mismatch	978-1-933164	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		9	clean	mismatch	978-1-934876	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		9	clean	mismatch	978-1-935934	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+		yes		4	clean	missing	978-1-936975	Q633812	Archie Comics	business; book publisher; comics publishing company					MLJ Comics | MLJ Magazines | M.L.J. Magazines, Inc. | Archie Comic Publications | Archie Comic Publications, Inc.		
+		yes		9	clean	mismatch	978-1-937867	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+				1	clean	missing	978-1-941792	Q4860041	Bard Graduate Center	art gallery; organization; educational institution							
+		yes		9	clean	mismatch	978-1-947804	Q2073284	Seven Seas Entertainment	book publisher; comics publishing company; business; enterprise	978-1-64275;978-1-62692				Seven Seas Entertainment, LLC		
+				1	clean	missing	978-1-951115	Q5618313	Gun Digest	magazine							
+		yes		1	imprint?	missing	978-0-215	Q7766412	The Stationery Office	publishing house		Williams Lea	H.M. Stationery Office				
+	Q7300424			1	imprint?	missing	978-0-276	Q371820	Reader's Digest Press	magazine		Trusted Media Brands			The Reader's Digest		
+	Q3560313;Q744182	yes		1	imprint?	missing	978-0-307	Q2744153	Western Publishing	book publisher; comics publishing company		Random House			Western Printing and Lithographing Company		
+		yes		1	imprint?	mismatch	978-0-313	Q3116159	Greenwood Press	book publisher	978-0-8371;978-0-89930	ABC-CLIO					
+		yes		2	imprint?	missing	978-0-314	Q7984204	West Publishing	publishing house		Thomson Reuters; The Thomson Corporation			West Publishing | West Publishing Co | Thomson West | West Information Publishing Group | West Group		
+		yes		1	imprint?	mismatch	978-0-316	Q349566	Hachette Livre	publishing house; organization; business	978-2-01	Lagardère Publishing; Lagardère Group			Hachette Livre | Librairie Hachette | Brédif | L. Hachette et Compagnie | Hachette SA | Hachette Australia | Hachette UK | Hachette and Company		
+	Q1076074	yes		6	imprint?	mismatch	978-0-333	Q2108217	Macmillan Publishing	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+		yes		1	imprint?	mismatch	978-0-373	Q612938	Harlequin Enterprises	publishing house	978-1-4089;978-1-4268;978-1-4592;978-2-280	Torstar; HarperCollins; News Corp			Harlequin | Harlequin Books		
+		yes		1	imprint?	missing	978-0-374	Q3067003	Farrar, Straus & Giroux	publishing house		Macmillan Publishers					
+		yes		1	imprint?	mismatch	978-0-375	Q744182	Random House	publishing house	978-0-09;978-0-307;978-1-4000;978-1-57673;978-1-57856;978-1-84413;978-1-86230	Penguin Random House			Random Century		
+		yes		5	imprint?	mismatch	978-0-380	Q95149	HarperCollins	book publisher	978-0-00;978-0-06;978-1-85702	News Corp					
+		yes		2	imprint?	mismatch	978-0-387	Q176916	Springer Science+Business Media	publishing house; book publisher; academic publisher	978-1-4020;978-1-4419;978-1-85233	Q21096327			Springer | Kluwer Academic Publishers | Springer SBM | Springer-Verlag Berlin Heidelberg | Verlag von Julius Springer | Springer-Verlag		
+	Q3560313	yes		1	imprint?	missing	978-0-394	Q1431868	Alfred A. Knopf	publishing house; book publisher		Penguin Random House			Alfred A. Knopf, Inc. | Knopf		
+		yes		1	imprint?	mismatch	978-0-397	Q2407351	Lippincott Williams & Wilkins	imprint; organization	978-1-60547;978-1-901821;978-0-683	Wolters Kluwer			LWW | Lippincott, Williams & Wilkins | Lea Brothers & Co | Carey & Lea | Lea Brothers & Company | Lea Brothers & Co. | Lea Brothers and Co		
+		yes		5	imprint?	mismatch	978-0-406	Q683146	Butterworths	publishing house; legal information system	978-1-4057;978-2-7110;978-2-910179	RELX			Lexis | LexisNexis Legal & Professional | Lexis Advance | Lexis Practice Advisor | CourtLink | CaseMap | nexis.com | CounselLink | Nexis Direct | LexisNexis GmbH | Lexis Plus		
+		yes		5	imprint?	mismatch	978-0-407	Q683146	Butterworths	publishing house; legal information system	978-1-4057;978-2-7110;978-2-910179	RELX			Lexis | LexisNexis Legal & Professional | Lexis Advance | Lexis Practice Advisor | CourtLink | CaseMap | nexis.com | CounselLink | Nexis Direct | LexisNexis GmbH | Lexis Plus		
+		yes		5	imprint?	mismatch	978-0-408	Q683146	Butterworths	publishing house; legal information system	978-1-4057;978-2-7110;978-2-910179	RELX			Lexis | LexisNexis Legal & Professional | Lexis Advance | Lexis Practice Advisor | CourtLink | CaseMap | nexis.com | CounselLink | Nexis Direct | LexisNexis GmbH | Lexis Plus		
+		yes		5	imprint?	mismatch	978-0-409	Q683146	Butterworths	publishing house; legal information system	978-1-4057;978-2-7110;978-2-910179	RELX			Lexis | LexisNexis Legal & Professional | Lexis Advance | Lexis Practice Advisor | CourtLink | CaseMap | nexis.com | CounselLink | Nexis Direct | LexisNexis GmbH | Lexis Plus		
+		yes		5	imprint?	mismatch	978-0-411	Q95149	HarperCollins	book publisher	978-0-00;978-0-06;978-1-85702	News Corp					
+	Q105531591	yes		1	imprint?	mismatch	978-0-412	Q2054191	Chapman & Hall	book publisher; imprint; publishing house	978-1-58488	CRC Press			Chapman and Hall/CRC | Chapman and Hall London		
+		yes		1	imprint?	missing	978-0-421	Q7655162	Sweet & Maxwell	publishing house		Thomson Reuters			Sweet & Maxwell Ltd | First published in 1971 by Tavistock Publications Ltd		
+		yes		1	imprint?	missing	978-0-441	Q536795	Ace Books	publishing house		Penguin Random House			Ace		
+		yes		1	imprint?	missing	978-0-443	Q5118204	Churchill Livingstone	publishing house; imprint		Elsevier					
+		yes		1	imprint?	mismatch	978-0-465	Q4034881	Basic Books	book publisher	978-1-5416	Hachette Book Group					
+		yes		2	imprint?	mismatch	978-0-495	Q2944238	Thomson Wadsworth	business; publishing house	978-1-4080;978-4-86312	The Thomson Corporation	International Thomson Publishing Corporation		Thomson Learning | Cengage | Cengage Learning		
+		yes		3	imprint?	missing	978-0-517	Q5189454	Crown Publishing Group	publishing house		Penguin Random House; Random House			Crown Business | Crown Publishers		
+		yes		1	imprint?	missing	978-0-522	Q6811908	Melbourne University Press	university press		University of Melbourne			Melbourne University Press | MUP		
+		yes		1	imprint?	missing	978-0-525	Q5317558	E. P. Dutton	publishing house; media distributor; imprint		Penguin Random House; Penguin Group			Dutton Books | E. P. Dutton | E. P. Dutton & Company | E.P. Dutton | E. P. Dutton & Co.		
+	Q54820777	yes		2	imprint?	mismatch	978-0-552	Q7835466	Corgi (publisher)	publishing house; book publisher	978-1-905811	Penguin Random House					
+				1	imprint?	missing	978-0-563	Q9531	BBC	public broadcaster		Department for Digital, Culture, Media and Sport	British Broadcasting Company Limited		BBC		
+		yes		1	imprint?	missing	978-0-570	Q5158981	Concordia Publishing House	publishing house; book publisher		Lutheran Church – Missouri Synod			CPH | Concordia Pub. House | Lutherischer Concordia Verlag | Concordia-Verlag | Editorial Concordia | Luth. Concordia-Verlag		
+		yes		3	imprint?	missing	978-0-582	Q911673	Longman	publishing house; family; organization		Pearson Education			Longman & Co. | Messrs. Longmans, Green & Co. | Longmans, Green & Co. | Longmans, Green, Reader, and Dyer | Longman, Hurst, Rees, Orme, Brown, and Green | Longman, Hurst, Rees, Orme, Brown & Green | Longman, Hurst, Rees, & Orme | Longman, Hurst & Co., Paternoster Row, London | Longman, Hurst, Rees and Orme | Longmans | Longmans, Green & Company | Longmans, Green & Co | Longmans, Green, and Co. | Longmans Green & Co Ltd | Longman and Co.		
+	Q2908540	yes		1	imprint?	mismatch	978-0-593	Q2609948	Bantam Books	publishing house; imprint	978-0-553	Random House					
+				1	imprint?	missing	978-0-607	Q193755	US Geological Survey	United States federal agency; geological survey; national mapping agency		United States Department of the Interior			USGS | US Geological Survey | U.S. Geological Survey | U. S. G. S. | Geological Survey | United States. Dept. of the Interior. Geological Survey | United States. Department of the Interior. Geological Survey		
+				4	imprint?	missing	978-0-608	Q2111400	University Microfilms International	privately held company; online database		Cambridge Information Group; Clarivate	University Microfilms International		ProQuest LLC		
+		yes		3	imprint?	missing	978-0-609	Q5189454	Crown Publishing Group	publishing house		Penguin Random House; Random House			Crown Business | Crown Publishers		
+				4	imprint?	missing	978-0-612	Q2111400	University Microfilms International	privately held company; online database		Cambridge Information Group; Clarivate	University Microfilms International		ProQuest LLC		
+		yes		2	imprint?	mismatch	978-0-619	Q2944238	Course Technology	business; publishing house	978-1-4080;978-4-86312	The Thomson Corporation	International Thomson Publishing Corporation		Thomson Learning | Cengage | Cengage Learning		
+		yes		1	imprint?	mismatch	978-0-632	Q767319	Blackwell Publishing	publishing house; book publisher	978-1-4051;978-0-631;978-1-55786	Wiley	Blackwell Publishing		Wiley Blackwell		
+		yes		1	imprint?	missing	978-0-670	Q921536	Viking Press	publishing house; book publisher; imprint		Penguin Books			Viking Penguin | Viking | The Viking Press		
+		yes		1	imprint?	missing	978-0-672	Q4048686	SAMS Publishing	education company		Pearson Education			Sams		
+	Q116869681;Q1756332	yes		1	imprint?	missing	978-0-684	Q845617	Charles Scribner's Sons	publishing house		Simon & Schuster			Scribner | Scribner's | C. Scribner's Sons | Charles Scribner and Sons | Charles Scribner’s Sons | Baker & Scribner		
+	Q116869692			4	imprint?	missing	978-0-685	Q2111400	University Microfilms International	privately held company; online database		Cambridge Information Group; Clarivate	University Microfilms International		ProQuest LLC		
+	Q2874472	yes		1	imprint?	missing	978-0-688	Q8015856	William Morrow & Company	book publisher; imprint		HarperCollins			Morrow | William Morrow and Company		
+	Q5016792	yes		5	imprint?	mismatch	978-0-694	Q95149	HarperCollins	book publisher	978-0-00;978-0-06;978-1-85702	News Corp					
+				1	imprint?	missing	978-0-7028	Q1109743	John Bartholomew and Son	map publishing company; subsidiary company		HarperCollins					
+		yes		2	imprint?	missing	978-0-7083	Q7896557	University of Wales Press	university press; publishing house		University of Wales Trinity Saint David					
+				1	imprint?	missing	978-0-7085	Q6035456	Inner London Education Authority	local education authority; committee		Greater London Council	London County Council		ILEA		
+		yes		1	imprint?	missing	978-0-7106	Q1340702	Jane's Information Group	business; enterprise; publishing house; organization		Montagu Private Equity			Janes open-source intelligence agency | Janes Intelligence Group | Janes Information Group | JANE'S GROUP UK LIMITED | Jane´s Group UK Limited | Jane´s Group UK Ltd		
+		yes		1	imprint?	missing	978-0-7134	Q55740353	Batsford (publisher)	publishing house; imprint		Pavilion Books; Chrysalis Group PLC			Batsford Books | Batsford		
+	Q114715623;Q114718812;Q114722456;Q114728544;Q114728592;Q114728605;Q4683271	yes		2	imprint?	missing	978-0-7136	Q3304275	A & C Black	book publisher; imprint; imprint		A. & C. Black Publishers Limited			Adam and Charles Black | Adam & Charles Black		
+		yes		1	imprint?	mismatch	978-0-7204	Q746413	North-Holland Publishing Company	book publisher; academic publisher	978-2-8101;978-2-84299;978-2-906077	RELX; RELX Group (Netherlands)			elsevier.com | Elsevier B.V. | Elsevier Publishing Company | Elsevier BV | Elsevier Health Sciences		
+		yes		1	imprint?	mismatch	978-0-7248	Q443253	Prentice-Hall	publishing house; book publisher	978-0-13	Pearson Education			Prentice-Hall, inc. | Prentice Hall Press		
+		yes		6	imprint?	mismatch	978-0-7251	Q2108217	Macmillan Publishers	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+		yes		1	imprint?	missing	978-0-7286	Q220144	School of Oriental and African Studies	public research university; constituent college; higher education institution; open-access publisher; educational organization		University of London			SOAS | soas | School of Oriental and African Studies | University of London, School of Oriental and African Studies | School of Oriental & African Studies | SOAS University of London | SOAS, University of London		
+				1	imprint?	missing	978-0-7317	Q2981744	Department of Defence (Australia)	defence ministry; department of the Australian Government		Australian Defence Organisation; Australian Government	Department of Defence Co-ordination		Australian Department of Defence | DoD Australia | MoD Australia | Australian Defence Department | Department of Defence [III], Central Office		
+		yes		5	imprint?	mismatch	978-0-7322	Q95149	HarperCollins	book publisher	978-0-00;978-0-06;978-1-85702	News Corp					
+		yes		6	imprint?	mismatch	978-0-7329	Q2108217	Macmillan Publishers	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+		yes		1	imprint?	mismatch	978-0-7356	Q2107343	Microsoft Press	book publisher	978-2-10;978-2-84082	Microsoft					
+		yes		1	imprint?	missing	978-0-7459	Q6555426	Lion Hudson	publishing house		Society for Promoting Christian Knowledge	Hudson International; Lion Publishing				
+		yes		2	imprint?	missing	978-0-7470	Q3304275	Christopher Helm Publishers	book publisher; imprint; imprint		A. & C. Black Publishers Limited			Adam and Charles Black | Adam & Charles Black		
+		yes		1	imprint?	mismatch	978-0-7484	Q880582	Taylor and Francis	publishing house; book publisher; open-access publisher; academic publisher	978-0-203	Informa			Taylor & Francis Group | Taylor & Francis, Ltd | taylorandfrancis.com | Taylor and Francis | tandf		
+				2	imprint?	mismatch	978-0-7491	Q6420723	Pearson Education	educational publishing company	978-1-4058;978-2-7440;978-2-84211;978-2-326	Pearson plc					
+		yes		2	imprint?	mismatch	978-0-7492	Q17153156	Open University Press	business; book publisher; enterprise	978-0-07	McGraw Hill Book Company; Apollo Global Management; Platinum Equity	McGraw-Hill Companies		Open University Press | McGraw-Hill/Irwin | McGraw Hill LLC | MHE | McGraw-Hill		
+				1	imprint?	mismatch	978-0-7495	Q1785352	The Automobile Association	private company limited by shares; business; enterprise; public limited company; business	978-0-86145	Acromas Holdings			The AA | The Automobile Association Limited | Automobile Association (United Kingdom)		
+		yes		2	imprint?	mismatch	978-0-7500	Q1756332	Simon & Schuster	publishing house; book publisher	978-1-4165;978-1-4516;978-1-84739;978-1-84983;978-1-5011;978-1-9821;978-981-4035;978-981-4024;978-981-4009;978-981-3076;978-981-3026;978-1-970188;978-1-970187;978-1-958698;978-1-925791;978-1-925750;978-1-925685;978-1-925640;978-1-925596;978-1-925533;978-1-925456;978-1-925368;978-1-925310;978-1-925184;978-1-925030;978-1-922052;978-1-921470;978-1-903650;978-1-84738;978-1-84737;978-1-76163;978-1-76142;978-1-76110;978-1-76085;978-1-60550;978-1-59869;978-1-59337;978-1-58062;978-1-55850;978-1-7971;978-1-7214;978-1-6682;978-1-6681;978-1-6680;978-1-6659;978-1-5344;978-1-5082;978-1-5072;978-1-4814;978-1-4767;978-1-4711;978-1-4424;978-1-4423;978-1-4405;978-1-4391;978-1-4169;978-1-3985;978-1-0493;978-0-9566276;978-0-9562877;978-0-9559446;978-0-949924;978-0-937860;978-0-914676;978-0-88138;978-0-86417;978-0-85720;978-0-85707;978-0-7501;978-0-7435;978-0-7434;978-0-7432;978-0-7318;978-0-689;978-0-684;978-0-671;978-0-02;979-8-9866017;979-8-3472;979-8-3471	Paramount Global; CBS Corporation; Viacom; Paramount Communications; Gulf and Western Industries; Kohlberg Kravis Roberts					
+				1	imprint?	missing	978-0-7518	Q919304	British Geological Survey	geological survey; government agency		Natural Environment Research Council			Geological Survey of Great Britain | The Geological Survey | BGS | Institute of Geological Sciences		
+		yes		3	imprint?	missing	978-0-7520	Q911673	Longman	publishing house; family; organization		Pearson Education			Longman & Co. | Messrs. Longmans, Green & Co. | Longmans, Green & Co. | Longmans, Green, Reader, and Dyer | Longman, Hurst, Rees, Orme, Brown, and Green | Longman, Hurst, Rees, Orme, Brown & Green | Longman, Hurst, Rees, & Orme | Longman, Hurst & Co., Paternoster Row, London | Longman, Hurst, Rees and Orme | Longmans | Longmans, Green & Company | Longmans, Green & Co | Longmans, Green, and Co. | Longmans Green & Co Ltd | Longman and Co.		
+		yes		2	imprint?	mismatch	978-0-7528	Q861799	Orion Books	publishing house	978-1-4091;978-1-78022;978-2-36149	Hachette			Orion | Orion Books		
+		yes		1	imprint?	missing	978-0-7530	Q174570	London School of Economics	public research university; higher education institution; educational organization		University of London			LSE | London School of Economics | London School of Economics & Political Science		
+		yes		2	imprint?	missing	978-0-7537	Q17009345	Octopus Publishing Group	publishing house		Lagardère Group					
+	Q139067397	yes		2	imprint?	mismatch	978-0-7538	Q861799	Phoenix Books	publishing house	978-1-4091;978-1-78022;978-2-36149	Hachette			Orion | Orion Books		
+		yes		2	imprint?	missing	978-0-7624	Q7379979	Running Press	business; publishing house		Perseus Books Group					
+		yes		2	imprint?	missing	978-0-7625	Q7379979	Running Press	business; publishing house		Perseus Books Group					
+		yes		1	imprint?	missing	978-0-7637	Q6275104	Jones and Bartlett Publishers	education company; publishing house		Ascend Learning			Jones and Bartlett Publishers		
+				2	imprint?	missing	978-0-7678	Q734401	Columbia Tristar Home Entertainment	subsidiary company		Sony Corporation of America			SPHE		
+		yes		2	imprint?	mismatch	978-0-7700	Q17153156	McGraw-Hill	business; book publisher; enterprise	978-0-07	McGraw Hill Book Company; Apollo Global Management; Platinum Equity	McGraw-Hill Companies		Open University Press | McGraw-Hill/Irwin | McGraw Hill LLC | MHE | McGraw-Hill		
+		yes		1	imprint?	mismatch	978-0-7704	Q6800322	McClelland and Stewart	book publisher	978-0-7710	Bertelsmann			McClelland & Goodchild | McClelland and Stewart | McClelland, Goodchild and Stewart | McClelland, Goodchild & Stewart		
+	Q6724744	yes		6	imprint?	mismatch	978-0-7705	Q2108217	Macmillan Publishers	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+		yes		6	imprint?	mismatch	978-0-7723	Q2108217	Macmillan Publishers	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+				1	imprint?	missing	978-0-7744	Q7094796	Ontario Institute for Studies in Education	Teachers' seminar; university building; graduate school; faculty		University of Toronto			OISE/UT | Ontario Institute for Studies in Education of the University of Toronto | Ontario Institute for Studies in Education, University of Toronto | OISE | Institute for Studies in Education		
+		yes		1	imprint?	mismatch	978-0-7783	Q6872193	Mira Books	publishing house; imprint	978-1-55166;978-1-84845	Harlequin Enterprises					
+				1	imprint?	missing	978-0-7832	Q4005797	Universal Studios Home Entertainment	media distributor		NBCUniversal			Universal Pictures Home Entertainment | UPHE		
+		yes		1	imprint?	mismatch	978-0-7852	Q2648991	Thomas Nelson (publisher)	publishing house	978-0-17;978-0-8407;978-1-59145	HarperCollins	T. C. & E. C. Jack		Thomas Nelson & Sons | Nelson		
+	Q3030460	yes		1	imprint?	mismatch	978-0-7868	Q7888605	Disney Hyperion	business; publishing house	978-1-368;978-1-4231;978-1-4847;978-1-892309;978-1-931580	Disney Consumer Products			The Disney Publishing Group | Buena Vista Publishing Group | Disney Hyperion books for children | Disney Editions		
+		yes		3	imprint?	missing	978-0-7876	Q2077283	Gale (Cengage)	publishing house		Cengage Group; International Thomson Organization; International Thomson Publishing Corporation					
+				2	imprint?	mismatch	978-0-7897	Q6420723	Que Publishing	educational publishing company	978-1-4058;978-2-7440;978-2-84211;978-2-326	Pearson plc					
+				1	imprint?	missing	978-0-7907	Q1188361	Warner Home Video	business		WarnerMedia			WCI Home Video | Warner Home Video | WBHE | Warner Bros. Discovery Home Entertainment, Inc.		
+				1	imprint?	missing	978-0-7921	Q7135332	Paramount Home Video	subsidiary company; film distributor		Paramount Pictures			Paramount Home Video | Paramount Video | Paramount Home Media Distribution		
+				2	imprint?	missing	978-0-8001	Q734401	Sony Pictures Home Entertainment	subsidiary company		Sony Corporation of America			SPHE		
+		yes		3	imprint?	missing	978-0-8013	Q911673	Longman	publishing house; family; organization		Pearson Education			Longman & Co. | Messrs. Longmans, Green & Co. | Longmans, Green & Co. | Longmans, Green, Reader, and Dyer | Longman, Hurst, Rees, Orme, Brown, and Green | Longman, Hurst, Rees, Orme, Brown & Green | Longman, Hurst, Rees, & Orme | Longman, Hurst & Co., Paternoster Row, London | Longman, Hurst, Rees and Orme | Longmans | Longmans, Green & Company | Longmans, Green & Co | Longmans, Green, and Co. | Longmans Green & Co Ltd | Longman and Co.		
+		yes		1	imprint?	missing	978-0-8037	Q5270470	Dial Press	publishing house		Dell Publishing					
+		yes		1	imprint?	mismatch	978-0-8038	Q5463836	Focal Press	publishing house	978-0-240	Elsevier; Taylor & Francis					
+		yes		1	imprint?	missing	978-0-8050	Q3132837	Henry Holt and Company	book publisher; publishing house		Holtzbrinck Publishing Group		Holt, Rinehart, and Winston	Henry Holt & Company | Henry Holt & Co. | Henry Holt and Co.		
+		yes		3	imprint?	missing	978-0-8057	Q2077283	Twayne Publishers	publishing house		Cengage Group; International Thomson Organization; International Thomson Publishing Corporation					
+		yes		1	imprint?	missing	978-0-8080	Q5009583	CCH (company)	publishing house; software company		Wolters Kluwer			Commerce Clearing House		
+		yes		3	imprint?	missing	978-0-8103	Q2077283	Gale (Cengage)	publishing house		Cengage Group; International Thomson Organization; International Thomson Publishing Corporation					
+		yes		1	imprint?	missing	978-0-8109	Q4669411	ABRAMS Books	business; publishing house; book distributor		La Martinière Groupe	Harry N. Abrams		Harry N. Abrams, Inc. | Abrams, H.N. Abrams | Harry N. Abrams		
+		yes		1	imprint?	missing	978-0-8122	Q2037236	University of Pennsylvania Press	university press; publishing house; nonprofit organization		University of Pennsylvania			Penn Press		
+		yes		1	imprint?	missing	978-0-8147	Q7014807	New York University Press	university press; website		New York University					
+		yes		1	imprint?	missing	978-0-8176	Q370287	Birkhäuser Verlag	publishing house; book publisher; academic publisher		Springer Science+Business Media			Birkhäuser Verlag GmbH		
+		yes		1	imprint?	missing	978-0-8179	Q1147088	Hoover Institution Press	think tank; nonprofit organization; research center; library; research institute		Stanford University			Hoover Institution on War, Revolution, and Peace | Hoover Institution Library and Archives | Hoover Institution on War Revolution and Peace		
+		yes		5	imprint?	mismatch	978-0-8205	Q683146	LexisNexis	publishing house; legal information system	978-1-4057;978-2-7110;978-2-910179	RELX			Lexis | LexisNexis Legal & Professional | Lexis Advance | Lexis Practice Advisor | CourtLink | CaseMap | nexis.com | CounselLink | Nexis Direct | LexisNexis GmbH | Lexis Plus		
+		yes		1	imprint?	missing	978-0-8229	Q7896130	University of Pittsburgh Press	university press		University of Pittsburgh					
+		yes		1	imprint?	missing	978-0-8232	Q3077116	Fordham University Press	university press		Fordham University					
+		yes		2	imprint?	mismatch	978-0-8261	Q176916	Springer Science+Business Media	publishing house; book publisher; academic publisher	978-1-4020;978-1-4419;978-1-85233	Q21096327			Springer | Kluwer Academic Publishers | Springer SBM | Springer-Verlag Berlin Heidelberg | Verlag von Julius Springer | Springer-Verlag		
+		yes		1	imprint?	missing	978-0-8262	Q7895837	University of Missouri Press	university press		University of Missouri					
+		yes		1	imprint?	missing	978-0-8266	Q2897080	Kehot Publication Society	publishing house		Chabad Lubavitch			Kehot		
+		yes		1	imprint?	missing	978-0-8285	Q2440867	Mir Publishers	business; publishing house		Rostec	Metallurgiya publishers; Foreign Languages Publishing House; Foreign Languages Publishing House				
+		yes		2	imprint?	missing	978-0-8299	Q7984204	Thomson West	publishing house		Thomson Reuters; The Thomson Corporation			West Publishing | West Publishing Co | Thomson West | West Information Publishing Group | West Group		
+		yes		1	imprint?	missing	978-0-8352	Q21809557	R.R. Bowker	publishing house; business		Cambridge Information Group					
+				4	imprint?	missing	978-0-8357	Q2111400	University Microfilms International	privately held company; online database		Cambridge Information Group; Clarivate	University Microfilms International		ProQuest LLC		
+		yes		1	imprint?	missing	978-0-85223	Q5332118	Ebury Press	publishing house		Penguin Random House					
+		yes		2	imprint?	mismatch	978-0-85941	Q1756332	Simon & Schuster	publishing house; book publisher	978-1-4165;978-1-4516;978-1-84739;978-1-84983;978-1-5011;978-1-9821;978-981-4035;978-981-4024;978-981-4009;978-981-3076;978-981-3026;978-1-970188;978-1-970187;978-1-958698;978-1-925791;978-1-925750;978-1-925685;978-1-925640;978-1-925596;978-1-925533;978-1-925456;978-1-925368;978-1-925310;978-1-925184;978-1-925030;978-1-922052;978-1-921470;978-1-903650;978-1-84738;978-1-84737;978-1-76163;978-1-76142;978-1-76110;978-1-76085;978-1-60550;978-1-59869;978-1-59337;978-1-58062;978-1-55850;978-1-7971;978-1-7214;978-1-6682;978-1-6681;978-1-6680;978-1-6659;978-1-5344;978-1-5082;978-1-5072;978-1-4814;978-1-4767;978-1-4711;978-1-4424;978-1-4423;978-1-4405;978-1-4391;978-1-4169;978-1-3985;978-1-0493;978-0-9566276;978-0-9562877;978-0-9559446;978-0-949924;978-0-937860;978-0-914676;978-0-88138;978-0-86417;978-0-85720;978-0-85707;978-0-7501;978-0-7435;978-0-7434;978-0-7432;978-0-7318;978-0-689;978-0-684;978-0-671;978-0-02;979-8-9866017;979-8-3472;979-8-3471	Paramount Global; CBS Corporation; Viacom; Paramount Communications; Gulf and Western Industries; Kohlberg Kravis Roberts					
+				1	imprint?	missing	978-0-86367	Q7696245	Telegraph Group	business; media company		Press Holdings; Axel Springer SE			Telegraph Media Group Limited | TMG		
+		yes		1	imprint?	mismatch	978-0-87135	Q173496	Marvel Comics	comics publishing company; publishing house	978-1-302;978-0-7851	Marvel Entertainment	Atlas Comics		Marvel Publishing, Inc. | Marvel Comics Group | Zenith Publishing Corporation | Olympia Publications, Inc. | Leading Magazine Corporation | Mutual Magazine Corporation | 20th Century Comic Corporation | Animirth Comics, Inc. | Bard Publishing Corp. | Canam Publishers Sales Corp. | Chipiden Publishing Corp. | Classic Syndicate, Inc. | Current Detective Stories, Inc. | Interstate Publishing Corp. | Magazine Management Co., Inc. | Male Publishing Corp. | Manvis Publications, Inc. | Newsstand Publications, Inc. | Non-Pareil Publishing Corp. | Prime Publications, Inc. | Sphere Publications, Inc. | U.S.A. Comic Magazine Corp. | Vista Publications, Inc. | Western Fiction Publishing Co., Inc.		
+		yes		1	imprint?	missing	978-0-89526	Q3579498	Regnery Publishing	publishing house; book publisher		Salem Media Group			H. Regnery Co. | Henry Regnery Company | Regnery Gateway		
+		yes		1	imprint?	missing	978-0-902205	Q1028334	Cambridge University Library	academic library; publishing house		University of Cambridge					
+	Q7809739	yes		6	imprint?	missing	978-0-907610	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+				1	imprint?	missing	978-1-4001	Q7683856	Tantor Media	audiobook publisher		RBMedia			Tantor Media, Inc.		
+		yes		1	imprint?	missing	978-1-4025	Q17109628	Recorded Books	audiobook publisher; imprint		RBMedia			Recorded Books, Inc.		
+	Q4740832	yes		1	imprint?	mismatch	978-1-4196	Q15803989	BookSurge	self-publishing platform; publishing house	978-1-7171	Amazon			On-Demand Publishing, LLC | BookSurge | ‎CreateSpace Independent Publishing Platform | CreateSpace.com		
+		yes		3	imprint?	mismatch	978-1-4215	Q660288	Viz Media	business; publishing house; company	978-1-56931;978-0-929279	Shogakukan			Viz Media LLC | VIZ Media | VIZ Communications | Viz Comics | VIZ | Viz | Viz Media		
+	Q4034234	yes		2	imprint?	missing	978-1-4302	Q21096327	Apress	publishing house; academic publisher; open-access publisher		Holtzbrinck Publishing Group			Springer Nature Group		
+		yes		6	imprint?	mismatch	978-1-4576	Q2108217	Macmillan Publishers	publishing house; academic publisher	978-1-4050;978-1-85283	Holtzbrinck Publishing Group		Wiley	Macmillan Publishers Ltd | The Macmillan Group | Macmillan Company | Macmillan Publishers Limited | Macmillan Group | Macmillan Publishers Ltd. | Minotaur Books | Macmillan | Macmillan & Co. | Macmillan and Co. | Macmillan And company limited | Macmillan Company Limited | MACMILLAN AND Co., LIMITED		
+	Q111621509	yes		1	imprint?	mismatch	978-1-4721	Q5163465	Constable (publisher)	publishing house	978-1-84119	Little, Brown and Company	Archibald Constable & Co.				
+		yes		1	imprint?	mismatch	978-1-4732	Q2522363	Victor Gollancz Ltd	comics publishing company; book publisher; imprint	978-0-575;978-1-85797;978-1-85798	Orion Publishing Group			Victor Gollancz Ltd | Victor Gollancz		
+	Q87722563	yes		1	imprint?	missing	978-1-56098	Q131626	Smithsonian Institution Press	institution; business; nonprofit organization; museum		Federal Government of the United States			Smithsonian | The Smithsonian		
+				1	imprint?	missing	978-1-58189	Q2264873	Vivendi Games	business; video game developer		Vivendi			VU Games | Universal Interactive Studios | 20th Century Fox Games | Vivendi Universal Games, Inc.		
+	Q4034234	yes		2	imprint?	missing	978-1-59059	Q21096327	Apress	publishing house; academic publisher; open-access publisher		Holtzbrinck Publishing Group			Springer Nature Group		
+		yes		3	imprint?	mismatch	978-1-59116	Q660288	Viz Media	business; publishing house; company	978-1-56931;978-0-929279	Shogakukan			Viz Media LLC | VIZ Media | VIZ Communications | Viz Comics | VIZ | Viz | Viz Media		
+		yes		1	imprint?	missing	978-1-59780	Q7033446	Night Shade Books	imprint; book publisher		Skyhorse Publishing					
+		yes		1	imprint?	mismatch	978-1-62972	Q3845315	Deseret Book	book publisher	978-0-87579;978-1-57008;978-1-59038	Deseret Management Corporation					
+		yes		10	imprint?	mismatch	978-1-64729	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+	Q7809739	yes		6	imprint?	missing	978-1-78329	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+		yes		2	imprint?	mismatch	978-1-78416	Q7835466	Transworld Publishers	publishing house; book publisher	978-1-905811	Penguin Random House					
+		yes		2	imprint?	missing	978-1-78472	Q17009345	Octopus Books	publishing house		Lagardère Group					
+	Q7809739	yes		6	imprint?	missing	978-1-84023	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+	Q3817364	yes		5	imprint?	mismatch	978-1-84340	Q95149	Anova Books	book publisher	978-0-00;978-0-06;978-1-85702	News Corp					
+		yes		1	imprint?	mismatch	978-1-84465	Q1076074	Acumen Publishing	publishing house; book publisher; open-access publisher	978-0-230;978-0-333;978-1-4039	Macmillan Publishers; Q21096327					
+	Q7809739	yes		6	imprint?	missing	978-1-84576	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+		yes		3	imprint?	missing	978-1-84590	Q5189454	Crown House Publishing	publishing house		Penguin Random House; Random House			Crown Business | Crown Publishers		
+		yes		2	imprint?	missing	978-1-84771	Q7896557	University of Wales Press	university press; publishing house		University of Wales Trinity Saint David					
+	Q7809739	yes		6	imprint?	missing	978-1-84856	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+	Q7809739	yes		6	imprint?	missing	978-1-85286	Q66731094	Titan Books	publishing house; comics publishing company; book publisher		Titan Entertainment Group; Bertelsmann			Titan Comics		
+	Q744182	yes		1	imprint?	mismatch	978-1-86230	Q3560313	Anchor Books	imprint	978-1-78470;978-0-307;978-0-09;978-0-394	Penguin Random House			Vintage | RHNZ Vintage		
+		yes		10	imprint?	mismatch	978-1-932234	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-934287	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-935654	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-939130	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-941220	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-942993	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-945054	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-947194	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		10	imprint?	mismatch	978-1-949980	Q10851321	Vertical (publisher)	publishing house; comics publishing company	978-1-61262	Kodansha	Del Rey Manga		Kodansha Comics | Kodansha Comics USA | Kodansha USA | Kodansha USA Publishing		
+		yes		3	imprint?	mismatch	978-1-9747	Q660288	Viz Media	business; publishing house; company	978-1-56931;978-0-929279	Shogakukan			Viz Media LLC | VIZ Media | VIZ Communications | Viz Comics | VIZ | Viz | Viz Media		
+	Q39054131	yes		1	imprint?	mismatch	978-1-9753	Q2067115	Yen Press	business; book publisher; audiobook publisher; comics publishing company	978-0316-302	Kadokawa Key-Process; Hachette Book Group			Yen Press LLC | Yen Press		
+				5	succession?	mismatch	978-0-337	Q1607738	HMSO	state publisher; government agency	978-0-10;978-0-11		H.M. Stationery Office		OPSI | HMSO | His Majesty's Stationery Office | Her Majesty's Stationery Office		
+				5	succession?	mismatch	978-0-338	Q1607738	Office of Public Sector Information	state publisher; government agency	978-0-10;978-0-11		H.M. Stationery Office		OPSI | HMSO | His Majesty's Stationery Office | Her Majesty's Stationery Office		
+				5	succession?	mismatch	978-0-339	Q1607738	Office of Public Sector Information	state publisher; government agency	978-0-10;978-0-11		H.M. Stationery Office		OPSI | HMSO | His Majesty's Stationery Office | Her Majesty's Stationery Office		
+				5	succession?	mismatch	978-0-348	Q1607738	Office of Public Sector Information	state publisher; government agency	978-0-10;978-0-11		H.M. Stationery Office		OPSI | HMSO | His Majesty's Stationery Office | Her Majesty's Stationery Office		
+		yes		3	succession?	missing	978-0-395	Q390074	Houghton Mifflin	publishing house; book publisher; public company			Harcourt		Houghton-Mifflin-Harcourt | Houghton Mifflin Company | Houghton, Mifflin & Co. | Houghton Mifflin | Houghton Mifflin Co. | Houghton, Mifflin and Company		
+		yes		1	succession?	mismatch	978-0-436	Q5677798	Secker & Warburg	publishing house	978-1-86046		Secker & Warburg; Harvill Press				
+		yes		4	succession?	mismatch	978-0-470	Q1479654	John Wiley & Sons	educational publishing company; book publisher; publishing house; open-access publisher; public company; academic publisher	978-0-13		Macmillan Publishers		wiley.com | John Wiley and Sons | John Wiley & Sons Incorporated | John Wiley & Sons, Inc. | John Wiley & Sons		
+	Q105529970	yes		4	succession?	mismatch	978-0-471	Q1479654	John Wiley & Sons	educational publishing company; book publisher; publishing house; open-access publisher; public company; academic publisher	978-0-13		Macmillan Publishers		wiley.com | John Wiley and Sons | John Wiley & Sons Incorporated | John Wiley & Sons, Inc. | John Wiley & Sons		
+		yes		1	succession?	missing	978-0-491	Q28803186	W. H. Allen Ltd	publishing house; bookseller			Parbury, Allen & Co.		W.H. Allen | William H. Allen and Company		
+		yes		3	succession?	missing	978-0-547	Q390074	Houghton Mifflin Company	publishing house; book publisher; public company			Harcourt		Houghton-Mifflin-Harcourt | Houghton Mifflin Company | Houghton, Mifflin & Co. | Houghton Mifflin | Houghton Mifflin Co. | Houghton, Mifflin and Company		
+	Q139067397	yes		1	succession?	missing	978-0-550	Q5069648	W. & R. Chambers	publishing house			W & R Chambers				
+		yes		3	succession?	missing	978-0-618	Q390074	Houghton Mifflin	publishing house; book publisher; public company			Harcourt		Houghton-Mifflin-Harcourt | Houghton Mifflin Company | Houghton, Mifflin & Co. | Houghton Mifflin | Houghton Mifflin Co. | Houghton, Mifflin and Company		
+				1	succession?	missing	978-0-7003	Q920016	British Railways Board	statutory corporation; railway company			British Transport Commission		BRB | British Rail		
+		yes		1	succession?	missing	978-0-7017	Q837164	Newcastle University	university; higher education institution; educational organization			King's College, Newcastle-upon-Tyne		University of Newcastle upon Tyne		
+				1	succession?	missing	978-0-7168	Q1476542	Greater London Council	local authority			London County Council; Middlesex County Council; Hertfordshire County Council; East Ham Borough Council; West Ham Borough Council; Essex County Council; Surrey County Council; Croydon Borough Council; Kent County Council	London Residuary Body; London Fire and Civil Defence Authority; London Planning Advisory Committee; London Regional Transport			
+				1	succession?	missing	978-0-7192	Q769691	Methodist Church of Great Britain	Christian denomination; charitable organization			United Methodist Church; Wesleyan Methodist Church; Primitive Methodism				
+	Q139067397	yes		2	succession?	missing	978-0-7195	Q1232629	John Murray (publishing house)	publishing house; book publisher			Smith, Elder & Co.		J. Murray | John Murray Publishers		
+				1	succession?	missing	978-0-7243	Q35715	South Australia	state of Australia; crown colony			New South Wales; New South Wales; New South Wales		SA | S.A. | AU-SA | S. Aust. | State of South Australia		
+		yes		2	succession?	mismatch	978-0-7466	Q5654997	Harcourt Brace Jovanovich	publishing house	978-0-15			Houghton Mifflin Harcourt	Harcourt, Brace & World | Harcourt Brace | Harcourt Brace Jovanovich | Harcourt Brace & Co. | Harcourt, Brace, and Company | Harcourt, Inc.		
+		yes		4	succession?	mismatch	978-0-7476	Q1479654	Van Nostrand Reinhold	educational publishing company; book publisher; publishing house; open-access publisher; public company; academic publisher	978-0-13		Macmillan Publishers		wiley.com | John Wiley and Sons | John Wiley & Sons Incorporated | John Wiley & Sons, Inc. | John Wiley & Sons		
+				5	succession?	mismatch	978-0-7480	Q1607738	HMSO	state publisher; government agency	978-0-10;978-0-11		H.M. Stationery Office		OPSI | HMSO | His Majesty's Stationery Office | Her Majesty's Stationery Office		
+		yes		1	succession?	missing	978-0-7515	Q18150392	Warner Books	publishing house			Warner Books		GCP | Grand Central		
+		yes		3	succession?	mismatch	978-0-7695	Q131566	IEEE Computer Society Press	standards organization; publishing house; trade union federation; open-access publisher; learned society; engineering society; professional association; nonprofit organization; charitable organization	978-1-4244		Institute of Radio Engineers; American Institute of Electrical Engineers		IEEE | I triple e | ieee.org | I.E.E.E. | The Institute of Electrical and Electronics Engineers, Incorporated | Institute of Electrical and Electronics Engineers Inc | IEEE CT Society | IEEE-SSIT		
+		yes		2	succession?	mismatch	978-0-7747	Q5654997	Harcourt Brace Jovanovich	publishing house	978-0-15			Houghton Mifflin Harcourt	Harcourt, Brace & World | Harcourt Brace | Harcourt Brace Jovanovich | Harcourt Brace & Co. | Harcourt, Brace, and Company | Harcourt, Inc.		
+		yes		3	succession?	mismatch	978-0-7803	Q131566	Institute of Electrical and Electronics Engineers	standards organization; publishing house; trade union federation; open-access publisher; learned society; engineering society; professional association; nonprofit organization; charitable organization	978-1-4244		Institute of Radio Engineers; American Institute of Electrical Engineers		IEEE | I triple e | ieee.org | I.E.E.E. | The Institute of Electrical and Electronics Engineers, Incorporated | Institute of Electrical and Electronics Engineers Inc | IEEE CT Society | IEEE-SSIT		
+		yes		4	succession?	mismatch	978-0-7821	Q1479654	Sybex	educational publishing company; book publisher; publishing house; open-access publisher; public company; academic publisher	978-0-13		Macmillan Publishers		wiley.com | John Wiley and Sons | John Wiley & Sons Incorporated | John Wiley & Sons, Inc. | John Wiley & Sons		
+				1	succession?	missing	978-0-7936	Q215616	Public Broadcasting Service	television network; public broadcaster; nonprofit organization			National Educational Television		Public Broadcasting Service		
+		yes		1	succession?	missing	978-0-7992	Q951305	University of Cape Town	public university; open-access publisher; higher education institution; university			South African College		South African College | uct.ac.za | Cape Town University		
+	Q6948779	yes		1	succession?	missing	978-0-8021	Q3777164	Grove Press	book publisher				Grove Atlantic; Grove Weidenfeld			
+		yes		3	succession?	mismatch	978-0-8186	Q131566	IEEE Computer Society Press	standards organization; publishing house; trade union federation; open-access publisher; learned society; engineering society; professional association; nonprofit organization; charitable organization	978-1-4244		Institute of Radio Engineers; American Institute of Electrical Engineers		IEEE | I triple e | ieee.org | I.E.E.E. | The Institute of Electrical and Electronics Engineers, Incorporated | Institute of Electrical and Electronics Engineers Inc | IEEE CT Society | IEEE-SSIT		
+				1	succession?	missing	978-0-8270	Q123759	Organization of American States	international organization			Pan American Union		OAS		
+		yes		1	succession?	missing	978-0-8295	Q1047060	Case Western Reserve University	private university; private not-for-profit educational institution; open-access publisher			Western Reserve University; Case Institute of Technology		Case | Case Western | CWRU | Case Western Reserve | Case School of Applied Science		
+		yes		1	succession?	missing	978-0-8330	Q861141	RAND	think tank; nonprofit organization			Douglas; United States Air Force		RAND | escorp.ai		
+		yes		2	succession?	missing	978-0-87587	Q1641836	Los Angeles County Museum of Art	art museum; nonprofit organization; museum			Los Angeles County Museum		LACMA		
+				1	succession?	missing	978-0-902228	Q6386149	Lancashire County Council	non-metropolitan county council				Blackburn with Darwen Borough Council; Blackpool Borough Council			
+	Q7373716			1	succession?	missing	978-0-902358	Q103298550	Royal Association for Disability Rights	charitable organization; disability rights organization			Royal Association for Disability Rights; National Centre for Independent Living				
+		yes		2	succession?	missing	978-0-911291	Q1641836	Los Angeles County Museum of Art	art museum; nonprofit organization; museum			Los Angeles County Museum		LACMA		
+				1	succession?	missing	978-0-9518476	Q16984481	Blackburn Borough Council	unitary authority			Lancashire County Council				
+				1	succession?	missing	978-1-84049	Q2392237	Local Government Association	association			Association of Metropolitan Authorities; Association of County Councils; Association of District Councils		LGA		
+	Q139067332;Q139067397	yes		2	succession?	missing	978-1-85788	Q1232629	Nicholas Brealey Publishing	publishing house; book publisher			Smith, Elder & Co.		J. Murray | John Murray Publishers		

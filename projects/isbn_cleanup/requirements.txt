@@ -1,0 +1,4 @@
+pywikibot==10.3.0     # edits go through pywikibot (shared_lib.change_wikidata)
+requests              # QLever discovery query
+requests_oauthlib     # OAuth1 login (owner-only consumer); needed for --save
+python-stdnum         # ISBN validation + canonical hyphenation (bundles range data)
