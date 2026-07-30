@@ -1,0 +1,35 @@
+# Toolforge scheduled jobs for the DifoolBot tool.
+#
+# Load / reconcile all jobs at once (run from $HOME/wikidata on Toolforge):
+#   toolforge jobs load $HOME/wikidata/jobs.yaml
+# Inspect:  toolforge jobs list --output long
+#           toolforge jobs show viaf
+#           toolforge jobs logs remove-sitelinks
+#
+# Schedules use the @daily/@weekly macros (UTC). Toolforge randomizes the actual
+# run time to spread cluster load, so the two jobs won't fire at a fixed clock
+# time; check `toolforge jobs list` for the assigned times.
+#
+# mem/cpu left commented for now: running vanilla to confirm the jobs work under
+# the default resource limits before tuning.
+
+- name: viaf
+  command: bash $HOME/wikidata/projects/viaf/toolforge_run.sh
+  image: python3.11
+  schedule: "@daily"
+  emails: onfailure
+  # mem: 1Gi
+  # cpu: "1"
+  retry: 1
+
+- name: remove-sitelinks
+  # --refresh repopulates items.txt from qlever first (else the queue empties
+  # out and nothing is edited); --save makes the real edits. Weekly cadence
+  # makes the slow refresh acceptable.
+  command: bash $HOME/wikidata/projects/remove_sitelinks/toolforge_run.sh --save --refresh
+  image: python3.11
+  schedule: "@weekly"
+  emails: onfailure
+  # mem: 1Gi
+  # cpu: "1"
+  retry: 0

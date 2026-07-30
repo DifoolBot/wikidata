@@ -1154,6 +1154,53 @@ class ChangeClaim(Action):
         pass
 
 
+class DeprecateClaim(Action):
+    """Set a claim to deprecated rank and add a `reason for deprecated rank` (P2241)
+    qualifier, within the same batched edit. Keeps the value (never deletes) -- e.g.
+    an identifier that belongs to a different version of the work
+    (P2241 = Q51845721)."""
+
+    def __init__(self, wd_page: "WikiDataPage", pid: str, claim, reason_qid: str):
+        self.wd_page = wd_page
+        self.pid = pid
+        self.claim = claim
+        self.reason_qid = reason_qid
+
+    def get_action_kind(self) -> Set[Action.ActionKind]:
+        return {"read_claims", "change_claim"}
+
+    def prepare(self):
+        pass
+
+    def _has_reason(self, claim) -> bool:
+        for q in claim.qualifiers.get(wd.PID_REASON_FOR_DEPRECATED_RANK, []):
+            target = q.getTarget()
+            if target and target.getID() == self.reason_qid:
+                return True
+        return False
+
+    def apply(self):
+        for claim in self.wd_page.claims.get(self.pid, []):
+            if claim != self.claim:
+                continue
+            if claim.rank == "deprecated" and self._has_reason(claim):
+                return  # already deprecated with this reason
+            claim.rank = "deprecated"
+            if not self._has_reason(claim):
+                qualifier = pwb.Claim(
+                    REPO, wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True
+                )
+                qualifier.setTarget(pwb.ItemPage(REPO, self.reason_qid))
+                claim.qualifiers.setdefault(
+                    wd.PID_REASON_FOR_DEPRECATED_RANK, []
+                ).append(qualifier)
+            self.wd_page.claim_changed(claim)
+            break
+
+    def post_apply(self):
+        pass
+
+
 class ChangeQualifiers(Action):
     def __init__(self, wd_page: "WikiDataPage", pid: str, claim_snak: str, callback):
         self.wd_page = wd_page
@@ -1192,6 +1239,7 @@ class CopyClaim(Action):
         claim_snak: str,
         delete_old: bool,
         callback,
+        new_value: Optional[str] = None,
     ):
         self.wd_page = wd_page
         self.old_pid = old_pid
@@ -1200,6 +1248,8 @@ class CopyClaim(Action):
         self.claim_snak = claim_snak
         self.delete_old = delete_old
         self.callback = callback
+        # non-item target (e.g. an external-id string) for the copied claim
+        self.new_value = new_value
 
     def get_action_kind(self) -> Set[Action.ActionKind]:
         return {"read_claims", "add_claim", "delete_claim"}
@@ -1219,6 +1269,8 @@ class CopyClaim(Action):
                 new_claim.id = self.new_pid
             if self.new_qid:
                 new_claim.setTarget(pwb.ItemPage(REPO, self.new_qid))
+            elif self.new_value is not None:
+                new_claim.setTarget(self.new_value)
 
             if self.callback:
                 new_claim.qualifiers = self.callback(new_claim.qualifiers)
@@ -2727,6 +2779,11 @@ class WikiDataPage:
     def change_claim(self, pid: str, claim, new_value):
         self._add_action(ChangeClaim(self, pid, claim, new_value))
 
+    def deprecate_claim(self, pid: str, claim, reason_qid: str):
+        """Deprecate a claim (rank=deprecated + P2241 = reason_qid) within the batched
+        edit -- keep the value but mark it not-current. Never deletes."""
+        self._add_action(DeprecateClaim(self, pid, claim, reason_qid))
+
     def copy_claim(
         self,
         old_pid: str,
@@ -2735,9 +2792,13 @@ class WikiDataPage:
         claim_snak: str,
         delete_old: bool,
         callback,
+        new_value: Optional[str] = None,
     ):
         self._add_action(
-            CopyClaim(self, old_pid, new_pid, new_qid, claim_snak, delete_old, callback)
+            CopyClaim(
+                self, old_pid, new_pid, new_qid, claim_snak, delete_old, callback,
+                new_value=new_value,
+            )
         )
 
     def add_qualifier(self, pid: str, claim, qualifier: Qualifier):

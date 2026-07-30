@@ -76,7 +76,7 @@ def _add_viaf(
 
 def _execute_qlever_query(query: str) -> list[dict[str, str]]:
     """Execute a qlever query and return rows with qid and local_auth_id."""
-    qlever_url = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+    qlever_url = "https://qlever.dev/api/wikidata"
     try:
         response = requests.get(qlever_url, params={"query": query}, timeout=300)
         response.raise_for_status()

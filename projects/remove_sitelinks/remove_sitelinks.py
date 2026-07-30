@@ -1402,7 +1402,7 @@ PREFIX pr: <http://www.wikidata.org/prop/reference/>
 def _execute_qlever_query(query: str) -> list[str]:
     """Execute a qlever query and return list of QIDs."""
     try:
-        qlever_url = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+        qlever_url = "https://qlever.dev/api/wikidata"
         response = requests.get(
             qlever_url,
             params={"query": query},

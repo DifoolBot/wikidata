@@ -3,7 +3,10 @@ from pathlib import Path
 
 import requests
 
-QLEVER_WIKIDATA_URL = "https://qlever.cs.uni-freiburg.de/api/wikidata"
+# The old qlever.cs.uni-freiburg.de host 308-redirects to qlever.dev, but the
+# redirect drops the ?query= string, so a GET would silently return nothing.
+# Point at the new host directly.
+QLEVER_WIKIDATA_URL = "https://qlever.dev/api/wikidata"
 WD_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
 
 READ_TIMEOUT = 300  # sec
