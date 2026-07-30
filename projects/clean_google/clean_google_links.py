@@ -332,7 +332,7 @@ def main() -> None:
             break
         if not force and qid in done:
             continue
-        print(f"Processing {qid}...", flush=True)
+        print(f"Processing {qid} ...", flush=True)
         processed += 1
         try:
             changed, reviews = process_item(

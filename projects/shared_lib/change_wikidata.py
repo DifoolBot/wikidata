@@ -1235,7 +1235,7 @@ class CopyClaim(Action):
         wd_page: "WikiDataPage",
         old_pid: str,
         new_pid: str,
-        new_qid,
+        new_qid: Optional[str],
         claim_snak: str,
         delete_old: bool,
         callback,
@@ -2788,7 +2788,7 @@ class WikiDataPage:
         self,
         old_pid: str,
         new_pid: str,
-        new_qid: str,
+        new_qid: str | None,
         claim_snak: str,
         delete_old: bool,
         callback,
@@ -2796,7 +2796,13 @@ class WikiDataPage:
     ):
         self._add_action(
             CopyClaim(
-                self, old_pid, new_pid, new_qid, claim_snak, delete_old, callback,
+                self,
+                old_pid,
+                new_pid,
+                new_qid,
+                claim_snak,
+                delete_old,
+                callback,
                 new_value=new_value,
             )
         )

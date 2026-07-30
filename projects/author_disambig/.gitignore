@@ -1,0 +1,14 @@
+# Per-author generated output: one dir per scholar, each holding the fetched
+# ORCID works plus the built bookmarklet/help. All regenerable with
+#   python generate_helper.py <ORCID-iD> "<Author Name>"
+authors/
+
+# Legacy flat-layout artifacts + personal input pastes from before the authors/
+# refactor: generated/working data for one scholar, not source. Safe to delete.
+orcid_paste.txt
+scholar_paste.txt
+his_dois.txt
+autocheck.js
+bookmarklet.txt
+HELP.md
+# (orcid_works.json is already covered by the repo-root *.json rule)

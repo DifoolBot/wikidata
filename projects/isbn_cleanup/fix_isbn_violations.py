@@ -136,7 +136,7 @@ def plan(prop: str, value: str):
     return None
 
 
-def process_item(qid, fixes, edit_group, test) -> bool:
+def process_item(qid, fixes, edit_group, test) -> tuple[bool, bool]:
     item = pywikibot.ItemPage(repo, qid)
     page = cwd.WikiDataPage(item, test=test)
     page.edit_group = edit_group

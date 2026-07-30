@@ -1,0 +1,7 @@
+# Daily observatory snapshots (collect_new_items.py). Regenerable, ~4 MB/day
+# with raw items (~130 MB/month); local corpus, not source.
+data/
+
+# Candidate pools materialized from a Quarry run (a list of real usernames under
+# suspicion): regenerable from quarry_1b.sql, and not something to publish.
+input/

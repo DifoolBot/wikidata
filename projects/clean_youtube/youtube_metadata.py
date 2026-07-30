@@ -868,7 +868,7 @@ def main() -> None:
             break
         if not force and tracker.is_processed(qid):
             continue
-        pywikibot.output(f"Processing {qid}...")
+        pywikibot.output(f"Processing {qid} ...")
         processed += 1
         try:
             process_item(

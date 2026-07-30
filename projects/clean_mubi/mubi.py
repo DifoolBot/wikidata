@@ -325,7 +325,7 @@ def main():
     # fetch_and_fill_items()
     items = load_items_from_file(ITEMS_FILE)
     for qid in items:
-        print(f"Processing {qid}...")
+        print(f"Processing {qid} ...")
         process_item(qid, strategy=MubiStrategy(), test=False)
 
 
