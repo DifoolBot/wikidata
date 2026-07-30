@@ -13,11 +13,16 @@ is spotting the repetition and the siblings.
 
 ## Usage
 
+Run as modules with `projects/` on `PYTHONPATH` (VS Code sets this via
+`.vscode/settings.json`; a plain shell or the daily cron must export it:
+`export PYTHONPATH=projects` from the repo root — required because the collector
+imports `detect_promo.detect_promo_accounts`).
+
 ```bash
 # from repo root
-python projects/detect_promo/detect_promo_accounts.py --hours 24        # live window scan
-python projects/detect_promo/detect_promo_accounts.py --hours 72 --max-accounts 80
-python projects/detect_promo/detect_promo_accounts.py --user Johnpacklamber1  # score one account
+python -m detect_promo.detect_promo_accounts --hours 24        # live window scan
+python -m detect_promo.detect_promo_accounts --hours 72 --max-accounts 80
+python -m detect_promo.detect_promo_accounts --user Johnpacklamber1  # score one account
 ```
 
 Uses only the public Wikidata API (no Toolforge DB). `quarry.sql` is the bulk
@@ -35,12 +40,12 @@ For full-day coverage, two collectors accumulate a corpus instead:
 
 ```bash
 # 1. collect: snapshot the WHOLE prior 24h -> data/<date>.json (run daily via cron)
-python projects/detect_promo/collect_new_items.py            # add --slim to drop raw items
+python -m detect_promo.collect_new_items            # add --slim to drop raw items
 
 # 2. digest: render the accumulated data/*.json (READ-ONLY, no API)
-python projects/detect_promo/digest.py --days 30 --md        # census trend + ranked shortlist
-python projects/detect_promo/digest.py --min-score 7         # the promo core
-python projects/detect_promo/digest.py --mixed               # mixed-modality clusters only
+python -m detect_promo.digest --days 30 --md        # census trend + ranked shortlist
+python -m detect_promo.digest --min-score 7         # the promo core
+python -m detect_promo.digest --mixed               # mixed-modality clusters only
 ```
 
 Each day file holds two products:
@@ -71,7 +76,7 @@ zeroes every `via_ui`/`ui_frac` signal.
 ### Tracking deletions (validation loop)
 
 ```bash
-python projects/detect_promo/track_deletions.py     # cross-ref corpus vs the deletion log
+python -m detect_promo.track_deletions     # cross-ref corpus vs the deletion log
 ```
 
 Scans the public ns0 deletion log (`logevents letype=delete`) over the corpus

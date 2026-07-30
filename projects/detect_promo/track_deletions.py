@@ -30,7 +30,7 @@ import os
 import sys
 from collections import Counter
 
-import detect_promo_accounts as dp
+import detect_promo.detect_promo_accounts as dp
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "data")
