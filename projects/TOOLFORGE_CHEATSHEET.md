@@ -36,13 +36,39 @@ toolforge jobs load ~/jobs.yaml           # (re)create jobs from the yaml
 ```
 
 ## Database (ToolsDB / MariaDB)
-DB names are `s57805__<name>` (e.g. `s57805__viaf`), credentials in `~/replica.my.cnf`.
+DB names are `s57805__<name>` (e.g. `s57805__viaf`). The **`sql`** wrapper is the easy way
+in — it reads `~/replica.my.cnf` and picks the host:
 ```bash
-# open a shell on a database
+sql tools              # open ToolsDB (our s57805__* databases)
+sql wikidatawiki       # open the Wikidata replica (lands you in wikidatawiki_p)
+```
+Explicit form (needed to name the db up front, or to pipe a schema file):
+```bash
+# open a shell on a specific database
 mariadb --defaults-file=~/replica.my.cnf -h tools.db.svc.wikimedia.cloud s57805__viaf
 
 # run a schema / SQL file against a database
 mariadb --defaults-file=~/replica.my.cnf -h tools.db.svc.wikimedia.cloud s57805__viaf < schemas/viaf_mariadb.sql
+```
+
+### View / inspect tables
+`sql tools` opens with **no database selected** (`MariaDB [(none)]>`), so `USE <db>;` first
+(or fully-qualify names as `db.table`). End statements with `;` (or `\G` for vertical output):
+```sql
+SHOW DATABASES LIKE 's57805%';     -- the tool's databases
+USE s57805__viaf;                  -- pick one (prompt becomes [s57805__viaf])
+SHOW TABLES;                       -- its tables
+SHOW TABLE STATUS;                 -- tables + row counts + sizes
+DESCRIBE codes;                    -- a table's columns
+SHOW CREATE TABLE codes\G          -- full schema (vertical)
+SELECT COUNT(*) FROM codes;        -- row count
+SELECT * FROM codes LIMIT 20;      -- peek at rows  (\G for one row per block)
+```
+One-off from the command line — qualify with `db.` (or `FROM <db>`) since there's no default:
+```bash
+sql tools --execute="SHOW DATABASES LIKE 's57805%';"
+sql tools --execute="SHOW TABLES FROM s57805__viaf;"
+sql tools --execute="SELECT * FROM s57805__viaf.codes LIMIT 20;"
 ```
 
 ## Run a bot / sync manually

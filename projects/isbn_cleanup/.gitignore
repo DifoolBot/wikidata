@@ -1,0 +1,6 @@
+# Project Gutenberg bulk catalog -- a large, refreshable download, not source.
+# Get it from https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv.gz
+data/pg_catalog.csv.gz
+data/pg_catalog.csv
+
+__pycache__/

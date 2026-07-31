@@ -1158,13 +1158,17 @@ class DeprecateClaim(Action):
     """Set a claim to deprecated rank and add a `reason for deprecated rank` (P2241)
     qualifier, within the same batched edit. Keeps the value (never deletes) -- e.g.
     an identifier that belongs to a different version of the work
-    (P2241 = Q51845721)."""
+    (P2241 = Q51845721). Optionally also records `intended subject of deprecated
+    statement` (P8327) = the item the statement really belongs to (e.g. the edition a
+    misfiled identifier was moved/split to), so the deprecation is self-documenting."""
 
-    def __init__(self, wd_page: "WikiDataPage", pid: str, claim, reason_qid: str):
+    def __init__(self, wd_page: "WikiDataPage", pid: str, claim, reason_qid: str,
+                 intended_subject_qid: Optional[str] = None):
         self.wd_page = wd_page
         self.pid = pid
         self.claim = claim
         self.reason_qid = reason_qid
+        self.intended_subject_qid = intended_subject_qid
 
     def get_action_kind(self) -> Set[Action.ActionKind]:
         return {"read_claims", "change_claim"}
@@ -1172,28 +1176,42 @@ class DeprecateClaim(Action):
     def prepare(self):
         pass
 
-    def _has_reason(self, claim) -> bool:
-        for q in claim.qualifiers.get(wd.PID_REASON_FOR_DEPRECATED_RANK, []):
+    def _has_qualifier(self, claim, qual_pid: str, target_qid: str) -> bool:
+        for q in claim.qualifiers.get(qual_pid, []):
             target = q.getTarget()
-            if target and target.getID() == self.reason_qid:
+            if target and target.getID() == target_qid:
                 return True
         return False
+
+    def _has_reason(self, claim) -> bool:
+        return self._has_qualifier(claim, wd.PID_REASON_FOR_DEPRECATED_RANK, self.reason_qid)
+
+    def _add_item_qualifier(self, claim, qual_pid: str, target_qid: str) -> None:
+        if self._has_qualifier(claim, qual_pid, target_qid):
+            return
+        qualifier = pwb.Claim(REPO, qual_pid, is_qualifier=True)
+        qualifier.setTarget(pwb.ItemPage(REPO, target_qid))
+        claim.qualifiers.setdefault(qual_pid, []).append(qualifier)
 
     def apply(self):
         for claim in self.wd_page.claims.get(self.pid, []):
             if claim != self.claim:
                 continue
-            if claim.rank == "deprecated" and self._has_reason(claim):
-                return  # already deprecated with this reason
+            intended_present = (
+                self.intended_subject_qid is None
+                or self._has_qualifier(
+                    claim, wd.PID_INTENDED_SUBJECT_OF_DEPRECATED_STATEMENT,
+                    self.intended_subject_qid)
+            )
+            if claim.rank == "deprecated" and self._has_reason(claim) and intended_present:
+                return  # already deprecated with this reason (+ intended subject)
             claim.rank = "deprecated"
-            if not self._has_reason(claim):
-                qualifier = pwb.Claim(
-                    REPO, wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True
-                )
-                qualifier.setTarget(pwb.ItemPage(REPO, self.reason_qid))
-                claim.qualifiers.setdefault(
-                    wd.PID_REASON_FOR_DEPRECATED_RANK, []
-                ).append(qualifier)
+            self._add_item_qualifier(
+                claim, wd.PID_REASON_FOR_DEPRECATED_RANK, self.reason_qid)
+            if self.intended_subject_qid:
+                self._add_item_qualifier(
+                    claim, wd.PID_INTENDED_SUBJECT_OF_DEPRECATED_STATEMENT,
+                    self.intended_subject_qid)
             self.wd_page.claim_changed(claim)
             break
 
@@ -2779,10 +2797,13 @@ class WikiDataPage:
     def change_claim(self, pid: str, claim, new_value):
         self._add_action(ChangeClaim(self, pid, claim, new_value))
 
-    def deprecate_claim(self, pid: str, claim, reason_qid: str):
+    def deprecate_claim(self, pid: str, claim, reason_qid: str,
+                        intended_subject_qid: Optional[str] = None):
         """Deprecate a claim (rank=deprecated + P2241 = reason_qid) within the batched
-        edit -- keep the value but mark it not-current. Never deletes."""
-        self._add_action(DeprecateClaim(self, pid, claim, reason_qid))
+        edit -- keep the value but mark it not-current. Never deletes. Pass
+        ``intended_subject_qid`` to also record P8327 (intended subject of deprecated
+        statement) = the item the value really belongs to."""
+        self._add_action(DeprecateClaim(self, pid, claim, reason_qid, intended_subject_qid))
 
     def copy_claim(
         self,
@@ -3299,3 +3320,100 @@ class WikiDataPage:
             return (True, actual_pid, actual_external_id)
 
         return (True, pid, external_id)
+
+
+def create_item(
+    labels: Dict[str, str],
+    claim_specs: List[tuple],
+    edit_group: str,
+    test: bool,
+    summary: str,
+    descriptions: Optional[Dict[str, str]] = None,
+    site=None,
+) -> Optional[str]:
+    """Create a NEW Wikidata item (e.g. a Project Gutenberg edition split off a work).
+
+    ``claim_specs`` is a list of ``(pid, value, kind)`` -- or ``(pid, value, kind,
+    qualifiers)`` where ``qualifiers`` is a list of ``(qpid, qvalue, qkind)`` -- with
+    ``kind``:
+      - ``"item"``        : ``value`` is a QID string; the claim targets that item.
+      - ``"string"``      : ``value`` is a plain string (external-id / string datatype).
+      - ``"monolingual"`` : ``value`` is ``(text, language)`` for a monolingual-text
+                            value (e.g. P1476 title).
+      - ``"time"``        : ``value`` is a ``pwb.WbTime`` (e.g. P577 publication date).
+      - ``"somevalue"``   : an 'unknown value' snak (``value`` ignored) -- e.g. a publisher
+                            with no item, recorded as P123=somevalue + object named as (P1932).
+
+    Dry run (``test=True``): prints the item it *would* create and returns ``None``.
+    Live: creates it in a single editEntity and returns the new QID. The summary is
+    tagged with the editgroups batch id so the created item lands in the same
+    reviewable/undoable batch as the edits that split it off. Item creation is
+    irreversible-ish (merges/deletions need a human), so callers gate it behind a
+    confirmation and default to dry run.
+    """
+    repo = site or REPO
+    full_summary = summary + (
+        f" ([[:toolforge:editgroups/b/CB/{edit_group}|details]])" if edit_group else ""
+    )
+
+    def _fmt1(pid, value, kind):
+        if kind == "somevalue":
+            return f"{pid} = (unknown value)"
+        if kind == "monolingual":
+            return f'{pid} = "{value[0]}"@{value[1]}'
+        if kind == "time":
+            return f"{pid} = {value.toTimestr() if hasattr(value, 'toTimestr') else value}"
+        return f"{pid} = {value}"
+
+    def _fmt(spec):
+        base = _fmt1(spec[0], spec[1], spec[2])
+        quals = spec[3] if len(spec) > 3 else ()
+        if quals:
+            base += "  {" + ", ".join(_fmt1(*q) for q in quals) + "}"
+        return base
+
+    def _set_target(claim, value, kind):
+        if kind == "somevalue":
+            claim.setSnakType("somevalue")
+        elif kind == "item":
+            claim.setTarget(pwb.ItemPage(repo, value))
+        elif kind == "monolingual":
+            text, lang = value
+            claim.setTarget(pwb.WbMonolingualText(text=text, language=lang))
+        else:
+            claim.setTarget(value)
+
+    if test:
+        print("  [dry-run] would CREATE new item:")
+        for lang, val in (labels or {}).items():
+            print(f"      label/{lang} = {val}")
+        for lang, val in (descriptions or {}).items():
+            print(f"      desc/{lang}  = {val}")
+        for spec in claim_specs:
+            print(f"      {_fmt(spec)}")
+        print(f"      summary: {full_summary}")
+        return None
+
+    claim_jsons = []
+    for spec in claim_specs:
+        pid, value, kind = spec[0], spec[1], spec[2]
+        quals = spec[3] if len(spec) > 3 else ()
+        claim = pwb.Claim(repo, pid)
+        _set_target(claim, value, kind)
+        for qpid, qval, qkind in quals:
+            q = pwb.Claim(repo, qpid, is_qualifier=True)
+            _set_target(q, qval, qkind)
+            claim.qualifiers.setdefault(qpid, []).append(q)
+        claim_jsons.append(claim.toJSON())
+
+    data: Dict = {}
+    if labels:
+        data["labels"] = {l: {"language": l, "value": v} for l, v in labels.items()}
+    if descriptions:
+        data["descriptions"] = {l: {"language": l, "value": v} for l, v in descriptions.items()}
+    if claim_jsons:
+        data["claims"] = claim_jsons
+
+    new_item = pwb.ItemPage(repo)
+    new_item.editEntity(data, summary=full_summary)
+    return str(new_item.getID())
