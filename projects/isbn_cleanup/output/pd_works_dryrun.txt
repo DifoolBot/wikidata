@@ -1,0 +1,1038 @@
+# dry-run preview  editgroup=e393c50bfd6c  1037 candidate(s)
+Q100918830	REVIEW	P123 = Q7895914 on work, not on the single edition Q136770678 -- may be original publisher vs a reprint edition; confirm before moving
+Q101076826	REVIEW	P123 = Q21091410 on work, not on the single edition Q101076916 -- may be original publisher vs a reprint edition; confirm before moving
+Q101423388	EDIT	- work P123 Q18576913 (already on Q101423389)
+Q101484022	REVIEW	P123 = Q3237769 on work, not on the single edition Q134985578 -- may be original publisher vs a reprint edition; confirm before moving
+Q101565862	REVIEW	P123 = Q39501189 on work with 4 editions (Q101565980, Q101565934, Q101566304, Q101566433) -- ambiguous which edition; move manually
+Q1015825	REVIEW	P123 = Q3131412 on work, not on the single edition Q134883278 -- may be original publisher vs a reprint edition; confirm before moving
+Q10202	REVIEW	P123 = Q5079707 on work with 5 editions (Q23296098, Q23296487, Q23296854, Q121958937, Q123693237) -- ambiguous which edition; move manually
+Q102429270	REVIEW	P123 = Q3310248 on work, not on the single edition Q102429489 -- may be original publisher vs a reprint edition; confirm before moving
+Q10268914	REVIEW	P123 = Q4755494 on work, not on the single edition Q118314830 -- may be original publisher vs a reprint edition; confirm before moving
+Q10314931	REVIEW	P123 = Q95292444 on work, not on the single edition Q56222363 -- may be original publisher vs a reprint edition; confirm before moving
+Q103815756	EDIT	- work P123 Q10319326 (already on Q103815761)
+Q103820998	REVIEW	P123 = Q5659344 on work with 2 editions (Q106382010, Q106383036) -- ambiguous which edition; move manually
+Q104530686	EDIT	- work P123 Q366231 (already on Q104531031)
+Q104531138	EDIT	- work P123 Q366231 (already on Q104531165)
+Q104531675	EDIT	- work P123 Q366231 (already on Q104531670)
+Q104531984	EDIT	- work P123 Q366231 (already on Q104531989)
+Q104535721	EDIT	- work P123 Q366231 (already on Q104535717)
+Q104538509	EDIT	- work P123 Q366231 (already on Q104538514)
+Q104539312	EDIT	- work P123 Q366231 (already on Q104539406)
+Q104547307	EDIT	- work P123 Q366231 (already on Q104547363)
+Q104549409	EDIT	- work P123 Q366231 (already on Q104549418)
+Q104550933	EDIT	- work P123 Q366231 (already on Q104550962)
+Q104551298	EDIT	- work P123 Q366231 (already on Q104551317)
+Q104594682	EDIT	- work P123 Q104594745 (already on Q51414650)
+Q104595360	EDIT	- work P123 Q104594745 (already on Q51396891)
+Q104595703	EDIT	- work P123 Q104594745 (already on Q53737260)
+Q104596376	EDIT	- work P123 Q104594745 (already on Q51421764)
+Q104597449	EDIT	- work P123 Q104594745 (already on Q51421796)
+Q104597708	EDIT	- work P123 Q104597642 (already on Q51424487)
+Q104601504	EDIT	- work P123 Q104594745 (already on Q51479775)
+Q104601690	EDIT	- work P123 Q104594745 (already on Q104602111)
+Q104602926	EDIT	- work P123 Q104594745 (already on Q104602936)
+Q104603022	EDIT	- work P123 Q552959 (already on Q104603026)
+Q104603890	EDIT	- work P123 Q104604643 (already on Q51412665)
+Q104621629	EDIT	- work P123 Q104604643 (already on Q51501678)
+Q104631410	EDIT	- work P123 Q2959465 (already on Q51414728)
+Q104760652	EDIT	- work P123 Q1969364 (already on Q107638050)
+Q104777502	REVIEW	P123 = Q9818200 on work, not on the single edition Q21190964 -- may be original publisher vs a reprint edition; confirm before moving
+Q10483376	REVIEW	P123 = Q845617 on work with 8 editions (Q54867444, Q51885426, Q63226176, Q137643650, Q138028311, Q138515663, Q138515707, Q138649193) -- ambiguous which edition; move manually
+Q105269056	REVIEW	P123 = Q1629027 on work, not on the single edition Q89326751 -- may be original publisher vs a reprint edition; confirm before moving
+Q105319814	REVIEW	P123 = Q1905756 on work, not on the single edition Q105756444 -- may be original publisher vs a reprint edition; confirm before moving
+Q105627767	EDIT	- work P123 Q3564797 (already on Q105620888)
+Q105745865	REVIEW	P123 = Q106233614 on work, not on the single edition Q105791485 -- may be original publisher vs a reprint edition; confirm before moving
+Q105989691	REVIEW	P123 = Q99773026 on work, not on the single edition Q134985905 -- may be original publisher vs a reprint edition; confirm before moving
+Q106158450	EDIT	- work P123 Q15077094 (already on Q107229269), Q6273015 (already on Q107229269)
+Q106185393	SKIP	no publisher on work (nothing to do)
+Q106234663	EDIT	- work P123 Q16995184 (already on Q106230840)
+Q106234895	EDIT	- work P123 Q16995184 (already on Q106234725)
+Q106240845	EDIT	- work P123 Q16995184 (already on Q106240564)
+Q106242649	REVIEW	P123 = Q3186063 on work, not on the single edition Q106243329 -- may be original publisher vs a reprint edition; confirm before moving
+Q106341611	REVIEW	P123 = Q5536864 on work, not on the single edition Q106358186 -- may be original publisher vs a reprint edition; confirm before moving
+Q106365504	REVIEW	P123 = Q3018210 on work, not on the single edition Q1218 -- may be original publisher vs a reprint edition; confirm before moving
+Q106406032	EDIT	- work P123 Q71191 (already on Q106405555)
+Q106472981	EDIT	- work P123 Q172299 (already on Q106473044)
+Q106530262	SKIP	no publisher on work (nothing to do)
+Q106549465	EDIT	- work P123 Q18576913 (already on Q106549468)
+Q106576377	EDIT	- work P123 Q7351982 (already on Q106576267)
+Q106594057	EDIT	- work P123 Q172299 (already on Q106593422)
+Q106594519	EDIT	- work P123 Q172299 (already on Q106594057)
+Q106595849	EDIT	- work P123 Q172299 (already on Q106595765)
+Q106596241	EDIT	- work P123 Q172299 (already on Q106595849)
+Q106604182	REVIEW	P123 = Q172299 on work, not on the single edition Q106602300 -- may be original publisher vs a reprint edition; confirm before moving
+Q106641190	EDIT	- work P123 Q19444229 (already on Q106641016)
+Q106642929	EDIT	- work P123 Q172299 (already on Q106642006)
+Q106643826	EDIT	- work P123 Q172299 (already on Q106643150)
+Q106644603	EDIT	- work P123 Q172299 (already on Q106644091)
+Q106703427	EDIT	- work P123 Q3280327 (already on Q106704715)
+Q106730453	EDIT	- work P123 Q40477116 (already on Q106863239)
+Q106863902	SKIP	no publisher on work (nothing to do)
+Q10688399	REVIEW	P123 = Q3564797 on work with 2 editions (Q121793263, Q138779789) -- ambiguous which edition; move manually; P123 = Q2388836 on work with 2 editions (Q121793263, Q138779789) -- ambiguous which edition; move manually
+Q106891102	EDIT	- work P123 Q2108217 (already on Q106892162)
+Q106925670	EDIT	- work P123 Q106799248 (already on Q106925834)
+Q106939284	EDIT	- work P123 Q19444229 (already on Q106939322)
+Q106941989	EDIT	- work P123 Q19444229 (already on Q106942069)
+Q106943153	EDIT	- work P123 Q19444229 (already on Q106943172)
+Q106987511	EDIT	- work P123 Q19444229 (already on Q106991151)
+Q107303799	EDIT	- work P123 Q6106398 (already on Q107303815), Q5317558 (already on Q107303815)
+Q107359035	REVIEW	P123 = Q3304275 on work, not on the single edition Q107333404 -- may be original publisher vs a reprint edition; confirm before moving
+Q107615373	REVIEW	P123 = Q10855591 on work, not on the single edition Q134985940 -- may be original publisher vs a reprint edition; confirm before moving
+Q107624465	REVIEW	P123 = Q55085741 on work, not on the single edition Q135651223 -- may be original publisher vs a reprint edition; confirm before moving
+Q107661385	EDIT	- work P123 Q880978 (already on Q107662865)
+Q108047336	EDIT	- work P123 Q1969364 (already on Q108047136)
+Q108375823	REVIEW	P123 = Q20729008 on work, not on the single edition Q133311145 -- may be original publisher vs a reprint edition; confirm before moving
+Q108540705	EDIT	- work P123 Q1251563 (already on Q108540646)
+Q108575546	EDIT	- work P123 Q14175176 (already on Q113557440)
+Q108584759	EDIT	- work P123 Q108526070 (already on Q113249255)
+Q10861448	EDIT	- work P123 Q22939696 (already on Q111605268)
+Q108694687	SKIP	no publisher on work (nothing to do)
+Q1090228	REVIEW	P123 = Q6106398 on work with 3 editions (Q19857787, Q58909386, Q135930237) -- ambiguous which edition; move manually
+Q109371499	REVIEW	P123 = Q6724738 on work, not on the single edition Q109371456 -- may be original publisher vs a reprint edition; confirm before moving
+Q109519520	REVIEW	P123 = Q2494563 on work, not on the single edition Q109519554 -- may be original publisher vs a reprint edition; confirm before moving
+Q109567023	EDIT	- work P123 Q6273015 (already on Q109567002), Q6724738 (already on Q109567002)
+Q109578853	EDIT	- work P123 Q5344546 (already on Q117676290)
+Q109677991	EDIT	- work P123 Q3093062 (already on Q109677992)
+Q109683580	EDIT	- work P123 Q3093062 (already on Q109742538)
+Q109713100	EDIT	- work P123 Q15077094 (already on Q109713162)
+Q1098300	REVIEW	P123 = Q40100542 on work with 2 editions (Q121950446, Q123206039) -- ambiguous which edition; move manually
+Q110182952	REVIEW	P123 = Q3183162 on work, not on the single edition Q133887506 -- may be original publisher vs a reprint edition; confirm before moving
+Q110207876	EDIT	- work P123 Q17308956 (already on Q110798817)
+Q11036624	REVIEW	P123 = Q2054191 on work, not on the single edition Q131399249 -- may be original publisher vs a reprint edition; confirm before moving
+Q110379062	REVIEW	P123 = Q109501914 on work, not on the single edition Q110379748 -- may be original publisher vs a reprint edition; confirm before moving
+Q110391047	EDIT	- work P123 Q107523271 (already on Q110391078)
+Q110408354	REVIEW	P123 = Q3579248 on work, not on the single edition Q110434472 -- may be original publisher vs a reprint edition; confirm before moving
+Q110484354	EDIT	- work P123 Q3011053 (already on Q51423444)
+Q110578583	REVIEW	P123 = Q109502007 on work, not on the single edition Q135930191 -- may be original publisher vs a reprint edition; confirm before moving
+Q110615748	EDIT	- work P123 Q5238108 (already on Q110615881)
+Q110616097	EDIT	- work P123 Q5238108 (already on Q110616114)
+Q110655971	EDIT	- work P123 Q6273015 (already on Q110655874), Q1251563 (already on Q110655874)
+Q110811063	REVIEW	P123 = Q109501992 on work, not on the single edition Q110510327 -- may be original publisher vs a reprint edition; confirm before moving
+Q110971467	EDIT	- work P123 Q349566 (already on Q126415516)
+Q110975422	REVIEW	P123 = Q72938371 on work, not on the single edition Q51409881 -- may be original publisher vs a reprint edition; confirm before moving
+Q111352326	EDIT	- work P123 Q738797 (already on Q111352312)
+Q111467935	REVIEW	P123 = Q349566 on work, not on the single edition Q136765552 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q193563 on work, not on the single edition Q136765552 -- may be original publisher vs a reprint edition; confirm before moving
+Q111596671	SKIP	no publisher on work (nothing to do)
+Q111602676	EDIT	- work P123 Q1019662 (already on Q111602701)
+Q111804855	REVIEW	P123 = Q12788011 on work, not on the single edition Q19181761 -- may be original publisher vs a reprint edition; confirm before moving
+Q111831784	EDIT	- work P123 Q6724738 (already on Q111831817)
+Q111847163	EDIT	- work P123 Q6724738 (already on Q111847297), Q2108217 (already on Q111847297)
+Q111888880	EDIT	- work P123 Q3011053 (already on Q111889061)
+Q111889713	EDIT	- work P123 Q1938327 (already on Q111889719)
+Q111899723	EDIT	- work P123 Q3011053 (already on Q111901321)
+Q111901570	EDIT	- work P123 Q6106398 (already on Q111901616), Q5317558 (already on Q111901616)
+Q111901880	EDIT	- work P123 Q2108217 (already on Q111901943)
+Q111902437	EDIT	- work P123 Q6724738 (already on Q111902544), Q2108217 (already on Q111902544)
+Q111906875	EDIT	- work P123 Q1938327 (already on Q111907051)
+Q111968446	EDIT	- work P123 Q845617 (already on Q111968542)
+Q111969051	EDIT	- work P123 Q1251563 (already on Q111969090)
+Q111969647	EDIT	- work P123 Q2108217 (already on Q111969871)
+Q111970380	EDIT	- work P123 Q2108217 (already on Q111971339)
+Q112043863	EDIT	- work P123 Q3011053 (already on Q112044143)
+Q112044327	REVIEW	P123 = Q172299 on work, not on the single edition Q112044888 -- may be original publisher vs a reprint edition; confirm before moving
+Q112066762	EDIT+REVIEW	- work P123 Q5542702 (already on Q112066782) || P123 = Q2108217 on work, not on the single edition Q112066782 -- may be original publisher vs a reprint edition; confirm before moving
+Q112067397	EDIT	- work P123 Q6243946 (already on Q112067412)
+Q112074811	EDIT	- work P123 Q795207 (already on Q112074820)
+Q112080815	REVIEW	P123 = Q2934320 on work, not on the single edition Q19195364 -- may be original publisher vs a reprint edition; confirm before moving
+Q112080913	EDIT	- work P123 Q108541406 (already on Q112080773)
+Q112081365	REVIEW	P123 = Q4798957 on work, not on the single edition Q112081367 -- may be original publisher vs a reprint edition; confirm before moving
+Q112081367	EDIT	- work P123 Q108541406 (already on Q112081374)
+Q112081995	EDIT	- work P123 Q2054191 (already on Q112082001)
+Q1120858	REVIEW	P123 = Q6106398 on work with 2 editions (Q111301199, Q111302405) -- ambiguous which edition; move manually
+Q112106834	SKIP	no publisher on work (nothing to do)
+Q112107188	EDIT	- work P123 Q2846305 (already on Q112107217), Q172299 (already on Q112107217), Q3127696 (already on Q112107231)
+Q112107349	EDIT	- work P123 Q5287721 (already on Q112107369)
+Q112107666	EDIT	- work P123 Q5287721 (already on Q112107701)
+Q112121061	EDIT	- work P123 Q3127696 (already on Q112121103)
+Q1121567	EDIT	- work P123 Q40100542 (already on Q59786331)
+Q1122549	REVIEW	P123 = Q40100542 on work with 5 editions (Q126707402, Q133856759, Q134007345, Q134007605, Q134029525) -- ambiguous which edition; move manually
+Q112262940	REVIEW	P123 = Q5818686 on work, not on the single edition Q112300615 -- may be original publisher vs a reprint edition; confirm before moving
+Q112326730	EDIT	- work P123 Q72602970 (already on Q112326752)
+Q112393254	REVIEW	P123 = Q1575786 on work, not on the single edition Q112394705 -- may be original publisher vs a reprint edition; confirm before moving
+Q112517185	EDIT	- work P123 Q15077094 (already on Q112517456)
+Q112521719	EDIT	- work P123 Q56611988 (already on Q112521903)
+Q112633054	EDIT	- work P123 Q6106398 (already on Q112633362)
+Q11273319	REVIEW	P123 = Q11962920 on work with 5 editions (Q124767333, Q124729034, Q124767332, Q124767334, Q134100236) -- ambiguous which edition; move manually
+Q112799438	EDIT	- work P123 Q8011829 (already on Q112799229)
+Q112869689	SKIP	no publisher on work (nothing to do)
+Q1129378	REVIEW	P123 = Q1232629 on work, not on the single edition Q19111999 -- may be original publisher vs a reprint edition; confirm before moving
+Q112943909	EDIT	- work P123 Q6273015 (already on Q106929148)
+Q113004573	REVIEW	P123 = Q6273015 on work, not on the single edition Q106928708 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q110280378 on work, not on the single edition Q106928708 -- may be original publisher vs a reprint edition; confirm before moving
+Q113018424	REVIEW	P123 = Q3822096 on work, not on the single edition Q126703154 -- may be original publisher vs a reprint edition; confirm before moving
+Q113172858	EDIT+REVIEW	- work P123 Q1251563 (already on Q107326561) || P123 = Q8011829 on work with 2 editions (Q107326561, Q113441286) -- ambiguous which edition; move manually
+Q113173729	EDIT	- work P123 Q8011829 (already on Q113205589), Q1251563 (already on Q113205589)
+Q113214279	EDIT	- work P123 Q108526070 (already on Q113214811)
+Q113249599	EDIT	- work P123 Q108526070 (already on Q113249719)
+Q113250045	EDIT	- work P123 Q108526070 (already on Q113250206)
+Q113250453	EDIT	- work P123 Q108526070 (already on Q113253095)
+Q113261906	EDIT	- work P123 Q108526070 (already on Q113262021)
+Q113262409	EDIT	- work P123 Q108526070 (already on Q113263000)
+Q113263060	EDIT	- work P123 Q108526070 (already on Q113263077)
+Q113457661	EDIT	- work P123 Q795207 (already on Q113457685)
+Q113457679	EDIT	- work P123 Q795207 (already on Q113457737)
+Q113519049	REVIEW	P123 = Q769544 on work, not on the single edition Q102484846 -- may be original publisher vs a reprint edition; confirm before moving
+Q113519063	REVIEW	P123 = Q769544 on work, not on the single edition Q102457822 -- may be original publisher vs a reprint edition; confirm before moving
+Q113519095	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113519097	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113526367	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113526946	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113526949	REVIEW	P123 = Q769544 on work, not on the single edition Q102484843 -- may be original publisher vs a reprint edition; confirm before moving
+Q113526959	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113526976	REVIEW	P123 = Q769544 on work, not on the single edition Q102495722 -- may be original publisher vs a reprint edition; confirm before moving
+Q113527007	REVIEW	P123 = Q769544 on work, not on the single edition Q102484828 -- may be original publisher vs a reprint edition; confirm before moving
+Q113527026	REVIEW	P123 = Q769544 on work, not on the single edition Q102484828 -- may be original publisher vs a reprint edition; confirm before moving
+Q113527061	REVIEW	P123 = Q769544 on work, not on the single edition Q102457798 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528421	REVIEW	P123 = Q769544 on work, not on the single edition Q102484852 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528435	REVIEW	P123 = Q769544 on work, not on the single edition Q102484831 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528438	REVIEW	P123 = Q769544 on work, not on the single edition Q102484831 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528454	REVIEW	P123 = Q769544 on work, not on the single edition Q102484856 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528472	REVIEW	P123 = Q769544 on work, not on the single edition Q102457792 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528482	REVIEW	P123 = Q769544 on work, not on the single edition Q102484833 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528491	REVIEW	P123 = Q769544 on work, not on the single edition Q102457819 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528498	REVIEW	P123 = Q769544 on work, not on the single edition Q102457249 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528502	REVIEW	P123 = Q769544 on work, not on the single edition Q102484850 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528523	REVIEW	P123 = Q769544 on work, not on the single edition Q102484840 -- may be original publisher vs a reprint edition; confirm before moving
+Q113528843	SKIP	no publisher on work (nothing to do)
+Q113529839	REVIEW	P123 = Q769544 on work, not on the single edition Q102457254 -- may be original publisher vs a reprint edition; confirm before moving
+Q113529849	REVIEW	P123 = Q769544 on work, not on the single edition Q102495726 -- may be original publisher vs a reprint edition; confirm before moving
+Q113529850	REVIEW	P123 = Q769544 on work, not on the single edition Q102495726 -- may be original publisher vs a reprint edition; confirm before moving
+Q113529992	REVIEW	P123 = Q769544 on work, not on the single edition Q102495762 -- may be original publisher vs a reprint edition; confirm before moving
+Q113530002	REVIEW	P123 = Q769544 on work, not on the single edition Q102495734 -- may be original publisher vs a reprint edition; confirm before moving
+Q11361680	REVIEW	P123 = Q11547900 on work, not on the single edition Q133730926 -- may be original publisher vs a reprint edition; confirm before moving
+Q113866482	EDIT	- work P123 Q131351009 (already on Q113867151)
+Q113891473	SKIP	no publisher on work (nothing to do)
+Q113900213	EDIT	- work P123 Q20897941 (already on Q113900224)
+Q113952291	EDIT	- work P123 Q20897941 (already on Q113952318)
+Q113952433	SKIP	no publisher on work (nothing to do)
+Q113953344	EDIT	- work P123 Q84709400 (already on Q113953584)
+Q113954426	REVIEW	P123 = Q769544 on work, not on the single edition Q102457814 -- may be original publisher vs a reprint edition; confirm before moving
+Q113957909	EDIT	- work P123 Q2108217 (already on Q113957926)
+Q113973548	EDIT	- work P123 Q2295283 (already on Q113973819)
+Q113992336	EDIT	- work P123 Q2295283 (already on Q113992347)
+Q113992351	EDIT	- work P123 Q2295283 (already on Q113992355)
+Q113996484	EDIT	- work P123 Q6106398 (already on Q51515645)
+Q114011522	EDIT	- work P123 Q3562161 (already on Q114011612)
+Q114064732	EDIT	- work P123 Q6106398 (already on Q114064746)
+Q1141032	REVIEW	P123 = Q3084464 on work with 5 editions (Q87355392, Q65528277, Q112620865, Q122483983, Q138507365) -- ambiguous which edition; move manually
+Q1142149	REVIEW	P123 = Q16194953 on work with 2 editions (Q96379488, Q96379721) -- ambiguous which edition; move manually; P123 = Q3552154 on work with 2 editions (Q96379488, Q96379721) -- ambiguous which edition; move manually
+Q114315390	REVIEW	P123 = Q769544 on work, not on the single edition Q135977221 -- may be original publisher vs a reprint edition; confirm before moving
+Q114399916	REVIEW	P123 = Q769544 on work, not on the single edition Q135977232 -- may be original publisher vs a reprint edition; confirm before moving
+Q114399919	REVIEW	P123 = Q769544 on work, not on the single edition Q133886355 -- may be original publisher vs a reprint edition; confirm before moving
+Q114399968	REVIEW	P123 = Q769544 on work, not on the single edition Q135977238 -- may be original publisher vs a reprint edition; confirm before moving
+Q114402078	REVIEW	P123 = Q769544 on work, not on the single edition Q135977246 -- may be original publisher vs a reprint edition; confirm before moving
+Q114402442	REVIEW	P123 = Q769544 on work, not on the single edition Q135977256 -- may be original publisher vs a reprint edition; confirm before moving
+Q114402444	REVIEW	P123 = Q769544 on work, not on the single edition Q135977257 -- may be original publisher vs a reprint edition; confirm before moving
+Q114442374	REVIEW	P123 = Q5819456 on work with 2 editions (Q114442267, Q100977132) -- ambiguous which edition; move manually; P123 = Q10532161 on work with 2 editions (Q114442267, Q100977132) -- ambiguous which edition; move manually
+Q1147121	REVIEW	P123 = Q17710097 on work with 2 editions (Q107407446, Q126707665) -- ambiguous which edition; move manually
+Q114816040	REVIEW	P123 = Q91618 on work with 3 editions (Q118323359, Q118323371, Q118323307) -- ambiguous which edition; move manually
+Q11495255	REVIEW	P123 = Q11420791 on work with 2 editions (Q134314855, Q134450797) -- ambiguous which edition; move manually
+Q1152137	REVIEW	P123 = Q3127696 on work with 2 editions (Q19108864, Q105270234) -- ambiguous which edition; move manually
+Q115472578	EDIT	- work P123 Q349566 (already on Q115472656)
+Q115482540	EDIT	- work P123 Q753942 (already on Q115482996)
+Q1157807	REVIEW	P123 = Q105834328 on work with 3 editions (Q108269388, Q125678558, Q117978174) -- ambiguous which edition; move manually
+Q115799268	REVIEW	P123 = Q133539665 on work, not on the single edition Q133475439 -- may be original publisher vs a reprint edition; confirm before moving
+Q115912660	EDIT	- work P123 Q1135434 (already on Q115912701)
+Q115930368	EDIT+REVIEW	- work P123 Q7721960 (already on Q115931281) || P123 = Q2108217 on work, not on the single edition Q115931281 -- may be original publisher vs a reprint edition; confirm before moving
+Q115931281	EDIT	- work P123 Q7721960 (already on Q115931374)
+Q116339722	REVIEW	P123 = Q1617422 on work, not on the single edition Q133834680 -- may be original publisher vs a reprint edition; confirm before moving
+Q1164083	REVIEW	P123 = Q15976248 on work with 4 editions (Q51227067, Q126707675, Q138562063, Q138648819) -- ambiguous which edition; move manually
+Q116446517	EDIT	- work P123 Q2512342 (already on Q124693966)
+Q1165434	EDIT	- work P123 Q1232629 (already on Q56689790)
+Q116696118	REVIEW	P123 = Q254524 on work with 3 editions (Q29016310, Q116879085, Q116879094) -- ambiguous which edition; move manually
+Q1168105	EDIT	- work P123 Q2054191 (already on Q51624759)
+Q1169463	REVIEW	P123 = Q40100542 on work with 2 editions (Q131429588, Q131429586) -- ambiguous which edition; move manually
+Q1170162	EDIT	- work P123 Q40100542 (already on Q116036349)
+Q1170544	REVIEW	P123 = Q40100542 on work, not on the single edition Q132907149 -- may be original publisher vs a reprint edition; confirm before moving
+Q11736498	REVIEW	P123 = Q4182867 on work, not on the single edition Q98783719 -- may be original publisher vs a reprint edition; confirm before moving
+Q117408865	REVIEW	P123 = Q911673 on work with 3 editions (Q117408924, Q19063839, Q117408983) -- ambiguous which edition; move manually
+Q117458723	SKIP	no publisher on work (nothing to do)
+Q117459948	SKIP	no publisher on work (nothing to do)
+Q117474236	REVIEW	P123 = Q13817985 on work, not on the single edition Q117474291 -- may be original publisher vs a reprint edition; confirm before moving
+Q117486968	SKIP	no publisher on work (nothing to do)
+Q117487217	SKIP	no publisher on work (nothing to do)
+Q117546326	SKIP	no publisher on work (nothing to do)
+Q117601032	EDIT	- work P123 Q1508259 (already on Q117601048)
+Q117602600	REVIEW	P123 = Q1508259 on work with 2 editions (Q19123936, Q117603764) -- ambiguous which edition; move manually
+Q117604738	EDIT	- work P123 Q390074 (already on Q117605440)
+Q117720387	EDIT	- work P123 Q117720993 (already on Q117720613)
+Q11772710	REVIEW	P123 = Q1251563 on work, not on the single edition Q134604113 -- may be original publisher vs a reprint edition; confirm before moving
+Q117748698	EDIT	- work P123 Q117748783 (already on Q117748908)
+Q117749020	REVIEW	P123 = Q117748783 on work with 2 editions (Q117749028, Q117749050) -- ambiguous which edition; move manually
+Q117817862	EDIT	- work P123 Q66217597 (already on Q117817881)
+Q117822794	SKIP	no publisher on work (nothing to do)
+Q117846725	REVIEW	P123 = Q1484272 on work, not on the single edition Q117952269 -- may be original publisher vs a reprint edition; confirm before moving
+Q117881321	REVIEW	P123 = Q91837 on work with 2 editions (Q117886431, Q117886053) -- ambiguous which edition; move manually
+Q11796241	REVIEW	P123 = Q9350847 on work, not on the single edition Q132446165 -- may be original publisher vs a reprint edition; confirm before moving
+Q11820128	REVIEW	P123 = Q11742979 on work, not on the single edition Q85021831 -- may be original publisher vs a reprint edition; confirm before moving
+Q1185340	SKIP	no publisher on work (nothing to do)
+Q11859	REVIEW	P123 = Q57413091 on work with 11 editions (Q42308953, Q111481575, Q111481576, Q111481583, Q111481580, Q111481581, Q111481586, Q111481584, Q111481585, Q111935921, Q136724764) -- ambiguous which edition; move manually; P123 = Q138566150 on work with 11 editions (Q42308953, Q111481575, Q111481576, Q111481583, Q111481580, Q111481581, Q111481586, Q111481584, Q111481585, Q111935921, Q136724764) -- ambiguous which edition; move manually
+Q11866520	REVIEW	P123 = Q69389520 on work, not on the single edition Q111605242 -- may be original publisher vs a reprint edition; confirm before moving
+Q1192541	REVIEW	P123 = Q1126800 on work with 5 editions (Q19437931, Q51284211, Q63982454, Q120722416, Q123597958) -- ambiguous which edition; move manually
+Q1192756	REVIEW	P123 = Q40100542 on work with 4 editions (Q111203352, Q111203377, Q111203405, Q133179766) -- ambiguous which edition; move manually
+Q119296257	EDIT	- work P123 Q1313415 (already on Q131511460)
+Q1193400	EDIT	- work P123 Q40100542 (already on Q123927930)
+Q1193957	EDIT	- work P123 Q40100542 (already on Q51490442)
+Q1194031	REVIEW	P123 = Q6838797 on work, not on the single edition Q133272275 -- may be original publisher vs a reprint edition; confirm before moving
+Q1194272	REVIEW	P123 = Q5287721 on work, not on the single edition Q133454034 -- may be original publisher vs a reprint edition; confirm before moving
+Q1195225	REVIEW	P123 = Q40100542 on work with 2 editions (Q130312602, Q130312610) -- ambiguous which edition; move manually
+Q1196792	REVIEW	P123 = Q845617 on work with 4 editions (Q105629236, Q121944166, Q121920590, Q138515812) -- ambiguous which edition; move manually
+Q1198883	REVIEW	P123 = Q40100542 on work with 4 editions (Q59786003, Q59786045, Q59786067, Q59786079) -- ambiguous which edition; move manually
+Q1199684	REVIEW	P123 = Q85430045 on work with 2 editions (Q21041942, Q30046951) -- ambiguous which edition; move manually
+Q120177793	REVIEW	P123 = Q15067023 on work, not on the single edition Q120178108 -- may be original publisher vs a reprint edition; confirm before moving
+Q12020365	REVIEW	P123 = Q69389520 on work, not on the single edition Q111600411 -- may be original publisher vs a reprint edition; confirm before moving
+Q12021415	EDIT	- work P123 Q28840617 (already on Q121917059)
+Q12041001	REVIEW	P123 = Q59248012 on work, not on the single edition Q111600886 -- may be original publisher vs a reprint edition; confirm before moving
+Q12046081	EDIT	- work P123 Q28840617 (already on Q111600918)
+Q12047817	REVIEW	P123 = Q22939696 on work with 3 editions (Q111602105, Q111602106, Q111602107) -- ambiguous which edition; move manually
+Q12049635	EDIT	- work P123 Q69389279 (already on Q111602113)
+Q12060236	REVIEW	P123 = Q266330 on work with 2 editions (Q19110630, Q106949570) -- ambiguous which edition; move manually
+Q120876323	SKIP	no publisher on work (nothing to do)
+Q120921537	REVIEW	P123 = Q99903623 on work, not on the single edition Q133879589 -- may be original publisher vs a reprint edition; confirm before moving
+Q121007931	REVIEW	P123 = Q31838812 on work, not on the single edition Q132655912 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q114877630 on work, not on the single edition Q132655912 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q124061190 on work, not on the single edition Q132655912 -- may be original publisher vs a reprint edition; confirm before moving
+Q1210346	REVIEW	P123 = Q4758020 on work, not on the single edition Q139902578 -- may be original publisher vs a reprint edition; confirm before moving
+Q1210997	REVIEW	P123 = Q2846305 on work, not on the single edition Q97588411 -- may be original publisher vs a reprint edition; confirm before moving
+Q1211101	EDIT	- work P123 Q120997537 (already on Q120997045)
+Q121145554	EDIT	- work P123 Q28343285 (already on Q121146023), Q28343295 (already on Q121146023)
+Q1212137	REVIEW	P123 = Q40100542 on work, not on the single edition Q48333497 -- may be original publisher vs a reprint edition; confirm before moving
+Q1212977	REVIEW	P123 = Q138566150 on work, not on the single edition Q19195076 -- may be original publisher vs a reprint edition; confirm before moving
+Q1213684	REVIEW	P123 = Q40100542 on work, not on the single edition Q111302598 -- may be original publisher vs a reprint edition; confirm before moving
+Q1213902	REVIEW	P123 = Q40100542 on work with 13 editions (Q59781621, Q59781630, Q56052822, Q59781612, Q123615534, Q124760194, Q134890648, Q134891049, Q134891275, Q134919801, Q137901567, Q137901573, Q137901586) -- ambiguous which edition; move manually
+Q1214433	REVIEW	P123 = Q40100542 on work with 2 editions (Q111600242, Q111600243) -- ambiguous which edition; move manually
+Q1216126	REVIEW	P123 = Q40100542 on work, not on the single edition Q126708173 -- may be original publisher vs a reprint edition; confirm before moving
+Q1218187	REVIEW	P123 = Q1892146 on work, not on the single edition Q123587947 -- may be original publisher vs a reprint edition; confirm before moving
+Q1219303	REVIEW	P123 = Q40100542 on work with 5 editions (Q67210406, Q67210416, Q67210425, Q124357022, Q124357323) -- ambiguous which edition; move manually
+Q1219475	REVIEW	P123 = Q2843522 on work, not on the single edition Q104603344 -- may be original publisher vs a reprint edition; confirm before moving
+Q12204315	EDIT+REVIEW	- work P123 Q40380835 (already on Q125473393) || P123 = Q29513896 on work, not on the single edition Q125473393 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q40380767 on work, not on the single edition Q125473393 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q42332439 on work, not on the single edition Q125473393 -- may be original publisher vs a reprint edition; confirm before moving
+Q12211115	REVIEW	P123 = Q10970763 on work, not on the single edition Q123035671 -- may be original publisher vs a reprint edition; confirm before moving
+Q122154178	EDIT	- work P123 Q2564847 (already on Q125077633)
+Q122819503	REVIEW	P123 = Q60223778 on work, not on the single edition Q122806020 -- may be original publisher vs a reprint edition; confirm before moving
+Q123010570	REVIEW	P123 = Q26690157 on work, not on the single edition Q122074375 -- may be original publisher vs a reprint edition; confirm before moving
+Q12308234	REVIEW	P123 = Q12311987 on work with 3 editions (Q134606560, Q134606599, Q134606617) -- ambiguous which edition; move manually
+Q12346874	EDIT	- work P123 Q15730345 (already on Q106488346)
+Q12346904	EDIT	- work P123 Q15730345 (already on Q106488348)
+Q123484960	REVIEW	P123 = Q123485074 on work, not on the single edition Q134703137 -- may be original publisher vs a reprint edition; confirm before moving
+Q12349015	EDIT	- work P123 Q1175159 (already on Q106486939)
+Q12349271	EDIT	- work P123 Q349566 (already on Q106488366)
+Q12349906	EDIT	- work P123 Q257186 (already on Q106486964)
+Q12350784	EDIT+REVIEW	- work P123 Q4049337 (already on Q50793616) || P123 = Q25473804 on work, not on the single edition Q50793616 -- may be original publisher vs a reprint edition; confirm before moving
+Q123529659	REVIEW	P123 = Q27919262 on work, not on the single edition Q123541510 -- may be original publisher vs a reprint edition; confirm before moving
+Q12353296	EDIT	- work P123 Q4049337 (already on Q106487162)
+Q12353873	EDIT	- work P123 Q349566 (already on Q106488408)
+Q12355092	EDIT	- work P123 Q15730345 (already on Q106487240)
+Q123819758	REVIEW	P123 = Q24046191 on work with 2 editions (Q123823047, Q123823205) -- ambiguous which edition; move manually
+Q124294395	REVIEW	P123 = Q1753313 on work, not on the single edition Q60426906 -- may be original publisher vs a reprint edition; confirm before moving
+Q124311000	EDIT	- work P123 Q3562161 (already on Q124310951)
+Q124354678	EDIT	- work P123 Q106079998 (already on Q124354565)
+Q124399501	EDIT	- work P123 Q1205013 (already on Q124397941)
+Q124604751	EDIT	- work P123 Q124604906 (already on Q124605000)
+Q124609329	EDIT	- work P123 Q2150493 (already on Q124609626)
+Q124620762	EDIT	- work P123 Q2150493 (already on Q124620794)
+Q124621567	EDIT	- work P123 Q2150493 (already on Q124621809)
+Q124622332	EDIT	- work P123 Q2150493 (already on Q124622343)
+Q124673668	EDIT	- work P123 Q104843050 (already on Q124673703)
+Q124710264	REVIEW	P123 = Q2512342 on work, not on the single edition Q136749823 -- may be original publisher vs a reprint edition; confirm before moving
+Q124712963	EDIT	- work P123 Q2512342 (already on Q28865299)
+Q124729171	REVIEW	P123 = Q11962920 on work with 3 editions (Q135013430, Q135013441, Q135013476) -- ambiguous which edition; move manually
+Q124729173	REVIEW	P123 = Q11962920 on work, not on the single edition Q108842276 -- may be original publisher vs a reprint edition; confirm before moving
+Q124733739	EDIT	- work P123 Q2512342 (already on Q87203846)
+Q1248585	REVIEW	P123 = Q845617 on work, not on the single edition Q139902569 -- may be original publisher vs a reprint edition; confirm before moving
+Q124972826	EDIT	- work P123 Q1549024 (already on Q124974972), Q124974554 (already on Q124974972)
+Q124976924	EDIT	- work P123 Q98915228 (already on Q124978037)
+Q124978393	EDIT	- work P123 Q911673 (already on Q124978473)
+Q125075121	EDIT	- work P123 Q110280368 (already on Q125076074)
+Q125083478	EDIT	- work P123 Q5049289 (already on Q125085366)
+Q125087698	SKIP	no publisher on work (nothing to do)
+Q125109844	EDIT	- work P123 Q8025993 (already on Q125111156)
+Q125316929	REVIEW	P123 = Q117225215 on work, not on the single edition Q109298057 -- may be original publisher vs a reprint edition; confirm before moving
+Q125363185	REVIEW	P123 = Q4159426 on work with 2 editions (Q26582558, Q25713842) -- ambiguous which edition; move manually
+Q125525533	EDIT	- work P123 Q5540027 (already on Q125525754), Q14175176 (already on Q125525754)
+Q125526809	EDIT	- work P123 Q3117078 (already on Q125526833)
+Q125544136	EDIT	- work P123 Q7721960 (already on Q125544158)
+Q125546336	EDIT	- work P123 Q1251563 (already on Q125546354)
+Q125547153	EDIT	- work P123 Q3093062 (already on Q125547197)
+Q125580693	EDIT	- work P123 Q105829400 (already on Q125580759)
+Q125637551	REVIEW	P123 = Q7014807 on work, not on the single edition Q135529470 -- may be original publisher vs a reprint edition; confirm before moving
+Q125655261	EDIT	- work P123 Q7721960 (already on Q125655625)
+Q125727481	EDIT	- work P123 Q185246 (already on Q125726715)
+Q125991331	EDIT	- work P123 Q2865431 (already on Q125989914)
+Q1265755	REVIEW	P123 = Q6724738 on work, not on the single edition Q138508367 -- may be original publisher vs a reprint edition; confirm before moving
+Q126918738	REVIEW	P123 = Q5317558 on work, not on the single edition Q80128702 -- may be original publisher vs a reprint edition; confirm before moving
+Q127284	REVIEW	P123 = Q40100542 on work, not on the single edition Q123895690 -- may be original publisher vs a reprint edition; confirm before moving
+Q127699575	REVIEW	P123 = Q7328770 on work, not on the single edition Q127699638 -- may be original publisher vs a reprint edition; confirm before moving
+Q128402180	SKIP	no publisher on work (nothing to do)
+Q1296168	REVIEW	P123 = Q11281443 on work, not on the single edition Q126835018 -- may be original publisher vs a reprint edition; confirm before moving
+Q1298397	REVIEW	P123 = Q2152124 on work, not on the single edition Q24053072 -- may be original publisher vs a reprint edition; confirm before moving
+Q130332618	REVIEW	P123 = Q119703594 on work, not on the single edition Q130332684 -- may be original publisher vs a reprint edition; confirm before moving
+Q1305106	REVIEW	P123 = Q7800720 on work with 4 editions (Q96959085, Q106762899, Q126584199, Q138411396) -- ambiguous which edition; move manually
+Q130732406	REVIEW	P123 = Q31838812 on work with 2 editions (Q136779787, Q136821003) -- ambiguous which edition; move manually
+Q13093360	REVIEW	P123 = Q2880453 on work, not on the single edition Q124327293 -- may be original publisher vs a reprint edition; confirm before moving
+Q131150057	EDIT	- work P123 Q28163842 (already on Q130305124)
+Q131323232	EDIT	- work P123 Q390074 (already on Q131323276)
+Q131339540	REVIEW	P123 = Q55842815 on work, not on the single edition Q131339841 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q131339607 on work, not on the single edition Q131339841 -- may be original publisher vs a reprint edition; confirm before moving
+Q131438829	EDIT	- work P123 Q131413126 (already on Q133314570)
+Q131442458	EDIT	- work P123 Q127417652 (already on Q135000267)
+Q131442461	EDIT	- work P123 Q131413129 (already on Q135000269)
+Q131442462	EDIT	- work P123 Q131413129 (already on Q135000270)
+Q131442486	EDIT	- work P123 Q131442309 (already on Q135000296)
+Q131442489	EDIT	- work P123 Q131442183 (already on Q134597856)
+Q131442490	EDIT	- work P123 Q131442351 (already on Q134597858)
+Q131442492	EDIT	- work P123 Q131442355 (already on Q134597860)
+Q131449393	EDIT	- work P123 Q131413127 (already on Q135010460)
+Q131454067	REVIEW	P123 = Q112462599 on work, not on the single edition Q131454086 -- may be original publisher vs a reprint edition; confirm before moving
+Q131454519	EDIT	- work P123 Q131452796 (already on Q135779372)
+Q131454525	EDIT	- work P123 Q131413139 (already on Q135779375)
+Q131454530	EDIT	- work P123 Q131413139 (already on Q135779377)
+Q131463047	EDIT	- work P123 Q131459464 (already on Q135838242)
+Q131463055	EDIT	- work P123 Q55681 (already on Q135838249)
+Q131520273	EDIT	- work P123 Q129999100 (already on Q135900277)
+Q131520274	EDIT	- work P123 Q129999100 (already on Q135900346)
+Q131520275	EDIT	- work P123 Q129999100 (already on Q135900278)
+Q131520283	EDIT	- work P123 Q13117277 (already on Q135900284)
+Q131520308	EDIT	- work P123 Q131481039 (already on Q135900297)
+Q131520321	EDIT	- work P123 Q131413154 (already on Q136683222)
+Q131520322	EDIT	- work P123 Q131413154 (already on Q136688943)
+Q131520323	EDIT	- work P123 Q131413154 (already on Q136683223)
+Q131520324	EDIT	- work P123 Q131413154 (already on Q136683224)
+Q131520348	EDIT	- work P123 Q129697335 (already on Q136683248)
+Q131520349	EDIT	- work P123 Q129697335 (already on Q136683249)
+Q131520350	EDIT	- work P123 Q129697335 (already on Q136683250)
+Q131520351	EDIT	- work P123 Q129697335 (already on Q136683251)
+Q131520352	EDIT	- work P123 Q129697335 (already on Q136683252)
+Q131520416	EDIT	- work P123 Q131413154 (already on Q136683221)
+Q131575882	EDIT+REVIEW	- work P123 Q5237388 (already on Q131576527) || P123 = Q3101600 on work, not on the single edition Q131576527 -- may be original publisher vs a reprint edition; confirm before moving
+Q131611573	REVIEW	P123 = Q11130954 on work, not on the single edition Q135932625 -- may be original publisher vs a reprint edition; confirm before moving
+Q131625886	REVIEW	P123 = Q21640363 on work with 2 editions (Q131625625, Q131623029) -- ambiguous which edition; move manually
+Q131632155	EDIT	- work P123 Q3087181 (already on Q51424648), Q5082419 (already on Q51424648)
+Q131632717	EDIT	- work P123 Q96945079 (already on Q133550210)
+Q131699807	REVIEW	P123 = Q131699859 on work, not on the single edition Q131699738 -- may be original publisher vs a reprint edition; confirm before moving
+Q1317839	REVIEW	P123 = Q6724738 on work with 5 editions (Q114444364, Q123049901, Q123049902, Q134604114, Q65528304) -- ambiguous which edition; move manually
+Q131932123	REVIEW	P123 = Q2080232 on work, not on the single edition Q133853060 -- may be original publisher vs a reprint edition; confirm before moving
+Q131935076	REVIEW	P123 = Q11962920 on work, not on the single edition Q134446035 -- may be original publisher vs a reprint edition; confirm before moving
+Q132130003	EDIT	- work P123 Q25568369 (already on Q132129930)
+Q132151656	EDIT	- work P123 Q3395669 (already on Q139548078)
+Q1324350	REVIEW	P123 = Q11664512 on work, not on the single edition Q130333161 -- may be original publisher vs a reprint edition; confirm before moving
+Q1327411	REVIEW	P123 = Q40100542 on work with 9 editions (Q59784331, Q59784423, Q59784483, Q59784567, Q59784639, Q59784634, Q120175111, Q120175121, Q137901592) -- ambiguous which edition; move manually
+Q132742683	REVIEW	P123 = Q15817252 on work, not on the single edition Q133838465 -- may be original publisher vs a reprint edition; confirm before moving
+Q133255101	REVIEW	P123 = Q131283124 on work, not on the single edition Q133839279 -- may be original publisher vs a reprint edition; confirm before moving
+Q133255110	REVIEW	P123 = Q131283124 on work, not on the single edition Q133839282 -- may be original publisher vs a reprint edition; confirm before moving
+Q133266824	REVIEW	P123 = Q131267380 on work, not on the single edition Q133838907 -- may be original publisher vs a reprint edition; confirm before moving
+Q133266951	REVIEW	P123 = Q131283139 on work, not on the single edition Q133838934 -- may be original publisher vs a reprint edition; confirm before moving
+Q133267026	REVIEW	P123 = Q131267385 on work, not on the single edition Q133838974 -- may be original publisher vs a reprint edition; confirm before moving
+Q133267111	REVIEW	P123 = Q131267381 on work, not on the single edition Q133881780 -- may be original publisher vs a reprint edition; confirm before moving
+Q133267153	REVIEW	P123 = Q131271851 on work, not on the single edition Q133839039 -- may be original publisher vs a reprint edition; confirm before moving
+Q133503396	EDIT	- work P123 Q390074 (already on Q133503399)
+Q133550210	EDIT	- work P123 Q96945079 (already on Q131632717)
+Q133852765	REVIEW	P123 = Q11962920 on work with 4 editions (Q134926776, Q134927669, Q55206547, Q134928412) -- ambiguous which edition; move manually
+Q1339248	REVIEW	P123 = Q1529971 on work with 2 editions (Q59056171, Q131763155) -- ambiguous which edition; move manually
+Q1339346	EDIT	- work P123 Q9145532 (already on Q83979005)
+Q1340493	REVIEW	P123 = Q2923456 on work with 9 editions (Q82956494, Q111271751, Q111272130, Q111272543, Q111272337, Q126503623, Q137531324, Q138515587, Q138515771) -- ambiguous which edition; move manually
+Q134464295	REVIEW	P123 = Q11962920 on work, not on the single edition Q134467531 -- may be original publisher vs a reprint edition; confirm before moving
+Q1350048	EDIT	- work P123 Q106821 (already on Q131764774)
+Q135474743	REVIEW	P123 = Q12250923 on work, not on the single edition Q12250923 -- may be original publisher vs a reprint edition; confirm before moving
+Q13564487	REVIEW	P123 = Q11962920 on work with 6 editions (Q90406225, Q112788153, Q112788165, Q112788170, Q112788211, Q112788214) -- ambiguous which edition; move manually
+Q135737184	REVIEW	P123 = Q135742356 on work, not on the single edition Q135736372 -- may be original publisher vs a reprint edition; confirm before moving
+Q135843355	EDIT	- work P123 Q130314767 (already on Q135849760)
+Q135855458	REVIEW	P123 = Q2893123 on work, not on the single edition Q135926804 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q3579565 on work, not on the single edition Q135926804 -- may be original publisher vs a reprint edition; confirm before moving
+Q136466261	REVIEW	P123 = Q132794762 on work, not on the single edition Q137779573 -- may be original publisher vs a reprint edition; confirm before moving
+Q136657347	REVIEW	P123 = Q3310248 on work, not on the single edition Q27652233 -- may be original publisher vs a reprint edition; confirm before moving
+Q136688094	EDIT	- work P123 Q131413154 (already on Q136688944)
+Q137032503	REVIEW	P123 = Q1141959 on work, not on the single edition Q137008596 -- may be original publisher vs a reprint edition; confirm before moving
+Q137188055	REVIEW	P123 = Q124570693 on work, not on the single edition Q137675040 -- may be original publisher vs a reprint edition; confirm before moving
+Q137203725	EDIT	- work P123 Q14175176 (already on Q139992204)
+Q137636092	REVIEW	P123 = Q58233412 on work, not on the single edition Q136682419 -- may be original publisher vs a reprint edition; confirm before moving
+Q138679761	SKIP	no publisher on work (nothing to do)
+Q140071217	REVIEW	P123 = Q115941 on work, not on the single edition Q140067449 -- may be original publisher vs a reprint edition; confirm before moving
+Q140136130	EDIT	- work P123 Q7917501 (already on Q140136152)
+Q141568	REVIEW	P123 = Q1848069 on work with 4 editions (Q125066852, Q137531787, Q138507167, Q138561892) -- ambiguous which edition; move manually
+Q1428700	REVIEW	P123 = Q57413091 on work with 3 editions (Q111602115, Q111602116, Q111602117) -- ambiguous which edition; move manually
+Q1434753	REVIEW	P123 = Q1983260 on work with 2 editions (Q133461097, Q133461358) -- ambiguous which edition; move manually
+Q1472368	REVIEW	P123 = Q104903589 on work with 3 editions (Q104903663, Q131566391, Q134640886) -- ambiguous which edition; move manually
+Q14805547	EDIT	- work P123 Q349566 (already on Q106488476)
+Q1482901	EDIT	- work P123 Q3183958 (already on Q137918080)
+Q15052526	REVIEW	P123 = Q1508259 on work with 3 editions (Q111301166, Q111302390, Q111433566) -- ambiguous which edition; move manually
+Q15074328	REVIEW	P123 = Q3221894 on work with 2 editions (Q75146743, Q99361724) -- ambiguous which edition; move manually
+Q1511368	REVIEW	P123 = Q11736141 on work with 3 editions (Q21431170, Q21431179, Q62083461) -- ambiguous which edition; move manually
+Q1529231	REVIEW	P123 = Q3048018 on work, not on the single edition Q138772696 -- may be original publisher vs a reprint edition; confirm before moving
+Q1557935	REVIEW	P123 = Q2054191 on work with 3 editions (Q115268075, Q135336936, Q139898937) -- ambiguous which edition; move manually
+Q15634456	REVIEW	P123 = Q85309568 on work with 3 editions (Q111095782, Q111108651, Q111109227) -- ambiguous which edition; move manually
+Q1570068	REVIEW	P123 = Q3579805 on work with 4 editions (Q111342696, Q111372637, Q111372796, Q111532370) -- ambiguous which edition; move manually
+Q15734606	REVIEW	P123 = Q10526921 on work, not on the single edition Q65556484 -- may be original publisher vs a reprint edition; confirm before moving
+Q1581388	REVIEW	P123 = Q40100542 on work with 2 editions (Q78663963, Q78664007) -- ambiguous which edition; move manually
+Q161138	REVIEW	P123 = Q28842758 on work with 7 editions (Q60645170, Q60645252, Q60645782, Q111600876, Q111906845, Q50371021, Q50371853) -- ambiguous which edition; move manually
+Q162478	EDIT	- work P123 Q634246 (already on Q22338962)
+Q1632505	REVIEW	P123 = Q2108217 on work, not on the single edition Q117478061 -- may be original publisher vs a reprint edition; confirm before moving
+Q16386839	REVIEW	P123 = Q2108217 on work, not on the single edition Q107569057 -- may be original publisher vs a reprint edition; confirm before moving
+Q164974	EDIT	- work P123 Q172299 (already on Q105971285)
+Q1659447	REVIEW	P123 = Q7310162 on work, not on the single edition Q132663891 -- may be original publisher vs a reprint edition; confirm before moving
+Q16605052	REVIEW	P123 = Q9018887 on work, not on the single edition Q123527259 -- may be original publisher vs a reprint edition; confirm before moving
+Q16655387	EDIT	- work P123 Q19444101 (already on Q109567036)
+Q1673334	EDIT	- work P123 Q3127696 (already on Q27980201)
+Q16756945	REVIEW	P123 = Q11962920 on work with 10 editions (Q42308980, Q134127201, Q134127223, Q134127529, Q131427587, Q134157514, Q134158446, Q134160071, Q134160280, Q134127909) -- ambiguous which edition; move manually
+Q17027661	REVIEW	P123 = Q2619904 on work, not on the single edition Q98336734 -- may be original publisher vs a reprint edition; confirm before moving
+Q17039010	EDIT	- work P123 Q3127696 (already on Q29386542)
+Q1711962	REVIEW	P123 = Q7879167 on work with 11 editions (Q94263915, Q94265356, Q94265374, Q94265597, Q33056066, Q94266641, Q94267224, Q94267774, Q94268191, Q94268196, Q94263915) -- ambiguous which edition; move manually
+Q17154575	REVIEW	P123 = Q59529135 on work, not on the single edition Q122910887 -- may be original publisher vs a reprint edition; confirm before moving
+Q17163270	REVIEW	P123 = Q455523 on work with 11 editions (Q52724355, Q53867668, Q110754996, Q110755091, Q99639256, Q110755033, Q111443233, Q111443252, Q135914935, Q135440440, Q138587722) -- ambiguous which edition; move manually
+Q17352577	EDIT	- work P123 Q17518122 (already on Q124987230)
+Q17484340	EDIT	- work P123 Q99204323 (already on Q107608194)
+Q17512014	REVIEW	P123 = Q7721960 on work, not on the single edition Q112842984 -- may be original publisher vs a reprint edition; confirm before moving
+Q1755867	EDIT	- work P123 Q1232629 (already on Q84191391)
+Q181488	REVIEW	P123 = Q4889045 on work with 13 editions (Q42573588, Q19109166, Q66364005, Q66364070, Q66364081, Q66375118, Q106185393, Q106234895, Q111507378, Q115682857, Q106824244, Q138515572, Q138515719) -- ambiguous which edition; move manually
+Q18161660	REVIEW	P123 = Q3298537 on work, not on the single edition Q104635081 -- may be original publisher vs a reprint edition; confirm before moving
+Q18209936	REVIEW	P123 = Q301609 on work, not on the single edition Q130362215 -- may be original publisher vs a reprint edition; confirm before moving
+Q1826666	REVIEW	P123 = Q765757 on work, not on the single edition Q115754228 -- may be original publisher vs a reprint edition; confirm before moving
+Q182961	EDIT+REVIEW	- work P123 Q2295283 (already on Q50404815) || P123 = Q3127696 on work with 18 editions (Q50404815, Q102464562, Q122188099, Q122190096, Q50405142, Q61959073, Q125956400, Q137779528, Q138411341, Q137641951, Q138515797, Q134390360, Q138515460, Q138520994, Q108525138, Q137643791, Q138649531, Q140639028) -- ambiguous which edition; move manually
+Q183157	REVIEW	P123 = Q1850566 on work with 10 editions (Q19211036, Q75590042, Q83976788, Q117279896, Q117280950, Q125938158, Q128211303, Q137779534, Q138028417, Q138507545) -- ambiguous which edition; move manually
+Q183565	REVIEW	P123 = Q40100542 on work with 18 editions (Q15639843, Q21764615, Q58364741, Q59783932, Q59783982, Q59787952, Q102706584, Q104530655, Q115130556, Q120137357, Q120138077, Q120138101, Q120136577, Q137532073, Q137901591, Q138411344, Q138515745, Q139791930) -- ambiguous which edition; move manually
+Q1853142	EDIT	- work P123 Q2054191 (already on Q111134801)
+Q18535502	REVIEW	P123 = Q217595 on work, not on the single edition Q56817282 -- may be original publisher vs a reprint edition; confirm before moving
+Q18629846	EDIT	- work P123 Q2108217 (already on Q79399648)
+Q18633317	REVIEW	P123 = Q1232629 on work with 3 editions (Q105200610, Q109944090, Q137396490) -- ambiguous which edition; move manually
+Q18635229	REVIEW	P123 = Q3296078 on work, not on the single edition Q59162963 -- may be original publisher vs a reprint edition; confirm before moving
+Q1898036	REVIEW	P123 = Q5083524 on work with 2 editions (Q83438583, Q130397903) -- ambiguous which edition; move manually
+Q189811	REVIEW	P123 = Q2923456 on work with 7 editions (Q44480125, Q59220303, Q107420581, Q107596161, Q110585813, Q137531534, Q138662390) -- ambiguous which edition; move manually
+Q18990	REVIEW	P123 = Q4204904 on work with 4 editions (Q12626119, Q5943662, Q16184679, Q124607201) -- ambiguous which edition; move manually
+Q190126	EDIT	- work P123 Q118082 (already on Q108757012)
+Q1903609	EDIT	- work P123 Q2054191 (already on Q110244726)
+Q19039987	REVIEW	P123 = Q7387541 on work with 4 editions (Q29868609, Q29868610, Q29868611, Q29868613) -- ambiguous which edition; move manually
+Q19041694	EDIT	- work P123 Q15694188 (already on Q19801080)
+Q19041990	REVIEW	P123 = Q1251563 on work with 2 editions (Q124728721, Q98151929) -- ambiguous which edition; move manually
+Q19063113	EDIT	- work P123 Q911673 (already on Q22067780)
+Q19071514	EDIT	- work P123 Q6106379 (already on Q106860336)
+Q19084574	EDIT	- work P123 Q5287721 (already on Q106917837)
+Q19086554	EDIT	- work P123 Q3101600 (already on Q106776805)
+Q19087021	EDIT	- work P123 Q117265065 (already on Q136121809)
+Q19087941	REVIEW	P123 = Q6273015 on work, not on the single edition Q138846132 -- may be original publisher vs a reprint edition; confirm before moving
+Q19096926	EDIT	- work P123 Q3093062 (already on Q106862349)
+Q19098271	REVIEW	P123 = Q19913244 on work, not on the single edition Q19913224 -- may be original publisher vs a reprint edition; confirm before moving
+Q19100841	REVIEW	P123 = Q101032195 on work with 3 editions (Q117744871, Q117747920, Q127026535) -- ambiguous which edition; move manually
+Q19109710	SKIP	no publisher on work (nothing to do)
+Q19112207	EDIT	- work P123 Q225863 (already on Q22668352)
+Q19112901	EDIT	- work P123 Q19444229 (already on Q117654268)
+Q19149322	EDIT	- work P123 Q3270860 (already on Q106926838)
+Q19149449	SKIP	no publisher on work (nothing to do)
+Q19173254	REVIEW	P123 = Q349566 on work, not on the single edition Q123644280 -- may be original publisher vs a reprint edition; confirm before moving
+Q19177651	REVIEW	P123 = Q349566 on work, not on the single edition Q105726027 -- may be original publisher vs a reprint edition; confirm before moving
+Q19196710	REVIEW	P123 = Q21001293 on work, not on the single edition Q123894207 -- may be original publisher vs a reprint edition; confirm before moving
+Q19216763	EDIT	- work P123 Q3280327 (already on Q106702172)
+Q19230756	REVIEW	P123 = Q1273073 on work, not on the single edition Q109320107 -- may be original publisher vs a reprint edition; confirm before moving
+Q19232974	REVIEW	P123 = Q17518122 on work, not on the single edition Q19199405 -- may be original publisher vs a reprint edition; confirm before moving
+Q19239465	REVIEW	P123 = Q186225 on work, not on the single edition Q131808796 -- may be original publisher vs a reprint edition; confirm before moving
+Q193034	REVIEW	P123 = Q19271247 on work with 2 editions (Q113015919, Q138515746) -- ambiguous which edition; move manually
+Q19360935	REVIEW	P123 = Q2152124 on work with 2 editions (Q19597561, Q19604691) -- ambiguous which edition; move manually
+Q19366319	REVIEW	P123 = Q562292 on work, not on the single edition Q108854047 -- may be original publisher vs a reprint edition; confirm before moving
+Q19418311	REVIEW	P123 = Q11962920 on work with 5 editions (Q124729013, Q124767323, Q124767326, Q124767327, Q124767328) -- ambiguous which edition; move manually
+Q19434309	REVIEW	P123 = Q12392829 on work with 2 editions (Q19435413, Q114804325) -- ambiguous which edition; move manually
+Q19476471	REVIEW	P123 = Q13132364 on work with 3 editions (Q56427030, Q56441191, Q56461871) -- ambiguous which edition; move manually
+Q19523725	EDIT	- work P123 Q106382177 (already on Q98608949)
+Q19533291	EDIT	- work P123 Q11962920 (already on Q134693408)
+Q19533940	REVIEW	P123 = Q12038417 on work, not on the single edition Q121916288 -- may be original publisher vs a reprint edition; confirm before moving
+Q19534168	EDIT	- work P123 Q69389520 (already on Q52219647)
+Q19536540	REVIEW	P123 = Q10382638 on work, not on the single edition Q134376149 -- may be original publisher vs a reprint edition; confirm before moving
+Q19597312	REVIEW	P123 = Q2152124 on work with 2 editions (Q19597561, Q19604691) -- ambiguous which edition; move manually
+Q1963997	REVIEW	P123 = Q1126800 on work, not on the single edition Q131399470 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2295283 on work, not on the single edition Q131399470 -- may be original publisher vs a reprint edition; confirm before moving
+Q19787431	EDIT	- work P123 Q3161629 (already on Q117860156), Q107284641 (already on Q117860156), Q7931911 (already on Q117860156), Q1905756 (already on Q117860156)
+Q19799208	EDIT	- work P123 Q15077094 (already on Q19799222)
+Q1981770	REVIEW	P123 = Q1273073 on work with 3 editions (Q60613860, Q108575245, Q138662601) -- ambiguous which edition; move manually
+Q19862348	EDIT	- work P123 Q19862364 (already on Q19862367)
+Q19868455	EDIT	- work P123 Q15077094 (already on Q19868467)
+Q19913284	REVIEW	P123 = Q19913244 on work, not on the single edition Q19098298 -- may be original publisher vs a reprint edition; confirm before moving
+Q19953564	EDIT	- work P123 Q5423798 (already on Q19953647)
+Q20014552	SKIP	no publisher on work (nothing to do)
+Q200306	REVIEW	P123 = Q15259326 on work, not on the single edition Q19558994 -- may be original publisher vs a reprint edition; confirm before moving
+Q2006281	EDIT	- work P123 Q2242095 (already on Q106901290)
+Q2025254	REVIEW	P123 = Q838691 on work, not on the single edition Q110090367 -- may be original publisher vs a reprint edition; confirm before moving
+Q2028190	REVIEW	P123 = Q1232629 on work with 6 editions (Q60535056, Q60535162, Q60535267, Q60535018, Q125975200, Q132180266) -- ambiguous which edition; move manually
+Q2054880	REVIEW	P123 = Q2923456 on work, not on the single edition Q117192001 -- may be original publisher vs a reprint edition; confirm before moving
+Q20558779	REVIEW	P123 = Q31312214 on work, not on the single edition Q47482026 -- may be original publisher vs a reprint edition; confirm before moving
+Q20563286	EDIT	- work P123 Q3404425 (already on Q67948474)
+Q20563998	EDIT	- work P123 Q7896557 (already on Q56848254)
+Q20567211	REVIEW	P123 = Q3042717 on work, not on the single edition Q132307101 -- may be original publisher vs a reprint edition; confirm before moving
+Q20578221	REVIEW	P123 = Q13127628 on work, not on the single edition Q132306159 -- may be original publisher vs a reprint edition; confirm before moving
+Q20578765	EDIT	- work P123 Q3405970 (already on Q67948244)
+Q20579764	EDIT	- work P123 Q3405970 (already on Q67948262)
+Q20580462	EDIT	- work P123 Q13127628 (already on Q67948275)
+Q20591858	EDIT	- work P123 Q13127628 (already on Q70647200)
+Q20592006	REVIEW	P123 = Q13127628 on work, not on the single edition Q133176341 -- may be original publisher vs a reprint edition; confirm before moving
+Q20593354	REVIEW	P123 = Q7896557 on work, not on the single edition Q133261843 -- may be original publisher vs a reprint edition; confirm before moving
+Q20598787	EDIT	- work P123 Q7896557 (already on Q56398037)
+Q20599156	REVIEW	P123 = Q7896557 on work, not on the single edition Q133247954 -- may be original publisher vs a reprint edition; confirm before moving
+Q20599512	EDIT	- work P123 Q3042717 (already on Q67948509)
+Q20602149	REVIEW	P123 = Q20587275 on work, not on the single edition Q133806314 -- may be original publisher vs a reprint edition; confirm before moving
+Q2068990	REVIEW	P123 = Q3666843 on work with 2 editions (Q19198995, Q123693237) -- ambiguous which edition; move manually
+Q20744376	EDIT	- work P123 Q7668241 (already on Q20744372)
+Q2087795	REVIEW	P123 = Q11962920 on work with 6 editions (Q108848528, Q108882243, Q134590634, Q134590707, Q134590962, Q19494210) -- ambiguous which edition; move manually
+Q2091094	REVIEW	P123 = Q5163465 on work with 2 editions (Q77247488, Q110027311) -- ambiguous which edition; move manually
+Q2093583	REVIEW	P123 = Q11962920 on work with 3 editions (Q135070306, Q135070340, Q135070375) -- ambiguous which edition; move manually
+Q21082405	EDIT	- work P123 Q6261784 (already on Q64620774)
+Q21086691	REVIEW	P123 = Q12311987 on work with 2 editions (Q96482499, Q134503539) -- ambiguous which edition; move manually
+Q21127449	REVIEW	P123 = Q11962920 on work with 5 editions (Q135192915, Q135193007, Q135193056, Q135193084, Q135193121) -- ambiguous which edition; move manually
+Q2115064	REVIEW	P123 = Q746413 on work, not on the single edition Q21584784 -- may be original publisher vs a reprint edition; confirm before moving
+Q215410	EDIT	- work P123 Q3666843 (already on Q59222614)
+Q2156104	REVIEW	P123 = Q5163465 on work with 4 editions (Q28732447, Q59770047, Q19230611, Q139898951) -- ambiguous which edition; move manually; P123 = Q911673 on work with 4 editions (Q28732447, Q59770047, Q19230611, Q139898951) -- ambiguous which edition; move manually
+Q216578	EDIT	- work P123 Q328607 (already on Q18683398)
+Q218578	REVIEW	P123 = Q2295283 on work, not on the single edition Q107215006 -- may be original publisher vs a reprint edition; confirm before moving
+Q219457	EDIT	- work P123 Q40100542 (already on Q41593192)
+Q220331	EDIT	- work P123 Q2108217 (already on Q107649369)
+Q22093309	EDIT	- work P123 Q4803879 (already on Q28466049)
+Q221765	REVIEW	P123 = Q40100542 on work, not on the single edition Q124099759 -- may be original publisher vs a reprint edition; confirm before moving
+Q223131	REVIEW	P123 = Q2100540 on work with 5 editions (Q28872885, Q121464924, Q121870808, Q131831513, Q138662382) -- ambiguous which edition; move manually
+Q223880	REVIEW	P123 = Q1232629 on work with 10 editions (Q17357316, Q83699540, Q117279952, Q117281005, Q137531118, Q137779543, Q138515547, Q138515764, Q138561910, Q138851409) -- ambiguous which edition; move manually
+Q22443077	REVIEW	P123 = Q22443084 on work, not on the single edition Q22443094 -- may be original publisher vs a reprint edition; confirm before moving
+Q2249082	REVIEW	P123 = Q328607 on work, not on the single edition Q43685172 -- may be original publisher vs a reprint edition; confirm before moving
+Q2250614	REVIEW	P123 = Q138566150 on work, not on the single edition Q121920237 -- may be original publisher vs a reprint edition; confirm before moving
+Q2251594	REVIEW	P123 = Q4457856 on work with 2 editions (Q65681288, Q108852924) -- ambiguous which edition; move manually
+Q22661501	REVIEW	P123 = Q2865431 on work, not on the single edition Q22669259 -- may be original publisher vs a reprint edition; confirm before moving
+Q22683098	REVIEW	P123 = Q7913619 on work, not on the single edition Q60390196 -- may be original publisher vs a reprint edition; confirm before moving
+Q22726	REVIEW	P123 = Q3339058 on work with 75 editions (Q15803312, Q15803344, Q15803370, Q15803387, Q15803402, Q17197841, Q18674552, Q18674553, Q18674554, Q18674555, Q18674558, Q18674560, Q18674562, Q18674565, Q18674567, Q18674569, Q18674571, Q18674579, Q18674576, Q18674580, Q18674584, Q18674585, Q18674587, Q18674590, Q18674591, Q28600943, Q19164122, Q19164126, Q19164130, Q19164133, Q19164137, Q19164141, Q19164146, Q19164150, Q33057233, Q33057308, Q59479181, Q69578481, Q69580001, Q69580119, Q69580243, Q69580535, Q81622097, Q85601784, Q86214696, Q86223077, Q96741747, Q111217380, Q21175502, Q119027745, Q119027930, Q119027958, Q119027976, Q119027983, Q119027980, Q119027985, Q119028066, Q119028211, Q119028287, Q119028474, Q119028479, Q119028476, Q119028483, Q119028480, Q119028486, Q119028484, Q119028490, Q119028488, Q119028496, Q119028772, Q119029061, Q119029075, Q119029072, Q119029078, Q119029076) -- ambiguous which edition; move manually
+Q2277224	REVIEW	P123 = Q3056957 on work, not on the single edition Q133330329 -- may be original publisher vs a reprint edition; confirm before moving
+Q2277829	REVIEW	P123 = Q861799 on work with 2 editions (Q131763170, Q132147327) -- ambiguous which edition; move manually
+Q2293255	REVIEW	P123 = Q11962920 on work with 9 editions (Q28854956, Q100789663, Q100789679, Q100789683, Q100789681, Q100789680, Q100789654, Q134438494, Q100789622) -- ambiguous which edition; move manually
+Q2293598	REVIEW	P123 = Q3127696 on work, not on the single edition Q124972893 -- may be original publisher vs a reprint edition; confirm before moving
+Q230313	REVIEW	P123 = Q4201575 on work, not on the single edition Q114565349 -- may be original publisher vs a reprint edition; confirm before moving
+Q2316733	REVIEW	P123 = Q3101710 on work, not on the single edition Q139898909 -- may be original publisher vs a reprint edition; confirm before moving
+Q231949	REVIEW	P123 = Q18510734 on work, not on the single edition Q136407416 -- may be original publisher vs a reprint edition; confirm before moving
+Q2334970	REVIEW	P123 = Q26846006 on work with 3 editions (Q60380224, Q60378018, Q124623297) -- ambiguous which edition; move manually
+Q233562	REVIEW	P123 = Q8018899 on work with 6 editions (Q104556151, Q104556225, Q104556240, Q104556291, Q136085104, Q137650516) -- ambiguous which edition; move manually; P123 = Q7788182 on work with 6 editions (Q104556151, Q104556225, Q104556240, Q104556291, Q136085104, Q137650516) -- ambiguous which edition; move manually
+Q2338040	REVIEW	P123 = Q2108217 on work, not on the single edition Q138662358 -- may be original publisher vs a reprint edition; confirm before moving
+Q2343169	REVIEW	P123 = Q2295283 on work with 6 editions (Q137531445, Q111271768, Q111272577, Q111272167, Q138515780, Q138562010) -- ambiguous which edition; move manually
+Q2343985	EDIT	- work P123 Q273819 (already on Q63754600)
+Q2348190	REVIEW	P123 = Q15998861 on work with 2 editions (Q46997696, Q47544569) -- ambiguous which edition; move manually
+Q2349094	REVIEW	P123 = Q5049289 on work with 8 editions (Q15892039, Q64938956, Q108867387, Q126714690, Q137531707, Q138515679, Q138515851, Q138561897) -- ambiguous which edition; move manually
+Q2362527	REVIEW	P123 = Q2054191 on work, not on the single edition Q138507217 -- may be original publisher vs a reprint edition; confirm before moving
+Q2362563	REVIEW	P123 = Q4457856 on work with 3 editions (Q112073443, Q138561932, Q138662241) -- ambiguous which edition; move manually
+Q2370698	REVIEW	P123 = Q4427672 on work with 4 editions (Q29076437, Q65467717, Q68521767, Q116393624) -- ambiguous which edition; move manually
+Q23928307	REVIEW	P123 = Q23928314 on work, not on the single edition Q105492451 -- may be original publisher vs a reprint edition; confirm before moving
+Q2429509	REVIEW	P123 = Q2302345 on work with 2 editions (Q51641586, Q108932785) -- ambiguous which edition; move manually
+Q2431853	REVIEW	P123 = Q172299 on work, not on the single edition Q116897625 -- may be original publisher vs a reprint edition; confirm before moving
+Q2443714	REVIEW	P123 = Q7793871 on work with 3 editions (Q137531657, Q138515824, Q138561845) -- ambiguous which edition; move manually
+Q2449570	EDIT	- work P123 Q2295283 (already on Q19048204)
+Q2465752	REVIEW	P123 = Q6724738 on work with 4 editions (Q63413739, Q106572133, Q106572140, Q138649451) -- ambiguous which edition; move manually
+Q2469230	EDIT	- work P123 Q2619904 (already on Q134717368)
+Q248096	REVIEW	P123 = Q4758020 on work, not on the single edition Q44106653 -- may be original publisher vs a reprint edition; confirm before moving
+Q2483367	REVIEW	P123 = Q11962920 on work with 3 editions (Q90408471, Q55121264, Q98152208) -- ambiguous which edition; move manually
+Q249242	REVIEW	P123 = Q3371932 on work with 5 editions (Q111372640, Q51928413, Q137360566, Q111342704, Q111372802) -- ambiguous which edition; move manually
+Q24939691	SKIP	no publisher on work (nothing to do)
+Q249905	REVIEW	P123 = Q2494563 on work, not on the single edition Q77239873 -- may be original publisher vs a reprint edition; confirm before moving
+Q2499503	REVIEW	P123 = Q1426223 on work, not on the single edition Q133806616 -- may be original publisher vs a reprint edition; confirm before moving
+Q2553582	REVIEW	P123 = Q11962920 on work with 2 editions (Q135090576, Q135091011) -- ambiguous which edition; move manually
+Q2555712	REVIEW	P123 = Q1019662 on work, not on the single edition Q107422146 -- may be original publisher vs a reprint edition; confirm before moving
+Q2572925	REVIEW	P123 = Q3048018 on work with 2 editions (Q124768301, Q19092600) -- ambiguous which edition; move manually
+Q2579668	REVIEW	P123 = Q11962920 on work with 8 editions (Q134456431, Q134456473, Q21127439, Q134456527, Q134456550, Q134456585, Q134456606, Q134456630) -- ambiguous which edition; move manually
+Q2582895	REVIEW	P123 = Q3127696 on work, not on the single edition Q121960882 -- may be original publisher vs a reprint edition; confirm before moving
+Q2604590	REVIEW	P123 = Q2100540 on work, not on the single edition Q126718349 -- may be original publisher vs a reprint edition; confirm before moving
+Q2605035	REVIEW	P123 = Q911673 on work, not on the single edition Q138411404 -- may be original publisher vs a reprint edition; confirm before moving
+Q2607078	REVIEW	P123 = Q2054191 on work with 4 editions (Q111271762, Q111272138, Q111272551, Q139898931) -- ambiguous which edition; move manually
+Q2611046	REVIEW	P123 = Q6222112 on work with 4 editions (Q126182270, Q126178056, Q135154075, Q23779408) -- ambiguous which edition; move manually
+Q2615930	REVIEW	P123 = Q861799 on work with 2 editions (Q111646252, Q131940131) -- ambiguous which edition; move manually
+Q26193	REVIEW	P123 = Q3920831 on work with 2 editions (Q86458149, Q25426226) -- ambiguous which edition; move manually; P123 = Q1444084 on work with 2 editions (Q86458149, Q25426226) -- ambiguous which edition; move manually; P123 = Q764438 on work with 2 editions (Q86458149, Q25426226) -- ambiguous which edition; move manually
+Q26235515	EDIT	- work P123 Q52149206 (already on Q96337197)
+Q2633695	REVIEW	P123 = Q358635 on work, not on the single edition Q26845749 -- may be original publisher vs a reprint edition; confirm before moving
+Q265100	REVIEW	P123 = Q1631447 on work with 3 editions (Q107393948, Q139902563, Q139902605) -- ambiguous which edition; move manually
+Q2659725	REVIEW	P123 = Q2619904 on work, not on the single edition Q119716630 -- may be original publisher vs a reprint edition; confirm before moving
+Q2660166	REVIEW	P123 = Q14175176 on work, not on the single edition Q131919182 -- may be original publisher vs a reprint edition; confirm before moving
+Q2664833	REVIEW	P123 = Q3287340 on work with 4 editions (Q60378280, Q123196587, Q130431463, Q138784058) -- ambiguous which edition; move manually
+Q26708065	REVIEW	P123 = Q116976417 on work, not on the single edition Q101424800 -- may be original publisher vs a reprint edition; confirm before moving
+Q26722375	REVIEW	P123 = Q11962920 on work with 2 editions (Q134480567, Q134480697) -- ambiguous which edition; move manually
+Q26845760	REVIEW	P123 = Q2934320 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q26845764 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q26846006 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2839678 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q26846378 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q3310248 on work, not on the single edition Q64815129 -- may be original publisher vs a reprint edition; confirm before moving
+Q26988124	EDIT	- work P123 Q3392522 (already on Q96533388)
+Q2700616	REVIEW	P123 = Q2054191 on work with 3 editions (Q65531846, Q135682605, Q138507223) -- ambiguous which edition; move manually
+Q2708153	SKIP	no publisher on work (nothing to do)
+Q27131038	EDIT	- work P123 Q795207 (already on Q43196396)
+Q2738351	REVIEW	P123 = Q4457856 on work with 3 editions (Q19199563, Q126719935, Q138507174) -- ambiguous which edition; move manually
+Q2740670	REVIEW	P123 = Q2445933 on work, not on the single edition Q19080356 -- may be original publisher vs a reprint edition; confirm before moving
+Q274744	EDIT	- work P123 Q16968755 (already on Q78586600)
+Q27566013	EDIT	- work P123 Q390074 (already on Q19026440)
+Q28087831	REVIEW	P123 = Q2823584 on work, not on the single edition Q133771318 -- may be original publisher vs a reprint edition; confirm before moving
+Q28549182	EDIT	- work P123 Q1368849 (already on Q13416316)
+Q2875147	REVIEW	P123 = Q273819 on work, not on the single edition Q117838199 -- may be original publisher vs a reprint edition; confirm before moving
+Q2894491	REVIEW	P123 = Q3047162 on work, not on the single edition Q19135077 -- may be original publisher vs a reprint edition; confirm before moving
+Q289770	REVIEW	P123 = Q15628820 on work with 4 editions (Q96757476, Q107611379, Q107611408, Q107611462) -- ambiguous which edition; move manually
+Q2898152	REVIEW	P123 = Q3093062 on work, not on the single edition Q42899631 -- may be original publisher vs a reprint edition; confirm before moving
+Q29024014	REVIEW	P123 = Q11962920 on work, not on the single edition Q135088178 -- may be original publisher vs a reprint edition; confirm before moving
+Q2910316	REVIEW	P123 = Q2777592 on work, not on the single edition Q56085327 -- may be original publisher vs a reprint edition; confirm before moving
+Q2931240	REVIEW	P123 = Q4457856 on work, not on the single edition Q28913867 -- may be original publisher vs a reprint edition; confirm before moving
+Q29424	REVIEW	P123 = Q19577155 on work with 9 editions (Q65526651, Q78500663, Q78501006, Q78501038, Q105445509, Q137939472, Q138515807, Q138561960, Q138662415) -- ambiguous which edition; move manually
+Q2943614	REVIEW	P123 = Q6273015 on work, not on the single edition Q138515810 -- may be original publisher vs a reprint edition; confirm before moving
+Q2975233	REVIEW	P123 = Q11962920 on work with 7 editions (Q100788244, Q100788238, Q100788231, Q100788225, Q100788221, Q100788215, Q100788214) -- ambiguous which edition; move manually
+Q2981270	REVIEW	P123 = Q4134637 on work, not on the single edition Q117771352 -- may be original publisher vs a reprint edition; confirm before moving
+Q2992478	REVIEW	P123 = Q3666843 on work with 2 editions (Q15976429, Q19052026) -- ambiguous which edition; move manually
+Q29956047	REVIEW	P123 = Q29956070 on work, not on the single edition Q108062939 -- may be original publisher vs a reprint edition; confirm before moving
+Q300426	REVIEW	P123 = Q217595 on work, not on the single edition Q98442744 -- may be original publisher vs a reprint edition; confirm before moving
+Q30059240	REVIEW	P123 = Q24933120 on work, not on the single edition Q30067970 -- may be original publisher vs a reprint edition; confirm before moving
+Q3020131	REVIEW	P123 = Q186225 on work, not on the single edition Q130365105 -- may be original publisher vs a reprint edition; confirm before moving
+Q3020385	REVIEW	P123 = Q23978398 on work, not on the single edition Q123109761 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q23978394 on work, not on the single edition Q123109761 -- may be original publisher vs a reprint edition; confirm before moving
+Q3021799	REVIEW	P123 = Q65560371 on work, not on the single edition Q118246325 -- may be original publisher vs a reprint edition; confirm before moving
+Q3024921	REVIEW	P123 = Q3127696 on work, not on the single edition Q136102480 -- may be original publisher vs a reprint edition; confirm before moving
+Q30314720	EDIT	- work P123 Q113851347 (already on Q135028002)
+Q3050442	REVIEW	P123 = Q911673 on work, not on the single edition Q132055718 -- may be original publisher vs a reprint edition; confirm before moving
+Q3057582	REVIEW	P123 = Q85309568 on work with 3 editions (Q111095781, Q111108728, Q111109303) -- ambiguous which edition; move manually
+Q3062559	EDIT	- work P123 Q21557284 (already on Q55560318)
+Q3063427	EDIT+REVIEW	- work P123 Q18957857 (already on Q125621889), Q18957857 (already on Q125621889) || P123 = Q2965383 on work with 5 editions (Q125621889, Q125621957, Q125622037, Q125622094, Q125622119) -- ambiguous which edition; move manually
+Q3076885	EDIT	- work P123 Q727744 (already on Q41585164)
+Q3079804	REVIEW	P123 = Q2108217 on work, not on the single edition Q19100853 -- may be original publisher vs a reprint edition; confirm before moving
+Q308918	REVIEW	P123 = Q2054191 on work with 7 editions (Q59235746, Q91617012, Q137589073, Q137641937, Q138515577, Q138515676, Q138515766) -- ambiguous which edition; move manually
+Q3113189	REVIEW	P123 = Q3047162 on work, not on the single edition Q20204431 -- may be original publisher vs a reprint edition; confirm before moving
+Q3138032	REVIEW	P123 = Q3149496 on work, not on the single edition Q122831418 -- may be original publisher vs a reprint edition; confirm before moving
+Q3142253	REVIEW	P123 = Q34969 on work, not on the single edition Q133943749 -- may be original publisher vs a reprint edition; confirm before moving
+Q3148568	REVIEW	P123 = Q2064585 on work with 2 editions (Q97572526, Q55121186) -- ambiguous which edition; move manually
+Q3148901	REVIEW	P123 = Q2923456 on work, not on the single edition Q139898925 -- may be original publisher vs a reprint edition; confirm before moving
+Q3177443	REVIEW	P123 = Q2108217 on work with 2 editions (Q19076398, Q114444542) -- ambiguous which edition; move manually
+Q3178967	REVIEW	P123 = Q5207215 on work, not on the single edition Q134703616 -- may be original publisher vs a reprint edition; confirm before moving
+Q319149	EDIT	- work P123 Q40100542 (already on Q50940501)
+Q3194257	EDIT	- work P123 Q2830980 (already on Q65560888)
+Q3203517	REVIEW	P123 = Q2295283 on work, not on the single edition Q136377468 -- may be original publisher vs a reprint edition; confirm before moving
+Q3204698	REVIEW	P123 = Q2934320 on work, not on the single edition Q63973216 -- may be original publisher vs a reprint edition; confirm before moving
+Q3206900	REVIEW	P123 = Q107560363 on work, not on the single edition Q122181794 -- may be original publisher vs a reprint edition; confirm before moving
+Q3209230	REVIEW	P123 = Q3117417 on work, not on the single edition Q111740103 -- may be original publisher vs a reprint edition; confirm before moving
+Q3211684	REVIEW	P123 = Q24764565 on work, not on the single edition Q111974119 -- may be original publisher vs a reprint edition; confirm before moving
+Q3211932	REVIEW	P123 = Q2108217 on work, not on the single edition Q19097106 -- may be original publisher vs a reprint edition; confirm before moving
+Q3213421	EDIT	- work P123 Q3117417 (already on Q42571801)
+Q3213600	REVIEW	P123 = Q214581 on work with 2 editions (Q135195658, Q135195665) -- ambiguous which edition; move manually
+Q3213603	REVIEW	P123 = Q59532009 on work, not on the single edition Q63349716 -- may be original publisher vs a reprint edition; confirm before moving
+Q3222291	EDIT	- work P123 Q40100542 (already on Q42367359)
+Q3222487	REVIEW	P123 = Q911673 on work, not on the single edition Q121938805 -- may be original publisher vs a reprint edition; confirm before moving
+Q3223881	REVIEW	P123 = Q911673 on work with 4 editions (Q59769776, Q59769839, Q59770532, Q120002124) -- ambiguous which edition; move manually; P123 = Q24068427 on work with 4 editions (Q59769776, Q59769839, Q59770532, Q120002124) -- ambiguous which edition; move manually
+Q3224650	REVIEW	P123 = Q911673 on work with 2 editions (Q116236580, Q116237018) -- ambiguous which edition; move manually
+Q3224969	REVIEW	P123 = Q3568439 on work with 3 editions (Q109351514, Q110424631, Q110424649) -- ambiguous which edition; move manually; P123 = Q1232629 on work with 3 editions (Q109351514, Q110424631, Q110424649) -- ambiguous which edition; move manually
+Q3225581	REVIEW	P123 = Q107030667 on work, not on the single edition Q62018793 -- may be original publisher vs a reprint edition; confirm before moving
+Q3226611	REVIEW	P123 = Q2976945 on work, not on the single edition Q123149625 -- may be original publisher vs a reprint edition; confirm before moving
+Q3226741	REVIEW	P123 = Q2885689 on work, not on the single edition Q133887241 -- may be original publisher vs a reprint edition; confirm before moving
+Q3230490	EDIT	- work P123 Q328607 (already on Q51839662)
+Q3231688	EDIT	- work P123 Q3828387 (already on Q18746265)
+Q3232032	REVIEW	P123 = Q1368272 on work, not on the single edition Q67072979 -- may be original publisher vs a reprint edition; confirm before moving
+Q3232887	REVIEW	P123 = Q3666843 on work, not on the single edition Q19211084 -- may be original publisher vs a reprint edition; confirm before moving
+Q3234271	REVIEW	P123 = Q3666843 on work with 2 editions (Q123495667, Q123693237) -- ambiguous which edition; move manually
+Q3247095	EDIT	- work P123 Q4889380 (already on Q140479517)
+Q3259809	REVIEW	P123 = Q5000042 on work, not on the single edition Q70749438 -- may be original publisher vs a reprint edition; confirm before moving
+Q3266450	REVIEW	P123 = Q55698991 on work with 4 editions (Q40604439, Q40604683, Q117279904, Q117280958) -- ambiguous which edition; move manually
+Q3278053	SKIP	no publisher on work (nothing to do)
+Q3288936	REVIEW	P123 = Q3822096 on work with 2 editions (Q138515811, Q138561995) -- ambiguous which edition; move manually
+Q3294529	EDIT	- work P123 Q24336326 (already on Q133873351)
+Q33113300	REVIEW	P123 = Q11962920 on work with 3 editions (Q96277756, Q108848529, Q134776050) -- ambiguous which edition; move manually
+Q3321440	EDIT	- work P123 Q17517389 (already on Q51292696)
+Q333179	REVIEW	P123 = Q1232629 on work with 11 editions (Q20204948, Q20720825, Q59248481, Q117280088, Q117281140, Q137531698, Q138515584, Q138515772, Q138544305, Q138561901, Q138649542) -- ambiguous which edition; move manually
+Q3370116	REVIEW	P123 = Q2108217 on work, not on the single edition Q19073385 -- may be original publisher vs a reprint edition; confirm before moving
+Q3407659	EDIT	- work P123 Q911673 (already on Q29095436)
+Q3475746	REVIEW	P123 = Q3117417 on work, not on the single edition Q106625140 -- may be original publisher vs a reprint edition; confirm before moving
+Q3485648	REVIEW	P123 = Q3296078 on work with 2 editions (Q19169075, Q26931561) -- ambiguous which edition; move manually
+Q3486765	REVIEW	P123 = Q1251563 on work, not on the single edition Q140366755 -- may be original publisher vs a reprint edition; confirm before moving
+Q3495377	REVIEW	P123 = Q7879167 on work, not on the single edition Q51688663 -- may be original publisher vs a reprint edition; confirm before moving
+Q3498179	REVIEW	P123 = Q3060132 on work, not on the single edition Q19209613 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q16194953 on work, not on the single edition Q19209613 -- may be original publisher vs a reprint edition; confirm before moving
+Q3499690	EDIT	- work P123 Q4134637 (already on Q98523680)
+Q3505018	REVIEW	P123 = Q2108217 on work, not on the single edition Q135930795 -- may be original publisher vs a reprint edition; confirm before moving
+Q3510735	REVIEW	P123 = Q3666843 on work, not on the single edition Q54430173 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q18205934 on work, not on the single edition Q54430173 -- may be original publisher vs a reprint edition; confirm before moving
+Q3512070	EDIT	- work P123 Q10729193 (already on Q111602100)
+Q3518724	REVIEW	P123 = Q3392522 on work with 2 editions (Q47519080, Q111342697) -- ambiguous which edition; move manually
+Q3522169	REVIEW	P123 = Q3047162 on work with 2 editions (Q81346291, Q81346832) -- ambiguous which edition; move manually
+Q3546218	REVIEW	P123 = Q6273015 on work with 2 editions (Q58943433, Q139902583) -- ambiguous which edition; move manually
+Q3548866	REVIEW	P123 = Q911673 on work, not on the single edition Q111560730 -- may be original publisher vs a reprint edition; confirm before moving
+Q3576767	REVIEW	P123 = Q120997537 on work with 3 editions (Q126720180, Q126720576, Q138411393) -- ambiguous which edition; move manually
+Q3614013	REVIEW	P123 = Q2054191 on work, not on the single edition Q139898979 -- may be original publisher vs a reprint edition; confirm before moving
+Q3656167	EDIT	- work P123 Q4134637 (already on Q136084181)
+Q3818437	EDIT	- work P123 Q911673 (already on Q106896119)
+Q3819971	REVIEW	P123 = Q3127696 on work, not on the single edition Q19093344 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q3666843 on work, not on the single edition Q19093344 -- may be original publisher vs a reprint edition; confirm before moving
+Q3820779	REVIEW	P123 = Q2054191 on work, not on the single edition Q35216074 -- may be original publisher vs a reprint edition; confirm before moving
+Q3828573	EDIT	- work P123 Q2054191 (already on Q132527139)
+Q3902626	REVIEW	P123 = Q7351982 on work, not on the single edition Q138515716 -- may be original publisher vs a reprint edition; confirm before moving
+Q392147	REVIEW	P123 = Q84709400 on work with 5 editions (Q19220835, Q30078397, Q106688535, Q106688801, Q120721379) -- ambiguous which edition; move manually
+Q4054406	SKIP	no publisher on work (nothing to do)
+Q4060089	REVIEW	P123 = Q2934320 on work, not on the single edition Q63302028 -- may be original publisher vs a reprint edition; confirm before moving
+Q4197654	REVIEW	P123 = Q6724738 on work, not on the single edition Q65522754 -- may be original publisher vs a reprint edition; confirm before moving
+Q42195087	EDIT	- work P123 Q4934692 (already on Q117708295)
+Q4260510	EDIT	- work P123 Q22939696 (already on Q111600863)
+Q4271841	REVIEW	P123 = Q2108217 on work, not on the single edition Q19177058 -- may be original publisher vs a reprint edition; confirm before moving
+Q4355403	REVIEW	P123 = Q4764054 on work, not on the single edition Q132740923 -- may be original publisher vs a reprint edition; confirm before moving
+Q4391526	EDIT	- work P123 Q795207 (already on Q30067878)
+Q44324690	EDIT	- work P123 Q18576021 (already on Q106884502)
+Q4460113	REVIEW	P123 = Q3127696 on work with 4 editions (Q105521820, Q121988454, Q131728504, Q135650781) -- ambiguous which edition; move manually
+Q447	REVIEW	P123 = Q127324 on work, not on the single edition Q24230258 -- may be original publisher vs a reprint edition; confirm before moving
+Q44701	REVIEW	P123 = Q7788285 on work with 5 editions (Q19100689, Q19100684, Q125657767, Q126543865, Q138507153) -- ambiguous which edition; move manually
+Q447868	REVIEW	P123 = Q912887 on work, not on the single edition Q132471028 -- may be original publisher vs a reprint edition; confirm before moving
+Q44996	EDIT	- work P123 Q217595 (already on Q13735287)
+Q4500509	REVIEW	P123 = Q390074 on work, not on the single edition Q138411245 -- may be original publisher vs a reprint edition; confirm before moving
+Q45192	EDIT	- work P123 Q84709400 (already on Q120490748)
+Q455	EDIT	- work P123 Q2743906 (already on Q56605362)
+Q4552609	EDIT	- work P123 Q6724738 (already on Q55754228)
+Q459667	REVIEW	P123 = Q7879167 on work with 9 editions (Q51632296, Q19436156, Q93012682, Q114839436, Q114839934, Q117280182, Q117281235, Q131010398, Q117998697) -- ambiguous which edition; move manually
+Q459842	REVIEW	P123 = Q42504 on work with 7 editions (Q19082774, Q126707622, Q19082781, Q136439753, Q136439868, Q136439891, Q136439907) -- ambiguous which edition; move manually
+Q460583	REVIEW	P123 = Q2054191 on work with 5 editions (Q59198432, Q105969442, Q122803179, Q126687687, Q139898968) -- ambiguous which edition; move manually
+Q464928	EDIT+REVIEW	- work P123 Q273819 (already on Q110608905) || P123 = Q621534 on work with 3 editions (Q105085612, Q110608905, Q108845738) -- ambiguous which edition; move manually
+Q465065	REVIEW	P123 = Q40100542 on work, not on the single edition Q124240177 -- may be original publisher vs a reprint edition; confirm before moving
+Q465395	REVIEW	P123 = Q2302345 on work with 8 editions (Q51627425, Q20871076, Q19436971, Q92653270, Q117280210, Q117281260, Q125548318, Q131036788) -- ambiguous which edition; move manually
+Q4655735	EDIT	- work P123 Q104903910 (already on Q104903877)
+Q4656049	REVIEW	P123 = Q24577740 on work, not on the single edition Q124039541 -- may be original publisher vs a reprint edition; confirm before moving
+Q4656134	REVIEW	P123 = Q6141700 on work, not on the single edition Q137383767 -- may be original publisher vs a reprint edition; confirm before moving
+Q4657209	REVIEW	P123 = Q6161111 on work, not on the single edition Q51408180 -- may be original publisher vs a reprint edition; confirm before moving
+Q4657268	REVIEW	P123 = Q3127696 on work, not on the single edition Q126546857 -- may be original publisher vs a reprint edition; confirm before moving
+Q4657308	REVIEW	P123 = Q911673 on work, not on the single edition Q140473162 -- may be original publisher vs a reprint edition; confirm before moving
+Q4658314	REVIEW	P123 = Q6141700 on work, not on the single edition Q139898840 -- may be original publisher vs a reprint edition; confirm before moving
+Q4658913	REVIEW	P123 = Q5536864 on work, not on the single edition Q133353731 -- may be original publisher vs a reprint edition; confirm before moving
+Q4660060	REVIEW	P123 = Q3666843 on work with 2 editions (Q93957570, Q93958503) -- ambiguous which edition; move manually; P123 = Q845617 on work with 2 editions (Q93957570, Q93958503) -- ambiguous which edition; move manually
+Q4674957	REVIEW	P123 = Q6273015 on work, not on the single edition Q133804355 -- may be original publisher vs a reprint edition; confirm before moving
+Q4675044	REVIEW	P123 = Q845617 on work, not on the single edition Q111578702 -- may be original publisher vs a reprint edition; confirm before moving
+Q469690	REVIEW	P123 = Q16968755 on work with 6 editions (Q117280030, Q117281083, Q137531696, Q138515585, Q138515783, Q138561930) -- ambiguous which edition; move manually
+Q471005	REVIEW	P123 = Q40100542 on work with 6 editions (Q59785067, Q59785148, Q59785260, Q59785357, Q120136938, Q126897765) -- ambiguous which edition; move manually
+Q472194	EDIT+REVIEW	- work P123 Q5497221 (already on Q108917831) || P123 = Q6273015 on work with 8 editions (Q63226115, Q108917822, Q108917831, Q136002257, Q137455500, Q138515657, Q138515705, Q138649550) -- ambiguous which edition; move manually
+Q472291	REVIEW	P123 = Q40100542 on work with 6 editions (Q59784742, Q59784733, Q59784918, Q111342701, Q120136790, Q133856441) -- ambiguous which edition; move manually
+Q4750162	REVIEW	P123 = Q7313 on work, not on the single edition Q28347844 -- may be original publisher vs a reprint edition; confirm before moving
+Q477508	REVIEW	P123 = Q1232629 on work with 9 editions (Q20706406, Q50369262, Q117280058, Q117281111, Q43792477, Q137531630, Q138515586, Q138515781, Q138561983) -- ambiguous which edition; move manually
+Q478537	REVIEW	P123 = Q6273015 on work with 2 editions (Q58907524, Q58941049) -- ambiguous which edition; move manually
+Q4791066	EDIT	- work P123 Q4788906 (already on Q121145068)
+Q4792516	REVIEW	P123 = Q1931722 on work, not on the single edition Q138662243 -- may be original publisher vs a reprint edition; confirm before moving
+Q4821956	EDIT	- work P123 Q7310162 (already on Q59459451)
+Q4822530	REVIEW	P123 = Q217595 on work, not on the single edition Q125960080 -- may be original publisher vs a reprint edition; confirm before moving
+Q485552	SKIP	no publisher on work (nothing to do)
+Q4860106	REVIEW	P123 = Q7981943 on work, not on the single edition Q137700563 -- may be original publisher vs a reprint edition; confirm before moving
+Q4953226	REVIEW	P123 = Q1232629 on work with 2 editions (Q114013861, Q114013126) -- ambiguous which edition; move manually
+Q500688	REVIEW	P123 = Q3310758 on work with 13 editions (Q78629473, Q78629534, Q78629595, Q78629656, Q78629726, Q78629778, Q78629846, Q105104567, Q111271756, Q111272588, Q111272177, Q120735658, Q138662379) -- ambiguous which edition; move manually
+Q5029115	REVIEW	P123 = Q2054191 on work with 3 editions (Q111271806, Q111272118, Q111272531) -- ambiguous which edition; move manually
+Q50793200	EDIT	- work P123 Q4049337 (already on Q106487788)
+Q51381644	SKIP	no publisher on work (nothing to do)
+Q51382321	SKIP	no publisher on work (nothing to do)
+Q51387260	EDIT	- work P123 Q2523887 (already on Q51375607)
+Q51388433	REVIEW	P123 = Q39501189 on work, not on the single edition Q124395444 -- may be original publisher vs a reprint edition; confirm before moving
+Q51402430	SKIP	no publisher on work (nothing to do)
+Q51408799	SKIP	no publisher on work (nothing to do)
+Q51418308	EDIT	- work P123 Q940473 (already on Q124610127)
+Q51419408	EDIT	- work P123 Q108402241 (already on Q108402243)
+Q51426392	SKIP	no publisher on work (nothing to do)
+Q51426521	REVIEW	P123 = Q390074 on work, not on the single edition Q19107342 -- may be original publisher vs a reprint edition; confirm before moving
+Q51433753	REVIEW	P123 = Q124344235 on work, not on the single edition Q51486321 -- may be original publisher vs a reprint edition; confirm before moving
+Q51437083	SKIP	no publisher on work (nothing to do)
+Q51437405	REVIEW	P123 = Q125248357 on work, not on the single edition Q115650825 -- may be original publisher vs a reprint edition; confirm before moving
+Q51444471	SKIP	no publisher on work (nothing to do)
+Q51445496	REVIEW	P123 = Q2928358 on work, not on the single edition Q51445499 -- may be original publisher vs a reprint edition; confirm before moving
+Q51455515	SKIP	no publisher on work (nothing to do)
+Q5146033	REVIEW	P123 = Q673540 on work, not on the single edition Q132530149 -- may be original publisher vs a reprint edition; confirm before moving
+Q51465946	SKIP	no publisher on work (nothing to do)
+Q51470917	REVIEW	P123 = Q2108217 on work, not on the single edition Q10940402 -- may be original publisher vs a reprint edition; confirm before moving
+Q51482473	REVIEW	P123 = Q4889380 on work, not on the single edition Q51412161 -- may be original publisher vs a reprint edition; confirm before moving
+Q51483341	SKIP	no publisher on work (nothing to do)
+Q51488578	SKIP	no publisher on work (nothing to do)
+Q51488731	SKIP	no publisher on work (nothing to do)
+Q51507032	EDIT	- work P123 Q104594745 (already on Q51507031)
+Q51511993	SKIP	no publisher on work (nothing to do)
+Q51513587	REVIEW	P123 = Q19977596 on work, not on the single edition Q51513586 -- may be original publisher vs a reprint edition; confirm before moving
+Q51513782	SKIP	no publisher on work (nothing to do)
+Q5160036	REVIEW	P123 = Q1739825 on work, not on the single edition Q132530160 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q172299 on work, not on the single edition Q132530160 -- may be original publisher vs a reprint edition; confirm before moving
+Q517172	EDIT	- work P123 Q7788285 (already on Q16464281)
+Q5178818	REVIEW	P123 = Q2054191 on work, not on the single edition Q19193969 -- may be original publisher vs a reprint edition; confirm before moving
+Q5188976	SKIP	no publisher on work (nothing to do)
+Q52554812	REVIEW	P123 = Q117201506 on work, not on the single edition Q19853380 -- may be original publisher vs a reprint edition; confirm before moving
+Q52833380	REVIEW	P123 = Q52833431 on work, not on the single edition Q19177391 -- may be original publisher vs a reprint edition; confirm before moving
+Q5298663	REVIEW	P123 = Q2108217 on work, not on the single edition Q112066383 -- may be original publisher vs a reprint edition; confirm before moving
+Q5358932	REVIEW	P123 = Q206033 on work, not on the single edition Q108175919 -- may be original publisher vs a reprint edition; confirm before moving
+Q5375714	SKIP	no publisher on work (nothing to do)
+Q5375730	SKIP	no publisher on work (nothing to do)
+Q5376697	REVIEW	P123 = Q911673 on work with 3 editions (Q111271754, Q111272124, Q111272536) -- ambiguous which edition; move manually
+Q5383621	REVIEW	P123 = Q327530 on work with 2 editions (Q65526503, Q102482266) -- ambiguous which edition; move manually
+Q5383624	REVIEW	P123 = Q4703205 on work, not on the single edition Q138598101 -- may be original publisher vs a reprint edition; confirm before moving
+Q53857737	REVIEW	P123 = Q53857848 on work, not on the single edition Q132631785 -- may be original publisher vs a reprint edition; confirm before moving
+Q54090320	EDIT	- work P123 Q585234 (already on Q54093971)
+Q5427942	REVIEW	P123 = Q120868 on work with 2 editions (Q44061183, Q44060703) -- ambiguous which edition; move manually
+Q54365954	EDIT	- work P123 Q1646000 (already on Q104587833), Q6724738 (already on Q104587833)
+Q54548	REVIEW	P123 = Q217238 on work with 2 editions (Q123139223, Q123196522) -- ambiguous which edition; move manually
+Q5456034	REVIEW	P123 = Q10267643 on work, not on the single edition Q103826429 -- may be original publisher vs a reprint edition; confirm before moving
+Q54639093	REVIEW	P123 = Q1587900 on work, not on the single edition Q132469621 -- may be original publisher vs a reprint edition; confirm before moving
+Q54639388	REVIEW	P123 = Q1587900 on work, not on the single edition Q132469732 -- may be original publisher vs a reprint edition; confirm before moving
+Q5472998	REVIEW	P123 = Q6318914 on work, not on the single edition Q136101669 -- may be original publisher vs a reprint edition; confirm before moving
+Q54914608	REVIEW	P123 = Q18576913 on work with 3 editions (Q51514133, Q51433938, Q51514130) -- ambiguous which edition; move manually
+Q55239772	EDIT	- work P123 Q390074 (already on Q55762111)
+Q55596793	REVIEW	P123 = Q16186131 on work, not on the single edition Q19169560 -- may be original publisher vs a reprint edition; confirm before moving
+Q557852	REVIEW	P123 = Q64783146 on work, not on the single edition Q126733670 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q64783126 on work, not on the single edition Q126733670 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q64783124 on work, not on the single edition Q126733670 -- may be original publisher vs a reprint edition; confirm before moving
+Q559667	REVIEW	P123 = Q1338820 on work with 6 editions (Q19528670, Q105749329, Q130755161, Q17742515, Q19849013, Q135961361) -- ambiguous which edition; move manually
+Q56151505	SKIP	no publisher on work (nothing to do)
+Q56210067	SKIP	no publisher on work (nothing to do)
+Q56241647	SKIP	no publisher on work (nothing to do)
+Q56277164	REVIEW	P123 = Q172299 on work, not on the single edition Q19250322 -- may be original publisher vs a reprint edition; confirm before moving
+Q56417941	REVIEW	P123 = Q349566 on work, not on the single edition Q104450528 -- may be original publisher vs a reprint edition; confirm before moving
+Q5642996	REVIEW	P123 = Q1931722 on work with 4 editions (Q126734524, Q137531784, Q138515769, Q138561943) -- ambiguous which edition; move manually
+Q565638	REVIEW	P123 = Q2923456 on work with 4 editions (Q59220433, Q73041631, Q73041696, Q114957168) -- ambiguous which edition; move manually
+Q56612533	REVIEW	P123 = Q56612435 on work, not on the single edition Q126718232 -- may be original publisher vs a reprint edition; confirm before moving
+Q5674013	EDIT	- work P123 Q217595 (already on Q135027103)
+Q5689829	SKIP	no publisher on work (nothing to do)
+Q5724762	REVIEW	P123 = Q19577155 on work with 4 editions (Q108945741, Q132438763, Q137926263, Q137926264) -- ambiguous which edition; move manually
+Q5738318	EDIT	- work P123 Q2108217 (already on Q112045632)
+Q574887	REVIEW	P123 = Q3127696 on work, not on the single edition Q139902572 -- may be original publisher vs a reprint edition; confirm before moving
+Q5773234	EDIT	- work P123 Q1507630 (already on Q64028777)
+Q57974116	EDIT	- work P123 Q1032732 (already on Q57974410), Q1027462 (already on Q57974410)
+Q5803932	REVIEW	P123 = Q3149496 on work, not on the single edition Q56515904 -- may be original publisher vs a reprint edition; confirm before moving
+Q5825244	EDIT	- work P123 Q19446777 (already on Q118077993)
+Q5879144	SKIP	no publisher on work (nothing to do)
+Q5891734	REVIEW	P123 = Q1864009 on work, not on the single edition Q63468298 -- may be original publisher vs a reprint edition; confirm before moving
+Q59243153	REVIEW	P123 = Q4134637 on work, not on the single edition Q59243300 -- may be original publisher vs a reprint edition; confirm before moving
+Q59263461	REVIEW	P123 = Q19908137 on work with 3 editions (Q59857885, Q59857967, Q59858001) -- ambiguous which edition; move manually
+Q594139	REVIEW	P123 = Q40100542 on work with 2 editions (Q133456451, Q133456578) -- ambiguous which edition; move manually
+Q59420426	REVIEW	P123 = Q379677 on work with 6 editions (Q136035378, Q105319175, Q105319511, Q105319591, Q105319814, Q105756444) -- ambiguous which edition; move manually
+Q5946782	REVIEW	P123 = Q15259326 on work, not on the single edition Q50271814 -- may be original publisher vs a reprint edition; confirm before moving
+Q5992016	EDIT	- work P123 Q3526359 (already on Q115528659)
+Q6008656	SKIP	no publisher on work (nothing to do)
+Q603260	REVIEW	P123 = Q16638858 on work, not on the single edition Q26880384 -- may be original publisher vs a reprint edition; confirm before moving
+Q60328904	EDIT	- work P123 Q5544076 (already on Q106929924)
+Q603747	REVIEW	P123 = Q40100542 on work with 2 editions (Q123894773, Q131716317) -- ambiguous which edition; move manually
+Q6062785	REVIEW	P123 = Q7981943 on work, not on the single edition Q133778756 -- may be original publisher vs a reprint edition; confirm before moving
+Q60836182	REVIEW	P123 = Q40100542 on work, not on the single edition Q19154642 -- may be original publisher vs a reprint edition; confirm before moving
+Q6087143	REVIEW	P123 = Q3101819 on work, not on the single edition Q138649486 -- may be original publisher vs a reprint edition; confirm before moving
+Q610760	REVIEW	P123 = Q17629741 on work, not on the single edition Q115627942 -- may be original publisher vs a reprint edition; confirm before moving
+Q6115131	EDIT	- work P123 Q172299 (already on Q106644613)
+Q612523	REVIEW	P123 = Q8017825 on work with 2 editions (Q138507083, Q138562012) -- ambiguous which edition; move manually
+Q612836	REVIEW	P123 = Q849759 on work with 7 editions (Q24326926, Q77463003, Q79148113, Q118123906, Q137531449, Q138515591, Q138515787) -- ambiguous which edition; move manually
+Q615175	REVIEW	P123 = Q2295283 on work, not on the single edition Q138515788 -- may be original publisher vs a reprint edition; confirm before moving
+Q615383	REVIEW	P123 = Q3127696 on work with 5 editions (Q84928097, Q99035529, Q138507225, Q138562011, Q140573743) -- ambiguous which edition; move manually
+Q61709559	EDIT	- work P123 Q6273015 (already on Q107168975)
+Q61747977	EDIT	- work P123 Q6273015 (already on Q107013265), Q1251563 (already on Q107013265)
+Q61749540	EDIT	- work P123 Q7800720 (already on Q107015181)
+Q61951628	EDIT	- work P123 Q66023815 (already on Q113530719)
+Q622634	EDIT	- work P123 Q40100542 (already on Q51490841)
+Q625923	REVIEW	P123 = Q6724738 on work with 2 editions (Q126698098, Q138515808) -- ambiguous which edition; move manually
+Q626663	REVIEW	P123 = Q6724738 on work with 3 editions (Q109676093, Q114267825, Q132444589) -- ambiguous which edition; move manually
+Q628443	REVIEW	P123 = Q40100542 on work, not on the single edition Q131829940 -- may be original publisher vs a reprint edition; confirm before moving
+Q62879	EDIT	- work P123 Q2054191 (already on Q20872993)
+Q6315940	REVIEW	P123 = Q390074 on work, not on the single edition Q132324159 -- may be original publisher vs a reprint edition; confirm before moving
+Q63391335	EDIT	- work P123 Q16649652 (already on Q105103844)
+Q63685444	REVIEW	P123 = Q3047162 on work, not on the single edition Q68929589 -- may be original publisher vs a reprint edition; confirm before moving
+Q640513	REVIEW	P123 = Q911673 on work with 3 editions (Q126697635, Q138561978, Q138662357) -- ambiguous which edition; move manually
+Q6469952	REVIEW	P123 = Q6273015 on work, not on the single edition Q131838910 -- may be original publisher vs a reprint edition; confirm before moving
+Q64991537	REVIEW	P123 = Q61069392 on work, not on the single edition Q132194769 -- may be original publisher vs a reprint edition; confirm before moving
+Q65036895	REVIEW	P123 = Q100327 on work, not on the single edition Q64437931 -- may be original publisher vs a reprint edition; confirm before moving
+Q65139175	REVIEW	P123 = Q514276 on work with 2 editions (Q117303147, Q135699366) -- ambiguous which edition; move manually
+Q651866	REVIEW	P123 = Q7668241 on work, not on the single edition Q139902498 -- may be original publisher vs a reprint edition; confirm before moving
+Q6533775	REVIEW	P123 = Q481576 on work with 2 editions (Q126724340, Q135921511) -- ambiguous which edition; move manually
+Q6533784	REVIEW	P123 = Q481576 on work, not on the single edition Q124247471 -- may be original publisher vs a reprint edition; confirm before moving
+Q6544172	REVIEW	P123 = Q3568439 on work with 2 editions (Q124607597, Q138507193) -- ambiguous which edition; move manually
+Q65524211	EDIT	- work P123 Q3565136 (already on Q10726198)
+Q65524574	EDIT	- work P123 Q769544 (already on Q114399967)
+Q66057280	REVIEW	P123 = Q9266392 on work, not on the single edition Q101407320 -- may be original publisher vs a reprint edition; confirm before moving
+Q662550	REVIEW	P123 = Q1056900 on work with 9 editions (Q62636368, Q62656433, Q52219782, Q54462395, Q54462392, Q55121273, Q108854062, Q137366833, Q140306352) -- ambiguous which edition; move manually
+Q66322736	REVIEW	P123 = Q17518122 on work with 2 editions (Q133300648, Q55120726) -- ambiguous which edition; move manually
+Q665830	EDIT	- work P123 Q21001293 (already on Q61943033)
+Q66763612	EDIT	- work P123 Q16857676 (already on Q126725338)
+Q667903	EDIT	- work P123 Q40100542 (already on Q60020748)
+Q66828838	EDIT	- work P123 Q59419393 (already on Q66828856)
+Q669694	REVIEW	P123 = Q2188 on work with 8 editions (Q50249887, Q59994201, Q59994762, Q59995340, Q59995789, Q59995895, Q59997282, Q119854519) -- ambiguous which edition; move manually
+Q66978980	EDIT	- work P123 Q3127696 (already on Q66979069)
+Q67205401	EDIT	- work P123 Q51955103 (already on Q67203589)
+Q678251	REVIEW	P123 = Q2619904 on work with 2 editions (Q113222260, Q139898982) -- ambiguous which edition; move manually; P123 = Q5163465 on work with 2 editions (Q113222260, Q139898982) -- ambiguous which edition; move manually
+Q685737	REVIEW	P123 = Q3830312 on work with 2 editions (Q121437407, Q140008195) -- ambiguous which edition; move manually
+Q70730235	REVIEW	P123 = Q2579663 on work, not on the single edition Q70731688 -- may be original publisher vs a reprint edition; confirm before moving
+Q7109904	REVIEW	P123 = Q845617 on work, not on the single edition Q131900389 -- may be original publisher vs a reprint edition; confirm before moving
+Q7133713	REVIEW	P123 = Q1020343 on work, not on the single edition Q132323328 -- may be original publisher vs a reprint edition; confirm before moving
+Q7170526	REVIEW	P123 = Q18205934 on work with 2 editions (Q54638063, Q138507213) -- ambiguous which edition; move manually
+Q72182733	REVIEW	P123 = Q2080232 on work, not on the single edition Q135406521 -- may be original publisher vs a reprint edition; confirm before moving
+Q72197152	EDIT	- work P123 Q5240604 (already on Q72197767)
+Q725752	REVIEW	P123 = Q2294382 on work, not on the single edition Q19097851 -- may be original publisher vs a reprint edition; confirm before moving
+Q727408	REVIEW	P123 = Q1529971 on work with 6 editions (Q19146761, Q58546376, Q58938756, Q58939540, Q137531637, Q138515825) -- ambiguous which edition; move manually
+Q728104	REVIEW	P123 = Q731852 on work with 4 editions (Q50828074, Q105104017, Q117279899, Q117280953) -- ambiguous which edition; move manually
+Q731224	EDIT	- work P123 Q64697862 (already on Q64697860)
+Q733582	REVIEW	P123 = Q1232629 on work, not on the single edition Q52776188 -- may be original publisher vs a reprint edition; confirm before moving
+Q740855	REVIEW	P123 = Q12967761 on work with 2 editions (Q19065849, Q98008542) -- ambiguous which edition; move manually
+Q744942	SKIP	no publisher on work (nothing to do)
+Q7474518	EDIT	- work P123 Q2108217 (already on Q15818404)
+Q7476662	REVIEW	P123 = Q4134637 on work with 2 editions (Q117280019, Q117281074) -- ambiguous which edition; move manually
+Q7493592	REVIEW	P123 = Q56677707 on work, not on the single edition Q132323660 -- may be original publisher vs a reprint edition; confirm before moving
+Q75839788	REVIEW	P123 = Q61851546 on work, not on the single edition Q135406608 -- may be original publisher vs a reprint edition; confirm before moving
+Q7619371	REVIEW	P123 = Q911673 on work, not on the single edition Q131930373 -- may be original publisher vs a reprint edition; confirm before moving
+Q7653278	REVIEW	P123 = Q3349281 on work with 2 editions (Q132129483, Q133501383) -- ambiguous which edition; move manually
+Q7679380	EDIT	- work P123 Q957065 (already on Q103812448), Q929918 (already on Q103812448)
+Q768605	REVIEW	P123 = Q40100542 on work with 2 editions (Q21022056, Q108475480) -- ambiguous which edition; move manually
+Q77002698	EDIT	- work P123 Q13129174 (already on Q76963989)
+Q77072044	REVIEW	P123 = Q911673 on work, not on the single edition Q77074967 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q911673 on work, not on the single edition Q77074967 -- may be original publisher vs a reprint edition; confirm before moving
+Q7716497	REVIEW	P123 = Q7734881 on work, not on the single edition Q19194650 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2054191 on work, not on the single edition Q19194650 -- may be original publisher vs a reprint edition; confirm before moving
+Q77186597	REVIEW	P123 = Q13129174 on work, not on the single edition Q76907198 -- may be original publisher vs a reprint edition; confirm before moving
+Q7719102	REVIEW	P123 = Q1567078 on work, not on the single edition Q131036837 -- may be original publisher vs a reprint edition; confirm before moving
+Q7720315	REVIEW	P123 = Q3280327 on work, not on the single edition Q106714641 -- may be original publisher vs a reprint edition; confirm before moving
+Q77219528	EDIT	- work P123 Q20733046 (already on Q76494689)
+Q7727191	REVIEW	P123 = Q1020343 on work with 2 editions (Q126672654, Q135921529) -- ambiguous which edition; move manually
+Q7732627	REVIEW	P123 = Q7734881 on work, not on the single edition Q139902567 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2054191 on work, not on the single edition Q139902567 -- may be original publisher vs a reprint edition; confirm before moving
+Q7733531	REVIEW	P123 = Q378809 on work, not on the single edition Q27577956 -- may be original publisher vs a reprint edition; confirm before moving
+Q7735255	REVIEW	P123 = Q2054191 on work, not on the single edition Q138562014 -- may be original publisher vs a reprint edition; confirm before moving
+Q7735653	REVIEW	P123 = Q11962920 on work with 7 editions (Q110529074, Q110529072, Q110529078, Q110529079, Q110529077, Q110529081, Q19142902) -- ambiguous which edition; move manually
+Q7739021	REVIEW	P123 = Q15130378 on work, not on the single edition Q135922287 -- may be original publisher vs a reprint edition; confirm before moving
+Q7739461	REVIEW	P123 = Q3551355 on work, not on the single edition Q60382468 -- may be original publisher vs a reprint edition; confirm before moving
+Q7741258	REVIEW	P123 = Q11962920 on work with 2 editions (Q96083236, Q134800231) -- ambiguous which edition; move manually
+Q7742022	EDIT	- work P123 Q6106398 (already on Q107303799)
+Q7749272	REVIEW	P123 = Q7788285 on work, not on the single edition Q132532345 -- may be original publisher vs a reprint edition; confirm before moving
+Q7753436	EDIT	- work P123 Q2295283 (already on Q23308118)
+Q7753728	REVIEW	P123 = Q3666843 on work with 3 editions (Q111271784, Q111272579, Q111272170) -- ambiguous which edition; move manually
+Q7756075	REVIEW	P123 = Q2635075 on work, not on the single edition Q132532290 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q558781 on work, not on the single edition Q132532290 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q1508259 on work, not on the single edition Q132532290 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q1403660 on work, not on the single edition Q132532290 -- may be original publisher vs a reprint edition; confirm before moving
+Q7756406	REVIEW	P123 = Q5049289 on work, not on the single edition Q43938444 -- may be original publisher vs a reprint edition; confirm before moving
+Q7756660	REVIEW	P123 = Q911673 on work, not on the single edition Q102109236 -- may be original publisher vs a reprint edition; confirm before moving
+Q7758216	REVIEW	P123 = Q2054191 on work, not on the single edition Q138507106 -- may be original publisher vs a reprint edition; confirm before moving
+Q7758780	REVIEW	P123 = Q673540 on work with 2 editions (Q60383925, Q139713435) -- ambiguous which edition; move manually
+Q7760876	REVIEW	P123 = Q3011053 on work, not on the single edition Q126678193 -- may be original publisher vs a reprint edition; confirm before moving
+Q7764868	REVIEW	P123 = Q1931722 on work, not on the single edition Q139898913 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2295283 on work, not on the single edition Q139898913 -- may be original publisher vs a reprint edition; confirm before moving
+Q7765949	EDIT	- work P123 Q2846305 (already on Q56619456)
+Q7766827	REVIEW	P123 = Q2054191 on work, not on the single edition Q132532302 -- may be original publisher vs a reprint edition; confirm before moving
+Q7766831	REVIEW	P123 = Q7668241 on work with 4 editions (Q111271789, Q111272591, Q111272180, Q111272352) -- ambiguous which edition; move manually
+Q7767399	REVIEW	P123 = Q182589 on work, not on the single edition Q110458255 -- may be original publisher vs a reprint edition; confirm before moving
+Q7770124	EDIT	- work P123 Q15839178 (already on Q116187186)
+Q7771311	REVIEW	P123 = Q2054191 on work, not on the single edition Q20088198 -- may be original publisher vs a reprint edition; confirm before moving
+Q7773721	REVIEW	P123 = Q182589 on work with 4 editions (Q111271786, Q111272186, Q111272597, Q111272355) -- ambiguous which edition; move manually
+Q7774872	REVIEW	P123 = Q7528648 on work with 2 editions (Q83445304, Q83445833) -- ambiguous which edition; move manually
+Q7797571	REVIEW	P123 = Q11179076 on work, not on the single edition Q111605239 -- may be original publisher vs a reprint edition; confirm before moving
+Q7798673	REVIEW	P123 = Q15077094 on work, not on the single edition Q132249297 -- may be original publisher vs a reprint edition; confirm before moving
+Q780407	REVIEW	P123 = Q7262311 on work with 2 editions (Q105940322, Q133267306) -- ambiguous which edition; move manually
+Q7817245	REVIEW	P123 = Q7669313 on work, not on the single edition Q60386839 -- may be original publisher vs a reprint edition; confirm before moving
+Q78219472	REVIEW	P123 = Q80215343 on work, not on the single edition Q78216153 -- may be original publisher vs a reprint edition; confirm before moving
+Q785255	EDIT	- work P123 Q14175176 (already on Q61732254)
+Q785958	REVIEW	P123 = Q1232629 on work, not on the single edition Q51466436 -- may be original publisher vs a reprint edition; confirm before moving
+Q80224914	REVIEW	P123 = Q911673 on work, not on the single edition Q83420040 -- may be original publisher vs a reprint edition; confirm before moving
+Q80224928	REVIEW	P123 = Q911673 on work with 2 editions (Q83446257, Q83446608) -- ambiguous which edition; move manually
+Q80224943	REVIEW	P123 = Q911673 on work, not on the single edition Q83419517 -- may be original publisher vs a reprint edition; confirm before moving
+Q80225034	EDIT	- work P123 Q3047162 (already on Q81101304)
+Q80225086	REVIEW	P123 = Q24203918 on work, not on the single edition Q83745129 -- may be original publisher vs a reprint edition; confirm before moving
+Q80225116	REVIEW	P123 = Q7528648 on work, not on the single edition Q81218093 -- may be original publisher vs a reprint edition; confirm before moving
+Q80225204	EDIT	- work P123 Q7788182 (already on Q80988364)
+Q80225206	REVIEW	P123 = Q7410238 on work, not on the single edition Q81082815 -- may be original publisher vs a reprint edition; confirm before moving
+Q8024579	EDIT	- work P123 Q2846305 (already on Q112068703)
+Q8027400	REVIEW	P123 = Q1251563 on work, not on the single edition Q126602790 -- may be original publisher vs a reprint edition; confirm before moving
+Q8058257	EDIT	- work P123 Q3127696 (already on Q96609207)
+Q8068163	EDIT	- work P123 Q26459753 (already on Q111605256)
+Q80771	REVIEW	P123 = Q15839178 on work with 2 editions (Q138515817, Q138561829) -- ambiguous which edition; move manually
+Q816528	EDIT	- work P123 Q3127696 (already on Q98152243)
+Q825220	REVIEW	P123 = Q2923456 on work with 4 editions (Q19194048, Q74873100, Q107778443, Q122340701) -- ambiguous which edition; move manually
+Q830740	SKIP	no publisher on work (nothing to do)
+Q833645	REVIEW	P123 = Q3431800 on work, not on the single edition Q124362918 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q8013416 on work, not on the single edition Q124362918 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q76835443 on work, not on the single edition Q124362918 -- may be original publisher vs a reprint edition; confirm before moving
+Q83436154	REVIEW	P123 = Q911673 on work, not on the single edition Q83436326 -- may be original publisher vs a reprint edition; confirm before moving
+Q8346896	EDIT	- work P123 Q110088918 (already on Q130413901)
+Q840974	REVIEW	P123 = Q5163465 on work with 8 editions (Q114439711, Q114439664, Q114439722, Q121793163, Q136345439, Q137531522, Q138507199, Q140402494) -- ambiguous which edition; move manually
+Q847642	REVIEW	P123 = Q2054191 on work with 2 editions (Q19220024, Q138507165) -- ambiguous which edition; move manually
+Q854859	SKIP	no publisher on work (nothing to do)
+Q85642686	EDIT	- work P123 Q3149496 (already on Q93630932)
+Q8565314	REVIEW	P123 = Q1931722 on work, not on the single edition Q20036816 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q2295283 on work, not on the single edition Q20036816 -- may be original publisher vs a reprint edition; confirm before moving
+Q858036	REVIEW	P123 = Q131150192 on work with 8 editions (Q19086848, Q19086853, Q132495232, Q132495751, Q132496167, Q137779553, Q138561934, Q138662633) -- ambiguous which edition; move manually
+Q860831	REVIEW	P123 = Q2294382 on work with 3 editions (Q106687420, Q19038036, Q131921601) -- ambiguous which edition; move manually
+Q861017	REVIEW	P123 = Q2108217 on work with 4 editions (Q19096865, Q137531631, Q138515803, Q138561984) -- ambiguous which edition; move manually
+Q863438	REVIEW	P123 = Q5540027 on work with 4 editions (Q61957587, Q81629203, Q111253859, Q123615442) -- ambiguous which edition; move manually
+Q864150	EDIT	- work P123 Q6107326 (already on Q98785962)
+Q86440	REVIEW	P123 = Q5341930 on work with 24 editions (Q17320697, Q18746290, Q58234603, Q63150951, Q63723164, Q107248582, Q107248651, Q107248738, Q107248782, Q59775327, Q107249050, Q112679653, Q114629838, Q114629858, Q114629869, Q114629885, Q114629892, Q114629898, Q114629905, Q114629916, Q123921038, Q102473676, Q107326564, Q140306352) -- ambiguous which edition; move manually
+Q86528544	REVIEW	P123 = Q2278630 on work with 2 editions (Q86528737, Q86529818) -- ambiguous which edition; move manually
+Q869725	REVIEW	P123 = Q6141700 on work with 9 editions (Q28317110, Q28335410, Q19672970, Q28335591, Q111811591, Q121984217, Q138411348, Q138507202, Q138562059) -- ambiguous which edition; move manually
+Q880092	EDIT	- work P123 Q6161111 (already on Q106301123)
+Q88300455	EDIT	- work P123 Q88296372 (already on Q88300980)
+Q883305	REVIEW	P123 = Q2054191 on work with 7 editions (Q111271750, Q111272116, Q111272530, Q136216171, Q137531541, Q138515588, Q138515776) -- ambiguous which edition; move manually
+Q9004838	SKIP	no publisher on work (nothing to do)
+Q90149206	REVIEW	P123 = Q467800 on work, not on the single edition Q111795116 -- may be original publisher vs a reprint edition; confirm before moving; P123 = Q7756629 on work, not on the single edition Q111795116 -- may be original publisher vs a reprint edition; confirm before moving
+Q929899	REVIEW	P123 = Q40100542 on work, not on the single edition Q58364889 -- may be original publisher vs a reprint edition; confirm before moving
+Q933105	EDIT	- work P123 Q2846305 (already on Q112065530), Q172299 (already on Q112065530)
+Q9335685	REVIEW	P123 = Q9212282 on work, not on the single edition Q108842989 -- may be original publisher vs a reprint edition; confirm before moving
+Q941356	REVIEW	P123 = Q1232629 on work with 5 editions (Q51495102, Q95860617, Q51519392, Q51519392, Q114399752) -- ambiguous which edition; move manually
+Q942810	REVIEW	P123 = Q97940780 on work with 2 editions (Q111531780, Q116480674) -- ambiguous which edition; move manually
+Q94451070	REVIEW	P123 = Q1232629 on work, not on the single edition Q111686479 -- may be original publisher vs a reprint edition; confirm before moving
+Q945216	REVIEW	P123 = Q21070506 on work with 3 editions (Q42623260, Q131411492, Q138768305) -- ambiguous which edition; move manually
+Q948984	REVIEW	P123 = Q6107326 on work with 2 editions (Q19235869, Q19539774) -- ambiguous which edition; move manually
+Q952340	REVIEW	P123 = Q2619904 on work with 2 editions (Q19200252, Q106475996) -- ambiguous which edition; move manually
+Q955718	EDIT	- work P123 Q57413091 (already on Q111602118)
+Q955910	REVIEW	P123 = Q6107326 on work with 7 editions (Q113772539, Q113765020, Q113763874, Q117280172, Q117281222, Q123615419, Q126500580) -- ambiguous which edition; move manually
+Q959582	REVIEW	P123 = Q40100542 on work, not on the single edition Q131154959 -- may be original publisher vs a reprint edition; confirm before moving
+Q96252572	EDIT	- work P123 Q11962920 (already on Q96252606)
+Q9632597	REVIEW	P123 = Q3099749 on work, not on the single edition Q105038250 -- may be original publisher vs a reprint edition; confirm before moving
+Q963659	EDIT	- work P123 Q2923456 (already on Q56816982)
+Q965704	REVIEW	P123 = Q1187775 on work with 2 editions (Q19131322, Q24574743) -- ambiguous which edition; move manually
+Q968544	REVIEW	P123 = Q1213622 on work with 3 editions (Q111238936, Q111240125, Q111241029) -- ambiguous which edition; move manually
+Q97620399	REVIEW	P123 = Q5499961 on work, not on the single edition Q135930171 -- may be original publisher vs a reprint edition; confirm before moving
+Q978723	REVIEW	P123 = Q40100542 on work with 2 editions (Q133966155, Q133968494) -- ambiguous which edition; move manually
+Q98910052	EDIT	- work P123 Q911673 (already on Q98910243)
+Q98923102	REVIEW	P123 = Q11962920 on work with 5 editions (Q98923114, Q108869396, Q134598640, Q134598809, Q134226849) -- ambiguous which edition; move manually
+Q99127998	REVIEW	P123 = Q911673 on work, not on the single edition Q19079191 -- may be original publisher vs a reprint edition; confirm before moving

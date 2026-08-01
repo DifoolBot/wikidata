@@ -151,30 +151,45 @@ def _http(method: str, url: str, **kwargs):
 
 
 _LANG_QID: dict | None = None
+_CODE_BY_QID: dict = {}
+
+
+def _load_language_map() -> None:
+    """Load ISO 639-1 code <-> language-item QID maps (P218), once, from QLever."""
+    global _LANG_QID
+    if _LANG_QID is not None:
+        return
+    _LANG_QID = {}
+    q = "SELECT ?c ?i WHERE { ?i wdt:P218 ?c }"
+    r = _http("POST", QLEVER_URL, data={"query": PREFIXES + q},
+              headers={"User-Agent": USER_AGENT, "Accept": "text/tab-separated-values"}, timeout=120)
+    if r is None:
+        print("! could not load language codes; will fall back to the work's language")
+        return
+    for line in r.text.splitlines()[1:]:
+        parts = line.split("\t")
+        if len(parts) >= 2:
+            c = parts[0].strip().strip('"')
+            qid = parts[1].strip().rsplit("/", 1)[-1].rstrip(">")
+            if c and qid.startswith("Q"):
+                _LANG_QID.setdefault(c, qid)
+                _CODE_BY_QID.setdefault(qid, c)
 
 
 def language_qid(code: str) -> str | None:
-    """ISO 639-1 code (e.g. 'en', 'de') -> the language item QID (Q1860, Q188 ...), via
-    P218. Loaded once from QLever and cached. The Gutenberg catalog's per-ebook Language
-    is authoritative for the *edition* -- a translation has a different language than the
-    work, so we must NOT copy the work's language onto it."""
-    global _LANG_QID
-    if _LANG_QID is None:
-        _LANG_QID = {}
-        q = "SELECT ?c ?i WHERE { ?i wdt:P218 ?c }"
-        r = _http("POST", QLEVER_URL, data={"query": PREFIXES + q},
-                  headers={"User-Agent": USER_AGENT, "Accept": "text/tab-separated-values"}, timeout=120)
-        if r is None:
-            print("! could not load language codes; will fall back to the work's language")
-        else:
-            for line in r.text.splitlines()[1:]:
-                parts = line.split("\t")
-                if len(parts) >= 2:
-                    c = parts[0].strip().strip('"')
-                    qid = parts[1].strip().rsplit("/", 1)[-1].rstrip(">")
-                    if c and qid.startswith("Q"):
-                        _LANG_QID.setdefault(c, qid)
-    return _LANG_QID.get(code)
+    """ISO 639-1 code (e.g. 'en', 'de') -> the language item QID (Q1860, Q188 ...), via P218.
+    The Gutenberg catalog's per-ebook Language is authoritative for the *edition* -- a
+    translation has a different language than the work, so we must NOT copy the work's
+    language onto it."""
+    _load_language_map()
+    return _LANG_QID.get(code) if _LANG_QID else None
+
+
+def language_code(qid: str) -> str | None:
+    """Language-item QID -> ISO 639-1 code (Q1860 -> 'en'). Used to pick the work's title in
+    its OWN language (a work can carry a translation's title in P1476/labels)."""
+    _load_language_map()
+    return _CODE_BY_QID.get(qid)
 
 
 def move_p747_first(work_qid: str, target_qid: str, edit_group: str) -> bool:
@@ -257,12 +272,26 @@ def _clean_title(s: str) -> str:
 
 
 def work_title(item, page):
-    for c in live(page.claims.get(wd.PID_TITLE, [])):
-        t = c.getTarget()
-        if t:
-            return (_clean_title(t.text), t.language)
-    lab = item.labels.get("en")
-    return (_clean_title(lab), "en") if lab else None
+    """(text, lang) for the work's title in its OWN language. A work can carry a *translation's*
+    title (P1476/label in another language, e.g. Q1156969 "Daddy-Long-Legs" has a stray
+    P1476='papaito piernas largas'@es) -- picking the first P1476 blindly produced a
+    Spanish-titled English edition. So prefer the P1476 whose language matches the work's P407,
+    then the label in that language, then the English label, and only then any P1476/en label."""
+    titles = [(t.text, t.language) for c in live(page.claims.get(wd.PID_TITLE, []))
+              if (t := c.getTarget())]
+    work_lang = first_item(page, wd.PID_LANGUAGE_OF_WORK_OR_NAME)
+    want = language_code(work_lang) if work_lang else None
+    if want:
+        for text, lang in titles:
+            if lang == want:
+                return (_clean_title(text), lang)
+        if item.labels.get(want):
+            return (_clean_title(item.labels[want]), want)
+    if item.labels.get("en"):
+        return (_clean_title(item.labels["en"]), "en")
+    if titles:
+        return (_clean_title(titles[0][0]), titles[0][1])
+    return None
 
 
 def first_item(page, pid) -> str | None:
@@ -299,7 +328,7 @@ def show_state(qid, item, page, editions) -> None:
             print(f"     {pid} ({plabel}) = {c.getTarget()}")
 
 
-def build_gutenberg_specs(work_page, work_qid, gutenberg_id):
+def build_gutenberg_specs(work_page, work_qid, gutenberg_id, volume=None):
     """Return (labels, descriptions, claim_specs, p747_quals) for a new Gutenberg edition
     of the work. None if the work has no usable title. Pure -- no side effects (creation
     is deferred to after the confirm). Modeled on a well-formed example, Q106304446: a
@@ -308,7 +337,11 @@ def build_gutenberg_specs(work_page, work_qid, gutenberg_id):
 
     ``p747_quals`` are (pid, value, kind) qualifiers summarising the edition inline on the
     work's P747 statement (dominant P747 qualifiers measured 2026-07-30: P407 language,
-    P577 date, P123 publisher, P437 format)."""
+    P577 date, P123 publisher, P437 format).
+
+    ``volume``: for a multi-volume set, the volume number (e.g. "1") -- the P2034 statement
+    is then qualified with P478 (volume) and the volume marker is stripped from the title,
+    so this item can hold all volumes' ids (add the rest by hand)."""
     authors = [c.getTarget().getID() for c in live(work_page.claims.get(wd.PID_AUTHOR, [])) if c.getTarget()]
 
     # The catalog is authoritative for THIS ebook's language/title/date -- crucial for a
@@ -326,7 +359,12 @@ def build_gutenberg_specs(work_page, work_qid, gutenberg_id):
         code = entry["language"].split(";")[0].strip()  # ISO 639-1, usually a single code
         lang_qid = language_qid(code)
         if entry["title"]:
-            title = (_clean_title(entry["title"]), code)  # edition title in the edition's language
+            ct = entry["title"]
+            if volume:                                     # drop 'Vol. N' -> work-level title
+                mk = volume_marker(ct)
+                if mk:
+                    ct = _strip_volume(ct, mk)
+            title = (_clean_title(ct), code)               # edition title in the edition's language
         work_lang = first_item(work_page, wd.PID_LANGUAGE_OF_WORK_OR_NAME)
         if lang_qid and work_lang and lang_qid != work_lang:
             print(f"    -> translation: edition language {code} ({lang_qid}) "
@@ -340,10 +378,14 @@ def build_gutenberg_specs(work_page, work_qid, gutenberg_id):
     if lang_qid is None:
         lang_qid = first_item(work_page, wd.PID_LANGUAGE_OF_WORK_OR_NAME)
 
+    p2034 = (wd.PID_PROJECT_GUTENBERG_EBOOK_ID, gutenberg_id, "string")
+    if volume:                                             # P2034 = id {P478 = volume}
+        p2034 = (wd.PID_PROJECT_GUTENBERG_EBOOK_ID, gutenberg_id, "string",
+                 [(wd.PID_VOLUME, volume, "string")])
     specs = [
         (wd.PID_INSTANCE_OF, EDITION_TYPE, "item"),
         (wd.PID_EDITION_OR_TRANSLATION_OF, work_qid, "item"),
-        (wd.PID_PROJECT_GUTENBERG_EBOOK_ID, gutenberg_id, "string"),
+        p2034,
         (wd.PID_TITLE, title, "monolingual"),
     ]
     if lang_qid:
@@ -381,6 +423,34 @@ def volume_marker(title: str) -> str | None:
     Giuda, vol. I/II')."""
     m = _VOLUME_RE.search(title or "")
     return m.group(0) if m else None
+
+
+_ROMAN = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100, "d": 500, "m": 1000}
+
+
+def volume_number(marker: str) -> str | None:
+    """Extract the volume number as an arabic string from a marker ('vol. II' -> '2')."""
+    m = re.search(r"([ivxlcdm]+|\d+)\s*$", (marker or "").strip(), re.IGNORECASE)
+    if not m:
+        return None
+    tok = m.group(1)
+    if tok.isdigit():
+        return tok
+    total = prev = 0
+    for ch in reversed(tok.lower()):
+        v = _ROMAN.get(ch, 0)
+        total += -v if v < prev else v
+        prev = max(prev, v)
+    return str(total) if total else None
+
+
+def _strip_volume(title: str, marker: str) -> str:
+    """Drop the volume marker (+ a preceding separator) from a title: 'Melmoth …, Vol. 1'
+    -> 'Melmoth …' -- so the multi-volume edition item carries the work-level title."""
+    i = title.lower().rfind(marker.lower())
+    if i == -1:
+        return title
+    return title[:i].rstrip(" ,:;-—–") or title
 
 
 def _fmt_val(val, kind) -> str:
@@ -427,16 +497,39 @@ def move_id_to_edition(work_page, pid, claim, value, ed_qid, edit_pages, descs, 
     descs.append(f"-> add {pid} = {value} to edition {ed_qid}")
 
 
+def _queue_gutenberg_create(work_page, work_qid, pid, value, claim, pending_creates, descs,
+                            volume=None) -> None:
+    """Build + queue a Gutenberg edition (deferred past the confirm), reusing an existing one
+    if the id is already on some edition. ``volume`` qualifies P2034 with P478 for one volume
+    of a multi-volume set."""
+    built = build_gutenberg_specs(work_page, work_qid, value, volume=volume)
+    if not built:
+        print("  ! work has no title/label; cannot build an edition -- keeping.")
+        return
+    labels, descriptions, specs, p747_quals = built
+    preview_edition(labels, descriptions, specs, p747_quals)
+    existing = existing_gutenberg_edition(value, work_qid)
+    if existing:
+        print(f"    -> edition for Gutenberg {value} already exists: {existing} (will REUSE, not create)")
+    pending_creates.append((value, labels, descriptions, specs, p747_quals, pid, claim, existing))
+    verb = f"REUSE {existing}" if existing else "create"
+    vtxt = f" (volume {volume}; add the other volumes' ids to it by hand)" if volume else ""
+    descs.append(f"+ {verb} Gutenberg edition{vtxt} for {value} (P629 -> {work_qid}) + P747 link; "
+                 f"then deprecate {pid} on work (P8327 -> the edition)")
+
+
 def handle_identifier(work_page, work_qid, pid, claim, editions, edit_pages, descs,
                       pending_creates, dry_run, eg) -> None:
     value = claim.getTarget()
     plabel = EDITION_ONLY_IDS.get(pid, pid)
     has_template = pid in CREATE_TEMPLATES
     default = "c" if has_template else "d"
-    # Guards that disable auto-create (-> manual handling, default keep):
+    vol = None
+    # Guards that disable plain auto-create:
     #  * non-Text Gutenberg id (Type=Sound=audiobook, Dataset, Image ...) -- the ebook
-    #    template (P437=ebook) is wrong for it;
-    #  * a volume title (one volume of a set) -- needs manual per-volume (P478) modelling.
+    #    template (P437=ebook) is wrong for it -> manual, default keep;
+    #  * a volume title (one of a set) -- offer [v] to create ONE edition for this volume
+    #    (P478-qualified) that the rest are added to by hand; default keep.
     if has_template:
         entry = pg_catalog().get(str(value).strip())
         if entry and entry["type"] != "Text":
@@ -445,33 +538,19 @@ def handle_identifier(work_page, work_qid, pid, claim, editions, edit_pages, des
             has_template, default = False, "k"
         elif entry and volume_marker(entry["title"]):
             vol = volume_marker(entry["title"])
-            print(f"  ⚠ Gutenberg {value} = \"{entry['title']}\" looks like a VOLUME ({vol}); "
-                  "multi-volume needs manual per-volume (P478) modelling -- not offering auto-create.")
+            print(f"  ⚠ Gutenberg {value} = \"{entry['title']}\" is a VOLUME ({vol}); "
+                  "[v] creates ONE edition for this volume (P478-qualified) -- add the other volumes to it manually.")
             has_template, default = False, "k"
     opts = ("[c]reate version item / " if has_template else "") + \
+           ("[v]create edition for THIS volume / " if vol else "") + \
            "[m]<Qid> move to edition / [d]eprecate on work / [k]eep"
     ans = csp.ask(f"{pid} ({plabel}) = {value}  ->  {opts}", default).strip()
     low = ans.lower()
     if low == "c" and has_template:
-        built = build_gutenberg_specs(work_page, work_qid, value)
-        if not built:
-            print("  ! work has no title/label; cannot build an edition -- keeping.")
-            return
-        labels, descriptions, specs, p747_quals = built
-        preview_edition(labels, descriptions, specs, p747_quals)
-        # Reuse an already-existing edition for this id (idempotent re-run / partial-failure
-        # recovery) instead of creating a duplicate.
-        existing = existing_gutenberg_edition(value, work_qid)
-        if existing:
-            print(f"    -> edition for Gutenberg {value} already exists: {existing} (will REUSE, not create)")
-        # Defer BOTH the creation and the deprecation until after the confirm: the new
-        # edition's QID isn't known until it's created, and it becomes P8327 (intended
-        # subject) on the deprecated id. The P747 link (+ its qualifiers) is added
-        # post-create too.
-        pending_creates.append((value, labels, descriptions, specs, p747_quals, pid, claim, existing))
-        verb = f"REUSE {existing}" if existing else "create"
-        descs.append(f"+ {verb} Gutenberg edition for {value} (P629 -> {work_qid}) + P747 link; "
-                     f"then deprecate {pid} on work (P8327 -> the edition)")
+        _queue_gutenberg_create(work_page, work_qid, pid, value, claim, pending_creates, descs)
+    elif low == "v" and vol:
+        _queue_gutenberg_create(work_page, work_qid, pid, value, claim, pending_creates, descs,
+                                volume=volume_number(vol))
     elif low.startswith("m") or (low.startswith("q") and low[1:].isdigit()):
         qid = ans[1:] if low.startswith("m") else ans
         qid = qid.strip().upper()
@@ -703,6 +782,13 @@ def handle_first_edition(work_page, work_qid, editions, edit_pages, descs, pendi
         if not date:
             print("    (unrecognised date; skipping)")
             return False
+
+    # Title override -- the first edition's title can differ from the work's (a retitled or
+    # serialised-then-booked first edition, e.g. Manon Lescaut's 1733 "Les Avantures du
+    # chevalier Des Grieux…"). Default = the work's own-language title; keep its language.
+    title_in = csp.ask(f"    title [{title[1]}]", title[0]).strip()
+    if title_in and title_in != title[0]:
+        title = (_clean_title(title_in), title[1])
 
     pub_in = csp.ask("    publisher QID(s) Q… (comma-sep), a name, or blank", ",".join(work_pubs)).strip()
     publisher_qids = _qid_list(pub_in)

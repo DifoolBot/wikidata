@@ -1,0 +1,20 @@
+# PD works with >=2 Project Gutenberg ids, NOT in the earlier table, P747 (tool-ready).
+# Feed with: python projects/isbn_cleanup/curate_pd_works.py --file output/pd_multi_gutenberg_todo.txt
+# (MIX items are listed separately in the chat -- they need a work/edition split first.)
+Q1475956	Melmoth the Wanderer (4 ids, en)
+Q1298242	Egmont (de+en)  Goethe
+Q1141032	Manon Lescaut (en+fr)
+Q1156969	Daddy-Long-Legs (en+fi)
+Q1216126	Godfrey Morgan (en+fi)  Verne
+Q137869 	Germinal (en+fr)  Zola
+Q2334970	Le Chevalier de Maison-Rouge (en+fr)  Dumas
+Q150827 	Frankenstein (en)
+Q181488 	Gulliver's Travels (en)
+Q233562 	The Wealth of Nations (en)
+Q123397 	The Republic (en)
+Q1199790	The Passionate Pilgrim (en)
+Q2338040	The Bostonians (en)
+Q1129589	Rip Van Winkle (en)
+Q93673  	Memoirs of Judas (it)
+Q1395765	Fanny Hill (en)
+Q1936382	Mr Midshipman Easy (en)
