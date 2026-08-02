@@ -22,6 +22,17 @@
   # cpu: "1"
   retry: 1
 
+- name: viaf-score
+  # Daily add-only run: --keep-done scores any newly-added property sections and
+  # removes nothing (rescore + row removal is a separate, heavier weekly run).
+  command: bash $HOME/wikidata/projects/viaf_score_upd/toolforge_run.sh --rescore
+  image: python3.11
+  schedule: "@daily"
+  emails: onfailure
+  # mem: 2Gi
+  # cpu: "1"
+  retry: 1
+
 - name: remove-sitelinks
   # --refresh repopulates items.txt from qlever first (else the queue empties
   # out and nothing is edited); --save makes the real edits. Weekly cadence

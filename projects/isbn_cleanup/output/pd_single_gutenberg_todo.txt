@@ -1,0 +1,712 @@
+# PD works (author d.<=1930) with a SINGLE Project Gutenberg id + P747, not yet done.
+# Feed: python projects/isbn_cleanup/curate_pd_works.py --file output/pd_single_gutenberg_todo.txt --no-first-edition --save
+Q1004825	119(en/Text)	A Tramp Abroad
+Q1035603	2312(de/Text)	Hermann and Dorothea
+Q10392559	40248(fr/Text)	Voyage Around My Room
+Q104145661	12366(en/Text)	The Cost of Shelter
+Q104223644	10466(en/Text)	Little Saint Elizabeth and Other Stories
+Q10483376	146(en/Text)	A Little Princess
+Q1053359	7206(de/Text)	The Birth of Tragedy
+Q105476036	25614(it/Text)	
+Q1055008	226(la/Text)	Catiline Orations
+Q1066765	1045(en/Text)	Venus and Adonis
+Q10688399	12780(fi/Text)	The Song of the Blood-Red Flower
+Q1072741	5131(en/Text)	Childe Harold's Pilgrimage
+Q1075072	1755(en/Text)	Ivanov
+Q1079681	13(en/Text)	The Hunting of the Snark
+Q108649525	69808(en/Text)	
+Q1090228	1712(en/Text)	The Rescue
+Q10903147	25173(zh/Text)	Bei meng suo yan
+Q1090444	638(en/Text)	An Outcast of the Islands
+Q1093419	31538(de/Text)	Peter Schlemihl
+Q109578853	59788(en/Text)	The poetical works of Thomas Campbell
+Q1098300	11263(en/Text)	Claudius Bombarnac
+Q110190124	64739(en/Text)	Paula Monti ou l'Hôtel Lambert
+Q110190148	69714(en/Text)	The Discarded Daughter, or the Children of th
+Q110286316	60174(en/Text)	The Children of the Abbey: a tale
+Q110799829	69402(en/Text)	Twice round the Clock; or the Hours of the da
+Q111271907	1273(en/Text)	The Autobiography of a Slander
+Q11135674	25162(zh/Text)	池北偶談
+Q1120858	451(en/Text)	The Shadow-Line
+Q1121567	7442(fr/Text)	Michael Strogoff
+Q1129378	69700(en/Text)	The Case-Book of Sherlock Holmes
+Q1131648	245(en/Text)	Life on the Mississippi
+Q11336	28961(en/Text)	Heart
+Q1134140	1051(en/Text)	Sartor Resartus
+Q1138346	5250(fr/Text)	Nana
+Q1140185	73584(en/Text)	The Guide for the Perplexed
+Q1141090	25282(en/Text)	Der Judenstaat
+Q1141764	965(en/Text)	The Black Tulip
+Q1142149	1307(en/Text)	La Peau de chagrin
+Q1143075	885(en/Text)	An Ideal Husband
+Q1147121	972(en/Text)	The Devil's Dictionary
+Q1151748	1661(en/Text)	The Man with the Twisted Lip
+Q1152137	1044(en/Text)	Extract from Captain Stormfield's Visit to He
+Q1152283	2680(en/Text)	Meditations
+Q1157010	467(en/Text)	La Princesse de Clèves
+Q1161171	37536(en/Text)	The House of the Dead
+Q1164083	1079(en/Text)	The Life and Opinions of Tristram Shandy, Gen
+Q1165434	2300(en/Text)	The Descent of Man, and Selection in Relation
+Q1165714	796(fr/Text)	The Charterhouse of Parma
+Q1167993	2147(en/Text)	The Mystery of Marie Rogêt
+Q1169463	17796(fr/Text)	The Fur Country
+Q1169954	20179(en/Text)	Ship of Fools
+Q1170032	16852(fr/Text)	The Ladies' Paradise
+Q1170453	1178(en/Text)	Polity of the Lacedaemonians
+Q117182	1290(en/Text)	Salammbô
+Q11772710	165(en/Text)	McTeague
+Q11827	20050(de/Sound)	Hans in Luck
+Q1189993	9911(en/Text)	First Love
+Q1190533	8868(en/Text)	Botchan
+Q1192756	8989(en/Sound)	The Survivors of the Chancellor
+Q1193108	34580(en/Text)	The Ego and Its Own
+Q1193400	55135(fr/Text)	Foundling Mick
+Q1194031	36483(en/Text)	Wilhelm Meister's Apprenticeship
+Q1194272	14021(en/Text)	Lord of the World
+Q1195233	1137(en/Text)	A Lover's Complaint
+Q1196205	2667(en/Text)	The Vicar of Wakefield
+Q1196220	1525(en/Text)	The Phoenix and the Turtle
+Q1196857	1074(en/Text)	The Sea-Wolf
+Q1196990	1017(en/Text)	The Soul of Man under Socialism
+Q11970411	44275(da/Text)	Fru Marie Grubbe
+Q1197590	8558(en/Text)	L'Assommoir
+Q1198668	220(en/Text)	The Secret Sharer
+Q1198839	5781(fr/Text)	Le Grand Meaulnes
+Q1199417	6838(fr/Text)	The Last Day of a Condemned Man
+Q12006423	10686(da/Text)	Tina
+Q1209658	28827(fr/Text)	La Religieuse
+Q1211109	57895(pt/Text)	Toilers of the Sea
+Q1211539	39441(de/Text)	Monadology
+Q1211706	11645(fr/Text)	At the Sign of the Reine Pédauque
+Q1212137	10339(en/Text)	An Antarctic Mystery
+Q1212773	56541(en/Text)	La Joie de vivre
+Q1213025	12005(fr/Text)	Les Chants de Maldoror
+Q1213641	1930(en/Text)	Penguin Island
+Q1213684	3091(en/Text)	Eight Hundred Leagues on the Amazon
+Q1214091	689(en/Text)	The Kreutzer Sonata
+Q1214669	26661(en/Text)	The Power of Darkness
+Q1215399	376(en/Text)	A Journal of the Plague Year
+Q1217608	73631(en/Text)	The Wild Duck
+Q1218644	1564(en/Text)	The Life of Samuel Johnson
+Q1218663	54672(en/Text)	The Indiscreet Jewels
+Q1219303	67819(es/Text)	Bug-Jargal
+Q1219561	46541(fr/Text)	Around the World in Eighty Days
+Q1229968	2319(de/Text)	West–Eastern Diwan
+Q1232238	20239(en/Text)	De architectura
+Q1232616	2848(en/Text)	Antiquities of the Jews
+Q1242501	57105(fi/Text)	Somnium Scipionis
+Q1245187	1708(en/Text)	Don Juan
+Q1247666	974(en/Text)	The Secret Agent
+Q1248585	4264(en/Text)	The Golden Bowl
+Q1248773	153(en/Text)	Jude the Obscure
+Q1249459	921(en/Text)	De Profundis
+Q1263579	4061(en/Text)	The Fifteen Decisive Battles of the World
+Q1265755	833(en/Text)	The Theory of the Leisure Class
+Q126918738	18269(en/Text)	Pascal's Pensées
+Q1269280	6157(en/Text)	How Much Land Does a Man Need?
+Q1296168	5323(de/Text)	Effi Briest
+Q130295	43936(en/Text)	The Wonderful Wizard of Oz
+Q1302957	986(en/Text)	Master and Man
+Q1304649	913(en/Text)	A Hero of Our Time
+Q1304875	15203(fr/Text)	The Lottery Ticket
+Q1305106	624(en/Text)	Looking Backward
+Q1306663	4320(en/Text)	An Enquiry Concerning the Principles of Moral
+Q1317839	1056(en/Text)	Martin Eden
+Q132042	1322(en/Text)	Leaves of Grass
+Q1327411	16457(en/Text)	Around the Moon
+Q1329329	1142(en/Text)	Typhoon
+Q1339248	525(en/Text)	Youth
+Q1340493	786(en/Text)	Hard Times: For These Times
+Q1348323	33224(en/Text)	Principles of Geology
+Q135598	11136(en/Text)	Discourse on Inequality
+Q136110039	70796(en/Text)	
+Q1369241	2321(de/Text)	Götz von Berlichingen
+Q1373343	1177(en/Text)	Memorabilia
+Q1373644	11049(fr/Text)	Eugénie Grandet
+Q1398793	1505(en/Text)	The Rape of Lucrece
+Q140057	18972(en/Text)	Zadig or Destiny
+Q140128213	68612(en/Text)	An Account of the Principalities of Wallachia
+Q140527	13951(fr/Text)	The Three Musketeers
+Q141568	122(en/Text)	The Return of the Native
+Q1432001	10425(de/Text)	Torquato Tasso
+Q1435976	1175(en/Text)	Hiero
+Q143707	1355(en/Text)	The Child of the Cavern
+Q144132	36541(en/Text)	Unto This Last
+Q1444644	2664(en/Text)	Zanoni
+Q1446938	17517(fr/Text)	L'Œuvre
+Q14566477	4537(en/Text)	Sylvia's Lovers
+Q146866	1938(en/Text)	Resurrection
+Q14981036	9906(en/Text)	In the Sargasso Sea
+Q1498315	4341(en/Text)	Mutual Aid: A Factor of Evolution
+Q151883	2527(en/Text)	The Sorrows of Young Werther
+Q152267	910(en/Text)	White Fang
+Q1557935	883(en/Text)	Our Mutual Friend
+Q1567505	160(en/Text)	The Awakening
+Q1605244	13861(fr/Text)	Adolphe
+Q1635110	6053(en/Text)	Evelina
+Q16385244	7605(en/Text)	The Caxtons
+Q16386106	3837(en/Text)	Hospital Sketches
+Q16386839	20606(en/Text)	The Magic City
+Q1639633	1259(en/Text)	Twenty Years After
+Q16438	23700(en/Text)	The Decameron
+Q164974	56586(de/Text)	Oliver Twist
+Q16514368	687(en/Text)	A Personal Record
+Q165318	2554(en/Text)	Crime and Punishment
+Q1659447	54(en/Text)	The Marvelous Land of Oz
+Q16653711	2305(en/Text)	The Duel
+Q16765210	26608(fr/Text)	The Treasure of the City of Ladies
+Q1691889	1862(en/Text)	Tartarin of Tarascon
+Q17027661	1463(en/Text)	The Private Papers of Henry Ryecroft
+Q170583	1342(en/Text)	Pride and Prejudice
+Q17088580	9051(en/Text)	Sanin
+Q17360856	18269(en/Text)	Pensées
+Q17407121	527(en/Text)	The End of the Tether
+Q17512014	55948(en/Text)	The Abysmal Brute
+Q1755607	8563(fr/Text)	La Terre
+Q176465	4093(en/Text)	Hedda Gabler
+Q1768515	3704(en/Text)	The Voyage of the Beagle
+Q1774700	2296(en/Text)	The Pillars of Society
+Q1776855	102(en/Text)	Pudd'nhead Wilson
+Q180471	30442(en/Text)	Letters From My Windmill
+Q180736	135(en/Text)	Les Misérables
+Q18084	41085(en/Text)	Vita Nuova
+Q1810331	773(en/Text)	Lord Arthur Savile's Crime and Other Stories
+Q18209556	14658(en/Text)	The Road
+Q1826666	9911(en/Text)	Torrents of Spring
+Q182961	1260(en/Text)	Jane Eyre
+Q183157	28054(en/Text)	The Brothers Karamazov
+Q183565	54873(fr/Text)	Twenty Thousand Leagues Under the Sea
+Q184222	5200(en/Text)	The Metamorphosis
+Q185118	120(en/Text)	Treasure Island
+Q1853142	4276(en/Text)	North and South
+Q185427	391(en/Text)	The Song of Roland
+Q1898036	2275(en/Text)	The Pioneers
+Q189811	766(en/Text)	David Copperfield
+Q1903609	968(en/Text)	Martin Chuzzlewit
+Q19082339	66791(en/Text)	The City of the Saints
+Q19106711	494(en/Text)	To-morrow
+Q19129908	44797(it/Text)	Ettore Fieramosca
+Q191380	2610(en/Text)	The Hunchback of Notre Dame
+Q191663	2383(en/Text)	The Canterbury Tales
+Q19169639	58881(en/Text)	Philosophical Essay on Probabilities
+Q19196151	63083(en/Text)	The Marquis de Villemer
+Q192649	798(fr/Text)	The Red and the Black
+Q193034	3207(en/Text)	Leviathan
+Q1932742	1954(en/Text)	Colonel Chabert
+Q193417	14155(fr/Text)	Madame Bovary
+Q19450117	66644(en/Text)	Origin and ideals of the modern school
+Q1962786	59047(it/Text)	La scienza in cucina e l'arte di mangiar bene
+Q1985932	4651(fr/Text)	The Huron; or, Pupil of Nature
+Q1994609	52611(fr/Text)	The Devil in Love
+Q2020094	13857(fr/Text)	La Reine Margot
+Q2048624	6124(en/Text)	Pamela; or, Virtue Rewarded
+Q2054880	676(en/Text)	The Battle of Life
+Q205882	18947(en/Text)	Prose Edda
+Q206400	2243(en/Text)	The Merchant of Venice
+Q2068990	372(en/Text)	Prince Otto
+Q20820648	493(en/Text)	Falk
+Q2092894	13159(en/Text)	Illusions perdues
+Q2104534	1212(en/Text)	Love and Freindship
+Q21065374	27878(fr/Text)	Mémoires de Monsieur d'Artagnan
+Q210784	2638(en/Text)	The Idiot
+Q21127208	1745(en/Text)	The Poetical Works of John Milton
+Q2112787	9260(de/Text)	Prometheus
+Q2119279	301(en/Text)	The Ballad of Reading Gaol
+Q2124771	4558(en/Text)	The Luck of Barry Lyndon
+Q2126429	12065(fr/Text)	Three Tales
+Q2156104	7025(en/Text)	Rob Roy
+Q215894	19942(en/Text)	Candide
+Q216578	6099(fr/Text)	Les Fleurs du mal
+Q217352	43(en/Text)	Strange Case of Dr Jekyll and Mr Hyde
+Q219457	18857(en/Text)	A Journey to the Centre of the Earth
+Q219552	1400(en/Text)	Great Expectations
+Q21999654	1092(en/Text)	Descriptio Cambriae
+Q220002	4280(en/Text)	Critique of Pure Reason
+Q220331	12(en/Text)	Through the Looking-Glass
+Q221765	11556(en/Text)	Facing the Flag
+Q223131	244(en/Text)	A Study in Scarlet
+Q223688	2197(en/Text)	The Gambler
+Q223880	158(en/Text)	Emma
+Q2277224	27690(en/Text)	Nobody's Girl
+Q2277829	589(en/Text)	Catriona
+Q2293012	10859(en/Text)	Paul et Virginie
+Q2316161	56645(fr/Text)	The poet assassinated
+Q231949	7370(en/Text)	Two Treatises of Government
+Q2323961	18247(en/Text)	The Last Man
+Q2324782	383(en/Text)	She Stoops to Conquer
+Q23308023	14377(en/Text)	The Queen-Like Closet
+Q2343169	143(en/Text)	The Mayor of Casterbridge
+Q2343322	73425(en/Text)	The Guermantes Way
+Q2348040	63404(en/Text)	La Galatea
+Q2348190	1450(en/Text)	Pollyanna
+Q2362409	211(en/Text)	The Aspern Papers
+Q2362527	917(en/Text)	Barnaby Rudge
+Q2362563	155(en/Text)	The Moonstone
+Q2385639	11199(fr/Text)	Clair de lune
+Q238652	1880(en/Text)	The Pathfinder, or The Inland Sea
+Q2404359	720(en/Text)	Almayer's Folly
+Q240617	1237(en/Text)	Père Goriot
+Q2409203	17831(fr/Text)	La Débâcle
+Q2409540	13695(en/Text)	Une Page d'amour
+Q2420223	2343(en/Text)	The Adventure of Wisteria Lodge
+Q24402	1704(en/Text)	Pierrette
+Q2443714	4240(en/Text)	Women in Love
+Q2446784	2346(en/Text)	The Adventure of the Bruce-Partington Plans
+Q2449570	9182(en/Text)	Villette
+Q2451675	4705(en/Text)	A Treatise of Human Nature
+Q2453239	4274(en/Text)	Wives and Daughters
+Q2456670	3011(en/Text)	The Lady of the Lake
+Q2463076	1900(en/Text)	Typee
+Q2465530	57787(it/Text)	Orlando Innamorato
+Q2465752	1164(en/Text)	The Iron Heel
+Q2466799	2349(en/Text)	The Adventure of the Devil's Foot
+Q2466956	773(en/Text)	Lord Arthur Savile's Crime
+Q2469230	7853(en/Text)	Quentin Durward
+Q2470642	44139(fr/Text)	Le Calvaire
+Q2485789	27884(en/Text)	Niels Klim's Underground Travels
+Q2496854	6994(fr/Text)	Han d'Islande
+Q24971199	75840(en/Text)	The Trail of the Serpent
+Q2534897	63445(en/Text)	Indiana
+Q2543893	1432(en/Text)	Séraphîta
+Q2564464	1481(en/Text)	Une fille d'Ève
+Q2573817	2350(en/Text)	His Last Bow
+Q2600597	1606(en/Text)	Kenilworth
+Q2600909	3268(en/Text)	The Mysteries of Udolpho
+Q2604590	5228(en/Text)	Ayesha
+Q2605035	621(en/Text)	The Varieties of Religious Experience
+Q2607078	2153(en/Text)	Mary Barton
+Q2610567	14200(en/Text)	La Faute de l'Abbé Mouret
+Q2615930	864(en/Text)	The Master of Ballantrae
+Q26193	19200(en/Text)	The Protocols of the Elders of Zion
+Q2631465	1921(en/Text)	Les Chouans
+Q2634129	21970(en/Text)	The Scarlet Plague
+Q2637037	1596(en/Text)	Smoke Bellew
+Q264143	1080(en/Text)	A Modest Proposal
+Q264241	57145(fi/Text)	Gorgias
+Q265546	1661(en/Text)	A Scandal in Bohemia
+Q2659564	601(en/Text)	The Monk
+Q2660166	126(en/Text)	The Poison Belt
+Q2664833	9639(fr/Text)	La Dame de Monsoreau
+Q268211	131(en/Text)	The Pilgrim’s Progress
+Q26833	2267(en/Text)	Othello
+Q268545	7461(fr/Text)	Thérèse Raquin
+Q2699195	1856(en/Text)	Le Cousin Pons
+Q2700616	700(en/Text)	The Old Curiosity Shop
+Q2712800	1749(en/Text)	Cousin Bette
+Q2713465	360(en/Text)	What Is Property?
+Q2714636	5135(en/Text)	The Fortune of the Rougons
+Q2718088	1899(en/Text)	Le Curé de village
+Q2719097	1482(en/Text)	Modeste Mignon
+Q272506	175(en/Text)	The Phantom of the Opera
+Q273668	57085(fi/Text)	Apology
+Q2738351	8954(en/Text)	Lady Audley's Secret
+Q2740921	1898(en/Text)	Albert Savarus
+Q2742986	1683(en/Text)	Honorine
+Q2743363	19690(en/Text)	Apologia Pro Vita Sua
+Q274744	161(en/Text)	Sense and Sensibility
+Q2748292	50316(en/Text)	La Fontaine's Fables
+Q27653665	33562(da/Text)	Minna
+Q27912	12116(en/Text)	Struwwelpeter
+Q28226159	710(en/Text)	Love of Life & Other Stories
+Q28491	45334(it/Text)	The Betrothed
+Q289117	20178(eo/Text)	John Gabriel Borkman
+Q2894491	9455(en/Text)	Belinda
+Q2896920	55308(en/Text)	Progress and Poverty
+Q29053296	1709(en/Text)	New Grub Street
+Q2920815	13707(en/Text)	Twice-Told Tales
+Q2924760	20321(en/Text)	A Short Account of the Destruction of the Ind
+Q2931240	224(en/Text)	A Pair of Blue Eyes
+Q2943614	7118(en/Text)	What Maisie Knew
+Q2943621	375(en/Text)	An Occurrence at Owl Creek Bridge
+Q29478	21000(de/Text)	Faust
+Q2955918	64353(en/Text)	Fields, Factories, and Workshops
+Q2974972	11199(fr/Text)	
+Q2974973	11199(fr/Text)	In the Moonlight
+Q2976327	20006(eo/Text)	Dua Libro
+Q2992478	178(en/Text)	Confidence
+Q2995560	11714(fr/Text)	Contes de la bécasse
+Q301342	56668(fr/Text)	A Season in Hell
+Q3017080	18271(fr/Text)	Georges
+Q3024921	4277(en/Text)	Two Years Before the Mast
+Q3026751	14156(fr/Text)	Dictionary of Received Ideas
+Q3041819	2345(en/Text)	The Adventure of the Red Circle
+Q3041826	2348(en/Text)	The Disappearance of Lady Frances Carfax
+Q3048987	1943(en/Text)	Louis Lambert
+Q3050442	9504(en/Text)	Micah Clarke
+Q3055213	1055(en/Text)	Twixt Land and Sea
+Q3056735	56008(en/Text)	Mirèio
+Q3058688	69751(en/Text)	An Essay on the Inequality of the Human Races
+Q3078117	11450(fr/Text)	Like Death
+Q3079804	176(en/Text)	Roderick Hudson
+Q3080503	177(en/Text)	The American
+Q308918	98(en/Text)	A Tale of Two Cities
+Q3094928	1873(en/Text)	Gambara
+Q3095005	26806(fr/Text)	Gamiani
+Q3107447	1841(en/Text)	Z. Marcas
+Q3121862	2428(en/Text)	An Essay on Man
+Q313030	16575(en/Text)	The History of the Decline and Fall of the Ro
+Q3141640	23428(en/Text)	The Conquest of Bread
+Q3148901	650(en/Text)	Pictures from Italy
+Q3151490	1202(en/Text)	Tales of Unrest
+Q3177443	1161(en/Text)	Jerry of the Islands
+Q318333	55639(fr/Text)	Daphnis and Chloe
+Q3202134	26804(fr/Text)	Anti-Justine
+Q3203413	2160(en/Text)	The Expedition of Humphry Clinker
+Q3203517	2511(en/Text)	The History of Henry Esmond
+Q3204182	15305(fr/Text)	The Influence of a Book
+Q3206807	1196(en/Text)	La Bourse
+Q3207959	11051(en/Text)	The Cruise of the Dazzler
+Q3208395	469(en/Text)	La Duchesse de Langeais
+Q3208695	30587(fr/Text)	
+Q3209669	56646(fr/Text)	War of the Buttons
+Q3210302	11495(fr/Text)	
+Q3210327	1294(en/Text)	The Firm of Nucingen
+Q3210330	11596(fr/Text)	La Maison Tellier
+Q3211932	64599(en/Text)	The Princess Casamassima
+Q3220430	60199(fr/Text)	Le Bestiaire ou Cortège d'Orphée
+Q3221974	2123(en/Text)	The Crime of Sylvestre Bonnard
+Q3222487	647(en/Text)	More New Arabian Nights: The Dynamiter
+Q3222702	2182(en/Text)	The Marble Faun
+Q3224130	3922(en/Text)	The Red Lily
+Q3224650	6406(en/Text)	The Monastery
+Q3224969	1460(en/Text)	The Black Dwarf
+Q3225453	53247(fr/Text)	
+Q3225979	58967(en/Text)	The Procurator of Judea
+Q3232089	13848(fr/Text)	Les Diaboliques
+Q3232887	344(en/Text)	The Merry Men and Other Tales and Fables
+Q3234050	2415(en/Text)	The Mutiny of the Elsinore
+Q3234271	839(en/Text)	New Arabian Nights
+Q3235378	1344(en/Text)	Les Secrets de la princesse de Cadignan
+Q3235605	29021(en/Text)	The Ridiculous Wishes
+Q3235685	53247(fr/Text)	
+Q326914	74(en/Text)	The Adventures of Tom Sawyer
+Q3275960	14288(fr/Text)	Mademoiselle de Maupin
+Q3281243	2726(en/Text)	Eight Cousins; or, The Aunt-Hill
+Q3288936	28948(en/Text)	The Rainbow
+Q3297737	1811(en/Text)	Massimilla Doni
+Q329989	8117(en/Text)	Demons
+Q3300215	2194(en/Text)	Mauprat
+Q3307965	1730(en/Text)	Michael, Brother of Jerry
+Q3319936	55167(fr/Text)	
+Q3321615	50311(en/Text)	Mont-Oriol
+Q333179	105(en/Text)	Persuasion
+Q335315	2853(en/Text)	Quo Vadis
+Q3358443	26820(fr/Text)	Ourika
+Q338034	6470(fr/Text)	Le Ventre de Paris
+Q3407659	27083(en/Text)	The Subjection of Women
+Q3408612	2232(en/Text)	The Duchess of Malfi
+Q3480554	18211(fr/Text)	Servitude et grandeur militaires
+Q3485648	2305(en/Text)	A Set of Six
+Q3486765	10977(en/Text)	The Grizzly King
+Q3492113	423(en/Text)	Round the Red Lamp
+Q3548866	1585(en/Text)	The Wrong Box
+Q3548983	52642(en/Text)	King Lear of the Steppes
+Q3549147	1456(en/Text)	An Episode Under the Terror
+Q3561344	802(fr/Text)	Vittoria Accoramboni, duchess of Bracciano
+Q3576767	3177(en/Text)	Roughing It
+Q35783041	2190(de/Text)	
+Q3606509	1169(en/Text)	Agesilaus
+Q36097	7849(en/Text)	The Trial
+Q3614013	675(en/Text)	American Notes
+Q3629872	56621(en/Text)	Aurora Leigh
+Q3655711	55236(it/Text)	Canti
+Q3667379	935(en/Text)	Self-Help
+Q3681191	2046(en/Text)	Clotel
+Q3685905	2480(en/Text)	Under Western Eyes
+Q3693562	60810(fr/Text)	Corinne ou l'Italie
+Q3704079	65404(en/Text)	On Buildings
+Q37620718	11467(nl/Text)	
+Q3772100	63893(en; it/Text)	The Idiots
+Q377466	1680(en/Text)	La Maison du Chat-qui-pelote
+Q3790431	61209(it/Text)	I Robinson italiani
+Q3792929	8455(en/Text)	The Saint
+Q3793957	2377(en/Text)	The Son of the Wolf
+Q3796263	2148(en/Text)	Landor's Cottage
+Q3801664	1172(en/Text)	Hipparchicus
+Q3815979	17013(es/Text)	Fortunata and Jacinta
+Q3819605	1089(en/Text)	The Shadow and the Flash
+Q3819971	1213(en/Text)	The Man That Corrupted Hadleyburg and Other S
+Q3820043	21816(en/Text)	The Confidence-Man
+Q3820779	4351(en/Text)	The English Constitution
+Q3821271	10053(fr/Text)	The Vampire Countess
+Q3822291	25180(it/Text)	
+Q382282	26095(en/Text)	Constitution of the Athenians
+Q3824668	21768(en/Text)	The Tragedy of the Korosko
+Q3825485	30344(en/Text)	Roxana: The Fortunate Mistress
+Q3832392	1640(en/Text)	Lilith
+Q3837179	2437(en/Text)	They and I
+Q384635	16820(fr/Text)	The Diary of a Chambermaid
+Q3851863	15238(en/Text)	Mathilda
+Q387480	479(en/Text)	Little Lord Fauntleroy
+Q3882301	4045(en/Text)	Omoo
+Q3885500	6354(en/Text)	Italian Hours
+Q389933	6318(fr/Text)	The Miser
+Q392147	1661(en/Text)	The Adventures of Sherlock Holmes
+Q3940410	8726(en/Text)	Rome
+Q3963990	31080(it/Text)	Sophonisba
+Q4007947	2081(en/Text)	The Blithedale Romance
+Q4009998	55849(en/Text)	Vérité
+Q40157156	12447(fr/Text)	
+Q40185	57303(es/Text)	The Divine Comedy
+Q401954	1848(en/Text)	Montezuma's Daughter
+Q404158	2130(en/Text)	Utopia
+Q40591	61(en/Text)	The Communist Manifesto
+Q4127106	746(en/Text)	Burning Daylight
+Q41542	345(en/Text)	Dracula
+Q4154269	561(en/Text)	The Farther Adventures of Robinson Crusoe
+Q4180222	520(en/Text)	The Life and Adventures of Santa Claus
+Q4197654	1160(en/Text)	The Game
+Q421615	30779(fr/Text)	Les Aventures de Télémaque
+Q42192620	63794(fr/Text)	The Man Who Married a Dumb Wife
+Q42719846	17851(en/Text)	The History of Mary Prince
+Q4354019	6317(en/Text)	Sailing Alone Around the World
+Q4355403	18891(en/Text)	Dot and the Kangaroo
+Q4395914	5148(en/Text)	Rodney Stone
+Q4460113	93(en/Text)	Tom Sawyer, Detective
+Q44701	969(en/Text)	The Tenant of Wildfell Hall
+Q4517325	64908(en/Text)	What Is Art?
+Q45192	3070(en/Text)	The Hound of the Baskervilles
+Q451932	6648(de/Text)	Penthesilea
+Q459842	17(en/Text)	Book of Mormon
+Q460583	580(en/Text)	The Pickwick Papers
+Q4656134	43469(en/Text)	A Counterfeit Presentment
+Q4657268	4600(en/Text)	A Hazard of New Fortunes
+Q4658949	20257(en/Text)	A Political Romance
+Q4659461	13240(en/Text)	A Short Biographical Dictionary of English Li
+Q4660060	2098(en/Text)	A Thief in the Night
+Q4660769	32242(en/Text)	A Wonder-Book for Girls and Boys
+Q466166	2347(en/Text)	The Adventure of the Dying Detective
+Q4661765	4520(en/Text)	Aaron's Rod
+Q466505	708(en/Text)	The Princess and the Goblin
+Q4674957	1604(en/Text)	The Ebb-Tide. A Trio and a Quartette
+Q4675044	322(en/Text)	St. Ives
+Q468654	57477(hu/Text)	Slave of the Huns
+Q469690	141(en/Text)	Mansfield Park
+Q470844	6450(en/Text)	The Prairie
+Q471715	1735(en/Text)	Sophist
+Q472194	17396(en/Text)	The Secret Garden
+Q4749187	495(en/Text)	Amy Foster
+Q475063	2054(de/Text)	Iphigenia in Tauris
+Q476871	215(en/Text)	The Call of the Wild
+Q477508	121(en/Text)	Northanger Abbey
+Q478537	17731(en/Text)	The Nigger of the 'Narcissus'
+Q4792516	1895(en/Text)	Armadale
+Q4803053	4507(en/Text)	As a Man Thinketh
+Q4859885	3409(en/Text)	Barchester Towers
+Q486727	1600(en/Text)	Symposium
+Q48922	3747(it/Text)	Orlando Furioso
+Q4926580	7890(en/Text)	Blind Love
+Q493574	940(en/Text)	The Last of the Mohicans
+Q499059	2344(en/Text)	The Adventure of the Cardboard Box
+Q500688	2097(en/Text)	The Sign of Four
+Q5029115	19500(en/Text)	Can You Forgive Her?
+Q50949337	56301(es/Text)	Hacia una moral sin dogmas
+Q510699	1951(en/Text)	The Coming Race
+Q513017	1189(en/Text)	The Message
+Q5160036	44881(en/Text)	Confessions of a Thug
+Q5161083	7412(en/Text)	Coningsby: or, The New Generation
+Q517172	767(en/Text)	Agnes Grey
+Q5178818	24103(en/Text)	Cousin Henry
+Q51880533	47293(en/Text)	Bird children, the little playmates of the fl
+Q5193480	4212(en/Text)	Culture and Anarchy
+Q520328	1591(en/Text)	Protagoras
+Q523076	514(en/Text)	Little Women
+Q5232968	67065(en/Text)	Exercitatio Anatomica de Motu Cordis et Sangu
+Q5295444	11413(en/Text)	The Refugees
+Q5295669	355(en/Text)	The Parasite
+Q5337298	8223(en/Text)	Edgar Huntly
+Q53592	12901(en/Text)	From the Earth to the Moon
+Q5366603	56202(zh/Text)	Shi Yi Ji
+Q5367777	25249(zh/Text)	Jìnsīlù
+Q5378288	58938(en/Text)	English Hours
+Q538574	48870(en/Text)	Vita Karoli Magni
+Q5419729	9846(en/Text)	Excursions
+Q5443477	3172(en/Text)	Fenimore Cooper's Literary Offenses
+Q54548	57832(fr/Text)	Vathek
+Q54639836	60908(en/Text)	A Diary from Dixie
+Q548576	696(en/Text)	The Castle of Otranto
+Q552238	7469(en/Text)	Daniel Deronda
+Q558971	91(en/Text)	Tom Sawyer Abroad
+Q559667	378(en/Text)	Tirant lo Blanc
+Q56323182	5105(fr/Text)	Tartarin on the Alps
+Q5642996	107(en/Text)	Far from the Madding Crowd
+Q565638	963(en/Text)	Little Dorrit
+Q5724235	1235(en/Text)	Captain Fracasse
+Q5724762	40813(en/Text)	Smoke
+Q574887	208(en/Text)	Daisy Miller
+Q579794	7204(de/Text)	Beyond Good and Evil
+Q58178849	31873(en/Text)	Heinrich von Ofterdingen
+Q583705	1619(es/Text)	La Celestina
+Q584729	1537(en/Text)	Pericles, Prince of Tyre
+Q589197	20657(en/Text)	Tales from Shakspeare
+Q600849	37005(en/Text)	The Devil's Elixirs
+Q6014663	11030(en/Text)	Incidents in the Life of a Slave Girl
+Q60221558	44255(fr/Text)	Histoires naturelles
+Q60284880	5199(en/Text)	South
+Q605921	942(en/Text)	Green Mansions
+Q6062406	12352(en/Text)	Iola Leroy
+Q607232	17516(fr/Text)	L'Argent
+Q6115945	2786(en/Text)	Jack and Jill: A Village Story
+Q612523	370(en/Text)	Moll Flanders
+Q612570	39738(fr/Text)	Lelia
+Q612836	599(en/Text)	Vanity Fair
+Q615175	30486(en/Text)	Shirley
+Q615383	2149(en/Text)	The Narrative of Arthur Gordon Pym of Nantuck
+Q622634	4548(fr/Text)	
+Q6237289	2351(en/Text)	John Halifax, Gentleman
+Q624852	3600(en/Text)	Essays
+Q625923	209(en/Text)	The Turn of the Screw
+Q626663	1162(en/Text)	The Star Rover
+Q62879	46(en/Text)	A Christmas Carol
+Q6315940	440(en/Text)	Just David
+Q63677351	67143(en/Text)	
+Q638327	550(en/Text)	Silas Marner
+Q640513	3155(en/Text)	She: A History of Adventure
+Q642211	16816(fr/Text)	Le Roman de la Rose
+Q644271	8175(fr/Text)	Kéraban the Inflexible
+Q6469952	65799(en/Text)	Lady Athlyne
+Q6499786	1598(en/Text)	Euthydemus
+Q650063	1754(en/Text)	The Seagull
+Q650571	432(en/Text)	The Ambassadors
+Q651866	778(en/Text)	Five Children and It
+Q652011	2257(en/Text)	Richard III
+Q65240159	55649(fi/Text)	En resa i Finland
+Q653871	17897(en/Text)	Summa Theologica
+Q654562	12410(en/Text)	The Travels of Marco Polo
+Q657215	5322(de/Text)	Woyzeck
+Q663632	10720(en/Text)	Doctor Pascal
+Q664813	18752(en/Text)	Undine
+Q665830	54528(fr/Text)	La 628-E8
+Q66763612	55814(en/Text)	The Comic Adventures of Old Mother Hubbard an
+Q66912258	28990(en/Text)	The Book of Saints and Friendly Beasts
+Q669694	15492(en/Text)	A Doll's House
+Q669911	1738(en/Text)	Statesman
+Q670350	1653(en/Text)	The Imitation of Christ
+Q674638	1174(en/Text)	Hellenica
+Q674832	2465(en/Text)	Carmen
+Q678251	5998(en/Text)	Waverley
+Q68085775	58299(fr/Text)	
+Q6816281	1557(en/Text)	Men of Iron
+Q6917312	10540(en/Text)	Mother Carey's Chickens
+Q692567	57775(fr/Text)	The Torture Garden
+Q695116	600(en/Text)	Notes from Underground
+Q7019506	3261(en/Text)	News from Nowhere
+Q708177	151(en/Text)	The Rime of the Ancient Mariner
+Q7091008	1091(en/Text)	On Heroes, Hero-Worship, and The Heroic in Hi
+Q716755	30411(en/Text)	English as She Is Spoke
+Q725752	108(en/Text)	The Return of Sherlock Holmes
+Q727408	5658(en/Text)	Lord Jim
+Q728312	201(en/Text)	Flatland
+Q7305519	8118(en/Text)	Redburn
+Q73112	1170(en/Text)	Anabasis
+Q731224	13846(fr/Text)	Discourse on the Method
+Q733582	2350(en/Text)	His Last Bow
+Q734607	873(en/Text)	A House of Pomegranates
+Q7363279	24020(en/Text)	Romola
+Q7368002	2804(en/Text)	Rose in Bloom
+Q741570	17533(fr/Text)	Le Rêve
+Q74263	33504(en/Text)	Opticks, or a Treatise of the Reflections, Re
+Q7474518	179(en/Text)	The Europeans
+Q750670	73144(en/Text)	Lady Chatterley's Lover
+Q752285	1750(en/Text)	Laws
+Q7628058	60547(en/Text)	Studies in Classic American Literature
+Q763184	56149(fr/Text)	À rebours
+Q7632777	3470(en/Text)	Such Is Life
+Q7673114	3020(en/Text)	Table-Talk
+Q768605	5082(fr/Text)	The Castle From Carpathians
+Q768792	804(en/Text)	A Sentimental Journey Through France and Ital
+Q769001	2609(en/Text)	The Vicomte of Bragelonne: Ten Years Later
+Q7712149	1473(en/Text)	The Absentee
+Q7713449	3179(en/Text)	The American Claimant
+Q7714957	22016(fr/Text)	The Autobiography of Benjamin Franklin
+Q7715895	9270(en/Sound)	The Battle of the Books
+Q7719685	63000(en/Text)	The Boy in the Bush
+Q7723455	1366(en/Text)	The Cloister and the Hearth
+Q772985	1019(en/Text)	Poems by Currer, Ellis, and Acton Bell
+Q7732627	7381(en/Text)	The Eustace Diamonds
+Q7735828	1429(en/Text)	The Garden Party
+Q7737024	2735(en/Text)	The Golden Dog
+Q7739106	6491(en/Text)	The Head of the House of Coombe
+Q7739314	2505(en/Text)	The Heir of Redclyffe
+Q7747148	6758(en/Text)	The Life and Adventures of Sir Launcelot Grea
+Q7749272	29000(en/Text)	The Macdermots of Ballycloran
+Q7750004	16493(en/Text)	The Man Without a Country
+Q7750109	5083(en/Text)	The Man of Feeling
+Q7756406	4298(en/Text)	The Paying Guest
+Q7756660	6769(en/Text)	The People of the Mist
+Q7758216	2158(en/Text)	The Prime Minister
+Q7758766	1032(en/Text)	The Pupil
+Q7759905	56548(fi/Text)	The Red One
+Q7760876	19831(en/Text)	The Rise and Fall of the Confederate Governme
+Q7760892	154(en/Text)	The Rise of Silas Lapham
+Q7761552	897(en/Text)	The Rose and the Ring
+Q7762571	59844(en/Text)	The Science of Getting Rich
+Q7764868	4599(en/Text)	The Small House at Allington
+Q7764983	60004(en/Text)	The Snake and the Crab
+Q7765949	11068(en/Text)	The Spirit of the Age
+Q7766827	1441(en/Text)	The Story of an African Farm
+Q7766831	837(en/Text)	The Story of the Amulet
+Q7771322	914(en/Text)	The Uncommercial Traveller
+Q7773721	8778(en/Text)	The Water of the Wondrous Isles
+Q7784409	11323(en/Text)	Things as They Are; or, The Adventures of Cal
+Q780407	11231(en/Text)	Bartleby, the Scrivener
+Q784882	816(en/Text)	Democracy in America
+Q785255	139(en/Text)	The Lost World
+Q7859431	3146(en/Text)	Two on a Tower
+Q7901800	11175(fr/Text)	Useless Beauty
+Q7927453	9358(en/Sound)	Victory
+Q797466	902(en/Text)	The Happy Prince and Other Tales
+Q7991265	38690(en/Text)	What Is to Be Done?
+Q7992627	39666(en/Text)	When It Was Dark
+Q80771	217(en/Text)	Sons and Lovers
+Q82464	4078(en/Text)	The Picture of Dorian Gray
+Q825220	678(en/Text)	The Cricket on the Hearth
+Q831242	25696(zh/Text)	Baopuzi
+Q833645	2270(en/Text)	First Folio
+Q8343249	57781(es/Text)	
+Q837311	25414(zh/Text)	Liexian Zhuan
+Q840974	82(en/Text)	Ivanhoe
+Q847642	967(en/Text)	Nicholas Nickleby
+Q84764650	9256(en/Text)	The Paradise of Children
+Q848612	86(en/Text)	A Connecticut Yankee in King Arthur's Court
+Q852724	50040(en/Text)	Rule of Saint Benedict
+Q855801	3285(en/Text)	The Deerslayer
+Q8565314	2860(en/Text)	Framley Parsonage
+Q858036	1404(en/Text)	Federalist Papers
+Q85943807	56440(en/Text)	Physiological Researches upon Life and Death
+Q861527	7202(de/Text)	Ecce Homo
+Q862050	52006(fr/Text)	Les Liaisons dangereuses
+Q863438	3289(en/Text)	The Valley of Fear
+Q869725	1837(en/Text)	The Prince and the Pauper
+Q870851	5683(en/Text)	Critique of Practical Reason
+Q880092	271(en/Text)	Black Beauty
+Q883305	1023(en/Text)	Bleak House
+Q890170	134(en/Text)	Maria: or, The Wrongs of Woman
+Q900752	14474(en/Text)	A Course of Six Lectures on the Chemical Hist
+Q9024244	1484(en/Text)	The Four Horsemen of the Apocalypse
+Q907568	33(en/Text)	The Scarlet Letter
+Q913599	5427(en/Text)	Emile, or On Education
+Q913656	2816(en/Text)	The City of the Sun
+Q919067	11024(nl/Text)	Max Havelaar
+Q919581	12954(en/Text)	The Phantom Ship
+Q919929	5077(en/Text)	Marmion
+Q924977	1579(en/Text)	Lysis
+Q929899	4968(fr/Text)	The Begum's Fortune
+Q933118	64555(en/Text)	Lodore
+Q942810	5154(fr/Text)	La Bête humaine
+Q945216	39976(fr/Text)	Jacques the Fatalist
+Q948984	2183(en/Text)	Three Men on the Bummel
+Q951198	2403(de/Text)	Elective Affinities
+Q952340	1377(en/Text)	The Talisman
+Q955910	308(en/Text)	Three Men in a Boat
+Q961957	108(en/Text)	The Adventure of the Three Students
+Q962265	17553(fr/Text)	La Curée
+Q963659	821(en/Text)	Dombey and Son
+Q9636815	68717(en/Text)	The American Scene
+Q965564	4583(en/Text)	Dialogues Concerning Natural Religion
+Q965704	2450(en/Text)	Boyhood
+Q967862	1350(en/Text)	The Country Doctor
+Q968544	2188(de/Text)	Die Aufzeichnungen des Malte Laurids Brigge
+Q969970	1874(en/Text)	The Railway Children
+Q974886	8743(en/Text)	The Amber Witch
+Q997511	16507(en/Text)	Idle Thoughts of an Idle Fellow

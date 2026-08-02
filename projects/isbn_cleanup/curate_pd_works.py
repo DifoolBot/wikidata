@@ -39,6 +39,7 @@ from pathlib import Path
 import pywikibot
 import requests
 from pywikibot.data import api as pwb_api
+from stdnum import isbn as stdnum_isbn
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
@@ -409,7 +410,7 @@ def build_gutenberg_specs(work_page, work_qid, gutenberg_id, volume=None):
         p747_quals.append((wd.PID_PUBLICATION_DATE, issued, "time"))
     p747_quals.append((wd.PID_PUBLISHER, wd.QID_PROJECT_GUTENBERG, "item"))
     p747_quals.append((wd.PID_DISTRIBUTION_FORMAT, QID_EBOOK, "item"))
-    return {title[1]: title[0]}, descriptions, specs, p747_quals
+    return {"mul": title[0]}, descriptions, specs, p747_quals  # mul = language-agnostic title label
 
 
 _VOLUME_RE = re.compile(r"\b(vol\.?|volume|tome|band|deel|tomo)\s*([ivxlcdm]+|\d+)\b"
@@ -541,6 +542,15 @@ def handle_identifier(work_page, work_qid, pid, claim, editions, edit_pages, des
             print(f"  ⚠ Gutenberg {value} = \"{entry['title']}\" is a VOLUME ({vol}); "
                   "[v] creates ONE edition for this volume (P478-qualified) -- add the other volumes to it manually.")
             has_template, default = False, "k"
+    # OCLC number: look up its ISBN (via Open Library) and, if a linked edition already has
+    # that ISBN, default to moving the OCLC straight onto that edition (matched by ISBN).
+    if pid == wd.PID_OCLC_CONTROL_NUMBER:
+        isbns = oclc_isbns(str(value))
+        match = edition_with_isbn(editions, isbns) if isbns else None
+        if match:
+            print(f"    OCLC {value} -> ISBN {', '.join(sorted(isbns))}, already on edition {match} "
+                  "-> move it there (default).")
+            default = f"m{match}"
     opts = ("[c]reate version item / " if has_template else "") + \
            ("[v]create edition for THIS volume / " if vol else "") + \
            "[m]<Qid> move to edition / [d]eprecate on work / [k]eep"
@@ -593,6 +603,61 @@ def ol_redirect_target(ol_id: str) -> str | None:
     return None
 
 
+def _isbn13(s: str) -> str | None:
+    """Normalise an ISBN-10/13 (any hyphenation) to a compact ISBN-13 for comparison."""
+    try:
+        return stdnum_isbn.to_isbn13(stdnum_isbn.compact(s))
+    except Exception:
+        return None
+
+
+def oclc_isbns(oclc: str) -> set:
+    """ISBN-13s an OCLC number maps to, via Open Library (`bibkeys=OCLC:<n>`) -- the free
+    route now that OCLC's xISBN is gone. Empty on a miss (OL lacks that record)."""
+    r = _http("GET", "https://openlibrary.org/api/books",
+              params={"bibkeys": f"OCLC:{oclc}", "format": "json", "jscmd": "data"}, timeout=30)
+    if r is None:
+        return set()
+    out = set()
+    try:
+        for _, v in r.json().items():
+            ids = v.get("identifiers", {})
+            for key in ("isbn_13", "isbn_10"):
+                for isbn in ids.get(key, []):
+                    n = _isbn13(isbn)
+                    if n:
+                        out.add(n)
+    except (ValueError, AttributeError):
+        pass
+    return out
+
+
+def edition_with_isbn(editions, isbns: set) -> str | None:
+    """QID of a linked edition carrying one of ``isbns`` (compact ISBN-13), else None."""
+    for e in editions:
+        for pid in (wd.PID_ISBN_13, wd.PID_ISBN_10):
+            for c in live(e.claims.get(pid, [])):
+                v = c.getTarget()
+                if isinstance(v, str) and _isbn13(v) in isbns:
+                    return e.getID()
+    return None
+
+
+def ol_edition_work(ol_id: str) -> str | None:
+    """The Open Library WORK id (OL…W) an edition id (OL…M) belongs to, via the OL API
+    (`/books/<id>.json` -> works[0].key), e.g. OL7182315M -> OL660397W. None on error."""
+    r = _http("GET", f"https://openlibrary.org/books/{ol_id}.json", timeout=30)
+    if r is None:
+        return None
+    try:
+        works = r.json().get("works", [])
+        if works:
+            return works[0].get("key", "").rsplit("/", 1)[-1] or None
+    except (ValueError, AttributeError, IndexError):
+        pass
+    return None
+
+
 def handle_openlibrary(work_page, work_qid, editions, edit_pages, descs,
                        pending_creates, dry_run, eg) -> None:
     """Open Library ids (P648) encode the FRBR level in the id suffix: ...W = work,
@@ -613,6 +678,15 @@ def handle_openlibrary(work_page, work_qid, editions, edit_pages, descs,
         suffix = v[-1:].upper()
         if suffix == "M":
             print(f"  P648 = {v} (…M = edition manifestation) -> edition-level")
+            # The …M records its OL work (…W); offer to add that work id to the WORK item.
+            wk = ol_edition_work(v)
+            if wk and wk not in all_values:
+                if csp.confirm(f"    add the OL work id P648 = {wk} to the work (from edition {v})?", True):
+                    wc = pywikibot.Claim(repo, wd.PID_OPEN_LIBRARY_ID)
+                    wc.setTarget(wk)
+                    work_page.add_claim(wd.PID_OPEN_LIBRARY_ID, wc)
+                    descs.append(f"+ P648 = {wk} (OL work id, from edition {v})")
+                    all_values.add(wk)   # a second …M mapping to the same work won't re-offer
             handle_identifier(work_page, work_qid, wd.PID_OPEN_LIBRARY_ID, c, editions,
                               edit_pages, descs, pending_creates, dry_run, eg)
         elif suffix == "W":
@@ -672,7 +746,7 @@ def _assemble_first_edition(title, work_qid, publisher_qids, lang_qid, authors, 
         p747_quals.append((wd.PID_PUBLISHER, pub, "item"))
     if place_qid:
         p747_quals.append((wd.PID_PLACE_OF_PUBLICATION, place_qid, "item"))
-    return {title[1]: title[0]}, descriptions, specs, p747_quals
+    return {"mul": title[0]}, descriptions, specs, p747_quals  # mul = language-agnostic title label
 
 
 def _qid_list(s: str) -> list[str]:
@@ -856,7 +930,7 @@ def handle_publisher(work_page, editions, edit_pages, descs, dry_run, eg) -> Non
             descs.append(f"  (first edition's publisher differs: {others})")
 
 
-def process_item(qid, edit_group, dry_run) -> bool:
+def process_item(qid, edit_group, dry_run, no_first_ed=False) -> bool:
     item = pywikibot.ItemPage(repo, qid)
     page = cwd.WikiDataPage(item, test=dry_run)
     page.edit_group = edit_group
@@ -876,9 +950,10 @@ def process_item(qid, edit_group, dry_run) -> bool:
                               pending_creates, dry_run, edit_group)
     handle_openlibrary(page, qid, editions, edit_pages, descs, pending_creates, dry_run, edit_group)
     # Offer to mint a first-edition item from the work's own facts; if taken, the publisher
-    # is moved onto it, so skip the deprecate-based publisher rule.
-    if not handle_first_edition(page, qid, editions, edit_pages, descs, pending_first_ed,
-                                dry_run, edit_group):
+    # is moved onto it, so skip the deprecate-based publisher rule. --no-first-edition skips
+    # the (research-heavy) first-edition prompt for a fast Gutenberg-only batch pass.
+    if no_first_ed or not handle_first_edition(page, qid, editions, edit_pages, descs,
+                                               pending_first_ed, dry_run, edit_group):
         handle_publisher(page, editions, edit_pages, descs, dry_run, edit_group)
 
     if not descs:
@@ -983,6 +1058,8 @@ def main() -> None:
     p.add_argument("--qid", action="append", default=[], metavar="QID")
     p.add_argument("--file", metavar="PATH")
     p.add_argument("--death-year", type=int, default=DEFAULT_DEATH_YEAR, metavar="Y")
+    p.add_argument("--no-first-edition", action="store_true",
+                   help="skip the first-edition prompt (fast Gutenberg-only batch pass)")
     p.add_argument("--editgroup", metavar="ID")
     args = p.parse_args()
 
@@ -1007,7 +1084,7 @@ def main() -> None:
             continue
         processed += 1
         try:
-            changed = process_item(qid, eg, dry_run=not args.save)
+            changed = process_item(qid, eg, dry_run=not args.save, no_first_ed=args.no_first_edition)
         except Exception as e:
             pywikibot.error(f"Error on {qid}: {e}")
             continue
