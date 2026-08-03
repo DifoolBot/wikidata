@@ -19,8 +19,7 @@ import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.date_value import Date
 from shared_lib.rate_limiter import rate_limit
-from shared_lib.wikidata_site import REPO as repo
-from shared_lib.wikidata_site import SITE as site
+from shared_lib.wikidata_site import get_repo, get_site
 
 edit_group = format(random.randrange(0, 2**48))  # "ece1e2aa4e61"
 
@@ -209,7 +208,7 @@ def _load_wikipedia_editions() -> None:
     # Wikimedia language code (P424): P424 is missing for some editions (e.g.
     # Arabic) and differs from the subdomain for others (e.g. Simple English,
     # where P424 is "en-x-simple" but the subdomain is "simple").
-    query_object = sparql.SparqlQuery(repo=repo)
+    query_object = sparql.SparqlQuery(repo=get_repo())
     query = """
     SELECT ?edition ?dbname WHERE {
       ?edition wdt:P31 wd:Q10876391 ;
@@ -578,7 +577,7 @@ def is_wikimedia_cat(qid: str, tracker: StatusTracker) -> bool:
             )
             }}
     """
-    query_object = sparql.SparqlQuery(repo=repo)
+    query_object = sparql.SparqlQuery(repo=get_repo())
     results = query_object.select(query, full_data=False)
     if not results:
         raise RuntimeError(
@@ -902,7 +901,7 @@ def find_newest_sitelink_removal(
         revisions = _comment_cache[qid]
     else:
         req = Request(
-            site=site,
+            site=get_site(),
             parameters={
                 "action": "query",
                 "prop": "revisions",
@@ -968,7 +967,7 @@ def find_title_from_history_snapshots(
         candidates = _revision_cache[qid]
     else:
         req = Request(
-            site=site,
+            site=get_site(),
             parameters={
                 "action": "query",
                 "prop": "revisions",
@@ -1230,7 +1229,7 @@ def process_item(
     _load_wikipedia_editions()
 
     try:
-        item = pywikibot.ItemPage(repo, qid)
+        item = pywikibot.ItemPage(get_repo(), qid)
         item.get()
 
         page_title_buffer: dict[tuple[str, str], str | None] = {}
@@ -1357,7 +1356,7 @@ def _lookup_wiki_qid(lang: str) -> str | None:
 
 def _execute_sparql_query(query: str) -> list[str]:
     """Execute a SPARQL query and return list of QIDs."""
-    query_object = sparql.SparqlQuery(repo=repo)
+    query_object = sparql.SparqlQuery(repo=get_repo())
     results = query_object.select(query, full_data=False)
     if not results:
         return []

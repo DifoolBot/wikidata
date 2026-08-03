@@ -5,7 +5,7 @@ info (see AddLabelBot.examine)."""
 import pywikibot as pwb
 
 import shared_lib.constants as wd
-from shared_lib.wikidata_site import REPO
+from shared_lib.wikidata_site import get_repo
 
 import addlabel.countries as countries
 import addlabel.languages as languages
@@ -62,7 +62,7 @@ class WikidataPage(AuthorityPage):
             # ignore property pages and lexeme pages
             return
 
-        self.item = pwb.ItemPage(REPO, self.external_id)
+        self.item = pwb.ItemPage(get_repo(), self.external_id)
 
         if not self.item.exists():
             return

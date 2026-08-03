@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta
 
 import pywikibot as pwb
 import pywikibot.bot
+from pywikibot.exceptions import MaxlagTimeoutError
 import viaf.authority_sources
 from viaf.codes_sync import push_order, sync_descriptions
 from viaf.paths import DATA_DIR
@@ -172,4 +173,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except MaxlagTimeoutError as exc:
+        # Wikidata replication lag stayed above maxlag for the whole retry
+        # window. This is a transient, server-side, self-healing condition:
+        # exit cleanly so the scheduled job does not report a failure (and
+        # email), and let the next daily run resume from where save_progress
+        # left off. Logged at WARNING so it still shows in the .err file --
+        # visibly handled, not a CRITICAL traceback.
+        pwb.warning(f"Wikidata maxlag too high, aborting this run cleanly: {exc}")
+        sys.exit(0)

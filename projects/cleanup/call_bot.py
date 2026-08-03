@@ -115,9 +115,9 @@ def main() -> None:
     active = DETECTOR_IDS if DETECTOR_IDS is not None else all_detector_ids
 
     # Shared, logged-in Wikidata session (same one the bot uses).
-    from shared_lib.wikidata_site import REPO as repo
+    from shared_lib.wikidata_site import get_repo
 
-    item = pywikibot.ItemPage(repo, ITEM)
+    item = pywikibot.ItemPage(get_repo(), ITEM)
 
     bot = WikidataCleanupBot(
         active_detectors=active,
@@ -127,7 +127,7 @@ def main() -> None:
         tracker=None,  # no DB tracking when debugging
         run_id="debug",
         generator=iter([]),  # unused: we drive a single item directly
-        site=repo,
+        site=get_repo(),
     )
 
     pywikibot.output(

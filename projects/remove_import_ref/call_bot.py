@@ -25,7 +25,7 @@ Notes:
 import os
 import uuid
 
-from shared_lib.wikidata_site import SITE as site
+from shared_lib.wikidata_site import get_site
 
 from remove_import_ref.bot import HERE, load_config, process_item
 from remove_import_ref.project_map import ProjectMap
@@ -46,7 +46,7 @@ def main() -> None:
     cfg = load_config()
     batch_id = uuid.uuid4().hex[:12]
 
-    api = WikidataAPI(site)
+    api = WikidataAPI(get_site())
     pmap = ProjectMap(
         os.path.join(HERE, cfg["dbcode_cache_file"]), resolver=api.entity_claim_p1800
     )
@@ -67,7 +67,7 @@ def main() -> None:
             from remove_import_ref.remover import remove_reference
 
             remove_reference(
-                site, m["qid"], m["claim_id"], m["ref_hash"], m["dbcode"], batch_id
+                get_site(), m["qid"], m["claim_id"], m["ref_hash"], m["dbcode"], batch_id
             )
 
 

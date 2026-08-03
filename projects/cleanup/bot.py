@@ -301,10 +301,10 @@ def main(*args: str) -> None:
 
     # Shared, logged-in Wikidata session (imported here so merely importing
     # bot.py does not trigger a login).
-    from shared_lib.wikidata_site import REPO as repo
+    from shared_lib.wikidata_site import get_repo
 
     if single_item:
-        item = pywikibot.ItemPage(repo, single_item)
+        item = pywikibot.ItemPage(get_repo(), single_item)
         gen = pagegenerators.PreloadingEntityGenerator(iter([item]))
     else:
         gen = gen_factory.getCombinedGenerator(preload=True)
@@ -315,7 +315,7 @@ def main(*args: str) -> None:
             )
             gen = generator_for_detectors(
                 active_detectors,
-                repo,
+                get_repo(),
                 limit=500,
                 source_rules=rules,
             )
@@ -341,7 +341,7 @@ def main(*args: str) -> None:
         tracker=tracker,
         run_id=run_id,
         generator=gen,
-        site=repo,
+        site=get_repo(),
     )
     bot.run()
 

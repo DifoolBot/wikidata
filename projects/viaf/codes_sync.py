@@ -44,7 +44,7 @@ def sync_descriptions(
     """
     import pywikibot as pwb
 
-    from shared_lib.wikidata_site import REPO
+    from shared_lib.wikidata_site import get_repo
 
     current = {
         pid: (desc or "").strip()
@@ -53,7 +53,7 @@ def sync_descriptions(
     changed: list[tuple[str, str, str]] = []
     for pid in pids:
         try:
-            labels = pwb.PropertyPage(REPO, pid).get().get("labels", {})
+            labels = pwb.PropertyPage(get_repo(), pid).get().get("labels", {})
         except Exception as e:
             pwb.warning(f"Could not read the label of {pid}: {e}")
             continue

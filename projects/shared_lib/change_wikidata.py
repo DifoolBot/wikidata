@@ -17,7 +17,7 @@ from shared_lib.date_value import (
     Date,
 )
 from shared_lib.qualifier_handler import QualifierHandler
-from shared_lib.wikidata_site import REPO
+from shared_lib.wikidata_site import get_repo
 
 # from weakref import ref
 
@@ -284,7 +284,7 @@ class URLReference(Reference):
     def create_source(self):
         source = OrderedDict()
 
-        url_claim = pwb.Claim(REPO, wd.PID_REFERENCE_URL, is_reference=True)
+        url_claim = pwb.Claim(get_repo(), wd.PID_REFERENCE_URL, is_reference=True)
         url_claim.setTarget(self.url)
         source[wd.PID_REFERENCE_URL] = [url_claim]
 
@@ -321,8 +321,8 @@ class StateInReference(Reference):
     def create_source(self):
         source = OrderedDict()
 
-        stated_in_claim = pwb.Claim(REPO, wd.PID_STATED_IN, is_reference=True)
-        stated_in_claim.setTarget(pwb.ItemPage(REPO, self.state_in_qid))
+        stated_in_claim = pwb.Claim(get_repo(), wd.PID_STATED_IN, is_reference=True)
+        stated_in_claim.setTarget(pwb.ItemPage(get_repo(), self.state_in_qid))
         source[wd.PID_STATED_IN] = [stated_in_claim]
 
         return source
@@ -349,11 +349,11 @@ class WikipediaReference(Reference):
         source = OrderedDict()
 
         imported_from_claim = pwb.Claim(
-            REPO, wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT, is_reference=True
+            get_repo(), wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT, is_reference=True
         )
-        imported_from_claim.setTarget(pwb.ItemPage(REPO, self.wikipedia_qid))
+        imported_from_claim.setTarget(pwb.ItemPage(get_repo(), self.wikipedia_qid))
 
-        url_claim = pwb.Claim(REPO, wd.PID_WIKIMEDIA_IMPORT_URL, is_reference=True)
+        url_claim = pwb.Claim(get_repo(), wd.PID_WIKIMEDIA_IMPORT_URL, is_reference=True)
         url_claim.setTarget(self.url)
 
         source[wd.PID_IMPORTED_FROM_WIKIMEDIA_PROJECT] = [imported_from_claim]
@@ -866,7 +866,7 @@ class DeprecateDate(Action):
                 return
             claim = found_claim
         else:
-            claim = pwb.Claim(REPO, self.pid)
+            claim = pwb.Claim(get_repo(), self.pid)
             claim.setTarget(year_date.create_wikidata_item())
 
         # merge the qualifiers
@@ -878,8 +878,8 @@ class DeprecateDate(Action):
 
         source = OrderedDict()
 
-        based_on = pwb.Claim(REPO, wd.PID_BASED_ON_HEURISTIC, is_reference=True)
-        based_on.setTarget(pwb.ItemPage(REPO, self.qid_inferred_from))
+        based_on = pwb.Claim(get_repo(), wd.PID_BASED_ON_HEURISTIC, is_reference=True)
+        based_on.setTarget(pwb.ItemPage(get_repo(), self.qid_inferred_from))
         source[wd.PID_BASED_ON_HEURISTIC] = [based_on]
 
         claim.sources.append(source)
@@ -921,9 +921,9 @@ class DeprecateDate(Action):
 
             if add_qualifier:
                 qualifier = pwb.Claim(
-                    REPO, wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True
+                    get_repo(), wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True
                 )
-                target = pwb.ItemPage(REPO, self.qid_deprecated_reason)
+                target = pwb.ItemPage(get_repo(), self.qid_deprecated_reason)
                 qualifier.setTarget(target)
 
                 claim.qualifiers.setdefault(
@@ -1082,9 +1082,9 @@ class PrefDateStatements(Action):
             claim = best_group[0]
             claim.rank = "preferred"
             qualifier = pwb.Claim(
-                REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True
+                get_repo(), wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True
             )
-            target = pwb.ItemPage(REPO, wd.QID_BEST_REFERENCED_VALUE)
+            target = pwb.ItemPage(get_repo(), wd.QID_BEST_REFERENCED_VALUE)
             qualifier.setTarget(target)
             claim.qualifiers.setdefault(wd.PID_REASON_FOR_PREFERRED_RANK, []).append(
                 qualifier
@@ -1189,8 +1189,8 @@ class DeprecateClaim(Action):
     def _add_item_qualifier(self, claim, qual_pid: str, target_qid: str) -> None:
         if self._has_qualifier(claim, qual_pid, target_qid):
             return
-        qualifier = pwb.Claim(REPO, qual_pid, is_qualifier=True)
-        qualifier.setTarget(pwb.ItemPage(REPO, target_qid))
+        qualifier = pwb.Claim(get_repo(), qual_pid, is_qualifier=True)
+        qualifier.setTarget(pwb.ItemPage(get_repo(), target_qid))
         claim.qualifiers.setdefault(qual_pid, []).append(qualifier)
 
     def apply(self):
@@ -1286,7 +1286,7 @@ class CopyClaim(Action):
             if self.new_pid:
                 new_claim.id = self.new_pid
             if self.new_qid:
-                new_claim.setTarget(pwb.ItemPage(REPO, self.new_qid))
+                new_claim.setTarget(pwb.ItemPage(get_repo(), self.new_qid))
             elif self.new_value is not None:
                 new_claim.setTarget(self.new_value)
 
@@ -1335,9 +1335,9 @@ class AddRefValue(Action):
                         print(" Reference value already present")
                         return
 
-            claim = pwb.Claim(REPO, self.ref_prop_str, is_reference=True)
+            claim = pwb.Claim(get_repo(), self.ref_prop_str, is_reference=True)
             if claim.type == "wikibase-item":
-                claim.setTarget(pwb.ItemPage(REPO, self.ref_value))
+                claim.setTarget(pwb.ItemPage(get_repo(), self.ref_value))
             else:
                 claim.setTarget(self.ref_value)
             if self.ref_prop_str in ref:
@@ -1460,7 +1460,7 @@ class EndReference(Action):
                 else:
                     found = True
                     print("found reference with hash, adding end date")
-                    end_date_claim = pwb.Claim(REPO, wd.PID_END_TIME, is_reference=True)
+                    end_date_claim = pwb.Claim(get_repo(), wd.PID_END_TIME, is_reference=True)
                     end_date_claim.setTarget(self.end_date.create_wikidata_item())
                     source[wd.PID_END_TIME] = [end_date_claim]
 
@@ -1652,8 +1652,8 @@ class CheckDateStatements(Action):
             raise RuntimeError("Best claim is preferred")
 
         claim.rank = "preferred"
-        qualifier = pwb.Claim(REPO, wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
-        target = pwb.ItemPage(REPO, wd.QID_MOST_PRECISE_VALUE)
+        qualifier = pwb.Claim(get_repo(), wd.PID_REASON_FOR_PREFERRED_RANK, is_qualifier=True)
+        target = pwb.ItemPage(get_repo(), wd.QID_MOST_PRECISE_VALUE)
         qualifier.setTarget(target)
         claim.qualifiers.setdefault(wd.PID_REASON_FOR_PREFERRED_RANK, []).append(
             qualifier
@@ -1693,7 +1693,7 @@ class MonolingualTextQualifier(Qualifier):
     def apply(self):
         if not self.attach_to_claim:
             raise RuntimeError("Qualifier not attached to claim")
-        qual_claim = pwb.Claim(REPO, self.prop, is_qualifier=True)
+        qual_claim = pwb.Claim(get_repo(), self.prop, is_qualifier=True)
         text = pwb.WbMonolingualText(self.text, self.language)
         qual_claim.setTarget(text)
         self.attach_to_claim.qualifiers.setdefault(self.prop, []).append(qual_claim)
@@ -1724,7 +1724,7 @@ class MonolingualTextStatement(Statement):
 
     def add_statement(self) -> pwb.Claim:
         pid = self.get_prop()
-        claim = pwb.Claim(REPO, pid)
+        claim = pwb.Claim(get_repo(), pid)
         text = pwb.WbMonolingualText(self.text, self.language)
         claim.setTarget(text)
 
@@ -1861,8 +1861,8 @@ class ItemStatement(Statement):
 
     def add_statement(self) -> pwb.Claim:
         pid = self.get_prop()
-        claim = pwb.Claim(REPO, pid)
-        claim.setTarget(pwb.ItemPage(REPO, self.qid))
+        claim = pwb.Claim(get_repo(), pid)
+        claim.setTarget(pwb.ItemPage(get_repo(), self.qid))
 
         external_q = self.create_qualifiers()
         claim.qualifiers = external_q.recreate_qualifiers(claim)
@@ -1887,7 +1887,7 @@ class DateQualifier(Qualifier):
     def apply(self):
         if not self.attach_to_claim:
             raise RuntimeError("Qualifier not attached to claim")
-        qual_claim = pwb.Claim(REPO, self.prop, is_qualifier=True)
+        qual_claim = pwb.Claim(get_repo(), self.prop, is_qualifier=True)
         qual_claim.setTarget(self.date.create_wikidata_item())
         self.attach_to_claim.qualifiers.setdefault(self.prop, []).append(qual_claim)
         self.wd_page.claim_changed(self.attach_to_claim)
@@ -1913,8 +1913,8 @@ class QuantityQualifier(Qualifier):
     def apply(self):
         if not self.attach_to_claim:
             raise RuntimeError("Qualifier not attached to claim")
-        qual_claim = pwb.Claim(REPO, self.prop, is_qualifier=True)
-        unit_page = pwb.ItemPage(REPO, self.unit_qid)
+        qual_claim = pwb.Claim(get_repo(), self.prop, is_qualifier=True)
+        unit_page = pwb.ItemPage(get_repo(), self.unit_qid)
         text = pwb.WbQuantity(self.amount, unit_page)
         qual_claim.setTarget(text)
         self.attach_to_claim.qualifiers.setdefault(self.prop, []).append(qual_claim)
@@ -1937,7 +1937,7 @@ class StringQualifier(Qualifier):
     def apply(self):
         if not self.attach_to_claim:
             raise RuntimeError("Qualifier not attached to claim")
-        qual_claim = pwb.Claim(REPO, self.prop, is_qualifier=True)
+        qual_claim = pwb.Claim(get_repo(), self.prop, is_qualifier=True)
         qual_claim.setTarget(self.value)
         self.attach_to_claim.qualifiers.setdefault(self.prop, []).append(qual_claim)
         self.wd_page.claim_changed(self.attach_to_claim)
@@ -1959,8 +1959,8 @@ class ItemQualifier(Qualifier):
     def apply(self):
         if not self.attach_to_claim:
             raise RuntimeError("Qualifier not attached to claim")
-        qual_claim = pwb.Claim(REPO, self.prop, is_qualifier=True)
-        qual_claim.setTarget(pwb.ItemPage(REPO, self.qid))
+        qual_claim = pwb.Claim(get_repo(), self.prop, is_qualifier=True)
+        qual_claim.setTarget(pwb.ItemPage(get_repo(), self.qid))
         self.attach_to_claim.qualifiers.setdefault(self.prop, []).append(qual_claim)
         self.wd_page.claim_changed(self.attach_to_claim)
 
@@ -2090,7 +2090,7 @@ class DateStatement(Statement):
 
     def add_statement(self) -> Optional[pwb.Claim]:
         pid = self.get_prop()
-        claim = pwb.Claim(REPO, pid)
+        claim = pwb.Claim(get_repo(), pid)
         if self.date:
             claim.setTarget(self.date.create_wikidata_item())
         else:
@@ -2122,7 +2122,7 @@ class DateStatement(Statement):
 #     # create handler: given a plain string produce a pwb.Claim list with plain string target
 #     @staticmethod
 #     def _create_subject_named_as(value: str) -> List[pwb.Claim]:
-#         qual = pwb.Claim(REPO, wd.PID_SUBJECT_NAMED_AS, is_qualifier=True)
+#         qual = pwb.Claim(get_repo(), wd.PID_SUBJECT_NAMED_AS, is_qualifier=True)
 #         qual.setTarget(value)
 #         return [qual]
 
@@ -2257,7 +2257,7 @@ class ExternalIDStatement(Statement):
         return claim_changed
 
     def add_statement(self) -> pwb.Claim:
-        claim = pwb.Claim(REPO, self.prop)
+        claim = pwb.Claim(get_repo(), self.prop)
         claim.setTarget(self.external_id)
 
         external_q = self.create_qualifiers()
@@ -3101,7 +3101,7 @@ class WikiDataPage:
             claim.on_item = self.item
         if "claims" not in self.data:
             self.data["claims"] = []
-        # REPO.save_claim(claim, summary=summary)
+        # get_repo().save_claim(claim, summary=summary)
         self.data["claims"].append(claim.toJSON())
 
     def save_deleted_claim(self, claim: pwb.Claim):
@@ -3351,7 +3351,7 @@ def create_item(
     irreversible-ish (merges/deletions need a human), so callers gate it behind a
     confirmation and default to dry run.
     """
-    repo = site or REPO
+    repo = site or get_repo()
     full_summary = summary + (
         f" ([[:toolforge:editgroups/b/CB/{edit_group}|details]])" if edit_group else ""
     )

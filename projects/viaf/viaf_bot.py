@@ -21,7 +21,7 @@ from viaf.wdqs_client import WdqsQueryError
 
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
-from shared_lib.wikidata_site import REPO, SITE
+from shared_lib.wikidata_site import get_repo, get_site
 
 WIKIDATA_ENTITY_PREFIX = "http://www.wikidata.org/entity/"
 # An "unknown value" (somevalue) claim has no id behind it. Wikidata's RDF export
@@ -123,7 +123,7 @@ class ViafBot:
         reports fall back to plain unlinked ids.
         """
         try:
-            claims = pwb.PropertyPage(REPO, self.auth_src.pid).get().get("claims", {})
+            claims = pwb.PropertyPage(get_repo(), self.auth_src.pid).get().get("claims", {})
         except Exception as e:
             pwb.warning(f"No formatter URL for {self.auth_src.pid}: {e}")
             return None
@@ -220,7 +220,7 @@ class ViafBot:
         if not record.qid.startswith("Q"):
             raise SkipRecord("Skipping, because it is not an item")
 
-        item = pwb.ItemPage(REPO, record.qid)
+        item = pwb.ItemPage(get_repo(), record.qid)
 
         try:
             if not item.exists():
@@ -517,7 +517,7 @@ class ViafBot:
     def write_to_wiki(self, wikitext, summary: str) -> None:
         if not wikitext:
             return
-        page = pwb.Page(SITE, PAGE_TITLE)
+        page = pwb.Page(get_site(), PAGE_TITLE)
         page.text = page.text + "\n" + wikitext
         page.save(summary=summary, minor=False)
 

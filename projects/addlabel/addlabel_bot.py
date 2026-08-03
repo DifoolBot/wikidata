@@ -21,7 +21,7 @@ import pywikibot as pwb
 import shared_lib.change_wikidata as cwd
 import shared_lib.constants as wd
 from shared_lib.date_value import Date
-from shared_lib.wikidata_site import REPO
+from shared_lib.wikidata_site import get_repo
 
 import addlabel.person_name as pn
 from addlabel.bnf_page import BnfPage
@@ -338,7 +338,7 @@ class AddLabelBot:
             print(f"{qid}: skipped, in special ignore list")
             return None
 
-        self.item = pwb.ItemPage(REPO, qid)
+        self.item = pwb.ItemPage(get_repo(), qid)
 
         if not self.item.exists():
             return None
