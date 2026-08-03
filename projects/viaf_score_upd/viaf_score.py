@@ -49,18 +49,33 @@ import time
 import argparse
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, cast
 
 import pywikibot
 from pywikibot import pagegenerators  # noqa: F401 - kept for toolforge compat
 from pywikibot.data import api
+from pywikibot.exceptions import MaxlagTimeoutError
+from pywikibot.site import APISite
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 PAGE_TITLE = "User:Difool/viaf_already_somewhere"
-SITE = pywikibot.Site("wikidata", "wikidata")
+
+
+def get_site() -> APISite:
+    """Return the Wikidata Site, built on the first call (pywikibot caches it).
+
+    Kept as a function rather than a module-level global so that importing this
+    module performs no network I/O. Building the Site runs a cookie login whose
+    ``userinfo`` request reaches the API; a transient server-side ``maxlag``
+    spike there would otherwise raise ``MaxlagTimeoutError`` during import and
+    kill this scheduled job before ``main()`` (and its maxlag catch) ran.
+    """
+    # Site() is stub-typed to return the base ``BaseSite``; for Wikidata it is
+    # concretely an APISite, so narrow it for callers.
+    return cast(APISite, pywikibot.Site("wikidata", "wikidata"))
 
 # Wikidata API rate-limit courtesy delay between API calls (seconds).  Kept
 # small: pywikibot already honours maxlag and the server read rate limits, so
@@ -125,7 +140,7 @@ def _wbgetentities(ids: list[str]) -> dict:
     under the *requested* id with ``entity["id"]`` set to the target.
     """
     resp = api.Request(
-        site=SITE,
+        site=get_site(),
         parameters={
             "action": "wbgetentities",
             "ids": "|".join(ids),
@@ -1221,7 +1236,7 @@ def process_page(
       3. Save, with pywikibot's edit-conflict detection as a final backstop for
          the small window between the re-read and the write.
     """
-    page = pywikibot.Page(SITE, PAGE_TITLE)
+    page = pywikibot.Page(get_site(), PAGE_TITLE)
 
     # 1. Snapshot + compute (slow).
     page.get(force=True)
@@ -1326,4 +1341,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except MaxlagTimeoutError as exc:
+        # Wikidata replication lag stayed above maxlag for the whole retry
+        # window -- a transient, server-side, self-healing condition. Exit
+        # cleanly so the scheduled job does not report a failure (and email);
+        # the next run picks the work up again. Logged at WARNING so it still
+        # shows in the .err file without a CRITICAL traceback.
+        pywikibot.warning(f"Wikidata maxlag too high, aborting this run cleanly: {exc}")
+        sys.exit(0)
