@@ -6,9 +6,10 @@
 #           toolforge jobs show viaf
 #           toolforge jobs logs remove-sitelinks
 #
-# Schedules use the @daily/@weekly macros (UTC). Toolforge randomizes the actual
-# run time to spread cluster load, so the two jobs won't fire at a fixed clock
-# time; check `toolforge jobs list` for the assigned times.
+# Macro schedules (@daily/@weekly) are UTC and Toolforge randomizes their actual
+# run time to spread cluster load, so they won't fire at a fixed clock time;
+# check `toolforge jobs list` for the assigned times. Jobs with an explicit cron
+# expression run at exactly that UTC time (no randomization).
 #
 # mem/cpu left commented for now: running vanilla to confirm the jobs work under
 # the default resource limits before tuning.
@@ -16,7 +17,8 @@
 - name: viaf
   command: bash $HOME/wikidata/projects/viaf/toolforge_run.sh
   image: python3.11
-  schedule: "@daily"
+  # 01:00 UTC, daily.
+  schedule: "0 1 * * *"
   emails: onfailure
   # mem: 1Gi
   # cpu: "1"
