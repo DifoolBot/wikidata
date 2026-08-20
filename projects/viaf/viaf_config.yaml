@@ -22,8 +22,20 @@ ignore:
   - P213   # ISNI (too many false positives)
   - P2163  # FAST ID (nothing found)
   - P1280  # CONOR.SI ID
+  # BNE is mid-migration from the XX-prefixed "Symphony" number (VIAF source
+  # SpMaBN, in MARC 035 -- what P950 stores) to an 18-digit Alma control number
+  # (BNE v2.0, in MARC 001). Libraries are deleting the old XX/035 entries, so
+  # matching P950 against VIAF now returns little and risks conflating the two
+  # VIAF clusters that co-exist for one authority during the switch. Don't adopt
+  # a v2.0 id yet either: BNE says the new 18-digit id is not stable and
+  # recommends against using it. Revisit only once BNE declares it stable and a
+  # "BNE v2.0" property exists (proposed 2026-03, still not created as of 2026-08).
   - P950   # National Library of Spain SpMaBN ID (BNE v1.0)
   - P3988  # National Library Board Singapore ID
+  # P3133 returns 0 matches: its VIAF-component (Q26921380) statement is
+  # deprecated on Wikidata, and the sibling P951 (NSZL VIAF ID) already covers
+  # the same "NSZL" source code.
+  - P3133  # NSZL name authority ID
 
 
 # Once the DUPLICATES table for the source being processed reaches this many

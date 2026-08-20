@@ -1,0 +1,6 @@
+pywikibot==10.3.0     # all Wikidata reads go through pywikibot (shared_lib.wikidata_site)
+requests              # the VIAF cluster lookup (viaf.viaf_api_client) uses requests
+
+# Also depends on the in-repo `viaf` package (projects/viaf), reached via
+# PYTHONPATH=projects: viaf.viaf_api_client (the API call) and
+# viaf.authority_sources (VIAF source code -> Wikidata property table).
