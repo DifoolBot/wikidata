@@ -113,6 +113,12 @@ class ViafBot:
         # when set, skip items VIAF returned 'not_found' for (under this source)
         # since this instant, and cache new not_found results
         self.not_found_cutoff: datetime | None = None
+        # (checked, added, not_found) this run contributed for this source, set
+        # by run_session. It is a delta, not the absolute session totals: while
+        # a source is resumed across days the ADDED/ERRORS tables carry earlier
+        # runs' rows too, so the caller's daily summary would otherwise report
+        # what the whole session did, not what today's run did.
+        self.last_stats: tuple[int, int, int] = (0, 0, 0)
 
     @cached_property
     def formatter_url(self) -> str | None:
@@ -199,8 +205,19 @@ class ViafBot:
 
         Returns the SessionOutcome describing how the pass ended.
         """
+        # Snapshot the session counts on both sides of the pass. end_session()
+        # (below) archives and empties these tables, so this is the only place
+        # the difference can be read, and the difference -- not the absolute
+        # totals -- is what this run actually did (see self.last_stats).
+        before = self.report.get_stats() or (0, 0, 0)
         outcome = self.iterate_qlever(
             output_file=output_file, max_duplicates=max_duplicates
+        )
+        after = self.report.get_stats() or (0, 0, 0)
+        self.last_stats = (
+            max(0, after[0] - before[0]),
+            max(0, after[1] - before[1]),
+            max(0, after[2] - before[2]),
         )
         if outcome not in (
             SessionOutcome.RATE_LIMITED,
