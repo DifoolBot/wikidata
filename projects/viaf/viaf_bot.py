@@ -11,7 +11,7 @@ import pywikibot as pwb
 import requests
 import viaf.wdqs_client
 from viaf.authority_sources import AuthorityRecord, AuthoritySource
-from viaf.exceptions import SkipRecord
+from viaf.exceptions import QleverQueryError, SkipRecord
 from viaf.paths import DATA_DIR
 # Re-exported: the bot's own callers import these from here.
 from viaf.report_backend import BotState, ReportBackend
@@ -44,6 +44,11 @@ class SessionOutcome(Enum):
     # costs a VIAF lookup (~1000/day) before its duplicate check runs, so
     # carrying on would spend that budget on items we cannot verify anyway.
     WDQS_UNAVAILABLE = auto()
+    # the qlever fetch of this source's work list failed (server error, rejected
+    # query, ...). The source is NOT done -- we could not even read its rows --
+    # so the run stops here and resumes the same source next time, rather than
+    # mistaking the failure for an empty source and advancing the pass.
+    QLEVER_UNAVAILABLE = auto()
 
 
 AUTHORITY_SOURCE_CODE_WIKIDATA = "WKP"
@@ -74,23 +79,21 @@ def _add_viaf(
     wdpage.apply()
 
 
-def _execute_qlever_query(query: str) -> list[dict[str, str]]:
-    """Execute a qlever query and return rows with qid and local_auth_id."""
-    qlever_url = "https://qlever.dev/api/wikidata"
-    try:
-        response = requests.get(qlever_url, params={"query": query}, timeout=300)
-        response.raise_for_status()
-        data = response.json()
-    except requests.RequestException as e:
-        pwb.error(f"Error querying qlever: {e}")
-        return []
-    except ValueError as e:
-        pwb.error(f"Error parsing qlever response: {e}")
-        return []
+QLEVER_URL = "https://qlever.dev/api/wikidata"
+# Mirrors the WDQS client's retry policy: transient statuses are retried with
+# backoff; anything else (or a run out of attempts) raises QleverQueryError.
+QLEVER_MAX_ATTEMPTS = 3
+QLEVER_FIRST_BACKOFF_SECS = 5
+QLEVER_MAX_BACKOFF_SECS = 60
+QLEVER_RETRYABLE_STATUS = frozenset({429, 500, 502, 503, 504})
 
-    if "results" not in data or "bindings" not in data["results"]:
-        return []
 
+def _parse_qlever_rows(data: dict) -> list[dict[str, str]]:
+    """Extract (qid, local_auth_id) rows from a qlever JSON response.
+
+    An empty list here means the query ran and matched nothing -- a real,
+    non-error result. A *failed* request never reaches this function; it raises
+    QleverQueryError instead (see _execute_qlever_query)."""
     rows: list[dict[str, str]] = []
     for binding in data["results"]["bindings"]:
         item_uri = binding.get("item", {}).get("value", "")
@@ -101,8 +104,58 @@ def _execute_qlever_query(query: str) -> list[dict[str, str]]:
             continue
         local_auth_id = binding.get("local_auth_id", {}).get("value", "")
         rows.append({"qid": qid, "local_auth_id": local_auth_id})
-
     return rows
+
+
+def _execute_qlever_query(query: str) -> list[dict[str, str]]:
+    """Run a qlever query and return its (possibly empty) rows.
+
+    Raises QleverQueryError if the request never completed successfully, so the
+    caller cannot mistake a failed fetch (e.g. qlever returning 502) for a
+    source that legitimately has no rows left. A 200 response that simply
+    matched nothing still returns an empty list."""
+    backoff = QLEVER_FIRST_BACKOFF_SECS
+    for attempt in range(1, QLEVER_MAX_ATTEMPTS + 1):
+        retryable = True
+        try:
+            response = requests.get(QLEVER_URL, params={"query": query}, timeout=300)
+            response.raise_for_status()
+            data = response.json()
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            reason = f"HTTP {status}: {e}"
+            # A rejected query (e.g. 400) or any other client error will not fix
+            # itself; only overload/5xx (and 429) are worth retrying.
+            retryable = status in QLEVER_RETRYABLE_STATUS
+        except requests.RequestException as e:
+            # No usable response at all (connection reset, timeout, ...), or a
+            # body requests itself could not decode as JSON: transient.
+            reason = f"{type(e).__name__}: {e}"
+        except ValueError as e:
+            # 200 but an unparsable body: a struggling server, not empty rows.
+            reason = f"unparsable response: {e}"
+        else:
+            if "results" not in data or "bindings" not in data["results"]:
+                raise QleverQueryError(
+                    "qlever query failed: response has no results/bindings"
+                )
+            return _parse_qlever_rows(data)
+
+        # Reached only when this attempt failed.
+        if not retryable:
+            raise QleverQueryError(f"qlever query failed: {reason}")
+        if attempt == QLEVER_MAX_ATTEMPTS:
+            raise QleverQueryError(
+                f"qlever query failed after {attempt} attempts: {reason}"
+            )
+        wait = min(backoff, QLEVER_MAX_BACKOFF_SECS)
+        pwb.warning(
+            f"qlever {reason}; retry {attempt}/{QLEVER_MAX_ATTEMPTS - 1} in {wait:.0f}s"
+        )
+        time.sleep(wait)
+        backoff = min(backoff * 2, QLEVER_MAX_BACKOFF_SECS)
+
+    raise QleverQueryError("qlever query failed")  # not reached; loop exits above
 
 
 class ViafBot:
@@ -222,6 +275,7 @@ class ViafBot:
         if outcome not in (
             SessionOutcome.RATE_LIMITED,
             SessionOutcome.WDQS_UNAVAILABLE,
+            SessionOutcome.QLEVER_UNAVAILABLE,
         ):
             self.report.run_maintenance()
             self.generate_duplicate_locals_report()
@@ -631,9 +685,12 @@ class ViafBot:
                     }}
                     """
         query = query_template.format(pid=self.auth_src.pid)
+        # A failed fetch raises QleverQueryError (caught by iterate_qlever); an
+        # empty list here means the query genuinely matched nothing, so the
+        # source really is exhausted.
         results = _execute_qlever_query(query)
         if not results:
-            pwb.warning("No results returned from qlever.")
+            pwb.output(f"qlever returned no rows for {self.auth_src.pid}.")
             return 0
 
         with open(output_file, "w", encoding="utf-8") as fh:
@@ -676,9 +733,17 @@ class ViafBot:
 
         if not os.path.exists(output_file):
             pwb.output(f"Fetching qlever results into {output_file}...")
-            count = self.fetch_qlever_results(output_file=output_file)
+            try:
+                count = self.fetch_qlever_results(output_file=output_file)
+            except QleverQueryError as e:
+                # The fetch failed, so we do NOT know this source's rows. Stop
+                # here and resume the same source next run; advancing now would
+                # treat an outage as an exhausted source (and, once every source
+                # "finishes" this way, trigger a bogus cooldown).
+                pwb.error(f"{e}; leaving {self.auth_src.pid} to retry next run.")
+                return SessionOutcome.QLEVER_UNAVAILABLE
             if count == 0:
-                pwb.warning("No qlever rows to process.")
+                pwb.output(f"No qlever rows to process for {self.auth_src.pid}.")
                 return SessionOutcome.COMPLETED
             # Only knowable here: later runs read a file already truncated to the
             # rows still to do, so this is the one chance to record the total.

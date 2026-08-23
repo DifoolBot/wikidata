@@ -259,20 +259,19 @@ def main() -> None:
                 )
             )
 
-            if outcome in (
-                SessionOutcome.RATE_LIMITED,
-                SessionOutcome.WDQS_UNAVAILABLE,
-            ):
-                # Either today's VIAF budget is used up, or WDQS is unreachable
-                # and every further item would spend a VIAF lookup we cannot
-                # verify. Either way: resume this same source on the next run.
+            stop_reasons = {
+                SessionOutcome.RATE_LIMITED: "VIAF daily rate limit reached",
+                SessionOutcome.WDQS_UNAVAILABLE: "WDQS unavailable",
+                SessionOutcome.QLEVER_UNAVAILABLE: "qlever unavailable",
+            }
+            if outcome in stop_reasons:
+                # Today's VIAF budget is used up, or a service we depend on
+                # (WDQS for the duplicate check, qlever for the work list) is
+                # unreachable. In every case the source is unfinished: resume it
+                # on the next run rather than advancing (which would eventually
+                # trigger a bogus post-pass cooldown).
                 report.save_progress(current_pid=pid, cooldown_until=None)
-                reason = (
-                    "VIAF daily rate limit reached"
-                    if outcome == SessionOutcome.RATE_LIMITED
-                    else "WDQS unavailable"
-                )
-                disposition = f"{reason}; will resume {pid} next run"
+                disposition = f"{stop_reasons[outcome]}; will resume {pid} next run"
                 return
 
             if index == len(ordered_pids) - 1:

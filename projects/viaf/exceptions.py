@@ -1,3 +1,17 @@
+class QleverQueryError(Exception):
+    """A qlever fetch did not complete: a server error (e.g. 502 Bad Gateway), a
+    rejected query, or an unparsable reply.
+
+    Raised rather than returning an empty list, because a caller cannot
+    otherwise tell a fetch that *failed* from a source that legitimately has no
+    rows left. Treating the former as the latter is not a harmless miss: it
+    marks the source done, advances to the next one, and -- once every source
+    has been "finished" this way during a qlever outage -- drops the bot into
+    its post-pass cooldown, all without doing any work. See
+    ViafBot.iterate_qlever / _execute_qlever_query.
+    """
+
+
 class SkipRecord(Exception):
     """Skip the current authority record, with a reason recorded in the report.
 

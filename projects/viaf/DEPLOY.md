@@ -87,6 +87,21 @@ sql tools                                   # then: CREATE DATABASE s57805__viaf
   --command "bash $HOME/wikidata/projects/viaf/toolforge_run.sh"` (daily — VIAF
   has a small daily API budget).
 
+### 8. Inspecting a day's run  (DONE — dated dividers + summary)
+Toolforge appends every run to the same `~/viaf.out` / `~/viaf.err`, so
+`call_viaf` now frames each run for you:
+- A `====`-boxed **`VIAF run started <UTC>`** banner is written to *both* logs at
+  the start, and a matching **`VIAF run ended <UTC> (<duration>) -- added N; …`**
+  one-liner at the end. Jump to the last `VIAF run started` to find today; if
+  `.err` has a start banner but no end banner, the run died hard.
+- `.out` also gets a **`VIAF run summary`** block: per-source `checked/added/
+  not_found` (this run's own additions, not the cumulative session totals the
+  sessions dashboard shows) and an `Outcome` line — rate-limited, cooling down,
+  or `aborted early: Wikidata maxlag too high`.
+- A maxlag abort is expected/transient: it exits 0 (no failure email) and the
+  next run resumes; the summary's `Outcome` line records it. A start banner with
+  no end banner, or `aborted: unexpected error`, is the real "something broke".
+
 ## Gotchas carried over from remove_sitelinks
 
 - Credentials live in `~/replica.my.cnf` (not `~/.my.cnf`); DB name must be
