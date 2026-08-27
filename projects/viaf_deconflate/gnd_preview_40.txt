@@ -1,0 +1,60 @@
+
+==============================================================================
+Processed 40 candidate(s); 97 VIAF call(s) used.
+==============================================================================
+  RELABEL_ONLY     8
+  CORRECT_AS_OF_NOW 1
+  STILL_CONFLATED  21
+  PROBABLY_CONFLATED 5
+  INCONSISTENT     5
+
+--- RELABEL_ONLY (8) ---
+Q75957       dep=13160740     start=1254678549     retr=2015-08-02  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q119077      dep=861293       start=1213991242     retr=2015-08-02  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q19360835    dep=311454759    start=1060762234     retr=2015-08-03  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q533110      dep=35038949     start=1224269683     retr=2015-08-04  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q18633082    dep=95269739     start=1226414990     retr=2015-08-04  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q16269151    dep=273360662    start=1050602358     retr=2015-08-08  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q1608875     dep=72247382     start=121401190X     retr=2015-08-16  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+Q1630883     dep=300080125    start=1270654152     retr=2015-08-16  RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
+
+--- CORRECT_AS_OF_NOW (1) ---
+Q16405603    dep=74792762     start=1121033784     retr=2015-08-08  CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
+
+--- STILL_CONFLATED (21) ---
+Q19285755    dep=190414477    start=107351099      retr=2015-02-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q15808469    dep=306178686    start=116562110      retr=2015-03-06  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1610638     dep=67208454     start=116103329      retr=2015-03-13  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q55714       dep=90603418     start=1060275546     retr=2015-08-02  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q388282      dep=21643146     start=1253426848     retr=2015-08-03  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q512436      dep=41371976     start=104130501X     retr=2015-08-04  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q595834      dep=65926570     start=1164728741     retr=2015-08-04  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q95321378    dep=65926570     start=174005474      retr=2015-08-04  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q95604493    dep=46750237     start=1148697071     retr=2015-08-04  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q18086131    dep=173073319    start=1211136884     retr=2015-08-05  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q16519984    dep=250596043    start=1061494527     retr=2015-08-07  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q133743413   dep=50143234     start=123753031      retr=2015-08-08  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1320488     dep=119410999    start=1090090455     retr=2015-08-10  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q7288471     dep=89810813     start=104221054      retr=2015-08-11  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1578466     dep=4092780      start=1212506537     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1635323     dep=112217346    start=1065837305     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1655542     dep=93171472     start=1208769952     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1711054     dep=36920325     start=1023072238     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q1793556     dep=118557873    start=1051599997     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q3544123     dep=169717416    start=1188762303     retr=2015-08-16  STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q3157997     dep=64275591     start=1050560000     retr=2015-08-19  STILL_CONFLATED   still conflated (a second party is in the cluster)
+
+--- PROBABLY_CONFLATED (5) ---
+Q15452498    dep=428149106369268492847 start=135464722      retr=2015-03-06  PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q19819745    dep=4996415      start=123995310      retr=2015-08-03  PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1403698     dep=256749070    start=1272687082     retr=2015-08-16  PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1449573     dep=25099377     start=1061451224     retr=2015-08-16  PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q114761344   dep=300080125    start=130843628      retr=2015-08-16  PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+
+--- INCONSISTENT (5) ---
+Q18734996    dep=46750237     start=139295035X     retr=2015-08-04  INCONSISTENT      still in old cluster, but ids also moved to ['8513178467078335190008']
+Q123701269   dep=98935745     start=1057043443     retr=2015-08-08  INCONSISTENT      still in old cluster, but ids also moved to ['61808391']
+Q11866743    dep=47860223     start=130123773      retr=2015-08-09  INCONSISTENT      still in old cluster, but ids also moved to ['197765161']
+Q7350217     dep=105901750    start=1208943561     retr=2015-08-10  INCONSISTENT     new=77697823  item already has live VIAF ['4820148705711537080007']; ids also -> 77697823
+Q3431045     dep=60250096     start=129586676      retr=2015-08-20  INCONSISTENT      still in old cluster, but ids also moved to ['117599364']
+

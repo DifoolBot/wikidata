@@ -14,21 +14,30 @@ auto-edited.
 
 ## Outcomes
 
-| Outcome | Meaning | Intended edit (not yet implemented) |
+| Outcome | Meaning | Edit (performed by `--apply`) |
 |---|---|---|
 | `ADD_AND_RELABEL` | de-conflated: the item's ids moved to a new, unused cluster | add the cluster at normal rank (full VIAF reference) **and** relabel the old statement `Q14946528` → `Q35773207` + stamp |
 | `RELABEL_ONLY` | de-conflated: the item's ids moved to a cluster already on the item | relabel the old statement `Q14946528` → `Q35773207` + stamp |
 | `CORRECT_AS_OF_NOW` | every id in the old cluster is now a non-deprecated id on this item — VIAF resolved it | **un-deprecate** (normal rank, drop the `P2241` qualifier) + stamp |
 | `STILL_CONFLATED` | a second party is still in the cluster: the cluster carries a source the item also has but with a *different* value (item GND ≠ cluster GND), or a `P1889`/`P4070`/same-VIAF partner still has one of its ids in the cluster, or VIAF links ≥2 items | keep deprecated (conflation) + stamp |
 | `PROBABLY_CONFLATED` | a foreign id isn't on this item and isn't tied to another item — unclear | review list |
+| `AMBIGUOUS_SHARED_ID` | the live ids moved out of the old cluster, but it still carries an id that applies to this item — a `P4070` "identifier shared with" id, or an ISNI/FAST-type id VIAF keeps in the cluster (only unreliable to *look up*, not to match) — **and** no other Wikidata item is confirmed to own the cluster (holds it as its own non-deprecated `P214`). VIAF's `WKP` link alone doesn't count — VIAF often adds it on a name/year match, so it can be wrong until Wikidata carries the VIAF id; when a different item genuinely owns the cluster, the relabel stands | review list |
 | `LIST_REDIRECT` | old cluster now redirects | manual review list |
 | `LIST_ABANDONED` | old cluster abandoned / gone | manual review list (list-first; removal is OK'd but deferred) |
-| `INCONSISTENT` | IDs split across >1 *substantial* cluster, or a live VIAF disagrees — benign unmerged own-fragments (e.g. a lone RERO singleton) are ignored | manual review — the item may itself conflate two people |
+| `INCONSISTENT` | IDs split across >1 *substantial* cluster, or a live VIAF disagrees — benign unmerged own-fragments (e.g. a lone RERO singleton) are ignored | manual review — the item may mix two people, or VIAF may just not have merged one person's clusters; the bot won't pick which to adopt |
 | `INSUFFICIENT` | no authority ID resolved anywhere | skip (not enough evidence) |
 | `ERROR` | item could not be read/evaluated | — |
 
 *Stamp* = remove any reference that is retrieved-only, then add `retrieved` = today
 (so "update, or add if absent" falls out and old bare-retrieved refs don't pile up).
+
+**Benign own-fragment adds (cross-cutting).** A VIAF cluster that holds *only*
+this person's records and links to no other Wikidata item is provably theirs, so
+it is **always added** as a live `P214` — regardless of the primary outcome above.
+VIAF builds clusters bottom-up, so one person often spans several unmerged
+clusters; this adds the clean ones (and keeps a multi-cluster item out of
+`INCONSISTENT` when the extra clusters are just such fragments). Each add is
+re-checked as unused right before it is written.
 
 Every conclusion is scoped to the subject item: the old cluster may still
 conflate two *other* people, and the tool asserts nothing about that.
@@ -51,11 +60,21 @@ python projects/viaf_deconflate/deconflate.py --max-items 30 --apply --save
 `PYTHONPATH` must include `projects` and `projects/shared_lib` (the repo `.env`
 already sets this).
 
-Flags: `--pid P244` (source to start from), `--max-items`, `--max-viaf-calls`
-(default 900), `--min-day-remaining` (default 100 — stop when VIAF reports this
-many daily calls left, leaving headroom for the daily cron and the manual UI
-tool), `--min-age-days`, `--no-dup-check`, and `--apply` / `--save` /
-`--apply-limit` (default 5).
+Target specific items (verification / spot-checks) — bypasses the age filter and
+`--max-items`, and needs no starting source:
+
+```bash
+python projects/viaf_deconflate/deconflate.py --only Q16405603,Q19285755 --apply
+```
+
+Flags: `--pid P227` (source to start from, default GND), `--max-items`,
+`--max-viaf-calls` (default 900), `--min-day-remaining` (default 100 — stop when
+VIAF reports this many daily calls left, leaving headroom for the daily cron and
+the manual UI tool), `--min-age-days`, `--no-dup-check`, `--only Q…,Q…` (process
+just these QIDs), `--editgroup ID` (batch id for the edit summaries; until the bot RfP is approved
+it defaults to a fixed trial batch so all trial edits group on
+editgroups.toolforge.org, then a stable per-day id), and
+`--apply` / `--save` / `--apply-limit` (default 5).
 
 ## Reuse and known simplifications (for review)
 
@@ -77,14 +96,11 @@ tool), `--min-age-days`, `--no-dup-check`, and `--apply` / `--save` /
   is `PROBABLY_CONFLATED` (review), never auto-stamped.
 - The duplicate check prefers VIAF's own `WKP` siblings (already in hand) and
   falls back to WDQS; a WDQS outage degrades it to WKP-only (noted, not fatal).
-- `Q14946528` / `Q35773207` are local constants here; promote to
-  `shared_lib.constants` when the edit step is built.
+- `Q14946528` / `Q35773207` are local constants here; the edit step is now
+  built, so promoting them to `shared_lib.constants` is due (see Next).
 
 ## Next
 
-- `STAMP_RETRIEVED` (add a `retrieved` date to a still-conflated statement) is
-  not wired yet — ~zero volume in practice, deferred (it needs a new reference
-  block).
 - Emit the review outcomes (`PROBABLY_CONFLATED`, `LIST_*`, `INCONSISTENT`) as
   wikitext for a review page.
 - Make the item read sleep-and-retry on maxlag (the dry run currently marks

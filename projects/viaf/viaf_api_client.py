@@ -98,9 +98,13 @@ class ViafApiClient:
     def query_viaf(self, url) -> ViafLookupResult:
         response = requests.get(url, headers=self.HEADERS)
 
-        remaining_day = int(response.headers.get("x-ratelimit-remaining-day", 0))
-        remaining_month = int(response.headers.get("x-ratelimit-remaining-month", 0))
-        print(f"Remaining: day={remaining_day} month={remaining_month}")
+        raw_day = response.headers.get("x-ratelimit-remaining-day")
+        raw_month = response.headers.get("x-ratelimit-remaining-month")
+        # Store so callers can honour the shared daily budget. None when VIAF
+        # omits the header -- a missing header must NOT read as "0 left".
+        self.last_remaining_day = int(raw_day) if raw_day is not None else None
+        self.last_remaining_month = int(raw_month) if raw_month is not None else None
+        print(f"Remaining: day={self.last_remaining_day} month={self.last_remaining_month}")
 
         if response.status_code == 429:
             retry_after = int(response.headers.get("Ratelimit-Reset", 60))

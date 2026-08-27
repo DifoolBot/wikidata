@@ -17,23 +17,43 @@ cluster itself. Outcomes:
 
   ADD_AND_RELABEL  the item's IDs now resolve to one different, unused cluster
                    -> add that cluster (live) AND relabel the old statement's
-                   reason Q14946528 -> Q35773207 (refers to different person).
-  RELABEL_ONLY     same, but the new cluster is already on another item
-                   -> only relabel the old statement (the duplicate is a human
-                   matter, routed to the review list).
-  STAMP_RETRIEVED  the IDs still resolve to the old cluster (still conflated)
-                   and the deprecated statement has no retrieved (P813) date
-                   -> add retrieved=today, so future runs have a clear "as of".
-  STILL_CONFLATED  still conflated, but already timestamped -> nothing to do.
+                   reason Q14946528 -> Q35773207 (refers to different person),
+                   then stamp retrieved=today.
+  RELABEL_ONLY     same, but the new cluster is already on the item
+                   -> only relabel the old statement (+ stamp).
+  CORRECT_AS_OF_NOW  every id in the old cluster is now a non-deprecated id on
+                   this item -> VIAF resolved the conflation -> un-deprecate
+                   (normal rank, drop the P2241 qualifier) + stamp.
+  STILL_CONFLATED  the IDs still resolve to the old cluster and a second party is
+                   confirmed present (a source the item also has carries a
+                   different value, VIAF links >=2 items, or a P1889/P4070/
+                   same-VIAF partner still has one of its ids in the cluster)
+                   -> keep deprecated + stamp retrieved=today.
+  PROBABLY_CONFLATED  still in the old cluster but no second party confirmed
+                   -> unclear -> manual review list, no edit.
+  AMBIGUOUS_SHARED_ID  the item's live ids have moved out of the old cluster, but
+                   the old cluster still carries an id that applies to this item
+                   (a P4070 "identifier shared with" id, or an ISNI/FAST-type id
+                   VIAF keeps in the cluster) AND no other Wikidata item is
+                   confirmed to own the cluster -> "different person" is unsafe ->
+                   manual review, no edit. (A different item counts as owner only
+                   when it holds the cluster as its own non-deprecated P214; VIAF's
+                   WKP link alone can be a wrong name/year guess.)
   LIST_REDIRECT    the old cluster now redirects -> manual review list.
   LIST_ABANDONED   the old cluster is abandoned / gone -> manual review list.
                    (Epidosis is fine with the bot *removing* these, but we
                    list-first until the dry-run output has been checked.)
-  INCONSISTENT     the item's IDs resolve to more than one cluster (or some
-                   still to the old one) -> the item itself may conflate two
-                   people -> manual review list.
+  INCONSISTENT     the item's IDs resolve to more than one substantial cluster
+                   (or some still to the old one) -> the item may mix two people,
+                   or VIAF may just not have merged one person's clusters yet ->
+                   manual review (the bot cannot pick which cluster to adopt).
   INSUFFICIENT     no authority ID resolved anywhere -> not enough evidence.
   ERROR            the item could not be read / evaluated.
+
+Cross-cutting: a VIAF cluster that holds ONLY this person's records and links to
+no other Wikidata item (a benign own-fragment) is always added as a live P214,
+whatever the outcome above -- VIAF builds clusters bottom-up, so one person often
+has several unmerged clusters, and the clean ones are safe to adopt.
 
 Every conclusion is scoped to the subject item: the old cluster may still
 conflate two *other* people, and the bot asserts nothing about that.
@@ -50,10 +70,11 @@ Usage (PYTHONPATH=projects;projects/shared_lib via .env):
 """
 
 import argparse
+import hashlib
 import io
 import sys
 from collections import Counter, OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 import pywikibot as pwb
@@ -103,6 +124,11 @@ DEFAULT_MAX_VIAF_CALLS = 900  # stay under VIAF's ~1000/day ceiling
 # VIAF" UI tool.
 DEFAULT_MIN_DAY_REMAINING = 100
 DEFAULT_APPLY_LIMIT = 5
+
+# TEMPORARY: until the bot RfP for this task is approved, group all trial edits
+# under one fixed editgroups batch so they can be linked from the request. Once
+# approved, drop this and default to daily_editgroup() (see main()).
+TRIAL_EDIT_GROUP = "ae99fd76fbab"
 
 
 # --------------------------------------------------------------------------- #
@@ -180,10 +206,15 @@ class Result:
     viaf_dep: str
     outcome: str
     retrieved: date | None = None
-    new_cluster: str | None = None
+    new_cluster: str | None = None      # the primary cluster to add (ADD_AND_RELABEL)
     detail: str = ""
     viaf_calls: int = 0
     start_id: str = ""
+    # Benign own-fragment clusters (only this person, no other WKP item) that are
+    # not yet on the item -> always safe to add, whatever the primary outcome.
+    frag_clusters: list[str] = field(default_factory=list)
+    n_auth_ids: int = 0                  # authority IDs read off the item
+    n_clusters: int = 0                  # distinct VIAF clusters they resolved to
 
 
 # --------------------------------------------------------------------------- #
@@ -213,6 +244,30 @@ SELECT DISTINCT ?item ?viaf_dep ?retrieved WHERE {{
 }}"""
 
 
+def build_candidate_query_for_qids(qids: list[str]) -> str:
+    """Same as build_candidate_query but scoped to a fixed set of QIDs (VALUES),
+    with no authority-source requirement -- for targeted --only runs. Still only
+    returns items that are Q5 and carry a P214 deprecated for conflation."""
+    values = " ".join(f"wd:{q}" for q in qids)
+    return f"""PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX pr: <http://www.wikidata.org/prop/reference/>
+SELECT DISTINCT ?item ?viaf_dep ?retrieved WHERE {{
+  VALUES ?item {{ {values} }}
+  ?item wdt:P31 wd:Q5 .
+  ?item p:P214 ?st .
+  ?st wikibase:rank wikibase:DeprecatedRank ;
+      ps:P214 ?viaf_dep ;
+      pq:P2241 wd:{QID_CONFLATION} .
+  OPTIONAL {{ ?st prov:wasDerivedFrom ?ref . ?ref pr:P813 ?retrieved . }}
+}}"""
+
+
 def _parse_date(value: str) -> date | None:
     try:
         return date.fromisoformat(value[:10])
@@ -220,15 +275,14 @@ def _parse_date(value: str) -> date | None:
         return None
 
 
-def _select_candidate_bindings(pid: str) -> list[dict]:
-    """SPARQL bindings for the candidate query -- from qlever when it answers,
-    from WDQS otherwise.
+def _run_selection(query: str) -> list[dict]:
+    """SPARQL bindings for a selection query -- from qlever when it answers, from
+    WDQS otherwise.
 
     qlever.dev rate-limits by IP and can 429 for a while, and the shared runner
     then burns minutes in backoff. This selection is small and selective, so one
     quick qlever attempt with an immediate WDQS fallback is both faster and more
     reliable than waiting qlever out."""
-    query = build_candidate_query(pid)
     try:
         resp = requests.get(
             QLEVER_URL, params={"query": query}, headers=HTTP_HEADERS, timeout=120
@@ -241,10 +295,9 @@ def _select_candidate_bindings(pid: str) -> list[dict]:
     return query_wdqs(query)
 
 
-def fetch_candidates(pid: str) -> list[Candidate]:
-    """Run the selection query and fold rows to one Candidate per (qid, viaf_dep),
-    keeping the most recent retrieved date when a statement has several."""
-    bindings = _select_candidate_bindings(pid)
+def _fold_candidates(bindings: list[dict]) -> list[Candidate]:
+    """Fold selection rows to one Candidate per (qid, viaf_dep), keeping the most
+    recent retrieved date when a statement has several references."""
     merged: dict[tuple[str, str], Candidate] = {}
     for row in bindings:
         qid = row.get("item", {}).get("value", "").rsplit("/", 1)[-1]
@@ -261,12 +314,27 @@ def fetch_candidates(pid: str) -> list[Candidate]:
     return list(merged.values())
 
 
+def fetch_candidates(pid: str) -> list[Candidate]:
+    """Run the pid-scoped selection and fold it to Candidates."""
+    return _fold_candidates(_run_selection(build_candidate_query(pid)))
+
+
+def fetch_candidates_for_qids(qids: list[str]) -> list[Candidate]:
+    """Fetch the conflation-deprecated P214 candidate(s) for a specific set of
+    QIDs (for targeted --only runs), regardless of which authority source they
+    start from. Same Q5 + deprecated-for-conflation filter as the full scan."""
+    if not qids:
+        return []
+    return _fold_candidates(_run_selection(build_candidate_query_for_qids(qids)))
+
+
 def order_and_filter(
     candidates: list[Candidate], min_age_days: int
 ) -> list[Candidate]:
     """Keep candidates whose conflation was flagged over ``min_age_days`` ago (so
     VIAF has had time to re-cluster), plus those with no retrieved date at all
-    (the STAMP_RETRIEVED population). Oldest-flagged first; undated last."""
+    (never stamped -- so a first pass timestamps them). Oldest-flagged first;
+    undated last."""
     cutoff = date.today().toordinal() - min_age_days
     kept = [
         c
@@ -290,9 +358,12 @@ def collect_auth_ids(
     item: pwb.ItemPage, sources: AuthoritySources, ignore: set[str]
 ) -> list[AuthId]:
     """Every non-deprecated authority-control id on the item that maps to a known
-    VIAF source and is not in *ignore* (P214 itself is never in the source table;
-    unreliable sources like ISNI/FAST are skipped -- they match the wrong cluster
-    too often, the same reason the add-bot's config drops them)."""
+    VIAF source and is not in *ignore* (P214 itself is never in the source table).
+    Ignored sources like ISNI/FAST are skipped for *resolution* because looking
+    them up in VIAF is unreliable (often not found), the same reason the add-bot's
+    config drops them -- not because they cannot be matched. When such a source is
+    already present in a fetched cluster it matches the item's value fine, which is
+    what collect_overlap_ids relies on."""
     out: list[AuthId] = []
     for pid in sources.all_pids():
         if pid in ignore:
@@ -305,6 +376,75 @@ def collect_auth_ids(
             if value:
                 out.append(AuthId(src, str(value)))
     return out
+
+
+def collect_overlap_ids(
+    item: pwb.ItemPage, sources: AuthoritySources
+) -> list[AuthId]:
+    """Every authority id that still *applies to this item*, for the old-cluster
+    overlap safety check -- broader than collect_auth_ids:
+
+    * all non-deprecated authority ids, INCLUDING sources normally ignored for
+      resolution (ISNI/FAST/...): those are only unreliable to *look up* in VIAF,
+      but when one is already present in a fetched cluster it matches the item's
+      value fine -- so containment against a cluster we already have is safe;
+    * deprecated authority ids that carry an "identifier shared with" (P4070)
+      qualifier -- a shared id is deprecated because it also belongs to another
+      person, but it still applies to THIS item too.
+
+    Used only to detect that a de-conflated old cluster still overlaps this
+    person (-> ambiguous, route to review); never for VIAF resolution."""
+    out: list[AuthId] = []
+    for pid in sources.all_pids():
+        src = sources.get(pid)
+        for claim in item.claims.get(pid, []):
+            if claim.getSnakType() != "value":
+                continue
+            if claim.getRank() == "deprecated" and not claim.qualifiers.get(
+                PID_IDENTIFIER_SHARED_WITH
+            ):
+                continue  # deprecated for some other reason -> no longer applies
+            value = claim.getTarget()
+            if value:
+                out.append(AuthId(src, str(value)))
+    return out
+
+
+def _cluster_shared_id(
+    qid: str, cluster: ViafLookupResult, overlap_ids: list[AuthId]
+) -> AuthId | None:
+    """The first item id (from collect_overlap_ids) that ``cluster`` still lists,
+    or None -- i.e. an identifier the old cluster and the item both carry."""
+    for a in overlap_ids:
+        if cluster_covers(qid, cluster, a):
+            return a
+    return None
+
+
+def _cluster_owned_by_other_item(qid: str, v_dep: str, cluster: ViafLookupResult) -> bool:
+    """True if the old cluster's WKP names a *different* Wikidata item that
+    actually holds this cluster as its own non-deprecated P214 -- a confirmed,
+    bidirectional owner.
+
+    VIAF's WKP link alone is not proof: VIAF often adds it on a name/year match
+    when the Wikidata item has no VIAF id yet, and such a guess can be wrong until
+    Wikidata carries the matching VIAF id. So we read the pointed-at item and only
+    count it when it genuinely claims this cluster (any non-deprecated rank)."""
+    partners = {n for n, _ in cluster.source_mapping.get(WKP, []) if n} - {qid}
+    for pqid in partners:
+        try:
+            partner = pwb.ItemPage(get_repo(), pqid)
+            partner.get()
+        except Exception:
+            continue
+        for c in partner.claims.get(wd.PID_VIAF_ID, []):
+            if (
+                c.getRank() != "deprecated"
+                and c.getSnakType() == "value"
+                and str(c.getTarget()) == v_dep
+            ):
+                return True
+    return False
 
 
 def _claim_has_reason(claim: pwb.Claim, reason_qid: str) -> bool:
@@ -566,6 +706,8 @@ def classify(
     benign: set[str],
     old_is_clean: bool,
     confirmed: bool,
+    old_shared: str | None,
+    old_owner_confirmed: bool,
     do_wdqs: bool,
 ) -> tuple[str, str | None, str]:
     """Decide the outcome from the deprecated cluster's status, where the item's
@@ -585,7 +727,19 @@ def classify(
     one to add). ``benign`` are unmerged own-fragments of this same person (VIAF
     lagging behind Wikidata) -- not rival clusters, so they never make an item
     INCONSISTENT. A live id still resolving to ``v_dep`` means the old cluster
-    still holds this person, so forward resolution subsumes the reverse check."""
+    still holds this person, so forward resolution subsumes the reverse check.
+
+    ``old_shared`` (a short "CODE value" label, or None) means the old cluster
+    still carries an identifier that applies to this item -- a shared id
+    (deprecated with P4070) or an ignored-source id like ISNI that VIAF has in the
+    cluster. When the item's live ids have otherwise moved out of the old cluster,
+    that leftover overlap makes the "refers to different person" reading unsafe --
+    so the item goes to review (AMBIGUOUS_SHARED_ID) UNLESS ``old_owner_confirmed``:
+    a different Wikidata item actually owns the old cluster (holds it as its own
+    non-deprecated P214). Then the cluster is that other person's and the overlap
+    is just common shared-id noise, so the relabel stands. VIAF's WKP link alone
+    is not proof of ownership -- VIAF often adds it on a name/year match, so it can
+    be wrong until Wikidata carries the matching VIAF id."""
     if old.status == ViafStatus.REDIRECT:
         return "LIST_REDIRECT", None, f"old cluster redirects to {old.redirect_to}"
     if old.status in (ViafStatus.ABANDONED, ViafStatus.NOT_FOUND, ViafStatus.EMPTY):
@@ -620,7 +774,21 @@ def classify(
                 "old cluster holds an id not on this item and not tied to another "
                 "item -> unclear, needs a human")
 
-    # No live id resolves to the deprecated cluster: it no longer holds this person.
+    # No live id resolves to the deprecated cluster: it no longer holds this
+    # person. If a *different* Wikidata item is confirmed to own the old cluster
+    # (``old_owner_confirmed`` -- it holds the cluster as its own non-deprecated
+    # P214), the cluster is that other person's, so "refers to different person"
+    # is well founded even when a common shared id (e.g. ISNI) overlaps -- relabel.
+    # But if the old cluster still carries an id that applies to this item (a
+    # P4070-shared id, or an ISNI/FAST-type id VIAF keeps in it) and no other item
+    # is confirmed to own it, the leftover overlap makes "different person" unsafe
+    # -> route to review. (VIAF's own WKP link is not enough: VIAF often adds it on
+    # name/year alone, so it can be wrong until Wikidata carries the matching id.)
+    if old_shared is not None and not old_owner_confirmed:
+        return ("AMBIGUOUS_SHARED_ID", None,
+                f"old cluster still carries an id that applies to this item "
+                f"({old_shared}) and no other item is confirmed to own it -> "
+                f"ambiguous, needs a human")
     if not clusters_hit:
         return "INSUFFICIENT", None, "no authority id resolved to any cluster"
 
@@ -636,14 +804,17 @@ def classify(
         return ("RELABEL_ONLY", None,
                 "old cluster no longer holds the person; clean cluster already live")
 
-    # No live VIAF: the person's records are now in a new cluster to adopt.
-    if len(new_clusters) > 1:
-        return "INCONSISTENT", None, f"ids resolve to multiple new clusters: {sorted(new_clusters)}"
-    if not new_clusters:
+    # No live VIAF: the person's records are now in a cluster to adopt. Only the
+    # *rival* (non-benign) clusters decide the outcome here -- benign own-fragments
+    # are added separately (they are provably this person), so several of them, or
+    # a mix of fragments and a cluster already on the item, is not INCONSISTENT.
+    if len(rival) > 1:
+        return "INCONSISTENT", None, f"ids resolve to multiple clusters: {sorted(rival)}"
+    if not rival:
         return ("RELABEL_ONLY", None,
                 "old cluster no longer holds the person; its ids resolve to a "
-                "cluster already on the item")
-    new_cluster = next(iter(new_clusters))
+                "cluster already on the item or to its own fragment(s)")
+    new_cluster = next(iter(rival))
     try:
         dup = used_on_other_item(new_cluster, qid, fetched.get(new_cluster), do_wdqs)
     except WdqsQueryError:
@@ -727,6 +898,23 @@ def evaluate(
         old_is_clean = old.status == ViafStatus.FOUND and _is_own_fragment(
             qid, old, auth_ids
         )
+        # Does the old cluster still carry an id that applies to this item -- a
+        # shared id (deprecated with P4070) or an ignored-source id like ISNI that
+        # VIAF keeps in the cluster? If the live ids have otherwise moved out, that
+        # leftover overlap makes "refers to different person" unsafe (-> review).
+        old_shared: str | None = None
+        old_owner_confirmed = False
+        if old.status == ViafStatus.FOUND:
+            hit = _cluster_shared_id(qid, old, collect_overlap_ids(item, sources))
+            if hit is not None:
+                old_shared = f"{hit.auth_src.viaf_code} {hit.value}"
+                # Only matters when the live ids have moved out (the relabel case)
+                # -- is a different item confirmed to own the old cluster? (a WD
+                # read; VIAF's WKP link alone is not trusted -- see the helper.)
+                if candidate.viaf_dep not in clusters_hit:
+                    old_owner_confirmed = _cluster_owned_by_other_item(
+                        qid, candidate.viaf_dep, old
+                    )
         confirmed = False
         if (
             candidate.viaf_dep in clusters_hit
@@ -750,12 +938,19 @@ def evaluate(
                 )
         outcome, new_cluster, detail = classify(
             qid, candidate.viaf_dep, retrieved, clusters_hit, fetched, old,
-            v_live, v_all, benign, old_is_clean, confirmed, do_wdqs,
+            v_live, v_all, benign, old_is_clean, confirmed, old_shared,
+            old_owner_confirmed, do_wdqs,
         )
+        # Benign own-fragments (only this person, no other WKP item) not already
+        # on the item are always safe to add, whatever the primary outcome says
+        # about the deprecated statement -- the apply step re-checks each is unused.
+        frag_clusters = sorted(benign - v_all - ({new_cluster} if new_cluster else set()))
         return Result(
             qid, candidate.viaf_dep, outcome,
             retrieved=retrieved, new_cluster=new_cluster, detail=detail,
             viaf_calls=viaf.calls - before, start_id=start_id,
+            frag_clusters=frag_clusters, n_auth_ids=len(auth_ids),
+            n_clusters=len(clusters_hit),
         )
     except (BudgetExceeded, ViafRateLimitExceeded):
         raise
@@ -773,17 +968,19 @@ def evaluate(
 
 _ORDER = [
     "ADD_AND_RELABEL", "RELABEL_ONLY", "CORRECT_AS_OF_NOW", "STILL_CONFLATED",
-    "PROBABLY_CONFLATED", "LIST_REDIRECT", "LIST_ABANDONED", "INCONSISTENT",
-    "INSUFFICIENT", "ERROR",
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "LIST_REDIRECT", "LIST_ABANDONED",
+    "INCONSISTENT", "INSUFFICIENT", "ERROR",
 ]
 
 
 def _line(r: Result) -> str:
     retr = r.retrieved.isoformat() if r.retrieved else "-"
     new = f" new={r.new_cluster}" if r.new_cluster else ""
+    frag = f" +frag={r.frag_clusters}" if r.frag_clusters else ""
     return (
         f"{r.qid:<12} dep={r.viaf_dep:<12} start={r.start_id or '-':<14} "
-        f"retr={retr:<11} {r.outcome:<16}{new}  {r.detail}"
+        f"retr={retr:<11} ids={r.n_auth_ids} cl={r.n_clusters} "
+        f"{r.outcome:<16}{new}{frag}  {r.detail}"
     )
 
 
@@ -800,6 +997,11 @@ def write_report(results: list[Result], viaf_calls: int, stopped: str | None, ou
     for outcome in _ORDER:
         if counts.get(outcome):
             print(f"  {outcome:<16} {counts[outcome]}", file=out)
+    frag_items = sum(1 for r in results if r.frag_clusters)
+    if frag_items:
+        frag_total = sum(len(r.frag_clusters) for r in results)
+        print(f"  (+ {frag_total} benign fragment cluster(s) added on {frag_items} "
+              f"item(s), across the outcomes above)", file=out)
     print("", file=out)
     # Per-item detail, grouped by outcome in the order above.
     by_outcome: dict[str, list[Result]] = {}
@@ -842,7 +1044,14 @@ def _find_dep_conflation_claim(item: pwb.ItemPage, v_dep: str) -> pwb.Claim | No
 def _stamp_retrieved(claim: pwb.Claim) -> None:
     """Remove any retrieved-only reference on the claim, then add a fresh
     retrieved (P813) = today. So "update, or add if absent" falls out, and old
-    bare-retrieved references do not accumulate."""
+    bare-retrieved references do not accumulate.
+
+    Also drop any stray retrieved (P813) *qualifier*: some editors put retrieved
+    in the qualifiers (so it sits visually under the reason-for-deprecated-rank),
+    but as a qualifier its target is ambiguous -- the value, the rank, or the
+    reason -- and it is invisible to reference queries. We record retrieved as a
+    reference instead, so the qualifier is consolidated away."""
+    claim.qualifiers.pop(wd.PID_RETRIEVED, None)
     kept = [src for src in claim.sources if set(src.keys()) != {wd.PID_RETRIEVED}]
     today = date.today()
     ref = pwb.Claim(get_repo(), wd.PID_RETRIEVED, is_reference=True)
@@ -877,19 +1086,35 @@ def _undeprecate(claim: pwb.Claim) -> None:
     claim.qualifiers.pop(wd.PID_REASON_FOR_DEPRECATED_RANK, None)
 
 
-def apply_edits(results: list[Result], limit: int, save: bool) -> int:
+def daily_editgroup(tag: str = "viaf_deconflate") -> str:
+    """A stable per-day editgroups batch id, so all of a day's edits group under
+    one https://editgroups.toolforge.org/b/CB/<id>/ batch (reviewable/revertable
+    together). Same tag+day -> same id; --editgroup overrides it."""
+    return hashlib.sha1(f"{tag}:{date.today().isoformat()}".encode()).hexdigest()[:12]
+
+
+def apply_edits(
+    results: list[Result], limit: int, save: bool, edit_group: str = ""
+) -> int:
     """Perform the edits, grouped per item so one item with several deprecated
     statements (or the same new cluster reached twice) is a single edit.
     ``save=False`` builds the edit in WikiDataPage test mode (prints a summary,
-    writes nothing). Returns the number of items (would be) edited.
+    writes nothing). ``edit_group`` (a batch id) tags every edit summary so the
+    run's edits are grouped on editgroups.toolforge.org and can be reviewed or
+    rolled back together. Returns the number of items (would be) edited.
 
     Per outcome: ADD_AND_RELABEL adds the new cluster (full VIAF reference) and
     relabels the old one; RELABEL_ONLY relabels; CORRECT_AS_OF_NOW un-deprecates;
     STILL_CONFLATED just re-stamps. Every touched deprecated statement is stamped
-    with retrieved=today."""
+    with retrieved=today. Independently of the outcome, any benign own-fragment
+    clusters (r.frag_clusters) are also added -- they are provably this person, so
+    even a review-only item (e.g. INCONSISTENT) can still gain a clean live VIAF.
+    Every add is re-checked as unused right before it is written."""
+    # An item is edited if it has an edit outcome OR a benign own-fragment to add
+    # (those ride along with any outcome, including the review ones).
     by_qid: dict[str, list[Result]] = {}
     for r in results:
-        if r.outcome in _EDIT_OUTCOMES:
+        if r.outcome in _EDIT_OUTCOMES or r.frag_clusters:
             by_qid.setdefault(r.qid, []).append(r)
 
     edited = 0
@@ -898,6 +1123,8 @@ def apply_edits(results: list[Result], limit: int, save: bool) -> int:
             break
         adds = {r.new_cluster for r in rows
                 if r.outcome == "ADD_AND_RELABEL" and r.new_cluster}
+        for r in rows:  # benign own-fragments, added regardless of outcome
+            adds.update(r.frag_clusters)
         relabels = {r.viaf_dep for r in rows
                     if r.outcome in ("ADD_AND_RELABEL", "RELABEL_ONLY")}
         undeprecates = {r.viaf_dep for r in rows if r.outcome == "CORRECT_AS_OF_NOW"}
@@ -911,6 +1138,7 @@ def apply_edits(results: list[Result], limit: int, save: bool) -> int:
                 if c.getSnakType() == "value"
             }
             wdpage = cwd.WikiDataPage(item, test=not save)
+            wdpage.edit_group = edit_group
             for cluster in sorted(adds):
                 if cluster in on_item:  # already present at some rank -> never re-add
                     continue
@@ -969,7 +1197,7 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--pid", default=DEFAULT_START_PID,
-                    help=f"authority property to start from (default {DEFAULT_START_PID} = LC)")
+                    help=f"authority property to start from (default {DEFAULT_START_PID} = GND)")
     ap.add_argument("--max-items", type=int, default=DEFAULT_MAX_ITEMS,
                     help="stop after this many candidate items")
     ap.add_argument("--max-viaf-calls", type=int, default=DEFAULT_MAX_VIAF_CALLS,
@@ -990,6 +1218,14 @@ def main() -> None:
                     help="with --apply, actually save the edits (default: preview only)")
     ap.add_argument("--apply-limit", type=int, default=DEFAULT_APPLY_LIMIT,
                     help="with --apply, edit at most this many items")
+    ap.add_argument("--only", default=None,
+                    help="comma-separated QIDs to process instead of the full "
+                         "selection (targeted verification; bypasses the age "
+                         "filter and --max-items)")
+    ap.add_argument("--editgroup", metavar="ID", default=None,
+                    help="editgroups batch id for the edit summaries (default: a "
+                         "fixed trial batch until the RfP is approved; then a "
+                         "stable per-day id via daily_editgroup())")
     args = ap.parse_args()
 
     ensure_login()
@@ -999,13 +1235,26 @@ def main() -> None:
         return
     ignore = set(load_config().ignore)
 
-    raw = fetch_candidates(args.pid)
-    candidates = order_and_filter(raw, args.min_age_days)
-    print(
-        f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
-        f"the {args.min_age_days}-day age filter (start source {args.pid})."
-    )
-    candidates = candidates[: args.max_items]
+    if args.only:
+        only_qids = [q.strip().upper() for q in args.only.split(",") if q.strip()]
+        raw = fetch_candidates_for_qids(only_qids)
+        found = {c.qid for c in raw}
+        missing = [q for q in only_qids if q not in found]
+        if missing:
+            print(f"warning: --only QIDs not conflation candidates / not found: {missing}")
+        candidates = order_and_filter(raw, 0)  # hand-picked: no age filter
+        print(
+            f"--only: {len(candidates)} candidate statement(s) for "
+            f"{len(found)}/{len(only_qids)} requested item(s)."
+        )
+    else:
+        raw = fetch_candidates(args.pid)
+        candidates = order_and_filter(raw, args.min_age_days)
+        print(
+            f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
+            f"the {args.min_age_days}-day age filter (start source {args.pid})."
+        )
+        candidates = candidates[: args.max_items]
 
     viaf = BudgetedViaf(ViafApiClient(), args.max_viaf_calls, args.min_day_remaining)
     results: list[Result] = []
@@ -1029,9 +1278,13 @@ def main() -> None:
         print(f"Report written to {args.out}")
 
     if args.apply:
+        # TEMPORARY: fixed trial batch until the RfP is approved; then switch to
+        # daily_editgroup(). --editgroup still overrides.
+        edit_group = args.editgroup or TRIAL_EDIT_GROUP
         mode = "SAVING edits" if args.save else "previewing edits (no save)"
         print(f"\n--- apply: {mode}, up to {args.apply_limit} item(s) ---")
-        edited = apply_edits(results, args.apply_limit, args.save)
+        print(f"editgroup https://editgroups.toolforge.org/b/CB/{edit_group}/")
+        edited = apply_edits(results, args.apply_limit, args.save, edit_group)
         print(f"{'edited' if args.save else 'previewed'} {edited} item(s).")
 
 
