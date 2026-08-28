@@ -10,11 +10,13 @@ Run with:
 """
 import types
 
+import viaf_deconflate.deconflate as d
 from viaf.authority_sources import AuthoritySource
-from viaf.viaf_api_client import ViafStatus
+from viaf.viaf_api_client import ViafLookupResult, ViafStatus
 from viaf_deconflate.deconflate import (
     QID_CONFLATION,
     AuthId,
+    Result,
     _cluster_has_conflicting_id,
     _cluster_shared_id,
     _fold_candidates,
@@ -282,3 +284,128 @@ def test_stamp_removes_stray_retrieved_qualifier(monkeypatch):
     # and retrieved is now recorded as a single reference block
     assert len(c.sources) == 1
     assert list(c.sources[0].keys()) == [d.wd.PID_RETRIEVED]
+
+
+# --- processed-item state files -----------------------------------------------
+
+import pytest
+
+
+@pytest.fixture
+def state_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(d, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(d, "DONE_FILE", tmp_path / "done.txt")
+    monkeypatch.setattr(d, "REVIEW_FILE", tmp_path / "review.txt")
+    monkeypatch.setattr(d, "ERROR_FILE", tmp_path / "error.txt")
+    return tmp_path
+
+
+def _res(qid, dep, outcome, frag=None):
+    return Result(qid, dep, outcome, frag_clusters=frag or [])
+
+
+def test_review_outcome_recorded_on_dry_run(state_dir):
+    d.record_state([_res("Q1", "111", "INCONSISTENT")], edited_qids=set())
+    assert d.load_skip_set() == {("Q1", "111")}
+    # ...but not skipped when we ask to recheck review
+    assert d.load_skip_set(include_review=False) == set()
+
+
+def test_edit_outcome_pending_until_saved(state_dir):
+    # a dry run (no edited qids) must NOT record an edit outcome
+    d.record_state([_res("Q2", "222", "ADD_AND_RELABEL")], edited_qids=set())
+    assert d.load_skip_set() == set()
+    # once actually saved, it lands in done and is skipped
+    d.record_state([_res("Q2", "222", "ADD_AND_RELABEL")], edited_qids={"Q2"})
+    assert d.load_skip_set() == {("Q2", "222")}
+
+
+def test_review_with_frag_is_pending_then_both_files(state_dir):
+    r = _res("Q3", "333", "INCONSISTENT", frag=["999"])
+    d.record_state([r], edited_qids=set())          # frag not saved -> pending
+    assert d.load_skip_set() == set()
+    d.record_state([r], edited_qids={"Q3"})         # frag saved
+    assert ("Q3", "333") in d.load_skip_set()       # skipped now
+    assert ("Q3", "333") in d._load_state_keys(d.DONE_FILE)
+    assert ("Q3", "333") in d._load_state_keys(d.REVIEW_FILE)  # still on worklist
+
+
+def test_error_recorded_but_never_skipped(state_dir):
+    d.record_state([_res("Q4", "444", "ERROR")], edited_qids=set())
+    assert d.load_skip_set() == set()
+    assert ("Q4", "444") in d._load_state_keys(d.ERROR_FILE)
+
+
+def test_recording_is_deduplicated(state_dir):
+    r = _res("Q5", "555", "PROBABLY_CONFLATED")
+    d.record_state([r], edited_qids=set())
+    d.record_state([r], edited_qids=set())
+    assert (d.REVIEW_FILE).read_text().count("Q5") == 1
+
+
+# --- stale live P214s: redirect / withdrawn detection -------------------------
+
+def test_redirect_target_string_dict_and_invalid():
+    assert d._redirect_target(ViafLookupResult(ViafStatus.REDIRECT, "12345")) == "12345"
+    assert d._redirect_target(
+        ViafLookupResult(ViafStatus.REDIRECT, {"#text": "678"})) == "678"
+    assert d._redirect_target(ViafLookupResult(ViafStatus.REDIRECT, "")) == ""
+    assert d._redirect_target(ViafLookupResult(ViafStatus.REDIRECT, "12x")) == ""
+
+
+class _FakeViaf:
+    def __init__(self, mapping):
+        self.mapping = mapping
+
+    def cluster(self, v):
+        return self.mapping[v]
+
+
+def test_live_redirect_target_added_when_unused():
+    viaf = _FakeViaf({"OLD": ViafLookupResult(ViafStatus.REDIRECT, "999")})
+    red, wdn, rev = d.resolve_live_status(viaf, "Q1", ["OLD"], v_all={"OLD"}, do_wdqs=False)
+    assert red == [("OLD", "999")] and not wdn and not rev
+
+
+def test_live_redirect_target_already_on_item():
+    viaf = _FakeViaf({"OLD": ViafLookupResult(ViafStatus.REDIRECT, "999")})
+    red, wdn, rev = d.resolve_live_status(
+        viaf, "Q1", ["OLD"], v_all={"OLD", "999"}, do_wdqs=False)
+    assert red == [("OLD", None)]          # target present -> just deprecate old
+
+
+def test_live_redirect_target_on_other_item_goes_to_review(monkeypatch):
+    monkeypatch.setattr(d, "_items_with_viaf", lambda cid, qid: {"Q2"})
+    viaf = _FakeViaf({"OLD": ViafLookupResult(ViafStatus.REDIRECT, "999")})
+    red, wdn, rev = d.resolve_live_status(viaf, "Q1", ["OLD"], v_all={"OLD"}, do_wdqs=True)
+    assert rev == ["OLD"] and not red and not wdn
+
+
+def test_live_withdrawn_and_found():
+    viaf = _FakeViaf({
+        "A": ViafLookupResult(ViafStatus.ABANDONED),
+        "B": ViafLookupResult(ViafStatus.FOUND),
+    })
+    red, wdn, rev = d.resolve_live_status(viaf, "Q1", ["A", "B"], v_all=set(), do_wdqs=False)
+    assert wdn == ["A"] and not red and not rev   # FOUND is left alone
+
+
+def test_deprecate_with_reason(monkeypatch):
+    class FakeQ:
+        def __init__(self, repo, pid, is_qualifier=False):
+            self.id = pid
+        def setTarget(self, t):
+            self.target = t
+    monkeypatch.setattr(d, "get_repo", lambda: None)
+    monkeypatch.setattr(d.pwb, "Claim", FakeQ)
+    monkeypatch.setattr(d.pwb, "ItemPage", lambda repo, qid: qid)
+
+    class FakeClaim:
+        def __init__(self):
+            self.rank = "normal"
+            self.qualifiers = {}
+    c = FakeClaim()
+    d._deprecate_with_reason(c, d.QID_REDIRECT)
+    assert c.rank == "deprecated"
+    q = c.qualifiers[d.wd.PID_REASON_FOR_DEPRECATED_RANK]
+    assert len(q) == 1 and q[0].target == d.QID_REDIRECT

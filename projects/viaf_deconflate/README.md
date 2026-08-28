@@ -39,6 +39,14 @@ clusters; this adds the clean ones (and keeps a multi-cluster item out of
 `INCONSISTENT` when the extra clusters are just such fragments). Each add is
 re-checked as unused right before it is written.
 
+**Stale live-`P214` fixes (cross-cutting).** A *live* `P214` the item's own IDs
+did **not** resolve to may have gone stale on VIAF's side, so it is re-queried
+(only the unconfirmed ones, to keep the extra calls targeted):
+- **redirect** → deprecate the live statement (`P2241` = `Q45403344`) and add the
+  redirect target as a live `P214`; if the target is already on **another**
+  Wikidata item, don't touch it — route to review instead.
+- **abandoned/withdrawn** → deprecate the live statement (`P2241` = `Q21441764`).
+
 Every conclusion is scoped to the subject item: the old cluster may still
 conflate two *other* people, and the tool asserts nothing about that.
 
@@ -73,8 +81,28 @@ VIAF reports this many daily calls left, leaving headroom for the daily cron and
 the manual UI tool), `--min-age-days`, `--no-dup-check`, `--only Q…,Q…` (process
 just these QIDs), `--editgroup ID` (batch id for the edit summaries; until the bot RfP is approved
 it defaults to a fixed trial batch so all trial edits group on
-editgroups.toolforge.org, then a stable per-day id), and
+editgroups.toolforge.org, then a stable per-day id),
+`--recheck-review` / `--recheck` / `--no-state` (see below), and
 `--apply` / `--save` / `--apply-limit` (default 5).
+
+## Processed-item state
+
+To avoid re-spending VIAF calls on items already handled, each run records
+statements it has settled to text files in `output/` (same convention as the
+sibling bots), keyed by `(QID, viaf_dep)`:
+
+- `output/review.txt` — routed to a human (no bot edit). Recorded on any run,
+  including a plain dry run, since a classify pass fully settles them. Doubles as
+  the review worklist.
+- `output/done.txt` — statements actually **edited**; written only after `--save`
+  applies them (a fragment add counts). A dry run never marks an edit as done.
+- `output/error.txt` — transient failures (maxlag etc.); recorded but **never**
+  skipped, so they retry.
+
+The next run skips anything in `done.txt`/`review.txt` **before** the VIAF calls.
+`--recheck-review` re-processes the review pile (VIAF may have split a cluster
+since); `--recheck` ignores all state; `--no-state` neither reads nor writes it.
+`--only` always bypasses the skip set.
 
 ## Reuse and known simplifications (for review)
 

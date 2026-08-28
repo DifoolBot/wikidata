@@ -55,6 +55,13 @@ no other Wikidata item (a benign own-fragment) is always added as a live P214,
 whatever the outcome above -- VIAF builds clusters bottom-up, so one person often
 has several unmerged clusters, and the clean ones are safe to adopt.
 
+Also cross-cutting: a *live* P214 the item's own ids did NOT resolve to may have
+gone stale on VIAF's side. Such a value is re-queried; if VIAF now REDIRECTS it,
+the live statement is deprecated (P2241 = Q45403344, redirect) and the redirect
+target is added as a live P214 (unless the target is on another Wikidata item ->
+review); if the record is ABANDONED/withdrawn, the live statement is deprecated
+(P2241 = Q21441764, withdrawn identifier value).
+
 Every conclusion is scoped to the subject item: the old cluster may still
 conflate two *other* people, and the bot asserts nothing about that.
 
@@ -72,10 +79,12 @@ Usage (PYTHONPATH=projects;projects/shared_lib via .env):
 import argparse
 import hashlib
 import io
+import re
 import sys
 from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 
 import pywikibot as pwb
 import requests
@@ -99,6 +108,11 @@ from viaf.wdqs_client import WdqsQueryError, query_wdqs
 # promote them there once this task is built for real.
 QID_CONFLATION = "Q14946528"                  # the reason we are cleaning up
 QID_REFERS_TO_DIFFERENT_PERSON = "Q35773207"  # the replacement (population is Q5)
+QID_REDIRECT = "Q45403344"                    # live VIAF now redirects to another
+QID_WITHDRAWN = "Q21441764"                   # live VIAF abandoned / withdrawn
+
+# Valid VIAF cluster id: 2-9 digits, or the newer 19-22 digit form (with a gap).
+VIAF_ID_RE = re.compile(r"^[1-9]\d(\d{0,7}|\d{17,20})$")
 
 # VIAF's own authority-source code for Wikidata itself; its entries list the
 # QIDs VIAF ties into a cluster.
@@ -215,6 +229,11 @@ class Result:
     frag_clusters: list[str] = field(default_factory=list)
     n_auth_ids: int = 0                  # authority IDs read off the item
     n_clusters: int = 0                  # distinct VIAF clusters they resolved to
+    # Fixes for the item's *live* P214s that have gone stale on VIAF's side:
+    live_redirects: list[tuple[str, str | None]] = field(default_factory=list)
+    # (old_live_value, target-or-None) -> deprecate old (P2241=redirect), add target
+    live_withdrawn: list[str] = field(default_factory=list)  # deprecate (withdrawn)
+    live_review: list[str] = field(default_factory=list)     # redirect target clashes
 
 
 # --------------------------------------------------------------------------- #
@@ -689,6 +708,60 @@ def used_on_other_item(
     return None
 
 
+def _redirect_target(res: ViafLookupResult) -> str:
+    """The VIAF id a redirect points to (``directto``), or "" if missing/invalid.
+    VIAF's client hands ``redirect_to`` back as a string or a small dict, so
+    coerce and validate it against the VIAF id shape."""
+    target = res.redirect_to
+    if isinstance(target, dict):
+        target = target.get("#text", "")
+    target = str(target or "").strip()
+    return target if VIAF_ID_RE.match(target) else ""
+
+
+def resolve_live_status(
+    viaf: "BudgetedViaf", qid: str, unconfirmed_live: list[str],
+    v_all: set[str], do_wdqs: bool,
+) -> tuple[list[tuple[str, str | None]], list[str], list[str]]:
+    """For each live P214 the item's own ids did NOT resolve to, query VIAF and
+    work out whether it has gone stale. Returns (redirects, withdrawn, review):
+
+      redirects  (old, target-or-None): VIAF redirects old -> target. target is
+                 None when the target is already on this item (just deprecate old);
+                 otherwise the target is unused elsewhere and safe to add.
+      withdrawn  old values whose VIAF record is abandoned/withdrawn.
+      review     old values whose redirect target is already on another Wikidata
+                 item (a human should decide) -- left untouched.
+
+    Only the unconfirmed live values are queried (the resolved ones are known
+    FOUND), so the extra VIAF calls are spent only on genuinely suspect ids."""
+    redirects: list[tuple[str, str | None]] = []
+    withdrawn: list[str] = []
+    review: list[str] = []
+    for live in sorted(unconfirmed_live):
+        st = viaf.cluster(live)
+        if st.status == ViafStatus.REDIRECT:
+            target = _redirect_target(st)
+            if not target:
+                continue  # malformed redirect -> leave the statement alone
+            if target in v_all:
+                redirects.append((live, None))  # target already on the item
+                continue
+            try:
+                dup = used_on_other_item(target, qid, None, do_wdqs)
+            except WdqsQueryError:
+                review.append(live)  # cannot verify unused -> human
+                continue
+            if dup:
+                review.append(live)
+            else:
+                redirects.append((live, target))
+        elif st.status in (ViafStatus.ABANDONED, ViafStatus.NOT_FOUND, ViafStatus.EMPTY):
+            withdrawn.append(live)
+        # FOUND: a valid live cluster the ids just did not resolve to -> leave it.
+    return redirects, withdrawn, review
+
+
 # --------------------------------------------------------------------------- #
 # Classification                                                              #
 # --------------------------------------------------------------------------- #
@@ -945,12 +1018,18 @@ def evaluate(
         # on the item are always safe to add, whatever the primary outcome says
         # about the deprecated statement -- the apply step re-checks each is unused.
         frag_clusters = sorted(benign - v_all - ({new_cluster} if new_cluster else set()))
+        # Stale live P214s: a live VIAF the item's own ids did NOT resolve to may
+        # have been redirected or withdrawn on VIAF's side. Check only those.
+        live_redirects, live_withdrawn, live_review = resolve_live_status(
+            viaf, qid, sorted(v_live - clusters_hit), v_all, do_wdqs,
+        )
         return Result(
             qid, candidate.viaf_dep, outcome,
             retrieved=retrieved, new_cluster=new_cluster, detail=detail,
             viaf_calls=viaf.calls - before, start_id=start_id,
             frag_clusters=frag_clusters, n_auth_ids=len(auth_ids),
-            n_clusters=len(clusters_hit),
+            n_clusters=len(clusters_hit), live_redirects=live_redirects,
+            live_withdrawn=live_withdrawn, live_review=live_review,
         )
     except (BudgetExceeded, ViafRateLimitExceeded):
         raise
@@ -976,11 +1055,10 @@ _ORDER = [
 def _line(r: Result) -> str:
     retr = r.retrieved.isoformat() if r.retrieved else "-"
     new = f" new={r.new_cluster}" if r.new_cluster else ""
-    frag = f" +frag={r.frag_clusters}" if r.frag_clusters else ""
     return (
         f"{r.qid:<12} dep={r.viaf_dep:<12} start={r.start_id or '-':<14} "
         f"retr={retr:<11} ids={r.n_auth_ids} cl={r.n_clusters} "
-        f"{r.outcome:<16}{new}{frag}  {r.detail}"
+        f"{r.outcome:<16}{new}{_live_summary(r)}  {r.detail}"
     )
 
 
@@ -1002,6 +1080,12 @@ def write_report(results: list[Result], viaf_calls: int, stopped: str | None, ou
         frag_total = sum(len(r.frag_clusters) for r in results)
         print(f"  (+ {frag_total} benign fragment cluster(s) added on {frag_items} "
               f"item(s), across the outcomes above)", file=out)
+    red = sum(len(r.live_redirects) for r in results)
+    wdn = sum(len(r.live_withdrawn) for r in results)
+    rev = sum(len(r.live_review) for r in results)
+    if red or wdn or rev:
+        print(f"  (live-P214 fixes: {red} redirect, {wdn} withdrawn; {rev} redirect "
+              f"target(s) clash -> review)", file=out)
     print("", file=out)
     # Per-item detail, grouped by outcome in the order above.
     by_outcome: dict[str, list[Result]] = {}
@@ -1026,6 +1110,100 @@ def write_report(results: list[Result], viaf_calls: int, stopped: str | None, ou
 _EDIT_OUTCOMES = {
     "ADD_AND_RELABEL", "RELABEL_ONLY", "CORRECT_AS_OF_NOW", "STILL_CONFLATED",
 }
+
+# Outcomes that need a human / carry no bot edit -- fully settled by a classify
+# pass, so they are recorded (and then skipped) even on a dry run.
+_REVIEW_OUTCOMES = {
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "INCONSISTENT",
+    "LIST_REDIRECT", "LIST_ABANDONED", "INSUFFICIENT",
+}
+
+
+# --------------------------------------------------------------------------- #
+# Processed-item state (text files, like the sibling bots)                     #
+# --------------------------------------------------------------------------- #
+
+OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+DONE_FILE = OUTPUT_DIR / "done.txt"        # statements actually edited (--save)
+REVIEW_FILE = OUTPUT_DIR / "review.txt"    # routed to a human, no bot edit
+ERROR_FILE = OUTPUT_DIR / "error.txt"      # transient failures -- NOT skipped
+
+
+def _load_state_keys(path: Path) -> set[tuple[str, str]]:
+    """(qid, viaf_dep) keys recorded in a state file."""
+    keys: set[tuple[str, str]] = set()
+    if path.exists():
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                parts = line.split("\t")
+                if len(parts) >= 2 and parts[0].startswith("Q"):
+                    keys.add((parts[0].strip(), parts[1].strip()))
+    return keys
+
+
+def load_skip_set(include_review: bool = True) -> set[tuple[str, str]]:
+    """(qid, viaf_dep) statements to skip re-processing: everything already
+    edited, plus (unless recheck-review) everything already routed to review.
+    Errors are never skipped -- they retry."""
+    keys = _load_state_keys(DONE_FILE)
+    if include_review:
+        keys |= _load_state_keys(REVIEW_FILE)
+    return keys
+
+
+def _live_summary(r: "Result") -> str:
+    """Compact tail describing the extra fragment/redirect/withdrawn actions."""
+    parts = []
+    if r.frag_clusters:
+        parts.append(f"+frag={r.frag_clusters}")
+    if r.live_redirects:
+        parts.append(f"redirect={r.live_redirects}")
+    if r.live_withdrawn:
+        parts.append(f"withdrawn={r.live_withdrawn}")
+    if r.live_review:
+        parts.append(f"live_review={r.live_review}")
+    return (" " + " ".join(parts)) if parts else ""
+
+
+def _append_state(path: Path, r: "Result") -> None:
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"{r.qid}\t{r.viaf_dep}\t{r.outcome}\t{date.today().isoformat()}\t"
+                f"{r.detail}{_live_summary(r)}\n")
+
+
+def record_state(results: list["Result"], edited_qids: set[str]) -> dict[str, int]:
+    """Append newly-settled statements to the state files, de-duplicating against
+    what is already there. ``edited_qids`` are the QIDs an --save apply actually
+    wrote (empty on a dry run). A statement is settled when it needs no (further)
+    bot edit: a review outcome with no pending fragment add is settled by the
+    classify pass alone; an edit outcome or a fragment add is settled only once
+    saved. Errors go to error.txt and are never skipped."""
+    done, review, errors = (_load_state_keys(DONE_FILE),
+                            _load_state_keys(REVIEW_FILE),
+                            _load_state_keys(ERROR_FILE))
+    added = {"done": 0, "review": 0, "error": 0}
+    for r in results:
+        key = (r.qid, r.viaf_dep)
+        if r.outcome == "ERROR":
+            if key not in errors:
+                _append_state(ERROR_FILE, r); errors.add(key); added["error"] += 1
+            continue
+        pending_edit = (r.outcome in _EDIT_OUTCOMES or bool(r.frag_clusters)
+                        or bool(r.live_redirects) or bool(r.live_withdrawn))
+        review_primary = r.outcome in _REVIEW_OUTCOMES or bool(r.live_review)
+        if pending_edit:
+            if r.qid in edited_qids:              # actually written this run
+                if key not in done:
+                    _append_state(DONE_FILE, r); done.add(key); added["done"] += 1
+                # a review statement that also gained a fragment add still needs a
+                # human -> keep it on the worklist too.
+                if review_primary and key not in review:
+                    _append_state(REVIEW_FILE, r); review.add(key); added["review"] += 1
+            # else: still pending, do not record
+        elif review_primary and key not in review:
+            _append_state(REVIEW_FILE, r); review.add(key); added["review"] += 1
+    return added
 
 
 def _find_dep_conflation_claim(item: pwb.ItemPage, v_dep: str) -> pwb.Claim | None:
@@ -1086,6 +1264,45 @@ def _undeprecate(claim: pwb.Claim) -> None:
     claim.qualifiers.pop(wd.PID_REASON_FOR_DEPRECATED_RANK, None)
 
 
+def _find_live_claim(item: pwb.ItemPage, value: str) -> pwb.Claim | None:
+    """The item's non-deprecated P214 claim whose value is ``value``."""
+    for claim in item.claims.get(wd.PID_VIAF_ID, []):
+        if (
+            claim.getRank() != "deprecated"
+            and claim.getSnakType() == "value"
+            and str(claim.getTarget()) == value
+        ):
+            return claim
+    return None
+
+
+def _deprecate_with_reason(claim: pwb.Claim, reason_qid: str) -> None:
+    """Deprecate a (currently live) claim: rank -> deprecated with a single
+    reason-for-deprecated-rank (P2241) qualifier."""
+    claim.rank = "deprecated"
+    q = pwb.Claim(get_repo(), wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True)
+    q.setTarget(pwb.ItemPage(get_repo(), reason_qid))
+    claim.qualifiers[wd.PID_REASON_FOR_DEPRECATED_RANK] = [q]
+
+
+class RetrievedReference(cwd.Reference):
+    """A bare reference carrying only retrieved (P813) = today, for a value the bot
+    took from VIAF today with no other citable source -- e.g. a redirect target,
+    whose provenance is simply 'VIAF redirected here, as retrieved today'."""
+
+    def is_equal_reference(self, src) -> bool:
+        return set(src.keys()) == {wd.PID_RETRIEVED}
+
+    def create_source(self):
+        today = date.today()
+        ref = pwb.Claim(get_repo(), wd.PID_RETRIEVED, is_reference=True)
+        ref.setTarget(pwb.WbTime(year=today.year, month=today.month, day=today.day))
+        return OrderedDict([(wd.PID_RETRIEVED, [ref])])
+
+    def is_strong_reference(self) -> bool:
+        return False
+
+
 def daily_editgroup(tag: str = "viaf_deconflate") -> str:
     """A stable per-day editgroups batch id, so all of a day's edits group under
     one https://editgroups.toolforge.org/b/CB/<id>/ batch (reviewable/revertable
@@ -1095,7 +1312,7 @@ def daily_editgroup(tag: str = "viaf_deconflate") -> str:
 
 def apply_edits(
     results: list[Result], limit: int, save: bool, edit_group: str = ""
-) -> int:
+) -> set[str]:
     """Perform the edits, grouped per item so one item with several deprecated
     statements (or the same new cluster reached twice) is a single edit.
     ``save=False`` builds the edit in WikiDataPage test mode (prints a summary,
@@ -1109,17 +1326,20 @@ def apply_edits(
     with retrieved=today. Independently of the outcome, any benign own-fragment
     clusters (r.frag_clusters) are also added -- they are provably this person, so
     even a review-only item (e.g. INCONSISTENT) can still gain a clean live VIAF.
-    Every add is re-checked as unused right before it is written."""
+    Every add is re-checked as unused right before it is written.
+
+    Returns the set of QIDs that were (or, in test mode, would be) edited."""
     # An item is edited if it has an edit outcome OR a benign own-fragment to add
     # (those ride along with any outcome, including the review ones).
     by_qid: dict[str, list[Result]] = {}
     for r in results:
-        if r.outcome in _EDIT_OUTCOMES or r.frag_clusters:
+        if (r.outcome in _EDIT_OUTCOMES or r.frag_clusters
+                or r.live_redirects or r.live_withdrawn):
             by_qid.setdefault(r.qid, []).append(r)
 
-    edited = 0
+    edited: set[str] = set()
     for qid, rows in by_qid.items():
-        if edited >= limit:
+        if len(edited) >= limit:
             break
         adds = {r.new_cluster for r in rows
                 if r.outcome == "ADD_AND_RELABEL" and r.new_cluster}
@@ -1129,6 +1349,11 @@ def apply_edits(
                     if r.outcome in ("ADD_AND_RELABEL", "RELABEL_ONLY")}
         undeprecates = {r.viaf_dep for r in rows if r.outcome == "CORRECT_AS_OF_NOW"}
         stamps = {r.viaf_dep for r in rows if r.outcome == "STILL_CONFLATED"}
+        live_redirects: dict[str, str | None] = {}
+        for r in rows:
+            for old, tgt in r.live_redirects:
+                live_redirects.setdefault(old, tgt)
+        live_withdrawn = {v for r in rows for v in r.live_withdrawn}
         try:
             item = pwb.ItemPage(get_repo(), qid)
             item.get(force=True)  # fresh, so ranks/refs and add-dedup see reality
@@ -1171,13 +1396,45 @@ def apply_edits(
                 if claim is not None:
                     _stamp_retrieved(claim)
                     wdpage.claim_changed(claim)
+            # Stale live P214s: redirect (deprecate old + add target) or withdrawn.
+            # Only deprecate the old redirect if its target can actually be added
+            # (or is already on the item), so we never orphan the statement.
+            for old, tgt in sorted(live_redirects.items()):
+                claim = _find_live_claim(item, old)
+                if claim is None:
+                    continue
+                if tgt and tgt not in on_item:
+                    try:
+                        others = _items_with_viaf(tgt, qid)
+                    except WdqsQueryError:
+                        pwb.warning(f"{qid}: cannot verify redirect target {tgt}; skipping")
+                        continue
+                    if others:
+                        pwb.warning(f"{qid}: redirect target {tgt} now on {sorted(others)}; skipping")
+                        continue
+                    wdpage.add_statement(
+                        cwd.ExternalIDStatement(prop=wd.PID_VIAF_ID, external_id=tgt),
+                        reference=RetrievedReference(),
+                    )
+                _deprecate_with_reason(claim, QID_REDIRECT)
+                wdpage.claim_changed(claim)
+            for old in sorted(live_withdrawn):
+                claim = _find_live_claim(item, old)
+                if claim is not None:
+                    _deprecate_with_reason(claim, QID_WITHDRAWN)
+                    wdpage.claim_changed(claim)
             wdpage.summary = "VIAF de-conflation"
             if wdpage.apply():
-                edited += 1
+                edited.add(qid)
                 verb = "edited" if save else "would edit"
+                extra = ""
+                if live_redirects:
+                    extra += f" redirect={sorted(live_redirects)}"
+                if live_withdrawn:
+                    extra += f" withdrawn={sorted(live_withdrawn)}"
                 pwb.output(
                     f"{verb} {qid}: add={sorted(adds)} relabel={sorted(relabels)} "
-                    f"undeprecate={sorted(undeprecates)} stamp={sorted(stamps)}"
+                    f"undeprecate={sorted(undeprecates)} stamp={sorted(stamps)}{extra}"
                 )
         except Exception as e:  # one bad item must not abort the batch
             pwb.error(f"apply failed for {qid}: {e}")
@@ -1226,6 +1483,13 @@ def main() -> None:
                     help="editgroups batch id for the edit summaries (default: a "
                          "fixed trial batch until the RfP is approved; then a "
                          "stable per-day id via daily_editgroup())")
+    ap.add_argument("--recheck-review", action="store_true",
+                    help="re-process items previously routed to review (VIAF may "
+                         "have split a cluster since); still skips edited items")
+    ap.add_argument("--recheck", action="store_true",
+                    help="ignore the processed-item state entirely (re-do all)")
+    ap.add_argument("--no-state", action="store_true",
+                    help="do not read or write the output/ state files")
     args = ap.parse_args()
 
     ensure_login()
@@ -1254,6 +1518,15 @@ def main() -> None:
             f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
             f"the {args.min_age_days}-day age filter (start source {args.pid})."
         )
+        # Skip statements already handled in a previous run (saves VIAF calls);
+        # --only always bypasses this.
+        if not args.no_state and not args.recheck:
+            skip = load_skip_set(include_review=not args.recheck_review)
+            before = len(candidates)
+            candidates = [c for c in candidates if (c.qid, c.viaf_dep) not in skip]
+            if before != len(candidates):
+                print(f"skipped {before - len(candidates)} already-processed "
+                      f"candidate(s) from output/ state.")
         candidates = candidates[: args.max_items]
 
     viaf = BudgetedViaf(ViafApiClient(), args.max_viaf_calls, args.min_day_remaining)
@@ -1277,6 +1550,7 @@ def main() -> None:
             write_report(results, viaf.calls, stopped, fh)
         print(f"Report written to {args.out}")
 
+    edited_qids: set[str] = set()
     if args.apply:
         # TEMPORARY: fixed trial batch until the RfP is approved; then switch to
         # daily_editgroup(). --editgroup still overrides.
@@ -1285,7 +1559,17 @@ def main() -> None:
         print(f"\n--- apply: {mode}, up to {args.apply_limit} item(s) ---")
         print(f"editgroup https://editgroups.toolforge.org/b/CB/{edit_group}/")
         edited = apply_edits(results, args.apply_limit, args.save, edit_group)
-        print(f"{'edited' if args.save else 'previewed'} {edited} item(s).")
+        print(f"{'edited' if args.save else 'previewed'} {len(edited)} item(s).")
+        if args.save:
+            edited_qids = edited
+
+    # Record settled statements so later runs skip them (review outcomes are
+    # settled by classification; edits only once actually saved).
+    if not args.no_state:
+        added = record_state(results, edited_qids)
+        if any(added.values()):
+            print(f"state: +{added['done']} done, +{added['review']} review, "
+                  f"+{added['error']} error  (in {OUTPUT_DIR})")
 
 
 if __name__ == "__main__":
