@@ -115,12 +115,8 @@ from viaf.viaf_config import load_config
 from viaf.viaf_inferred_from_reference import ViafInferredFromReference
 from viaf.wdqs_client import WdqsQueryError, query_wdqs
 
-# reason-for-deprecated-rank (P2241) values. Not yet in shared_lib.constants;
-# promote them there once this task is built for real.
-QID_CONFLATION = "Q14946528"                  # the reason we are cleaning up
-QID_REFERS_TO_DIFFERENT_PERSON = "Q35773207"  # the replacement (population is Q5)
-QID_REDIRECT = "Q45403344"                    # live VIAF now redirects to another
-QID_WITHDRAWN = "Q21441764"                   # live VIAF abandoned / withdrawn
+# The P2241 reason values (conflation, refers-to-different-person, redirect,
+# withdrawn) and the P1889 / P4070 markers now live in shared_lib.constants (wd).
 
 # Valid VIAF cluster id: 2-9 digits, or the newer 19-22 digit form (with a gap).
 VIAF_ID_RE = re.compile(r"^[1-9]\d(\d{0,7}|\d{17,20})$")
@@ -130,10 +126,8 @@ VIAF_ID_RE = re.compile(r"^[1-9]\d(\d{0,7}|\d{17,20})$")
 WKP = "WKP"
 
 # Wikidata-side signals that a deprecated VIAF is still a conflation (a second
-# party is present on Wikidata): a "different from" link, an "identifier shared
-# with" qualifier, or a sibling item carrying the same VIAF.
-PID_DIFFERENT_FROM = "P1889"
-PID_IDENTIFIER_SHARED_WITH = "P4070"
+# party is present on Wikidata): a "different from" (P1889) link, an "identifier
+# shared with" (P4070) qualifier, or a sibling carrying the same VIAF.
 
 QLEVER_URL = "https://qlever.dev/api/wikidata"
 HTTP_HEADERS = {
@@ -272,7 +266,7 @@ SELECT DISTINCT ?item ?viaf_dep ?retrieved WHERE {{
   ?item p:P214 ?st .
   ?st wikibase:rank wikibase:DeprecatedRank ;
       ps:P214 ?viaf_dep ;
-      pq:P2241 wd:{QID_CONFLATION} .
+      pq:P2241 wd:{wd.QID_CONFLATION} .
   OPTIONAL {{ ?st prov:wasDerivedFrom ?ref . ?ref pr:P813 ?retrieved . }}
 }}"""
 
@@ -296,7 +290,7 @@ SELECT DISTINCT ?item ?viaf_dep ?retrieved WHERE {{
   ?item p:P214 ?st .
   ?st wikibase:rank wikibase:DeprecatedRank ;
       ps:P214 ?viaf_dep ;
-      pq:P2241 wd:{QID_CONFLATION} .
+      pq:P2241 wd:{wd.QID_CONFLATION} .
   OPTIONAL {{ ?st prov:wasDerivedFrom ?ref . ?ref pr:P813 ?retrieved . }}
 }}"""
 
@@ -434,7 +428,7 @@ def collect_overlap_ids(
             if claim.getSnakType() != "value":
                 continue
             if claim.getRank() == "deprecated" and not claim.qualifiers.get(
-                PID_IDENTIFIER_SHARED_WITH
+                wd.PID_IDENTIFIER_SHARED_WITH
             ):
                 continue  # deprecated for some other reason -> no longer applies
             value = claim.getTarget()
@@ -457,7 +451,7 @@ def collect_foreign_ids(
             if (
                 claim.getRank() == "deprecated"
                 and claim.getSnakType() == "value"
-                and _claim_has_reason(claim, QID_REFERS_TO_DIFFERENT_PERSON)
+                and _claim_has_reason(claim, wd.QID_REFERS_TO_DIFFERENT_PERSON)
             ):
                 value = claim.getTarget()
                 if value:
@@ -916,7 +910,7 @@ def classify(
         if rival:
             r = next(iter(rival))
             return ("INCONSISTENT", r,
-                    f"item already has live VIAF {sorted(v_live)}; ids also -> {r}")
+                    f"item already has normal rank VIAF {sorted(v_live)}; ids also -> {r}")
         return ("RELABEL_ONLY", None,
                 "old cluster no longer holds the person; clean cluster already live")
 
@@ -984,7 +978,7 @@ def evaluate(
             value = str(claim.getTarget())
             v_all.add(value)
             if claim.getRank() == "deprecated":
-                if value == candidate.viaf_dep and _claim_has_reason(claim, QID_CONFLATION):
+                if value == candidate.viaf_dep and _claim_has_reason(claim, wd.QID_CONFLATION):
                     retrieved = retrieved_of(claim)
                     dep_claim = claim
             else:
@@ -997,8 +991,8 @@ def evaluate(
         if candidate.viaf_dep in v_live:
             return Result(
                 qid, candidate.viaf_dep, "DUPLICATE_RANK", retrieved=retrieved,
-                detail="value is live AND deprecated-for-conflation on this item "
-                       "-> contradiction, needs a human",
+                detail="value is normal rank AND deprecated-for-conflation on "
+                       "this item -> contradiction, needs a human",
                 viaf_calls=viaf.calls - before,
             )
 
@@ -1064,9 +1058,9 @@ def evaluate(
             confirmed = _cluster_has_conflicting_id(qid, old, auth_ids)
             wkp_other = {n for n, _ in old.source_mapping.get(WKP, []) if n} - {qid}
             if not confirmed and not wkp_other:  # else try the Wikidata pointers
-                partners = _item_value_qids(item, PID_DIFFERENT_FROM)
+                partners = _item_value_qids(item, wd.PID_DIFFERENT_FROM)
                 if dep_claim is not None:
-                    partners |= _qualifier_value_qids(dep_claim, PID_IDENTIFIER_SHARED_WITH)
+                    partners |= _qualifier_value_qids(dep_claim, wd.PID_IDENTIFIER_SHARED_WITH)
                 if do_wdqs:
                     partners |= _wdqs_items_with_viaf(candidate.viaf_dep, qid)
                 partners.discard(qid)
@@ -1292,7 +1286,7 @@ def _find_dep_conflation_claim(item: pwb.ItemPage, v_dep: str) -> pwb.Claim | No
             claim.getRank() == "deprecated"
             and claim.getSnakType() == "value"
             and str(claim.getTarget()) == v_dep
-            and _claim_has_reason(claim, QID_CONFLATION)
+            and _claim_has_reason(claim, wd.QID_CONFLATION)
         ):
             return claim
     return None
@@ -1323,15 +1317,15 @@ def _relabel_reason(claim: pwb.Claim) -> None:
     reasons = claim.qualifiers.get(wd.PID_REASON_FOR_DEPRECATED_RANK, [])
     kept = [
         q for q in reasons
-        if not (q.getSnakType() == "value" and q.getTarget().getID() == QID_CONFLATION)
+        if not (q.getSnakType() == "value" and q.getTarget().getID() == wd.QID_CONFLATION)
     ]
     if not any(
         q.getSnakType() == "value"
-        and q.getTarget().getID() == QID_REFERS_TO_DIFFERENT_PERSON
+        and q.getTarget().getID() == wd.QID_REFERS_TO_DIFFERENT_PERSON
         for q in kept
     ):
         q = pwb.Claim(get_repo(), wd.PID_REASON_FOR_DEPRECATED_RANK, is_qualifier=True)
-        q.setTarget(pwb.ItemPage(get_repo(), QID_REFERS_TO_DIFFERENT_PERSON))
+        q.setTarget(pwb.ItemPage(get_repo(), wd.QID_REFERS_TO_DIFFERENT_PERSON))
         kept.append(q)
     claim.qualifiers[wd.PID_REASON_FOR_DEPRECATED_RANK] = kept
 
@@ -1500,12 +1494,12 @@ def apply_edits(
                         reference=RetrievedReference(),
                     )
                     added.add(tgt)
-                _deprecate_with_reason(claim, QID_REDIRECT)
+                _deprecate_with_reason(claim, wd.QID_REDIRECT)
                 wdpage.claim_changed(claim)
             for old in sorted(live_withdrawn):
                 claim = _find_live_claim(item, old)
                 if claim is not None:
-                    _deprecate_with_reason(claim, QID_WITHDRAWN)
+                    _deprecate_with_reason(claim, wd.QID_WITHDRAWN_IDENTIFIER_VALUE)
                     wdpage.claim_changed(claim)
             wdpage.summary = "VIAF de-conflation"
             if wdpage.apply():

@@ -1,0 +1,199 @@
+Review worklist &mdash; 89 item(s), generated from <code>output/review.txt</code>.
+
+== AMBIGUOUS_SHARED_ID (4) ==
+{| class="wikitable sortable"
+! # !! Item !! Deprecated VIAF !! Details !! Date
+|-
+| 1 || {{Q|Q969015}} || [https://viaf.org/viaf/41535435/ 41535435] || old cluster still carries an id that applies to this item (LIH LNB:BI8m;=BW) and no other item is confirmed to own it -> ambiguous || 2026-08-28
+|-
+| 2 || {{Q|Q1793740}} || [https://viaf.org/viaf/22620224/ 22620224] || old cluster still carries an id that applies to this item (ISNI 0000000083641794) and no other item is confirmed to own it -> ambiguous || 2026-08-28
+|-
+| 3 || {{Q|Q3189697}} || [https://viaf.org/viaf/1426795/ 1426795] || old cluster still carries an id that applies to this item (ISNI 0000000034589213) and no other item is confirmed to own it -> ambiguous || 2026-08-28
+|-
+| 4 || {{Q|Q21611972}} || [https://viaf.org/viaf/290227236/ 290227236] || old cluster still carries an id that applies to this item (ISNI 0000000395470162) and no other item is confirmed to own it -> ambiguous || 2026-08-28
+|}
+
+== DUPLICATE_RANK (4) ==
+{| class="wikitable sortable"
+! # !! Item !! Deprecated VIAF !! Details !! Date
+|-
+| 1 || {{Q|Q5239230}} || [https://viaf.org/viaf/27805619/ 27805619] || value is normal rank AND deprecated-for-conflation on this item -> contradiction || 2026-08-29
+|-
+| 2 || {{Q|Q15990005}} || [https://viaf.org/viaf/61665576/ 61665576] || value is normal rank AND deprecated-for-conflation on this item -> contradiction || 2026-08-29
+|-
+| 3 || {{Q|Q112076909}} || [https://viaf.org/viaf/1101752/ 1101752] || value is normal rank AND deprecated-for-conflation on this item -> contradiction || 2026-08-29
+|-
+| 4 || {{Q|Q114761344}} || [https://viaf.org/viaf/300080125/ 300080125] || value is normal rank AND deprecated-for-conflation on this item -> contradiction || 2026-08-29
+|}
+
+== INCONSISTENT (23) ==
+{| class="wikitable sortable"
+! # !! Item !! Deprecated VIAF !! Details !! Date
+|-
+| 1 || {{Q|Q602367}} || [https://viaf.org/viaf/11867572/ 11867572] || still in old cluster, but ids also moved to ['121592917'] || 2026-08-28
+|-
+| 2 || {{Q|Q1773966}} || [https://viaf.org/viaf/23005587/ 23005587] || still in old cluster, but ids also moved to ['2510159820907014000003', '64830735'] || 2026-08-28
+|-
+| 3 || {{Q|Q2960137}} || [https://viaf.org/viaf/11867572/ 11867572] || still in old cluster, but ids also moved to ['121592917'] || 2026-08-28
+|-
+| 4 || {{Q|Q3431045}} || [https://viaf.org/viaf/60250096/ 60250096] || still in old cluster, but ids also moved to ['117599364'] || 2026-08-28
+|-
+| 5 || {{Q|Q3570715}} || [https://viaf.org/viaf/44523088/ 44523088] || item already has normal rank VIAF ['5462151595779305470009']; ids also -> 189537843 || 2026-08-28
+|-
+| 6 || {{Q|Q6106511}} || [https://viaf.org/viaf/120719385/ 120719385] || still in old cluster, but ids also moved to ['39458965'] || 2026-08-28
+|-
+| 7 || {{Q|Q6390122}} || [https://viaf.org/viaf/122119937/ 122119937] || still in old cluster, but ids also moved to ['34306096'] || 2026-08-28
+|-
+| 8 || {{Q|Q7114471}} || [https://viaf.org/viaf/76689064/ 76689064] || still in old cluster, but ids also moved to ['72830405'] || 2026-08-28
+|-
+| 9 || {{Q|Q7329718}} || [https://viaf.org/viaf/51706878/ 51706878] || still in old cluster, but ids also moved to ['103441190'] || 2026-08-28
+|-
+| 10 || {{Q|Q7350217}} || [https://viaf.org/viaf/105901750/ 105901750] || item already has normal rank VIAF ['4820148705711537080007']; ids also -> 77697823 || 2026-08-28
+|-
+| 11 || {{Q|Q11866743}} || [https://viaf.org/viaf/47860223/ 47860223] || still in old cluster, but ids also moved to ['197765161'] redirect=[('651167445361688860001', None)] || 2026-08-28
+|-
+| 12 || {{Q|Q16016554}} || [https://viaf.org/viaf/87311751/ 87311751] || still in old cluster, but ids also moved to ['46228482'] || 2026-08-28
+|-
+| 13 || {{Q|Q17151633}} || [https://viaf.org/viaf/239811100/ 239811100] || still in old cluster, but ids also moved to ['494170939423415660006'] || 2026-08-28
+|-
+| 14 || {{Q|Q18734996}} || [https://viaf.org/viaf/46750237/ 46750237] || still in old cluster, but ids also moved to ['8513178467078335190008'] || 2026-08-28
+|-
+| 15 || {{Q|Q44742113}} || [https://viaf.org/viaf/86208581/ 86208581] || still in old cluster, but ids also moved to ['33146095289000371871'] redirect=[('3437159279142508160008', None)] || 2026-08-28
+|-
+| 16 || {{Q|Q63762603}} || [https://viaf.org/viaf/54907401/ 54907401] || still in old cluster, but ids also moved to ['172280802'] || 2026-08-28
+|-
+| 17 || {{Q|Q68945574}} || [https://viaf.org/viaf/70318376/ 70318376] || still in old cluster, but ids also moved to ['2613157040166067040007'] || 2026-08-28
+|-
+| 18 || {{Q|Q95189564}} || [https://viaf.org/viaf/8103454/ 8103454] || still in old cluster, but ids also moved to ['119812090'] || 2026-08-28
+|-
+| 19 || {{Q|Q100451039}} || [https://viaf.org/viaf/312818521/ 312818521] || item already has normal rank VIAF ['8662160364961963680009']; ids also -> 67897906 || 2026-08-28
+|-
+| 20 || {{Q|Q104814141}} || [https://viaf.org/viaf/39403808/ 39403808] || still in old cluster, but ids also moved to ['64625718'] redirect=[('249200570', None)] || 2026-08-28
+|-
+| 21 || {{Q|Q123701269}} || [https://viaf.org/viaf/98935745/ 98935745] || still in old cluster, but ids also moved to ['61808391'] || 2026-08-28
+|-
+| 22 || {{Q|Q129627156}} || [https://viaf.org/viaf/120778374/ 120778374] || item already has normal rank VIAF ['88678917']; ids also -> 315732580 || 2026-08-28
+|-
+| 23 || {{Q|Q138779988}} || [https://viaf.org/viaf/198924154/ 198924154] || still in old cluster, but ids also moved to ['279154387507730970004'] || 2026-08-28
+|}
+
+== PROBABLY_CONFLATED (58) ==
+{| class="wikitable sortable"
+! # !! Item !! Deprecated VIAF !! Details !! Date
+|-
+| 1 || {{Q|Q99041}} || [https://viaf.org/viaf/7303147967371284200009/ 7303147967371284200009] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 2 || {{Q|Q499730}} || [https://viaf.org/viaf/38127673/ 38127673] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('80140357', None)] || 2026-08-28
+|-
+| 3 || {{Q|Q505473}} || [https://viaf.org/viaf/197897356/ 197897356] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 4 || {{Q|Q712660}} || [https://viaf.org/viaf/34624603/ 34624603] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('343145616544801380009', None)] || 2026-08-29
+|-
+| 5 || {{Q|Q1403698}} || [https://viaf.org/viaf/256749070/ 256749070] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 6 || {{Q|Q1449573}} || [https://viaf.org/viaf/25099377/ 25099377] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('311623679', None)] || 2026-08-28
+|-
+| 7 || {{Q|Q1516763}} || [https://viaf.org/viaf/41818445/ 41818445] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 8 || {{Q|Q1793914}} || [https://viaf.org/viaf/85175607/ 85175607] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 9 || {{Q|Q2589929}} || [https://viaf.org/viaf/38076145/ 38076145] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 10 || {{Q|Q3182765}} || [https://viaf.org/viaf/120699644/ 120699644] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 11 || {{Q|Q4302903}} || [https://viaf.org/viaf/50384450/ 50384450] || old cluster holds an id not on this item and not tied to another item -> unclear +frag=['1132173308578338980002'] redirect=[('216173074', None)] || 2026-08-29
+|-
+| 12 || {{Q|Q5811047}} || [https://viaf.org/viaf/221044950/ 221044950] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 13 || {{Q|Q5991429}} || [https://viaf.org/viaf/61403927/ 61403927] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 14 || {{Q|Q6107479}} || [https://viaf.org/viaf/30599002/ 30599002] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 15 || {{Q|Q6145427}} || [https://viaf.org/viaf/100904454/ 100904454] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 16 || {{Q|Q6234434}} || [https://viaf.org/viaf/10754591/ 10754591] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 17 || {{Q|Q6236693}} || [https://viaf.org/viaf/48543284/ 48543284] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 18 || {{Q|Q6255104}} || [https://viaf.org/viaf/91378744/ 91378744] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 19 || {{Q|Q6828677}} || [https://viaf.org/viaf/291452637/ 291452637] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 20 || {{Q|Q7437478}} || [https://viaf.org/viaf/284142770/ 284142770] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 21 || {{Q|Q7528143}} || [https://viaf.org/viaf/53672979/ 53672979] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 22 || {{Q|Q10799115}} || [https://viaf.org/viaf/4961029/ 4961029] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 23 || {{Q|Q11174399}} || [https://viaf.org/viaf/89075104/ 89075104] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 24 || {{Q|Q12324921}} || [https://viaf.org/viaf/311644441/ 311644441] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 25 || {{Q|Q15452498}} || [https://viaf.org/viaf/428149106369268492847/ 428149106369268492847] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 26 || {{Q|Q16012652}} || [https://viaf.org/viaf/4795648/ 4795648] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 27 || {{Q|Q16015336}} || [https://viaf.org/viaf/23995260/ 23995260] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 28 || {{Q|Q16650622}} || [https://viaf.org/viaf/5297389/ 5297389] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 29 || {{Q|Q19819745}} || [https://viaf.org/viaf/4996415/ 4996415] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 30 || {{Q|Q19841129}} || [https://viaf.org/viaf/85181354/ 85181354] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 31 || {{Q|Q22162564}} || [https://viaf.org/viaf/66049696/ 66049696] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 32 || {{Q|Q28874418}} || [https://viaf.org/viaf/303849053/ 303849053] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 33 || {{Q|Q29039541}} || [https://viaf.org/viaf/305089369/ 305089369] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 34 || {{Q|Q37269321}} || [https://viaf.org/viaf/162888568/ 162888568] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('251624507', None)] || 2026-08-28
+|-
+| 35 || {{Q|Q57868339}} || [https://viaf.org/viaf/166099005/ 166099005] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 36 || {{Q|Q60708617}} || [https://viaf.org/viaf/43259308/ 43259308] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 37 || {{Q|Q62967187}} || [https://viaf.org/viaf/31340169/ 31340169] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 38 || {{Q|Q66686356}} || [https://viaf.org/viaf/9400149108515668780008/ 9400149108515668780008] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 39 || {{Q|Q76451394}} || [https://viaf.org/viaf/102631949/ 102631949] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('1010148523890620970000', None)] || 2026-08-28
+|-
+| 40 || {{Q|Q81393367}} || [https://viaf.org/viaf/21593323/ 21593323] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 41 || {{Q|Q86982770}} || [https://viaf.org/viaf/45343820/ 45343820] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 42 || {{Q|Q94353816}} || [https://viaf.org/viaf/162070486/ 162070486] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 43 || {{Q|Q94617972}} || [https://viaf.org/viaf/94311893/ 94311893] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 44 || {{Q|Q94822353}} || [https://viaf.org/viaf/309667040/ 309667040] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 45 || {{Q|Q94826439}} || [https://viaf.org/viaf/29526560/ 29526560] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 46 || {{Q|Q95220443}} || [https://viaf.org/viaf/93009245/ 93009245] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('1650152637851120220007', None)] || 2026-08-28
+|-
+| 47 || {{Q|Q95246944}} || [https://viaf.org/viaf/59827570/ 59827570] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 48 || {{Q|Q95247765}} || [https://viaf.org/viaf/265015239/ 265015239] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 49 || {{Q|Q95321877}} || [https://viaf.org/viaf/110159101/ 110159101] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 50 || {{Q|Q95325329}} || [https://viaf.org/viaf/10482034/ 10482034] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 51 || {{Q|Q95330137}} || [https://viaf.org/viaf/55562647/ 55562647] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 52 || {{Q|Q95789729}} || [https://viaf.org/viaf/18121622/ 18121622] || old cluster holds an id not on this item and not tied to another item -> unclear redirect=[('2983159477571027990000', None)] || 2026-08-28
+|-
+| 53 || {{Q|Q95791817}} || [https://viaf.org/viaf/112713627/ 112713627] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 54 || {{Q|Q95799398}} || [https://viaf.org/viaf/306226731/ 306226731] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 55 || {{Q|Q95810982}} || [https://viaf.org/viaf/70242586/ 70242586] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 56 || {{Q|Q95813587}} || [https://viaf.org/viaf/9592839/ 9592839] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 57 || {{Q|Q95856691}} || [https://viaf.org/viaf/261144647705352759086/ 261144647705352759086] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|-
+| 58 || {{Q|Q98652797}} || [https://viaf.org/viaf/79600619/ 79600619] || old cluster holds an id not on this item and not tied to another item -> unclear || 2026-08-28
+|}

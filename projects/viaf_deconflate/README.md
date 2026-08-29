@@ -106,6 +106,13 @@ The next run skips anything in `done.txt`/`review.txt` **before** the VIAF calls
 since); `--recheck` ignores all state; `--no-state` neither reads nor writes it.
 `--only` always bypasses the skip set.
 
+`review_to_wiki.py` turns `review.txt` into wikitext for an on-wiki worklist —
+one sortable table per outcome, QIDs as `{{Q|…}}` and VIAF values linked:
+
+```bash
+python projects/viaf_deconflate/review_to_wiki.py --out review.wiki
+```
+
 ## Reuse and known simplifications (for review)
 
 - Per-source search keys / matching come from `viaf.authority_sources`; the VIAF
@@ -126,13 +133,20 @@ since); `--recheck` ignores all state; `--no-state` neither reads nor writes it.
   is `PROBABLY_CONFLATED` (review), never auto-stamped.
 - The duplicate check prefers VIAF's own `WKP` siblings (already in hand) and
   falls back to WDQS; a WDQS outage degrades it to WKP-only (noted, not fatal).
-- `Q14946528` / `Q35773207` are local constants here; the edit step is now
-  built, so promoting them to `shared_lib.constants` is due (see Next).
+- Maxlag during an item read is caught as `ERROR` and written to
+  `output/error.txt` — never skipped, so it retries on the next run. Login-time
+  maxlag fails fast by design (run in a low-lag window); a patient retry was
+  deliberately not added.
+- The reason-QID / property constants (`wd.QID_CONFLATION`,
+  `wd.QID_REFERS_TO_DIFFERENT_PERSON`, `wd.QID_REDIRECT`,
+  `wd.QID_WITHDRAWN_IDENTIFIER_VALUE`, `wd.PID_DIFFERENT_FROM`,
+  `wd.PID_IDENTIFIER_SHARED_WITH`) live in `shared_lib.constants`.
 
 ## Next
 
-- Emit the review outcomes (`PROBABLY_CONFLATED`, `LIST_*`, `INCONSISTENT`) as
-  wikitext for a review page.
-- Make the item read sleep-and-retry on maxlag (the dry run currently marks
-  those `ERROR`).
-- Promote `Q14946528` / `Q35773207` to `shared_lib.constants`.
+- When the bot RfP is approved, switch `main()`'s default edit-group from the
+  fixed `TRIAL_EDIT_GROUP` back to `daily_editgroup()`.
+- Minor: the `NEW_CLUSTER_CONFLATED` guard (don't adopt a cluster that carries an
+  id the item deprecated as a different person) is applied to the ADD path but not
+  to redirect targets — fold it in if a redirect is ever seen pointing at a
+  conflated cluster.

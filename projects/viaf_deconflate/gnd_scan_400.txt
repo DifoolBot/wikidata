@@ -1,27 +1,17 @@
 
 ==============================================================================
-Processed 297 candidate(s); 741 VIAF call(s) used.  [stopped: VIAF daily budget floor reached (~250 left, keeping 250 for other tools)]
+Processed 120 candidate(s); 292 VIAF call(s) used.
 ==============================================================================
-  ADD_AND_RELABEL  6
-  RELABEL_ONLY     60
-  CORRECT_AS_OF_NOW 17
-  STILL_CONFLATED  122
-  PROBABLY_CONFLATED 60
-  AMBIGUOUS_SHARED_ID 4
-  INCONSISTENT     27
-  ERROR            1
-  (+ 41 benign fragment cluster(s) added on 38 item(s), across the outcomes above)
-  (live-P214 fixes: 21 redirect, 0 withdrawn; 0 redirect target(s) clash -> review)
+  RELABEL_ONLY     28
+  CORRECT_AS_OF_NOW 5
+  STILL_CONFLATED  80
+  PROBABLY_CONFLATED 1
+  DUPLICATE_RANK   4
+  INCONSISTENT     2
+  (+ 22 benign fragment cluster(s) added on 20 item(s), across the outcomes above)
+  (live-P214 fixes: 1 redirect, 0 withdrawn; 0 redirect target(s) clash -> review)
 
---- ADD_AND_RELABEL (6) ---
-Q95732694    dep=165038678    start=1062225538     retr=2020-06-22  ids=1 cl=1 ADD_AND_RELABEL  new=311699329  new cluster 311699329
-Q95764880    dep=306182953    start=1136288716     retr=2020-06-23  ids=1 cl=1 ADD_AND_RELABEL  new=272684665  new cluster 272684665
-Q38051168    dep=311642817    start=1061647099     retr=2020-06-25  ids=1 cl=1 ADD_AND_RELABEL  new=15160483725204991998  new cluster 15160483725204991998
-Q98662537    dep=271441689    start=134350251      retr=2020-08-26  ids=1 cl=1 ADD_AND_RELABEL  new=8146937697913831049  new cluster 8146937697913831049
-Q99321238    dep=268685190    start=1033126063     retr=2020-11-12  ids=2 cl=1 ADD_AND_RELABEL  new=5736161211754640070002  new cluster 5736161211754640070002
-Q104770007   dep=166099005    start=120202662      retr=2021-01-10  ids=1 cl=1 ADD_AND_RELABEL  new=50050953  new cluster 50050953
-
---- RELABEL_ONLY (60) ---
+--- RELABEL_ONLY (28) ---
 Q75957       dep=13160740     start=1254678549     retr=2015-08-02  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
 Q119077      dep=861293       start=1213991242     retr=2015-08-02  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
 Q533110      dep=35038949     start=1224269683     retr=2015-08-04  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
@@ -50,61 +40,16 @@ Q1511846     dep=317157866    start=1051217075     retr=2020-05-31  ids=1 cl=1 R
 Q86386       dep=15574606     start=137807503      retr=2020-06-01  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
 Q6249252     dep=100325488    start=1212157788     retr=2020-06-11  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
 Q62794435    dep=84085331     start=1211748138     retr=2020-06-11  ids=2 cl=1 RELABEL_ONLY     +frag=['100235273'] redirect=[('9458159248121004870006', '100235273')]  old cluster no longer holds the person; clean cluster already live
-Q18411655    dep=315583115    start=136444849      retr=2020-06-19  ids=4 cl=2 RELABEL_ONLY     +frag=['9224167202660567930003']  old cluster no longer holds the person; clean cluster already live
-Q95670577    dep=1631148997630659870003 start=1061311503     retr=2020-06-22  ids=1 cl=1 RELABEL_ONLY     +frag=['311610064']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95708470    dep=311686549    start=1062094832     retr=2020-06-22  ids=1 cl=1 RELABEL_ONLY     +frag=['8742169261921609510005']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95712596    dep=66577226     start=106175118X     retr=2020-06-22  ids=1 cl=1 RELABEL_ONLY     +frag=['311652997']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q140148978   dep=17965350     start=1401874789     retr=2020-06-22  ids=2 cl=2 RELABEL_ONLY     +frag=['132178467177535190008', '6931178467025435190003']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q21955195    dep=283664900    start=1062224779     retr=2020-06-23  ids=1 cl=1 RELABEL_ONLY     +frag=['311699254']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95762867    dep=311236462    start=1102551252     retr=2020-06-23  ids=1 cl=1 RELABEL_ONLY     +frag=['19146522335532390039']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95776434    dep=44141064     start=1061701964     retr=2020-06-23  ids=1 cl=1 RELABEL_ONLY     +frag=['311648179']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95777347    dep=97648330     start=1062035984     retr=2020-06-23  ids=1 cl=1 RELABEL_ONLY     +frag=['311680801']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95812027    dep=274194538    start=1061916812     retr=2020-06-24  ids=1 cl=1 RELABEL_ONLY     +frag=['311669153']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95838371    dep=314825216    start=1061390888     retr=2020-06-24  ids=1 cl=1 RELABEL_ONLY     +frag=['311617818']  old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s)
-Q95867286    dep=31113558     start=1061763919     retr=2020-06-25  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q95880021    dep=51687933     start=1062106830     retr=2020-06-25  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q95885280    dep=109056390    start=116906170      retr=2020-06-25  ids=1 cl=1 RELABEL_ONLY     new=67767059  new cluster 67767059 also on Q137393257
-Q96097458    dep=10989422     start=131821997      retr=2020-06-25  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q1227883     dep=52874081     start=1223096408     retr=2020-07-05  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q7983400     dep=37488673     start=1239422059     retr=2020-07-05  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q2077017     dep=3275159820909514000004 start=122708773X     retr=2020-09-03  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q47008314    dep=32167568     start=122373235      retr=2020-09-06  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q2842560     dep=84690072     start=1217543619     retr=2020-09-12  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q30302605    dep=187740305    start=1217681345     retr=2020-09-15  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q52150945    dep=45275975     start=1217800042     retr=2020-09-17  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q88236       dep=6033159248356204870006 start=1219395102     retr=2020-10-22  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q96440236    dep=5675149296244480670005 start=1212550161     retr=2020-11-07  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q1733553     dep=54240783     start=1121508669     retr=2020-11-29  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q533189      dep=73448382     start=1226055613     retr=2020-12-14  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q10274184    dep=311404037    start=1207722529     retr=2020-12-16  ids=3 cl=2 RELABEL_ONLY     +frag=['96652704']  old cluster no longer holds the person; clean cluster already live
-Q61640032    dep=483148997625659870003 start=1177572842     retr=2020-12-20  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q45909562    dep=58786825     start=1071070681     retr=2021-01-01  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q20752513    dep=288148995745159750454 start=1073363562     retr=2021-01-02  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q551953      dep=61771566     start=1196950733     retr=2021-01-03  ids=2 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
-Q23837608    dep=49402986     start=1224591380     retr=2021-01-06  ids=1 cl=1 RELABEL_ONLY      old cluster no longer holds the person; clean cluster already live
 
---- CORRECT_AS_OF_NOW (17) ---
-Q112076909   dep=1101752      start=129821330      retr=2018-10-07  ids=6 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q5239230     dep=27805619     start=1050881575     retr=2020-03-08  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
+--- CORRECT_AS_OF_NOW (5) ---
 Q56861625    dep=17153651627955780631 start=116633970X     retr=2020-04-12  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
 Q25478870    dep=86003857     start=1210862026     retr=2020-05-25  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
 Q95261710    dep=13751986     start=116782021      retr=2020-05-29  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
 Q94836034    dep=287011030    start=1119260744     retr=2020-05-31  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
 Q94757733    dep=95450976     start=138829403      retr=2020-06-01  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95685260    dep=17965350     start=116108126      retr=2020-06-22  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95695587    dep=139463058    start=11618552X      retr=2020-06-22  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95706809    dep=16524061     start=1061430057     retr=2020-06-22  ids=2 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95786428    dep=113982382    start=1061887642     retr=2020-06-23  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95854600    dep=306214232    start=1061416526     retr=2020-06-25  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q95854677    dep=306119264    start=1061417026     retr=2020-06-25  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q61059391    dep=23187452     start=1213818060     retr=2020-07-09  ids=2 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q97158611    dep=159034500    start=141857404      retr=2020-07-12  ids=1 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
-Q7279328     dep=6470478      start=134946030      retr=2021-01-10  ids=3 cl=1 CORRECT_AS_OF_NOW redirect=[('154023253', None), ('2649169442781525340002', None)]  old cluster now holds only this item's ids -> VIAF resolved it
-Q104777436   dep=138144782956601656504 start=1224850092     retr=2021-01-11  ids=3 cl=1 CORRECT_AS_OF_NOW  old cluster now holds only this item's ids -> VIAF resolved it
 
---- STILL_CONFLATED (122) ---
+--- STILL_CONFLATED (80) ---
 Q15808469    dep=306178686    start=116562110      retr=2015-03-06  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1610638     dep=67208454     start=116103329      retr=2015-03-13  ids=5 cl=1 STILL_CONFLATED  redirect=[('3181156012433449700001', None)]  still conflated (a second party is in the cluster)
 Q55714       dep=90603418     start=1060275546     retr=2015-08-02  ids=8 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q388282      dep=21643146     start=1253426848     retr=2015-08-03  ids=2 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q512436      dep=41371976     start=104130501X     retr=2015-08-04  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
@@ -132,17 +77,15 @@ Q140797826   dep=2002651      start=1021228788     retr=2015-08-21  ids=9 cl=2 S
 Q5660188     dep=53842424     start=123805675X     retr=2015-08-22  ids=8 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q6000899     dep=24581184     start=1289445095     retr=2015-08-22  ids=2 cl=2 STILL_CONFLATED  +frag=['3903168517299571980005']  still conflated (a second party is in the cluster)
 Q6106889     dep=60785888     start=1387247883     retr=2015-08-22  ids=4 cl=2 STILL_CONFLATED  +frag=['3977177412264803310002']  still conflated (a second party is in the cluster)
-Q116983260   dep=24581184     start=138839581      retr=2015-08-22  ids=11 cl=1 STILL_CONFLATED  redirect=[('9578166007115275590001', None)]  still conflated (a second party is in the cluster)
 Q134413601   dep=96356686     start=174287321      retr=2015-08-22  ids=5 cl=3 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q140134406   dep=260386165    start=1024348733     retr=2015-08-23  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q12313775    dep=56786913     start=1016976100     retr=2015-08-24  ids=6 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q15990005    dep=61665576     start=138932719      retr=2015-08-25  ids=8 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
+Q16006250    dep=159354522    start=1076135749     retr=2015-08-25  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q21520112    dep=52085961     start=1055346694     retr=2015-08-25  ids=6 cl=2 STILL_CONFLATED  +frag=['373175780080717010004']  still conflated (a second party is in the cluster)
 Q131785943   dep=73863386     start=1089993951     retr=2015-08-25  ids=9 cl=2 STILL_CONFLATED  +frag=['100961220']  still conflated (a second party is in the cluster)
 Q1009775     dep=36760564     start=1340387808     retr=2017-10-16  ids=14 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q16490294    dep=114802792    start=1042769435     retr=2017-10-20  ids=7 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q11717903    dep=317278258    start=1076185762     retr=2017-10-25  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q2831265     dep=250966348    start=1062392531     retr=2017-11-10  ids=3 cl=1 STILL_CONFLATED  redirect=[('311715625', None)]  still conflated (a second party is in the cluster)
 Q26384603    dep=64607821     start=1216391947     retr=2017-11-10  ids=7 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q2021126     dep=19192094     start=1255058498     retr=2018-08-24  ids=4 cl=3 STILL_CONFLATED  +frag=['56039121']  still conflated (a second party is in the cluster)
 Q19294998    dep=42201492     start=1055102671     retr=2018-08-24  ids=6 cl=2 STILL_CONFLATED  +frag=['112134297']  still conflated (a second party is in the cluster)
@@ -161,7 +104,6 @@ Q2966653     dep=2679269      start=1165151790     retr=2019-12-20  ids=10 cl=1 
 Q24033402    dep=63797124     start=124053130      retr=2020-01-06  ids=2 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q72941099    dep=280383669    start=1327102005     retr=2020-01-06  ids=5 cl=2 STILL_CONFLATED  +frag=['5069171594750603380001']  still conflated (a second party is in the cluster)
 Q6381778     dep=71321871     start=120486084X     retr=2020-03-21  ids=10 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q86013478    dep=107424626    start=128225605X     retr=2020-05-04  ids=2 cl=1 STILL_CONFLATED  redirect=[('4691167807289018130006', None)]  still conflated (a second party is in the cluster)
 Q87066619    dep=100310426    start=1117926125     retr=2020-05-04  ids=8 cl=2 STILL_CONFLATED  +frag=['1511172882317516230004']  still conflated (a second party is in the cluster)
 Q116952007   dep=107424626    start=1181806135     retr=2020-05-04  ids=2 cl=2 STILL_CONFLATED  +frag=['9609167867532823060001']  still conflated (a second party is in the cluster)
 Q3833128     dep=302772611    start=135102480      retr=2020-05-07  ids=4 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
@@ -187,142 +129,17 @@ Q94893793    dep=220983839    start=101782360X     retr=2020-05-31  ids=1 cl=1 S
 Q93435958    dep=99894343     start=138360308      retr=2020-06-01  ids=7 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q94758554    dep=89893207     start=138338272      retr=2020-06-01  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
 Q96107618    dep=53749274     start=1211914070     retr=2020-06-13  ids=2 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q94893958    dep=220983839    start=1017823944     retr=2020-06-21  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95661918    dep=13047784     start=116041919      retr=2020-06-21  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95701436    dep=67238398     start=117260894      retr=2020-06-22  ids=2 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95708189    dep=311630425    start=1061520269     retr=2020-06-22  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95732688    dep=213326481    start=1062225473     retr=2020-06-22  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1710297     dep=4092780      start=120482177      retr=2020-06-23  ids=10 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q3569672     dep=18569310     start=1062220684     retr=2020-06-23  ids=3 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q56243152    dep=21610498     start=106172557X     retr=2020-06-23  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95778587    dep=38153530949948701880 start=1061879984     retr=2020-06-23  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95783675    dep=1033155284773987060115 start=1061950905     retr=2020-06-24  ids=3 cl=2 STILL_CONFLATED  +frag=['9406174328104001590002'] redirect=[('249146029387135820536', None)]  still conflated (a second party is in the cluster)
-Q95813147    dep=124249490    start=1062239334     retr=2020-06-24  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95825692    dep=306141107    start=1061949524     retr=2020-06-24  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1474725     dep=307377885    start=1061450023     retr=2020-06-25  ids=7 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q3165060     dep=76382966     start=1061249867     retr=2020-06-25  ids=4 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95860250    dep=1150999544229870615 start=1061445666     retr=2020-06-25  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95863615    dep=311655203    start=1061773809     retr=2020-06-25  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95867185    dep=23149659651506830547 start=1061974073     retr=2020-06-25  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95902957    dep=97030727     start=1062424409     retr=2020-06-25  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95908827    dep=166223740    start=1062376455     retr=2020-06-25  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q337213      dep=250349994    start=1213548780     retr=2020-07-12  ids=5 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q5250220     dep=88131818     start=129316369      retr=2020-07-12  ids=6 cl=3 STILL_CONFLATED  +frag=['4878175780138717010005']  still conflated (a second party is in the cluster)
-Q96936785    dep=250349994    start=1213549051     retr=2020-07-12  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q25098721    dep=23473403     start=140569960      retr=2020-10-07  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q516538      dep=76474126     start=1257930796     retr=2020-10-11  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q111976090   dep=41535435     start=170433498      retr=2020-10-14  ids=3 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q100986      dep=52535014     start=1121620361     retr=2020-10-21  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1465954     dep=2866477      start=1034675818     retr=2020-10-29  ids=2 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1582169     dep=302229500    start=1089868588     retr=2020-11-04  ids=4 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q21388497    dep=168922155    start=1057108987     retr=2020-11-22  ids=3 cl=2 STILL_CONFLATED  +frag=['7104161211998440070003']  still conflated (a second party is in the cluster)
-Q1745159     dep=74309958     start=1207549320     retr=2020-11-30  ids=1 cl=1 STILL_CONFLATED  redirect=[('919158630969023370005', None)]  still conflated (a second party is in the cluster)
-Q1274331     dep=11832351     start=1080541136     retr=2020-12-10  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q5026288     dep=317160805    start=1175335053     retr=2020-12-13  ids=5 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q92068150    dep=311261877    start=116557540      retr=2020-12-29  ids=1 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q108477744   dep=311261877    start=174376316      retr=2020-12-29  ids=2 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q15454684    dep=53102813     start=1078341656     retr=2021-01-03  ids=5 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q1097982     dep=1483148947751054950006 start=1105079112     retr=2021-01-07  ids=4 cl=1 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q130034      dep=76559072     start=139527265      retr=2021-01-09  ids=8 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
-Q95201382    dep=306128674    start=140403337      retr=2021-01-13  ids=12 cl=2 STILL_CONFLATED   still conflated (a second party is in the cluster)
 
---- PROBABLY_CONFLATED (60) ---
-Q15452498    dep=428149106369268492847 start=135464722      retr=2015-03-06  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q19819745    dep=4996415      start=123995310      retr=2015-08-03  ids=9 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q1403698     dep=256749070    start=1272687082     retr=2015-08-16  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q1449573     dep=25099377     start=1061451224     retr=2015-08-16  ids=1 cl=1 PROBABLY_CONFLATED redirect=[('311623679', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q114761344   dep=300080125    start=130843628      retr=2015-08-16  ids=2 cl=2 PROBABLY_CONFLATED +frag=['305136065']  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q5991429     dep=61403927     start=1073923851     retr=2015-08-22  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6145427     dep=100904454    start=123944589      retr=2015-08-22  ids=11 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6234434     dep=10754591     start=123455308      retr=2015-08-22  ids=5 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6236693     dep=48543284     start=1090324820     retr=2015-08-22  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6255104     dep=91378744     start=124973965      retr=2015-08-22  ids=12 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6828677     dep=291452637    start=129721654      retr=2015-08-23  ids=17 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q11174399    dep=89075104     start=1281368814     retr=2015-08-23  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q16012652    dep=4795648      start=102198647X     retr=2015-08-25  ids=6 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q16015336    dep=23995260     start=1047263025     retr=2015-08-25  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q19841129    dep=85181354     start=1310925828     retr=2015-08-26  ids=5 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q6107479     dep=30599002     start=12880677X      retr=2016-11-25  ids=6 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q7528143     dep=53672979     start=1041973756     retr=2016-11-25  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q7437478     dep=284142770    start=1037261984     retr=2017-01-10  ids=6 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q99041       dep=7303147967371284200009 start=1035104865     retr=2018-08-14  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q5811047     dep=221044950    start=189579277      retr=2018-08-24  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q1793914     dep=85175607     start=1242823824     retr=2018-10-07  ids=2 cl=2 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q10799115    dep=4961029      start=1394186568     retr=2019-01-02  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q505473      dep=197897356    start=1377735710     retr=2019-01-15  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+--- PROBABLY_CONFLATED (1) ---
 Q61153484    dep=315085588    start=135819849      retr=2019-01-30  ids=15 cl=3 PROBABLY_CONFLATED +frag=['102492250']  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q712660      dep=34624603     start=124088031      retr=2020-01-06  ids=14 cl=1 PROBABLY_CONFLATED redirect=[('343145616544801380009', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q4302903     dep=50384450     start=1035243350     retr=2020-01-06  ids=9 cl=2 PROBABLY_CONFLATED +frag=['1132173308578338980002'] redirect=[('216173074', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q86982770    dep=45343820     start=12807275X      retr=2020-04-07  ids=7 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q94353816    dep=162070486    start=1028131143     retr=2020-05-07  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q94617972    dep=94311893     start=124927440      retr=2020-05-07  ids=4 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95321877    dep=110159101    start=121159094      retr=2020-05-28  ids=10 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95325329    dep=10482034     start=143354345      retr=2020-05-28  ids=11 cl=2 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95330137    dep=55562647     start=129108103      retr=2020-05-28  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95246944    dep=59827570     start=116102934      retr=2020-05-29  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95247765    dep=265015239    start=116220856      retr=2020-05-29  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q3182765     dep=120699644    start=1019756837     retr=2020-05-30  ids=10 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95789729    dep=18121622     start=1213496632     retr=2020-05-30  ids=1 cl=1 PROBABLY_CONFLATED redirect=[('2983159477571027990000', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q94822353    dep=309667040    start=105511050X     retr=2020-05-31  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q94826439    dep=29526560     start=116964189      retr=2020-05-31  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95220443    dep=93009245     start=1157943802     retr=2020-06-04  ids=7 cl=1 PROBABLY_CONFLATED redirect=[('1650152637851120220007', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q12324921    dep=311644441    start=1061663701     retr=2020-06-22  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q60708617    dep=43259308     start=1061707962     retr=2020-06-22  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q62967187    dep=31340169     start=1061596222     retr=2020-06-22  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q37269321    dep=162888568    start=1061706095     retr=2020-06-23  ids=2 cl=1 PROBABLY_CONFLATED redirect=[('251624507', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95791817    dep=112713627    start=1095696432     retr=2020-06-23  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95799398    dep=306226731    start=1062226437     retr=2020-06-23  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q29039541    dep=305089369    start=1061845559     retr=2020-06-24  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95810982    dep=70242586     start=1062140818     retr=2020-06-24  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95813587    dep=9592839      start=1078167168     retr=2020-06-24  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q28874418    dep=303849053    start=1061295621     retr=2020-06-25  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q81393367    dep=21593323     start=1062411463     retr=2020-06-25  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q95856691    dep=261144647705352759086 start=1062253310     retr=2020-06-25  ids=3 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q98652797    dep=79600619     start=134383729      retr=2020-08-26  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q1516763     dep=41818445     start=1285121961     retr=2020-09-06  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q66686356    dep=9400149108515668780008 start=1147055564     retr=2020-09-07  ids=2 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q76451394    dep=102631949    start=1123602174     retr=2020-09-21  ids=3 cl=1 PROBABLY_CONFLATED redirect=[('1010148523890620970000', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q22162564    dep=66049696     start=106155984X     retr=2020-11-14  ids=6 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q16650622    dep=5297389      start=117614432      retr=2020-12-03  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q499730      dep=38127673     start=135371139      retr=2020-12-10  ids=1 cl=1 PROBABLY_CONFLATED redirect=[('80140357', None)]  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q2589929     dep=38076145     start=132330105      retr=2021-01-10  ids=1 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
-Q57868339    dep=166099005    start=1224773845     retr=2021-01-10  ids=5 cl=1 PROBABLY_CONFLATED  old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
 
---- AMBIGUOUS_SHARED_ID (4) ---
-Q21611972    dep=290227236    start=1209623897     retr=2017-10-17  ids=1 cl=1 AMBIGUOUS_SHARED_ID  old cluster still carries an id that applies to this item (ISNI 0000000395470162) and no other item is confirmed to own it -> ambiguous, needs a human
-Q3189697     dep=1426795      start=1061314723     retr=2020-06-25  ids=3 cl=1 AMBIGUOUS_SHARED_ID  old cluster still carries an id that applies to this item (ISNI 0000000034589213) and no other item is confirmed to own it -> ambiguous, needs a human
-Q969015      dep=41535435     start=135165741      retr=2020-10-14  ids=3 cl=1 AMBIGUOUS_SHARED_ID  old cluster still carries an id that applies to this item (LIH LNB:BI8m;=BW) and no other item is confirmed to own it -> ambiguous, needs a human
-Q1793740     dep=22620224     start=1061654230     retr=2020-12-01  ids=1 cl=1 AMBIGUOUS_SHARED_ID  old cluster still carries an id that applies to this item (ISNI 0000000083641794) and no other item is confirmed to own it -> ambiguous, needs a human
+--- DUPLICATE_RANK (4) ---
+Q114761344   dep=300080125    start=-              retr=2015-08-16  ids=0 cl=0 DUPLICATE_RANK    value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q15990005    dep=61665576     start=-              retr=2015-08-25  ids=0 cl=0 DUPLICATE_RANK    value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q112076909   dep=1101752      start=-              retr=2018-10-07  ids=0 cl=0 DUPLICATE_RANK    value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q5239230     dep=27805619     start=-              retr=2020-03-08  ids=0 cl=0 DUPLICATE_RANK    value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
 
---- INCONSISTENT (27) ---
-Q18734996    dep=46750237     start=139295035X     retr=2015-08-04  ids=8 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['8513178467078335190008']
-Q123701269   dep=98935745     start=1057043443     retr=2015-08-08  ids=6 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['61808391']
-Q11866743    dep=47860223     start=130123773      retr=2015-08-09  ids=10 cl=2 INCONSISTENT     redirect=[('651167445361688860001', None)]  still in old cluster, but ids also moved to ['197765161']
-Q7350217     dep=105901750    start=1208943561     retr=2015-08-10  ids=4 cl=2 INCONSISTENT     new=77697823  item already has live VIAF ['4820148705711537080007']; ids also -> 77697823
-Q3431045     dep=60250096     start=129586676      retr=2015-08-20  ids=8 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['117599364']
-Q6106511     dep=120719385    start=1353226840     retr=2015-08-22  ids=11 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['39458965']
-Q138779988   dep=198924154    start=1043983120     retr=2015-08-22  ids=3 cl=3 INCONSISTENT      still in old cluster, but ids also moved to ['279154387507730970004']
-Q7114471     dep=76689064     start=1055222340     retr=2015-08-23  ids=7 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['72830405']
-Q17151633    dep=239811100    start=129291943      retr=2016-11-24  ids=10 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['494170939423415660006']
-Q7329718     dep=51706878     start=140141243      retr=2016-11-26  ids=12 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['103441190']
+--- INCONSISTENT (2) ---
 Q6593738     dep=289504864    start=124238947      retr=2017-10-20  ids=16 cl=4 INCONSISTENT     +frag=['192731200', '29665891']  still in old cluster, but ids also moved to ['4301169639273996580000']
-Q16016554    dep=87311751     start=134790480      retr=2020-01-09  ids=7 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['46228482']
-Q6390122     dep=122119937    start=141493585      retr=2020-05-28  ids=6 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['34306096']
-Q63762603    dep=54907401     start=116716282      retr=2020-05-29  ids=9 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['172280802']
-Q1773966     dep=23005587     start=121748022      retr=2020-05-30  ids=5 cl=3 INCONSISTENT      still in old cluster, but ids also moved to ['2510159820907014000003', '64830735']
-Q95189564    dep=8103454      start=1061786374     retr=2020-05-30  ids=2 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['119812090']
 Q94821436    dep=2362148947755354950001 start=1170196470     retr=2020-05-31  ids=4 cl=3 INCONSISTENT     +frag=['4647173911326220200007']  still in old cluster, but ids also moved to ['250422917']
-Q44742113    dep=86208581     start=1212159217     retr=2020-06-14  ids=3 cl=2 INCONSISTENT     redirect=[('3437159279142508160008', None)]  still in old cluster, but ids also moved to ['33146095289000371871']
-Q3570715     dep=44523088     start=1062042735     retr=2020-06-23  ids=3 cl=2 INCONSISTENT     new=189537843  item already has live VIAF ['5462151595779305470009']; ids also -> 189537843
-Q96839936    dep=88131818     start=1244323446     retr=2020-07-12  ids=10 cl=4 INCONSISTENT     +frag=['5047175780120917010008']  still in old cluster, but ids also moved to ['104459680']
-Q100451039   dep=312818521    start=1219902934     retr=2020-10-17  ids=3 cl=2 INCONSISTENT     new=67897906  item already has live VIAF ['8662160364961963680009']; ids also -> 67897906
-Q602367      dep=11867572     start=1042356122     retr=2020-11-17  ids=5 cl=3 INCONSISTENT      still in old cluster, but ids also moved to ['121592917']
-Q2960137     dep=11867572     start=1221620827     retr=2020-11-17  ids=2 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['121592917']
-Q129627156   dep=120778374    start=1373494409     retr=2020-11-21  ids=4 cl=2 INCONSISTENT     new=315732580  item already has live VIAF ['88678917']; ids also -> 315732580
-Q68945574    dep=70318376     start=171017994      retr=2020-12-16  ids=3 cl=2 INCONSISTENT      still in old cluster, but ids also moved to ['2613157040166067040007']
-Q23061941    dep=77152046     start=1017759006     retr=2020-12-20  ids=2 cl=1 INCONSISTENT     new=311320833 redirect=[('220463967', '311320833')]  item already has live VIAF ['220463967']; ids also -> 311320833
-Q104814141   dep=39403808     start=174128355      retr=2021-01-13  ids=4 cl=2 INCONSISTENT     redirect=[('249200570', None)]  still in old cluster, but ids also moved to ['64625718']
-
---- ERROR (1) ---
-Q16006250    dep=159354522    start=-              retr=-           ids=0 cl=0 ERROR             MaxlagTimeoutError: Maximum retries attempted due to maxlag without success.
 

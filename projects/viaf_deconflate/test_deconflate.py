@@ -11,10 +11,10 @@ Run with:
 import types
 
 import viaf_deconflate.deconflate as d
+from shared_lib.constants import QID_CONFLATION
 from viaf.authority_sources import AuthoritySource
 from viaf.viaf_api_client import ViafLookupResult, ViafStatus
 from viaf_deconflate.deconflate import (
-    QID_CONFLATION,
     AuthId,
     Result,
     _cluster_has_conflicting_id,
@@ -448,7 +448,7 @@ def test_deprecate_with_reason(monkeypatch):
             self.rank = "normal"
             self.qualifiers = {}
     c = FakeClaim()
-    d._deprecate_with_reason(c, d.QID_REDIRECT)
+    d._deprecate_with_reason(c, d.wd.QID_REDIRECT)
     assert c.rank == "deprecated"
     q = c.qualifiers[d.wd.PID_REASON_FOR_DEPRECATED_RANK]
-    assert len(q) == 1 and q[0].target == d.QID_REDIRECT
+    assert len(q) == 1 and q[0].target == d.wd.QID_REDIRECT
