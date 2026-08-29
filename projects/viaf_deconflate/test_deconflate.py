@@ -243,6 +243,17 @@ def test_two_rivals_still_inconsistent():
     assert outcome == "INCONSISTENT"
 
 
+def test_clean_old_cluster_with_rival_undeprecates_and_notes_rival():
+    # the deprecated cluster is a clean own-fragment, but an id also lands in a
+    # foreign rival -> un-deprecate (CORRECT_AS_OF_NOW), rival noted for review.
+    outcome, _, detail = _classify(
+        clusters_hit={"OLD", "RIVAL"}, v_all={"OLD"}, benign=set(),
+        old_is_clean=True,
+    )
+    assert outcome == "CORRECT_AS_OF_NOW"
+    assert "RIVAL" in detail
+
+
 def test_shared_id_ignored_when_still_in_old_cluster():
     # if a live id still resolves to the old cluster, the still-conflated path
     # owns the decision; old_shared must not hijack it.
@@ -309,6 +320,25 @@ def test_review_outcome_recorded_on_dry_run(state_dir):
     assert d.load_skip_set() == {("Q1", "111")}
     # ...but not skipped when we ask to recheck review
     assert d.load_skip_set(include_review=False) == set()
+
+
+def test_undeprecate_with_rival_review_lands_in_both_files(state_dir):
+    # un-deprecate (edit) + a rival to review -> after saving, recorded to BOTH
+    # done.txt (the un-deprecate) and review.txt (the rival worklist).
+    r = Result("Q8", "888", "CORRECT_AS_OF_NOW", rival_review=["RIVAL"])
+    d.record_state([r], edited_qids=set())      # not saved yet -> pending
+    assert d.load_skip_set() == set()
+    d.record_state([r], edited_qids={"Q8"})     # saved
+    assert ("Q8", "888") in d._load_state_keys(d.DONE_FILE)
+    assert ("Q8", "888") in d._load_state_keys(d.REVIEW_FILE)
+
+
+def test_duplicate_rank_is_a_review_outcome(state_dir):
+    # the same-value-both-ranks contradiction is review-only (recorded, no edit)
+    assert "DUPLICATE_RANK" in d._REVIEW_OUTCOMES
+    assert "DUPLICATE_RANK" not in d._EDIT_OUTCOMES
+    d.record_state([_res("Q9", "24581184", "DUPLICATE_RANK")], edited_qids=set())
+    assert ("Q9", "24581184") in d._load_state_keys(d.REVIEW_FILE)
 
 
 def test_edit_outcome_pending_until_saved(state_dir):

@@ -23,7 +23,10 @@ cluster itself. Outcomes:
                    -> only relabel the old statement (+ stamp).
   CORRECT_AS_OF_NOW  every id in the old cluster is now a non-deprecated id on
                    this item -> VIAF resolved the conflation -> un-deprecate
-                   (normal rank, drop the P2241 qualifier) + stamp.
+                   (normal rank, drop the P2241 qualifier) + stamp. If an id ALSO
+                   lands in a foreign rival cluster, the item is additionally
+                   flagged for review (the rival may mean the item mixes two
+                   people) -- un-deprecate AND review, rather than block.
   STILL_CONFLATED  the IDs still resolve to the old cluster and a second party is
                    confirmed present (a source the item also has carries a
                    different value, VIAF links >=2 items, or a P1889/P4070/
@@ -39,6 +42,10 @@ cluster itself. Outcomes:
                    manual review, no edit. (A different item counts as owner only
                    when it holds the cluster as its own non-deprecated P214; VIAF's
                    WKP link alone can be a wrong name/year guess.)
+  DUPLICATE_RANK   the same P214 value is present on the item at BOTH a
+                   non-deprecated rank and deprecated-for-conflation -- a
+                   contradiction -> manual review, no edit (caught before any VIAF
+                   query, so it is free).
   LIST_REDIRECT    the old cluster now redirects -> manual review list.
   LIST_ABANDONED   the old cluster is abandoned / gone -> manual review list.
                    (Epidosis is fine with the bot *removing* these, but we
@@ -234,6 +241,9 @@ class Result:
     # (old_live_value, target-or-None) -> deprecate old (P2241=redirect), add target
     live_withdrawn: list[str] = field(default_factory=list)  # deprecate (withdrawn)
     live_review: list[str] = field(default_factory=list)     # redirect target clashes
+    # Rival cluster(s) to flag for review alongside an un-deprecate (the clean old
+    # cluster is adopted, but an id also lands in a foreign cluster -> maybe a mix).
+    rival_review: list[str] = field(default_factory=list)
 
 
 # --------------------------------------------------------------------------- #
@@ -826,6 +836,18 @@ def classify(
     if v_dep in clusters_hit:
         # A live authority id still resolves to the deprecated cluster: it still
         # holds this person.
+        if old_is_clean:
+            # every id in the old cluster is now a non-deprecated id on this item
+            # -> VIAF resolved the conflation; the cluster is correct for this
+            # person now (un-deprecate + stamp). This is safe even when the ids
+            # ALSO land in a foreign rival cluster: that rival is a *separate*
+            # concern (the item may mix two people via one id), so we un-deprecate
+            # the clean cluster AND flag the rival for review (evaluate sets
+            # rival_review) -- "split" rather than block the de-conflation.
+            detail = "old cluster now holds only this item's ids -> VIAF resolved it"
+            if rival:
+                detail += f"; ids ALSO in rival cluster(s) {sorted(rival)} -> review"
+            return ("CORRECT_AS_OF_NOW", None, detail)
         if rival:
             return ("INCONSISTENT", None,
                     f"still in old cluster, but ids also moved to {sorted(rival)}")
@@ -833,12 +855,6 @@ def classify(
         # free: the item has a separate live clean VIAF, or the old cluster links
         # >=2 Wikidata items. Absence is NOT proof of clean -- older conflations
         # often never got the sibling item created -- so those go to review.
-        if old_is_clean:
-            # every id in the old cluster is now a non-deprecated id on this item
-            # -> VIAF resolved the conflation; the cluster is correct for this
-            # person now (un-deprecate + stamp).
-            return ("CORRECT_AS_OF_NOW", None,
-                    "old cluster now holds only this item's ids -> VIAF resolved it")
         # The old cluster still holds a foreign id. Is it tied to a second item?
         wkp_other = {nsid for nsid, _ in old.source_mapping.get(WKP, []) if nsid} - {qid}
         if wkp_other or confirmed:
@@ -938,6 +954,18 @@ def evaluate(
             else:
                 v_live.add(value)
 
+        # Same value present at BOTH a non-deprecated rank AND deprecated for
+        # conflation on this item -- a contradiction (the conflated cluster is
+        # also asserted valid). The bot must not act on it; a human decides.
+        # Caught here, before any VIAF query, so it costs nothing.
+        if candidate.viaf_dep in v_live:
+            return Result(
+                qid, candidate.viaf_dep, "DUPLICATE_RANK", retrieved=retrieved,
+                detail="value is live AND deprecated-for-conflation on this item "
+                       "-> contradiction, needs a human",
+                viaf_calls=viaf.calls - before,
+            )
+
         auth_ids = collect_auth_ids(item, sources, ignore)
         start_id = next(
             (a.value for a in auth_ids if a.auth_src.pid == start_pid), ""
@@ -1023,6 +1051,12 @@ def evaluate(
         live_redirects, live_withdrawn, live_review = resolve_live_status(
             viaf, qid, sorted(v_live - clusters_hit), v_all, do_wdqs,
         )
+        # When we un-deprecate a clean old cluster but the ids ALSO land in a
+        # foreign rival cluster, flag that rival for review (split the two).
+        rival_review = (
+            sorted((clusters_hit - v_all) - benign)
+            if outcome == "CORRECT_AS_OF_NOW" else []
+        )
         return Result(
             qid, candidate.viaf_dep, outcome,
             retrieved=retrieved, new_cluster=new_cluster, detail=detail,
@@ -1030,6 +1064,7 @@ def evaluate(
             frag_clusters=frag_clusters, n_auth_ids=len(auth_ids),
             n_clusters=len(clusters_hit), live_redirects=live_redirects,
             live_withdrawn=live_withdrawn, live_review=live_review,
+            rival_review=rival_review,
         )
     except (BudgetExceeded, ViafRateLimitExceeded):
         raise
@@ -1047,8 +1082,8 @@ def evaluate(
 
 _ORDER = [
     "ADD_AND_RELABEL", "RELABEL_ONLY", "CORRECT_AS_OF_NOW", "STILL_CONFLATED",
-    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "LIST_REDIRECT", "LIST_ABANDONED",
-    "INCONSISTENT", "INSUFFICIENT", "ERROR",
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "DUPLICATE_RANK", "LIST_REDIRECT",
+    "LIST_ABANDONED", "INCONSISTENT", "INSUFFICIENT", "ERROR",
 ]
 
 
@@ -1114,7 +1149,7 @@ _EDIT_OUTCOMES = {
 # Outcomes that need a human / carry no bot edit -- fully settled by a classify
 # pass, so they are recorded (and then skipped) even on a dry run.
 _REVIEW_OUTCOMES = {
-    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "INCONSISTENT",
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "DUPLICATE_RANK", "INCONSISTENT",
     "LIST_REDIRECT", "LIST_ABANDONED", "INSUFFICIENT",
 }
 
@@ -1162,6 +1197,8 @@ def _live_summary(r: "Result") -> str:
         parts.append(f"withdrawn={r.live_withdrawn}")
     if r.live_review:
         parts.append(f"live_review={r.live_review}")
+    if r.rival_review:
+        parts.append(f"rival_review={r.rival_review}")
     return (" " + " ".join(parts)) if parts else ""
 
 
@@ -1191,7 +1228,8 @@ def record_state(results: list["Result"], edited_qids: set[str]) -> dict[str, in
             continue
         pending_edit = (r.outcome in _EDIT_OUTCOMES or bool(r.frag_clusters)
                         or bool(r.live_redirects) or bool(r.live_withdrawn))
-        review_primary = r.outcome in _REVIEW_OUTCOMES or bool(r.live_review)
+        review_primary = (r.outcome in _REVIEW_OUTCOMES or bool(r.live_review)
+                          or bool(r.rival_review))
         if pending_edit:
             if r.qid in edited_qids:              # actually written this run
                 if key not in done:
@@ -1364,6 +1402,7 @@ def apply_edits(
             }
             wdpage = cwd.WikiDataPage(item, test=not save)
             wdpage.edit_group = edit_group
+            added: set[str] = set()  # values added this run (avoid double-adding)
             for cluster in sorted(adds):
                 if cluster in on_item:  # already present at some rank -> never re-add
                     continue
@@ -1379,6 +1418,7 @@ def apply_edits(
                     cwd.ExternalIDStatement(prop=wd.PID_VIAF_ID, external_id=cluster),
                     reference=ViafInferredFromReference(wd.PID_VIAF_ID, cluster),
                 )
+                added.add(cluster)
             for v_dep in sorted(relabels):
                 claim = _find_dep_conflation_claim(item, v_dep)
                 if claim is not None:
@@ -1397,13 +1437,15 @@ def apply_edits(
                     _stamp_retrieved(claim)
                     wdpage.claim_changed(claim)
             # Stale live P214s: redirect (deprecate old + add target) or withdrawn.
-            # Only deprecate the old redirect if its target can actually be added
-            # (or is already on the item), so we never orphan the statement.
+            # Only deprecate the old redirect if its target is present or can be
+            # added now, so we never orphan the statement. If the target was
+            # already added above (it can double as a benign fragment), don't
+            # re-add it -- just deprecate the old redirect.
             for old, tgt in sorted(live_redirects.items()):
                 claim = _find_live_claim(item, old)
                 if claim is None:
                     continue
-                if tgt and tgt not in on_item:
+                if tgt and tgt not in on_item and tgt not in added:
                     try:
                         others = _items_with_viaf(tgt, qid)
                     except WdqsQueryError:
@@ -1416,6 +1458,7 @@ def apply_edits(
                         cwd.ExternalIDStatement(prop=wd.PID_VIAF_ID, external_id=tgt),
                         reference=RetrievedReference(),
                     )
+                    added.add(tgt)
                 _deprecate_with_reason(claim, QID_REDIRECT)
                 wdpage.claim_changed(claim)
             for old in sorted(live_withdrawn):

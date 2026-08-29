@@ -1,0 +1,83 @@
+Q15452498	428149106369268492847	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q19819745	4996415	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q18734996	46750237	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['8513178467078335190008']
+Q123701269	98935745	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['61808391']
+Q7350217	105901750	INCONSISTENT	2026-08-28	item already has live VIAF ['4820148705711537080007']; ids also -> 77697823
+Q1403698	256749070	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q3431045	60250096	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['117599364']
+Q5991429	61403927	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q6106511	120719385	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['39458965']
+Q6145427	100904454	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q6234434	10754591	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q6236693	48543284	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q6255104	91378744	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q138779988	198924154	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['279154387507730970004']
+Q6828677	291452637	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q7114471	76689064	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['72830405']
+Q11174399	89075104	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q16012652	4795648	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q16015336	23995260	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q19841129	85181354	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q17151633	239811100	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['494170939423415660006']
+Q6107479	30599002	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q7528143	53672979	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q7329718	51706878	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['103441190']
+Q7437478	284142770	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q21611972	290227236	AMBIGUOUS_SHARED_ID	2026-08-28	old cluster still carries an id that applies to this item (ISNI 0000000395470162) and no other item is confirmed to own it -> ambiguous, needs a human
+Q99041	7303147967371284200009	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q5811047	221044950	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1793914	85175607	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q10799115	4961029	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q505473	197897356	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q16016554	87311751	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['46228482']
+Q86982770	45343820	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q94353816	162070486	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q94617972	94311893	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q6390122	122119937	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['34306096']
+Q95321877	110159101	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95325329	10482034	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95330137	55562647	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q63762603	54907401	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['172280802']
+Q95246944	59827570	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95247765	265015239	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1773966	23005587	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['2510159820907014000003', '64830735']
+Q3182765	120699644	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95189564	8103454	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['119812090']
+Q94822353	309667040	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q94826439	29526560	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q12324921	311644441	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q60708617	43259308	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q62967187	31340169	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q3570715	44523088	INCONSISTENT	2026-08-28	item already has live VIAF ['5462151595779305470009']; ids also -> 189537843
+Q95791817	112713627	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95799398	306226731	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q29039541	305089369	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95810982	70242586	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95813587	9592839	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q3189697	1426795	AMBIGUOUS_SHARED_ID	2026-08-28	old cluster still carries an id that applies to this item (ISNI 0000000034589213) and no other item is confirmed to own it -> ambiguous, needs a human
+Q28874418	303849053	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q81393367	21593323	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q95856691	261144647705352759086	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q98652797	79600619	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1516763	41818445	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q66686356	9400149108515668780008	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q969015	41535435	AMBIGUOUS_SHARED_ID	2026-08-28	old cluster still carries an id that applies to this item (LIH LNB:BI8m;=BW) and no other item is confirmed to own it -> ambiguous, needs a human
+Q100451039	312818521	INCONSISTENT	2026-08-28	item already has live VIAF ['8662160364961963680009']; ids also -> 67897906
+Q22162564	66049696	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q602367	11867572	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['121592917']
+Q2960137	11867572	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['121592917']
+Q129627156	120778374	INCONSISTENT	2026-08-28	item already has live VIAF ['88678917']; ids also -> 315732580
+Q1793740	22620224	AMBIGUOUS_SHARED_ID	2026-08-28	old cluster still carries an id that applies to this item (ISNI 0000000083641794) and no other item is confirmed to own it -> ambiguous, needs a human
+Q16650622	5297389	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q68945574	70318376	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['2613157040166067040007']
+Q2589929	38076145	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q57868339	166099005	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q11866743	47860223	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['197765161'] redirect=[('651167445361688860001', None)]
+Q1449573	25099377	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('311623679', None)]
+Q95789729	18121622	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('2983159477571027990000', None)]
+Q95220443	93009245	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('1650152637851120220007', None)]
+Q44742113	86208581	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['33146095289000371871'] redirect=[('3437159279142508160008', None)]
+Q37269321	162888568	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('251624507', None)]
+Q76451394	102631949	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('1010148523890620970000', None)]
+Q499730	38127673	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('80140357', None)]
+Q104814141	39403808	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['64625718'] redirect=[('249200570', None)]
