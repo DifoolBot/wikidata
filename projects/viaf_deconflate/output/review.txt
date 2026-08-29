@@ -81,3 +81,5 @@ Q37269321	162888568	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on
 Q76451394	102631949	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('1010148523890620970000', None)]
 Q499730	38127673	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('80140357', None)]
 Q104814141	39403808	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['64625718'] redirect=[('249200570', None)]
+Q712660	34624603	PROBABLY_CONFLATED	2026-08-29	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('343145616544801380009', None)]
+Q4302903	50384450	PROBABLY_CONFLATED	2026-08-29	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['1132173308578338980002'] redirect=[('216173074', None)]

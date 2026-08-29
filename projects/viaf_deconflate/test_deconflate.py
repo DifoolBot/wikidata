@@ -176,7 +176,7 @@ def _classify(**kw):
         qid="Q1", v_dep="OLD", retrieved=None, clusters_hit={"NEW"}, fetched={},
         old=_found({}), v_live={"NEW"}, v_all={"NEW"}, benign=set(),
         old_is_clean=False, confirmed=False, old_shared=None,
-        old_owner_confirmed=False, do_wdqs=False,
+        old_owner_confirmed=False, foreign_ids=[], do_wdqs=False,
     )
     base.update(kw)
     return classify(**base)
@@ -233,6 +233,19 @@ def test_one_rival_plus_benign_fragment_adds_the_rival():
     )
     assert outcome == "ADD_AND_RELABEL"
     assert new == "A"
+
+
+def test_new_cluster_with_foreign_id_routes_to_review():
+    # the sole new cluster carries a NUKAT the item deprecated as a different
+    # person -> conflated cluster -> review, not adopted.
+    nukat = AuthoritySource("P1207", "NUKAT", "NUKAT")
+    cl = _found({"NUKAT": [("n2004250575", "n2004250575")]})
+    outcome, new, _ = _classify(
+        v_live=set(), clusters_hit={"NEW"}, v_all=set(), benign=set(),
+        fetched={"NEW": cl}, foreign_ids=[AuthId(nukat, "n2004250575")],
+    )
+    assert outcome == "NEW_CLUSTER_CONFLATED"
+    assert new == "NEW"
 
 
 def test_two_rivals_still_inconsistent():

@@ -13,3 +13,13 @@ Q1745159	74309958	STILL_CONFLATED	2026-08-28	still conflated (a second party is 
 Q499730	38127673	PROBABLY_CONFLATED	2026-08-28	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('80140357', None)]
 Q7279328	6470478	CORRECT_AS_OF_NOW	2026-08-28	old cluster now holds only this item's ids -> VIAF resolved it redirect=[('154023253', None), ('2649169442781525340002', None)]
 Q104814141	39403808	INCONSISTENT	2026-08-28	still in old cluster, but ids also moved to ['64625718'] redirect=[('249200570', None)]
+Q2831265	250966348	STILL_CONFLATED	2026-08-29	still conflated (a second party is in the cluster) redirect=[('311715625', None)]
+Q712660	34624603	PROBABLY_CONFLATED	2026-08-29	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('343145616544801380009', None)]
+Q4302903	50384450	PROBABLY_CONFLATED	2026-08-29	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['1132173308578338980002'] redirect=[('216173074', None)]
+Q95732694	165038678	ADD_AND_RELABEL	2026-08-29	new cluster 311699329
+Q140148978	17965350	RELABEL_ONLY	2026-08-29	old cluster no longer holds the person; its ids resolve to a cluster already on the item or to its own fragment(s) +frag=['132178467177535190008', '6931178467025435190003']
+Q95764880	306182953	ADD_AND_RELABEL	2026-08-29	new cluster 272684665
+Q38051168	311642817	ADD_AND_RELABEL	2026-08-29	new cluster 15160483725204991998
+Q98662537	271441689	ADD_AND_RELABEL	2026-08-29	new cluster 8146937697913831049
+Q99321238	268685190	ADD_AND_RELABEL	2026-08-29	new cluster 5736161211754640070002
+Q4083957	85436344	STILL_CONFLATED	2026-08-29	still conflated (a second party is in the cluster)

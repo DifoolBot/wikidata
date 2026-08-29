@@ -42,6 +42,10 @@ cluster itself. Outcomes:
                    manual review, no edit. (A different item counts as owner only
                    when it holds the cluster as its own non-deprecated P214; VIAF's
                    WKP link alone can be a wrong name/year guess.)
+  NEW_CLUSTER_CONFLATED  the cluster the ids would be adopted into carries an
+                   authority id the item deprecated as 'refers to different
+                   person' (Q35773207) -- VIAF conflated a foreign id into it, so
+                   it is not adopted -> manual review, no edit.
   DUPLICATE_RANK   the same P214 value is present on the item at BOTH a
                    non-deprecated rank and deprecated-for-conflation -- a
                    contradiction -> manual review, no edit (caught before any VIAF
@@ -439,6 +443,28 @@ def collect_overlap_ids(
     return out
 
 
+def collect_foreign_ids(
+    item: pwb.ItemPage, sources: AuthoritySources
+) -> list[AuthId]:
+    """Authority ids the item has DEPRECATED as 'refers to different person'
+    (P2241 = Q35773207) -- ids that belong to a DIFFERENT person. A VIAF cluster
+    that carries one of these is (partly) that other person, so it must not be
+    adopted as this item's clean VIAF (-> route to review)."""
+    out: list[AuthId] = []
+    for pid in sources.all_pids():
+        src = sources.get(pid)
+        for claim in item.claims.get(pid, []):
+            if (
+                claim.getRank() == "deprecated"
+                and claim.getSnakType() == "value"
+                and _claim_has_reason(claim, QID_REFERS_TO_DIFFERENT_PERSON)
+            ):
+                value = claim.getTarget()
+                if value:
+                    out.append(AuthId(src, str(value)))
+    return out
+
+
 def _cluster_shared_id(
     qid: str, cluster: ViafLookupResult, overlap_ids: list[AuthId]
 ) -> AuthId | None:
@@ -791,6 +817,7 @@ def classify(
     confirmed: bool,
     old_shared: str | None,
     old_owner_confirmed: bool,
+    foreign_ids: list[AuthId],
     do_wdqs: bool,
 ) -> tuple[str, str | None, str]:
     """Decide the outcome from the deprecated cluster's status, where the item's
@@ -904,6 +931,15 @@ def classify(
                 "old cluster no longer holds the person; its ids resolve to a "
                 "cluster already on the item or to its own fragment(s)")
     new_cluster = next(iter(rival))
+    # Never adopt a cluster that carries an id the item deprecated as a different
+    # person (Q35773207): VIAF has conflated a foreign id into it -> review.
+    new_res = fetched.get(new_cluster)
+    foreign = _cluster_shared_id(qid, new_res, foreign_ids) if new_res else None
+    if foreign is not None:
+        return ("NEW_CLUSTER_CONFLATED", new_cluster,
+                f"cluster {new_cluster} carries {foreign.auth_src.viaf_code} "
+                f"{foreign.value}, deprecated on this item as a different person "
+                f"-> conflated cluster, not adopted -> review")
     try:
         dup = used_on_other_item(new_cluster, qid, fetched.get(new_cluster), do_wdqs)
     except WdqsQueryError:
@@ -1037,10 +1073,13 @@ def evaluate(
                 confirmed = any(
                     _partner_id_in_cluster(pqid, old, sources, ignore) for pqid in partners
                 )
+        # Ids the item deprecated as 'refers to different person' -- a cluster
+        # carrying one is conflated and must not be adopted.
+        foreign_ids = collect_foreign_ids(item, sources)
         outcome, new_cluster, detail = classify(
             qid, candidate.viaf_dep, retrieved, clusters_hit, fetched, old,
             v_live, v_all, benign, old_is_clean, confirmed, old_shared,
-            old_owner_confirmed, do_wdqs,
+            old_owner_confirmed, foreign_ids, do_wdqs,
         )
         # Benign own-fragments (only this person, no other WKP item) not already
         # on the item are always safe to add, whatever the primary outcome says
@@ -1082,8 +1121,9 @@ def evaluate(
 
 _ORDER = [
     "ADD_AND_RELABEL", "RELABEL_ONLY", "CORRECT_AS_OF_NOW", "STILL_CONFLATED",
-    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "DUPLICATE_RANK", "LIST_REDIRECT",
-    "LIST_ABANDONED", "INCONSISTENT", "INSUFFICIENT", "ERROR",
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "NEW_CLUSTER_CONFLATED",
+    "DUPLICATE_RANK", "LIST_REDIRECT", "LIST_ABANDONED", "INCONSISTENT",
+    "INSUFFICIENT", "ERROR",
 ]
 
 
@@ -1149,8 +1189,9 @@ _EDIT_OUTCOMES = {
 # Outcomes that need a human / carry no bot edit -- fully settled by a classify
 # pass, so they are recorded (and then skipped) even on a dry run.
 _REVIEW_OUTCOMES = {
-    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "DUPLICATE_RANK", "INCONSISTENT",
-    "LIST_REDIRECT", "LIST_ABANDONED", "INSUFFICIENT",
+    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "NEW_CLUSTER_CONFLATED",
+    "DUPLICATE_RANK", "INCONSISTENT", "LIST_REDIRECT", "LIST_ABANDONED",
+    "INSUFFICIENT",
 }
 
 
