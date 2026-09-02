@@ -1215,6 +1215,30 @@ def process_lang(
 # ---------------------------------------------------------------------------
 
 
+# Substrings (lower-cased) that identify a transient, server-side failure: the
+# edit did not apply for a temporary reason (the Wikidata servers were lagging
+# and pywikibot exhausted its maxlag retries), not because anything is wrong
+# with the item. Such items should be retried on a later run rather than
+# recorded as a permanent failure. Both wrapped and unwrapped pywikibot messages
+# ("... failed: Maximum retries attempted due to maxlag without success.") carry
+# the word "maxlag".
+_TRANSIENT_ERROR_MARKERS = (
+    "maxlag",
+    "maximum retries attempted",
+)
+
+
+def _is_transient_error_message(msg: str) -> bool:
+    """True if *msg* looks like a transient/retryable server error (e.g. maxlag)."""
+    msg = (msg or "").lower()
+    return any(marker in msg for marker in _TRANSIENT_ERROR_MARKERS)
+
+
+def _is_transient_error(error: Exception) -> bool:
+    """True if *error* is a transient/retryable server error (e.g. maxlag)."""
+    return _is_transient_error_message(str(error))
+
+
 def process_item(
     qid: str,
     tracker: StatusTracker,
@@ -1279,7 +1303,16 @@ def process_item(
     except Exception as e:
         pywikibot.error(f"Error processing {qid}: {e}")
         if not dry_run:
-            tracker.mark_failed(qid, e)
+            if _is_transient_error(e):
+                # Transient server error (e.g. maxlag): leave the item unrecorded
+                # so is_processed() stays False and it is retried on a later run.
+                # It also stays in ITEMS_FILE, since only recorded QIDs are pruned.
+                pywikibot.warning(
+                    f"Transient error on {qid}; not recorded, will retry on a "
+                    f"later run: {e}"
+                )
+            else:
+                tracker.mark_failed(qid, e)
 
 
 def _format_progress(done: int, total: int, start_time: datetime) -> str:
@@ -1338,6 +1371,43 @@ def remove_processed_items_from_items_file(tracker: StatusTracker) -> int:
 
     pywikibot.output(f"Removed {removed_count} processed item(s) from {ITEMS_FILE}.")
     return removed_count
+
+
+def requeue_transient_failures(tracker: StatusTracker) -> int:
+    """Re-queue items that previously failed with a transient (maxlag) error.
+
+    Older runs recorded transient server errors as 'failed', which made
+    is_processed() skip them forever and pruned them from ITEMS_FILE. This drops
+    those records so the items are eligible again, and re-adds their QIDs to
+    ITEMS_FILE (de-duplicated, existing order preserved). Returns the number of
+    items re-queued.
+    """
+    rows = tracker.execute_query(
+        "SELECT qid, error_msg FROM qids WHERE status = 'failed'"
+    )
+    transient = [qid for qid, err in rows if _is_transient_error_message(err or "")]
+    if not transient:
+        return 0
+
+    for qid in transient:
+        tracker.execute_procedure("DELETE FROM qids WHERE qid = ?", (qid,))
+
+    existing: list[str] = []
+    if ITEMS_FILE.exists():
+        with ITEMS_FILE.open(encoding="utf-8") as fh:
+            existing = [line.strip() for line in fh if line.strip()]
+    seen = set(existing)
+    added = [qid for qid in transient if qid not in seen]
+    if added:
+        with ITEMS_FILE.open("a", encoding="utf-8") as fh:
+            for qid in added:
+                fh.write(f"{qid}\n")
+
+    pywikibot.output(
+        f"Re-queued {len(transient)} transient-failure item(s) "
+        f"({len(added)} re-added to {ITEMS_FILE.name})."
+    )
+    return len(transient)
 
 
 def _lookup_wiki_qid(lang: str) -> str | None:
@@ -1615,6 +1685,10 @@ def main():
         fetch_and_fill_items_txt_qlever_all()
 
     if not dry_run:
+        # Retry items that previously failed transiently (e.g. maxlag): clear
+        # their 'failed' records and re-add them to the queue. Do this BEFORE
+        # pruning, so the pruning step below only drops genuinely-done items.
+        requeue_transient_failures(tracker)
         # Drop already-processed QIDs from the queue before a real run.
         remove_processed_items_from_items_file(tracker)
 

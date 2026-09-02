@@ -53,6 +53,42 @@ COMMON_LANG = {
     "zh": "Q7850", "az": "Q9292", "uk": "Q8798", "tr": "Q256",
 }
 
+# Wikidata monolingual-text / term codes are the short ISO 639-1 forms (plus specials like
+# grc); the three-letter 639-2/B codes catalogues use -- and Open Library's /languages/eng
+# -- are NOT accepted ("eng" -> API "not a known language code"). Map them to the short
+# form. Anything not listed (already-short "en", or a valid special like "grc") passes
+# through unchanged.
+LANG_MONO = {
+    "eng": "en", "fre": "fr", "fra": "fr", "ger": "de", "deu": "de",
+    "dut": "nl", "nld": "nl", "spa": "es", "ita": "it", "por": "pt",
+    "rus": "ru", "lat": "la", "dan": "da", "swe": "sv", "fin": "fi",
+    "pol": "pl", "cze": "cs", "ces": "cs", "jpn": "ja", "kor": "ko",
+    "chi": "zh", "zho": "zh", "ell": "el", "gre": "el",
+}
+
+# Major publishing cities -> place-of-publication (P291) QID, so the usual case needs no
+# lookup (mirrors COMMON_LANG). Keyed by a normalised name (lowercased, part before the
+# first comma) -- '_norm_place'. Deliberately unambiguous cities only; e.g. "Cambridge"
+# is left out (Cambridge UK Q350 vs Cambridge, Mass. Q49111), so paste a QID for those.
+COMMON_PLACE = {
+    "new york": "Q60", "new york city": "Q60",
+    "london": "Q84", "paris": "Q90", "berlin": "Q64", "amsterdam": "Q727",
+    "the hague": "Q36600", "rotterdam": "Q34370", "utrecht": "Q803",
+    "boston": "Q100", "chicago": "Q1297", "los angeles": "Q65",
+    "san francisco": "Q62", "washington": "Q61", "washington, d.c.": "Q61",
+    "philadelphia": "Q1345", "new haven": "Q49145", "princeton": "Q138338",
+    "toronto": "Q172", "montreal": "Q340", "tokyo": "Q1490",
+    "rome": "Q220", "milan": "Q490", "madrid": "Q2807", "barcelona": "Q1492",
+    "vienna": "Q1741", "munich": "Q1726", "leipzig": "Q2079", "stuttgart": "Q1022",
+    "frankfurt": "Q1794", "hamburg": "Q1055", "cologne": "Q365",
+    "moscow": "Q649", "saint petersburg": "Q656", "st. petersburg": "Q656",
+    "oxford": "Q34217", "edinburgh": "Q23436", "dublin": "Q1761",
+    "geneva": "Q71", "zurich": "Q72", "brussels": "Q239", "antwerp": "Q12892",
+    "copenhagen": "Q1748", "stockholm": "Q1754", "oslo": "Q585", "helsinki": "Q1757",
+    "lisbon": "Q597", "warsaw": "Q270", "prague": "Q1085", "budapest": "Q1781",
+}
+
+
 _MONTHS = {}
 for _i, _m in enumerate(
     ["January", "February", "March", "April", "May", "June", "July", "August",
@@ -66,6 +102,8 @@ for _i, _m in enumerate(
 LABELS = {
     "titel": "title", "title": "title",
     "ondertitel": "subtitle", "subtitle": "subtitle",
+    "english title": "title_en", "parallel title": "title_en",
+    "title (en)": "title_en", "alternative title": "title_en",
     "auteur": "authors", "auteurs": "authors", "auteur(s)": "authors",
     "author": "authors", "authors": "authors", "author(s)": "authors",
     "redacteur": "editors", "redacteurs": "editors", "editor": "editors",
@@ -83,8 +121,14 @@ LABELS = {
     "doi": "doi",
     "lccn": "lccn",
     "editie": "edition", "edition": "edition",
+    "taal": "language", "language": "language",
+    "oclc": "oclc", "oclc number": "oclc",
     "onderwerpen": "subjects", "subjects": "subjects", "subject": "subjects",
     "serie": "series", "series": "series",
+    "open library work": "ol_work", "openlibrary work": "ol_work",
+    "open library edition": "ol_edition", "openlibrary edition": "ol_edition",
+    "internet archive": "ia_id", "archive.org": "ia_id", "ocaid": "ia_id",
+    "full work at url": "full_url", "full work available at url": "full_url",
 }
 _LABELS_BY_LEN = sorted(LABELS.items(), key=lambda kv: -len(kv[0]))
 
@@ -203,13 +247,17 @@ def _parse_date(s: str):
     return pywikibot.WbTime(year=int(y))
 
 
-def _qid_list(s: str) -> list:
-    return [t.strip() for t in s.split(",")
-            if t.strip().startswith("Q") and t.strip()[1:].isdigit()]
-
-
 def _is_qid(s: str) -> bool:
     return s.startswith("Q") and s[1:].isdigit()
+
+
+def _norm_place(s: str) -> str:
+    """Normalise a place name for a COMMON_PLACE lookup: lowercase, keep the part before
+    the first comma, drop a trailing period. 'New York, N.Y.' / 'London, UK' -> 'new york'
+    / 'london'. Washington, D.C. is kept whole via its own key."""
+    head = s.split(",", 1)[0].strip().lower().rstrip(".")
+    full = s.strip().lower().rstrip(".")
+    return full if full in COMMON_PLACE else head
 
 
 def _classify_isbns(text: str) -> tuple:
@@ -242,22 +290,57 @@ def _split_names(vals) -> list:
     return names
 
 
+def _extract_inline_qid(value: str) -> tuple:
+    """Split a contributor value into (name, seed_qid). Accepts a name carrying an inline
+    Wikidata QID -- 'Jane Roe [Q1234]' or 'Jane Roe (Q1234)' -> ('Jane Roe', 'Q1234') --
+    so a generated paste (gen_book_txt.py) can pre-fill the QID prompt instead of the user
+    re-typing it. A bare 'Q1234' -> ('', 'Q1234'). No QID -> (value, '')."""
+    m = re.search(r"[\[(]\s*(Q\d+)\s*[\])]\s*$", value)
+    if m:
+        return value[:m.start()].strip(), m.group(1)
+    if _is_qid(value.strip()):
+        return "", value.strip()
+    return value.strip(), ""
+
+
+def _extract_qids(text: str, seps: str = r"[;,]") -> tuple:
+    """Split ``text`` on ``seps`` and sort the tokens into (qids, leftover_names). Each token
+    may be a bare QID, a 'Name [QID]' inline form, or a plain name -- so a subjects line can
+    mix already-resolved QIDs with names still to look up. Used for the subjects prompt."""
+    qids, names = [], []
+    for tok in re.split(seps, text or ""):
+        name, qid = _extract_inline_qid(tok.strip())
+        if qid:
+            qids.append(qid)
+        elif name:
+            names.append(name)
+    return qids, names
+
+
 def _people_prompt(role: str, vals) -> list:
     """Return [(qid_or_None, name_or_None)] for a contributor role, one prompt per parsed
-    name (blank QID = fall back to a name string / named-as), then offer extras."""
+    name (blank QID = fall back to a name string / named-as), then offer extras. A parsed
+    value may carry an inline QID ('Name [Q123]' / bare 'Q123'), which seeds the prompt so
+    Enter accepts it -- the QID+name case the plain paste couldn't express."""
     people = []
-    for name in _split_names(vals):
-        q = ask(f"{role}: '{name}' -> QID (blank = keep as name)", "").strip()
+    for value in _split_names(vals):
+        name, seed_q = _extract_inline_qid(value)
+        if seed_q and not name:                            # value was just a bare QID
+            people.append((seed_q, None))
+            continue
+        q = ask(f"{role}: '{name}' -> QID (blank = keep as name)", seed_q).strip()
         people.append((q if _is_qid(q) else None, name))
     while True:
-        extra = ask(f"add another {role}? name or QID (blank = done)", "").strip()
+        extra = ask(f"add another {role}? name, 'name [QID]', or QID (blank = done)",
+                    "").strip()
         if not extra:
             break
-        if _is_qid(extra):
-            people.append((extra, None))
-        else:
-            q = ask(f"  QID for '{extra}' (blank = keep as name)", "").strip()
-            people.append((q if _is_qid(q) else None, extra))
+        name, seed_q = _extract_inline_qid(extra)
+        if seed_q and not name:                            # bare QID, no name
+            people.append((seed_q, None))
+            continue
+        q = ask(f"  QID for '{name}' (blank = keep as name)", seed_q).strip()
+        people.append((q if _is_qid(q) else None, name))
     return people
 
 
@@ -268,11 +351,13 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
     that already knows them (e.g. the floruit title / language)."""
     tb_title, tb_subtitle, tb_series = split_title(parsed.get("_titleblock", []))
 
-    lang_in = ask_opt("language: ISO code (en, fr...) or QID", seed_lang or "en")
+    lang_seed = seed_lang or (parsed.get("language") or [""])[0] or "en"
+    lang_in = ask_opt("language: ISO code (en, fr...) or QID", lang_seed)
     lang_qid = lang_in if _is_qid(lang_in) else COMMON_LANG.get(lang_in.lower())
     if not lang_qid:
         print(f"    (unknown language '{lang_in}'; leaving P407 off)")
     lang_code = lang_in.lower() if lang_in and not _is_qid(lang_in) else "en"
+    lang_code = LANG_MONO.get(lang_code, lang_code)        # 'eng' -> 'en' (Wikidata code)
 
     raw_title = (parsed.get("title") or [seed_title or tb_title or ""])[0]
     sub_seed = (parsed.get("subtitle") or [tb_subtitle or ""])[0]
@@ -280,6 +365,10 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
         raw_title, sub_seed = (x.strip() for x in raw_title.split(":", 1))
     title = ask(f"title [{lang_code}]", raw_title).strip()
     subtitle = ask_opt("subtitle", sub_seed) or None
+    # A parallel / English title (e.g. printed on a Japanese book's cover) -> label/en +
+    # a second P1476 in English, so the item is findable and carries the real parallel title.
+    title_en = ask_opt("English / parallel title (adds label/en + P1476@en)",
+                       (parsed.get("title_en") or [""])[0]) or None
 
     authors = _people_prompt("author", parsed.get("authors"))
     editors = _people_prompt("editor", parsed.get("editors"))
@@ -298,10 +387,17 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
         pub_seed = _strip_year(parsed["publisher"][0])[0]
     elif parsed.get("imprint"):
         pub_seed = parsed["imprint"][0]
-    pub_in = ask_opt("publisher: QID(s) (comma-sep) or a name", pub_seed)
-    publisher_qids = _qid_list(pub_in)
-    pub_name = next((t.strip() for t in pub_in.split(",")
-                     if t.strip() and t.strip() not in publisher_qids), None)
+    # Each comma-separated token may be a bare QID, a 'Name [QID]' (same inline form as
+    # authors -> P123 = that item), or a plain name (-> P123 = somevalue + named-as). A
+    # QID wins for that token (the item's own label supersedes the typed name).
+    pub_in = ask_opt("publisher: QID(s), 'Name [QID]', or a name", pub_seed)
+    publisher_qids, pub_name = [], None
+    for tok in pub_in.split(","):
+        name, qid = _extract_inline_qid(tok.strip())
+        if qid:
+            publisher_qids.append(qid)
+        elif name and pub_name is None:
+            pub_name = name
 
     date_seed = ""
     for k in ("date", "ebook_date"):
@@ -316,9 +412,19 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
     if date_in and not pub_date:
         print("    (unrecognised date; leaving it off)")
 
-    place_hint = f" [{parsed['place'][0]} -- needs a QID]" if parsed.get("place") else ""
-    place_in = ask(f"place of publication QID or blank{place_hint}", "").strip()
-    place_qid = place_in if _is_qid(place_in) else None
+    place_seed = parsed["place"][0] if parsed.get("place") else ""
+    place_in = ask_opt("place of publication: QID or name (New York, London...)", place_seed)
+    if _is_qid(place_in):
+        place_qid = place_in
+    elif place_in:
+        place_qid = COMMON_PLACE.get(_norm_place(place_in))
+        if place_qid:
+            print(f"    place = {place_qid} ({place_in})")
+        else:
+            print(f"    (no default QID for '{place_in}'; leaving P291 off -- paste a QID "
+                  "to set it)")
+    else:
+        place_qid = None
 
     isbn_seed = []
     for k in ("isbn", "ebook_isbn"):
@@ -352,26 +458,55 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
         lccn_seed = re.sub(r"[\s-]", "", parsed["lccn"][0]).strip()  # 36-011414 -> 36011414
     lccn = ask_opt("LCCN, bibliographic (e.g. 36011414)", lccn_seed) or None
 
+    oclc_seed = re.sub(r"\D", "", parsed["oclc"][0]) if parsed.get("oclc") else ""
+    oclc = ask_opt("OCLC control number (P243)", oclc_seed) or None
+
     ebook_seed = bool(parsed.get("ebook_isbn") or parsed.get("ebook_date"))
     is_ebook = confirm("is this edition an e-book (P437 = ebook)?", ebook_seed)
 
-    subj_hint = f" [{'; '.join(parsed['subjects'])}]" if parsed.get("subjects") else ""
-    subject_qids = _qid_list(ask(
-        f"main subject QID(s) (comma-sep, blank = none){subj_hint}", "").strip())
+    # A Subjects line may hold QIDs (bare Q123 or 'name [Q123]') and/or plain names. QIDs
+    # seed the prompt so Enter accepts them; names stay a hint (Open Library gives names
+    # only, no QID). Split file subjects on ';' (names can contain commas: "Fiction, horror").
+    seed_qids, subj_names = _extract_qids("; ".join(parsed.get("subjects", [])), r";")
+    subj_hint = f" [{'; '.join(subj_names)}]" if subj_names else ""
+    subj_in = ask(f"main subject (P921) QID(s), ';'/','-sep (blank = none){subj_hint}",
+                  ", ".join(seed_qids)).strip()
+    subject_qids = _extract_qids(subj_in)[0]
 
     series_seed = (tb_series or parsed.get("series") or [""])[0]
     series_hint = f" [{series_seed}]" if series_seed else ""
     series_in = ask(f"series (part of the series) QID or blank{series_hint}", "").strip()
     series_qid = series_in if _is_qid(series_in) else None
 
+    # External ids for the two new items: Open Library WORK id -> P648 on the work; Open
+    # Library EDITION id + Internet Archive id -> P648/P724 on the edition; P953 (full work
+    # available at URL) only if the scan is actually freely readable, so it defaults off.
+    ol_work = ask_opt("Open Library WORK id (P648 on work, OL...W)",
+                      (parsed.get("ol_work") or [""])[0]) or None
+    ol_edition = ask_opt("Open Library EDITION id (P648 on edition, OL...M)",
+                         (parsed.get("ol_edition") or [""])[0]) or None
+    ia_id = ask_opt("Internet Archive id (P724 on edition)",
+                    (parsed.get("ia_id") or [""])[0]) or None
+    full_seed = (parsed.get("full_url") or [""])[0]
+    if not full_seed and ia_id:
+        full_seed = f"https://archive.org/details/{ia_id}"
+    full_hint = f" (Enter = none, or paste {full_seed})" if full_seed else ""
+    full_url = ask(f"full work available at URL (P953) only if freely readable{full_hint}",
+                   "").strip() or None
+    if full_url and full_url.lower() in ("y", "yes") and full_seed:  # 'y' accepts the seed
+        full_url = full_seed
+
     return {
-        "title": title, "subtitle": subtitle, "lang_code": lang_code, "lang_qid": lang_qid,
+        "title": title, "title_en": title_en, "subtitle": subtitle,
+        "lang_code": lang_code, "lang_qid": lang_qid,
         "work_type_qid": work_type_qid, "authors": authors, "editors": editors,
         "publisher_qids": publisher_qids, "pub_name": pub_name,
         "place_qid": place_qid, "date": pub_date,
         "isbn10": isbn10, "isbn13": isbn13, "pages": pages,
         "edition_no": edition_no, "doi": doi, "lccn": lccn, "is_ebook": is_ebook,
         "subject_qids": subject_qids, "series_qid": series_qid,
+        "ol_work": ol_work, "ol_edition": ol_edition, "ia_id": ia_id, "full_url": full_url,
+        "oclc": oclc,
     }
 
 
@@ -399,6 +534,15 @@ def _contrib_desc(facts: dict) -> str:
     return f"book edited by {who}" if who else "book"
 
 
+def _book_labels(facts: dict) -> dict:
+    """The item's labels: mul = the (original-script) title, plus en = the English/parallel
+    title when one was given (so a foreign-language book is findable and labelled in English)."""
+    labels = {"mul": facts["title"]}
+    if facts.get("title_en"):
+        labels["en"] = facts["title_en"]
+    return labels
+
+
 def build_work(facts: dict) -> tuple:
     """(labels, descriptions, specs) for the WORK. Work-level facts only: title/subtitle/
     language/authors/editors/subjects/series -- no publication facts (those are edition-only)."""
@@ -407,6 +551,8 @@ def build_work(facts: dict) -> tuple:
         (wd.PID_INSTANCE_OF, facts["work_type_qid"], "item"),
         (wd.PID_TITLE, (facts["title"], lc), "monolingual"),
     ]
+    if facts.get("title_en"):                              # parallel title as a second P1476
+        specs.append((wd.PID_TITLE, (facts["title_en"], "en"), "monolingual"))
     if facts["subtitle"]:
         specs.append((wd.PID_SUBTITLE, (facts["subtitle"], lc), "monolingual"))
     if facts["lang_qid"]:
@@ -417,7 +563,9 @@ def build_work(facts: dict) -> tuple:
         specs.append((wd.PID_MAIN_SUBJECT, sq, "item"))
     if facts["series_qid"]:
         specs.append((wd.PID_PART_OF_THE_SERIES, facts["series_qid"], "item"))
-    return {"mul": facts["title"]}, {"en": _contrib_desc(facts)}, specs
+    if facts.get("ol_work"):                               # Open Library WORK id (OL...W)
+        specs.append((wd.PID_OPEN_LIBRARY_ID, facts["ol_work"], "string"))
+    return _book_labels(facts), {"en": _contrib_desc(facts)}, specs
 
 
 def build_edition(facts: dict, work_qid: str) -> tuple:
@@ -429,6 +577,8 @@ def build_edition(facts: dict, work_qid: str) -> tuple:
         (wd.PID_EDITION_OR_TRANSLATION_OF, work_qid, "item"),
         (wd.PID_TITLE, (facts["title"], lc), "monolingual"),
     ]
+    if facts.get("title_en"):                              # parallel title as a second P1476
+        specs.append((wd.PID_TITLE, (facts["title_en"], "en"), "monolingual"))
     if facts["subtitle"]:
         specs.append((wd.PID_SUBTITLE, (facts["subtitle"], lc), "monolingual"))
     if facts["lang_qid"]:
@@ -457,11 +607,19 @@ def build_edition(facts: dict, work_qid: str) -> tuple:
         specs.append((wd.PID_DOI, facts["doi"].upper(), "string"))  # P356 stores DOIs upper-case
     if facts["lccn"]:
         specs.append((wd.PID_LCCN_BIBLIOGRAPHIC, facts["lccn"], "string"))
+    if facts.get("oclc"):
+        specs.append((wd.PID_OCLC_CONTROL_NUMBER, facts["oclc"], "string"))
     if facts["is_ebook"]:
         specs.append((wd.PID_DISTRIBUTION_FORMAT, QID_EBOOK, "item"))
+    if facts.get("ol_edition"):                            # Open Library EDITION id (OL...M)
+        specs.append((wd.PID_OPEN_LIBRARY_ID, facts["ol_edition"], "string"))
+    if facts.get("ia_id"):                                 # Internet Archive scan
+        specs.append((wd.PID_INTERNET_ARCHIVE_ID, facts["ia_id"], "string"))
+    if facts.get("full_url"):
+        specs.append((wd.PID_FULL_WORK_AVAILABLE_AT_URL, facts["full_url"], "string"))
     year = facts["date"].year if facts["date"] else None
     kind = "e-book edition" if facts["is_ebook"] else "edition"
-    return {"mul": facts["title"]}, {"en": f"{year} {kind}" if year else kind}, specs
+    return _book_labels(facts), {"en": f"{year} {kind}" if year else kind}, specs
 
 
 def build_p747_quals(facts: dict) -> list:

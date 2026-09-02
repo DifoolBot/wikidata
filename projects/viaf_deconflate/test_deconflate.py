@@ -346,6 +346,34 @@ def test_undeprecate_with_rival_review_lands_in_both_files(state_dir):
     assert ("Q8", "888") in d._load_state_keys(d.REVIEW_FILE)
 
 
+def test_redirect_scan_query_and_outcomes():
+    q = d.build_multi_viaf_query()
+    assert "HAVING(?c >= 2)" in q
+    assert "!= wikibase:DeprecatedRank" in q
+    lq = d.build_long_viaf_query()
+    assert "STRLEN(?v) >= 19" in lq and "!= wikibase:DeprecatedRank" in lq
+    # outcome registration
+    assert "REDIRECT_FIX" in d._ORDER and "LIVE_VIAF_OK" in d._ORDER
+    assert "REDIRECT_REVIEW" in d._REVIEW_OUTCOMES
+    assert "LIVE_VIAF_OK" not in d._REVIEW_OUTCOMES  # OK is not review
+
+
+def test_redirect_fix_recorded_only_after_save(state_dir):
+    r = Result("Q30", "", "REDIRECT_FIX", live_redirects=[("A", "B")])
+    d.record_state([r], edited_qids=set())          # dry -> pending
+    assert d.load_skip_set() == set()
+    d.record_state([r], edited_qids={"Q30"})        # saved
+    assert ("Q30", "") in d._load_state_keys(d.DONE_FILE)
+
+
+def test_multi_viaf_ok_is_not_recorded(state_dir):
+    # a person with several valid live VIAFs -> no action, and not recorded
+    # (so it is re-checked on the next scan rather than skipped forever)
+    d.record_state([Result("Q31", "", "LIVE_VIAF_OK")], edited_qids=set())
+    assert d.load_skip_set() == set()
+    assert not d.DONE_FILE.exists() and not d.REVIEW_FILE.exists()
+
+
 def test_duplicate_rank_is_a_review_outcome(state_dir):
     # the same-value-both-ranks contradiction is review-only (recorded, no edit)
     assert "DUPLICATE_RANK" in d._REVIEW_OUTCOMES

@@ -28,6 +28,9 @@ auto-edited.
 | `LIST_ABANDONED` | old cluster abandoned / gone | manual review list (list-first; removal is OK'd but deferred) |
 | `INCONSISTENT` | IDs split across >1 *substantial* cluster, or a live VIAF disagrees — benign unmerged own-fragments (e.g. a lone RERO singleton) are ignored | manual review — the item may mix two people, or VIAF may just not have merged one person's clusters; the bot won't pick which to adopt |
 | `INSUFFICIENT` | no authority ID resolved anywhere | skip (not enough evidence) |
+| `REDIRECT_FIX` | *(redirect-scan)* a normal/preferred `P214` now redirects or was withdrawn | deprecate it (`Q45403344` redirect / `Q21441764` withdrawn) + adopt a redirect target |
+| `REDIRECT_REVIEW` | *(redirect-scan)* the redirect target is on another item | review list |
+| `MULTI_VIAF_OK` | *(redirect-scan)* the item's several live VIAFs are all valid clusters | no action (not recorded) |
 | `ERROR` | item could not be read/evaluated | — |
 
 *Stamp* = remove any reference that is retrieved-only, then add `retrieved` = today
@@ -84,8 +87,18 @@ the manual UI tool), `--min-age-days`, `--no-dup-check`, `--only Q…,Q…` (pro
 just these QIDs), `--editgroup ID` (batch id for the edit summaries; until the bot RfP is approved
 it defaults to a fixed trial batch so all trial edits group on
 editgroups.toolforge.org, then a stable per-day id),
-`--recheck-review` / `--recheck` / `--no-state` (see below), and
+`--recheck-review` / `--recheck` / `--no-state` (see below),
+`--redirect-scan` (task 2, see below), and
 `--apply` / `--save` / `--apply-limit` (default 5).
+
+**Redirect scan (task 2).** The task is to check live `P214` values for a VIAF
+redirect/withdrawal and fix them (`REDIRECT_FIX`). Checking every VIAF-having item
+is infeasible, so `--redirect-scan` runs over a subset: `multi` (default — `Q5`
+with **≥2 non-deprecated `P214`**, ~6.4k items) or `long` (`Q5` with a
+**long-format ≥19-char `P214`**, ~63k items, which VIAF may have redirected to a
+shorter one). An item that *also* has a conflation-deprecated `P214` is run
+through task 1 instead (which already does this check). Same `--apply`/`--save`/
+state handling. `--redirect-scan` alone = `multi`; `--redirect-scan long` = long.
 
 ## Processed-item state
 

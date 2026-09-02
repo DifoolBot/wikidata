@@ -165,6 +165,40 @@ python projects/isbn_cleanup/mark_selfpublished.py --qid Q123  # one item
 python projects/isbn_cleanup/mark_selfpublished.py --save      # really edit
 ```
 
+## Create a book (`make_book.py`)
+
+Creation, not cleanup: turns pasted **Google Books** or **publisher-page** metadata
+into a **work** plus **one edition (P31=Q3331189)**, linked `P629`/`P747`. The work's
+type is confirmable and defaults smartly: **edited volume (Q1711593)** for an editor-only
+book (92% of those carry P98), else **written work (Q47461344)**. You paste the blob (`--file` or interactively, ending with a line
+`.`), the tool parses it and you confirm every field, then it creates both items in
+one editgroups batch. Dry run by default.
+
+Field split follows the [book data model](../../notes/isbn_bot.md): title/subtitle
+(P1476/P1680), language (P407), authors (P50), editors (P98) and subjects (P921) go on
+the **work** (P50 and P98 are work-level properties per WikiProject Books, so an edited
+volume's editors land on the work too, not only the edition); all publication facts —
+publisher (P123), place (P291), date (P577), ISBN
+(P212/P957, validated + hyphenated via `python-stdnum`), pages (P1104), edition no.
+(P393), DOI (P356), editors (P98), format (P437) — go on the **edition**. It parses
+both the Dutch Google labels (`Titel/Redacteurs/Uitgever/ISBN/Lengte`) and the glued
+publisher labels (`Edited By…`, `First Published…`, `Pub. Location…`).
+
+At each prompt a parsed value is shown in `[brackets]`: **Enter keeps it**, typing
+replaces it, and a single **`-` clears** an optional field to none (Enter can't blank
+a pre-filled field — it re-accepts the default).
+
+Contributors are given as names or QIDs (["author can be name or qid"]): with a QID →
+P50/P98 item; a bare author name → **P2093** (author name string); a bare editor name
+→ **P98 = somevalue + object named as (P1932)**. Publisher without a QID → **P123 =
+somevalue + P1932** likewise. Place/subject/series need a QID (name shown as a hint).
+
+```bash
+python projects/isbn_cleanup/make_book.py --file book.txt          # dry run
+python projects/isbn_cleanup/make_book.py --file book.txt --save   # really create
+python projects/isbn_cleanup/make_book.py                          # paste, end with "."
+```
+
 ## Progress tracking
 
 No database. State lives in text files under `output/` (gitignored), written

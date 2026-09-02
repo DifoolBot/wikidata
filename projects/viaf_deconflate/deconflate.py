@@ -61,6 +61,13 @@ cluster itself. Outcomes:
   INSUFFICIENT     no authority ID resolved anywhere -> not enough evidence.
   ERROR            the item could not be read / evaluated.
 
+Second task (--redirect-scan): check live P214 values for a VIAF redirect/
+withdrawal and fix them (REDIRECT_FIX; redirect target adopted, or REDIRECT_REVIEW
+if it clashes with another item; LIVE_VIAF_OK when all values are still valid).
+Checking every VIAF-having item is infeasible, so it runs over a subset:
+'multi' (Q5 with >=2 non-deprecated P214) or 'long' (Q5 with a long-format P214).
+An item that also has a conflation-deprecated P214 runs the task above instead.
+
 Cross-cutting: a VIAF cluster that holds ONLY this person's records and links to
 no other Wikidata item (a benign own-fragment) is always added as a live P214,
 whatever the outcome above -- VIAF builds clusters bottom-up, so one person often
@@ -353,6 +360,52 @@ def fetch_candidates_for_qids(qids: list[str]) -> list[Candidate]:
     if not qids:
         return []
     return _fold_candidates(_run_selection(build_candidate_query_for_qids(qids)))
+
+
+def build_multi_viaf_query() -> str:
+    """Q5 items carrying 2+ non-deprecated (normal/preferred) P214 values -- the
+    redirect-scan population: a person should have one live VIAF, so 2+ usually
+    means one has been redirected or withdrawn on VIAF's side."""
+    return """PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+SELECT ?item (COUNT(DISTINCT ?v) AS ?c) WHERE {
+  ?item wdt:P31 wd:Q5 .
+  ?item p:P214 ?st .
+  ?st wikibase:rank ?rank ; ps:P214 ?v .
+  FILTER(?rank != wikibase:DeprecatedRank)
+} GROUP BY ?item HAVING(?c >= 2)"""
+
+
+def build_long_viaf_query() -> str:
+    """Q5 items carrying a non-deprecated long-format (>=19 char) P214 value --
+    the newer VIAF ids, which VIAF may since have redirected to a shorter one."""
+    return """PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+SELECT DISTINCT ?item WHERE {
+  ?item wdt:P31 wd:Q5 .
+  ?item p:P214 ?st .
+  ?st wikibase:rank ?rank ; ps:P214 ?v .
+  FILTER(?rank != wikibase:DeprecatedRank)
+  FILTER(STRLEN(?v) >= 19)
+}"""
+
+
+def fetch_redirect_scan_qids(subset: str) -> list[str]:
+    """QIDs (sorted by number) for a redirect-scan subset: 'multi' = Q5 items with
+    2+ non-deprecated P214; 'long' = Q5 items with a long-format P214 value."""
+    query = build_long_viaf_query() if subset == "long" else build_multi_viaf_query()
+    qids: set[str] = set()
+    for row in _run_selection(query):
+        q = row.get("item", {}).get("value", "").rsplit("/", 1)[-1]
+        if q.startswith("Q"):
+            qids.add(q)
+    return sorted(qids, key=lambda q: int(q[1:]))
 
 
 def order_and_filter(
@@ -1109,15 +1162,80 @@ def evaluate(
         )
 
 
+def evaluate_multi_viaf(
+    qid: str,
+    sources: AuthoritySources,
+    viaf: BudgetedViaf,
+    start_pid: str,
+    do_wdqs: bool,
+    ignore: set[str],
+) -> list[Result]:
+    """Redirect-scan (task 2) for one item that has 2+ non-deprecated P214.
+
+    If the item ALSO carries a conflation-deprecated P214, the de-conflation
+    (task 1) is done instead -- once per such statement -- because that already
+    checks the live values for redirects. Otherwise the item's normal/preferred
+    P214 values are checked for a VIAF redirect/withdrawal and fixed:
+      REDIRECT_FIX     at least one value redirects/was withdrawn -> deprecate
+                       (+ adopt a redirect target)
+      REDIRECT_REVIEW  a redirect target clashes with another item -> review
+      LIVE_VIAF_OK    all values are valid live clusters -> no action (the person
+                       simply has several unmerged VIAF clusters).
+    """
+    before = viaf.calls
+    try:
+        item = pwb.ItemPage(get_repo(), qid)
+        if not item.exists() or item.isRedirectPage():
+            return [Result(qid, "", "ERROR", detail="item missing / is a redirect")]
+        item.get()
+        conflation: list[Candidate] = []
+        v_norm: set[str] = set()
+        v_all: set[str] = set()
+        for claim in item.claims.get(wd.PID_VIAF_ID, []):
+            if claim.getSnakType() != "value":
+                continue
+            value = str(claim.getTarget())
+            v_all.add(value)
+            if claim.getRank() == "deprecated":
+                if _claim_has_reason(claim, wd.QID_CONFLATION):
+                    conflation.append(Candidate(qid, value, None))
+            else:
+                v_norm.add(value)
+        if conflation:  # task 1 subsumes the redirect check for these
+            return [
+                evaluate(c, sources, viaf, start_pid, do_wdqs, ignore)
+                for c in conflation
+            ]
+        redirects, withdrawn, review = resolve_live_status(
+            viaf, qid, sorted(v_norm), v_all, do_wdqs
+        )
+        if redirects or withdrawn:
+            outcome, detail = "REDIRECT_FIX", "live VIAF redirected / withdrawn"
+        elif review:
+            outcome, detail = "REDIRECT_REVIEW", "redirect target clashes -> review"
+        else:
+            outcome, detail = "LIVE_VIAF_OK", "live VIAF value(s) all valid clusters"
+        return [Result(
+            qid, "", outcome, detail=detail, viaf_calls=viaf.calls - before,
+            n_clusters=len(v_norm), live_redirects=redirects,
+            live_withdrawn=withdrawn, live_review=review,
+        )]
+    except (BudgetExceeded, ViafRateLimitExceeded):
+        raise
+    except Exception as exc:
+        return [Result(qid, "", "ERROR", detail=f"{type(exc).__name__}: {exc}",
+                       viaf_calls=viaf.calls - before)]
+
+
 # --------------------------------------------------------------------------- #
 # Reporting                                                                   #
 # --------------------------------------------------------------------------- #
 
 _ORDER = [
     "ADD_AND_RELABEL", "RELABEL_ONLY", "CORRECT_AS_OF_NOW", "STILL_CONFLATED",
-    "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "NEW_CLUSTER_CONFLATED",
-    "DUPLICATE_RANK", "LIST_REDIRECT", "LIST_ABANDONED", "INCONSISTENT",
-    "INSUFFICIENT", "ERROR",
+    "REDIRECT_FIX", "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID",
+    "NEW_CLUSTER_CONFLATED", "DUPLICATE_RANK", "REDIRECT_REVIEW", "LIST_REDIRECT",
+    "LIST_ABANDONED", "INCONSISTENT", "INSUFFICIENT", "LIVE_VIAF_OK", "ERROR",
 ]
 
 
@@ -1184,8 +1302,8 @@ _EDIT_OUTCOMES = {
 # pass, so they are recorded (and then skipped) even on a dry run.
 _REVIEW_OUTCOMES = {
     "PROBABLY_CONFLATED", "AMBIGUOUS_SHARED_ID", "NEW_CLUSTER_CONFLATED",
-    "DUPLICATE_RANK", "INCONSISTENT", "LIST_REDIRECT", "LIST_ABANDONED",
-    "INSUFFICIENT",
+    "DUPLICATE_RANK", "REDIRECT_REVIEW", "INCONSISTENT", "LIST_REDIRECT",
+    "LIST_ABANDONED", "INSUFFICIENT",
 }
 
 
@@ -1556,7 +1674,7 @@ def main() -> None:
     ap.add_argument("--only", default=None,
                     help="comma-separated QIDs to process instead of the full "
                          "selection (targeted verification; bypasses the age "
-                         "filter and --max-items)")
+                         "filter and --max-items). Works with --redirect-scan too.")
     ap.add_argument("--editgroup", metavar="ID", default=None,
                     help="editgroups batch id for the edit summaries (default: a "
                          "fixed trial batch until the RfP is approved; then a "
@@ -1568,6 +1686,12 @@ def main() -> None:
                     help="ignore the processed-item state entirely (re-do all)")
     ap.add_argument("--no-state", action="store_true",
                     help="do not read or write the output/ state files")
+    ap.add_argument("--redirect-scan", nargs="?", const="multi",
+                    choices=["multi", "long"], default=None,
+                    help="task 2: check live VIAF ids for redirect/withdrawal over a "
+                         "subset -- 'multi' (Q5 with >=2 normal/preferred P214, the "
+                         "default) or 'long' (Q5 with a long-format P214). An item "
+                         "that also has a conflation-deprecated P214 gets task 1.")
     args = ap.parse_args()
 
     ensure_login()
@@ -1577,50 +1701,75 @@ def main() -> None:
         return
     ignore = set(load_config().ignore)
 
-    if args.only:
-        only_qids = [q.strip().upper() for q in args.only.split(",") if q.strip()]
-        raw = fetch_candidates_for_qids(only_qids)
-        found = {c.qid for c in raw}
-        missing = [q for q in only_qids if q not in found]
-        if missing:
-            print(f"warning: --only QIDs not conflation candidates / not found: {missing}")
-        candidates = order_and_filter(raw, 0)  # hand-picked: no age filter
-        print(
-            f"--only: {len(candidates)} candidate statement(s) for "
-            f"{len(found)}/{len(only_qids)} requested item(s)."
-        )
-    else:
-        raw = fetch_candidates(args.pid)
-        candidates = order_and_filter(raw, args.min_age_days)
-        print(
-            f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
-            f"the {args.min_age_days}-day age filter (start source {args.pid})."
-        )
-        # Skip statements already handled in a previous run (saves VIAF calls);
-        # --only always bypasses this.
-        if not args.no_state and not args.recheck:
-            skip = load_skip_set(include_review=not args.recheck_review)
-            before = len(candidates)
-            candidates = [c for c in candidates if (c.qid, c.viaf_dep) not in skip]
-            if before != len(candidates):
-                print(f"skipped {before - len(candidates)} already-processed "
-                      f"candidate(s) from output/ state.")
-        candidates = candidates[: args.max_items]
-
     viaf = BudgetedViaf(ViafApiClient(), args.max_viaf_calls, args.min_day_remaining)
     results: list[Result] = []
     stopped: str | None = None
-    for i, candidate in enumerate(candidates, 1):
-        try:
-            result = evaluate(
-                candidate, sources, viaf, args.pid, not args.no_dup_check, ignore
+
+    if args.redirect_scan:
+        if args.only:  # target specific items instead of the subset selection
+            qids = [q.strip().upper() for q in args.only.split(",") if q.strip()]
+            print(f"redirect-scan --only: {len(qids)} item(s).")
+        else:
+            qids = fetch_redirect_scan_qids(args.redirect_scan)
+            print(f"redirect-scan ({args.redirect_scan}): {len(qids)} Q5 item(s).")
+            if not args.no_state and not args.recheck:
+                skip = load_skip_set(include_review=not args.recheck_review)
+                before = len(qids)
+                qids = [q for q in qids if (q, "") not in skip]
+                if before != len(qids):
+                    print(f"skipped {before - len(qids)} already-processed item(s).")
+            qids = qids[: args.max_items]
+        for i, qid in enumerate(qids, 1):
+            try:
+                results.extend(evaluate_multi_viaf(
+                    qid, sources, viaf, args.pid, not args.no_dup_check, ignore))
+            except (BudgetExceeded, ViafRateLimitExceeded) as exc:
+                stopped = str(exc)
+                break
+            if i % 25 == 0:
+                print(f"  ...{i}/{len(qids)} items, {viaf.calls} VIAF calls")
+    else:
+        if args.only:
+            only_qids = [q.strip().upper() for q in args.only.split(",") if q.strip()]
+            raw = fetch_candidates_for_qids(only_qids)
+            found = {c.qid for c in raw}
+            missing = [q for q in only_qids if q not in found]
+            if missing:
+                print(f"warning: --only QIDs not conflation candidates / not found: {missing}")
+            candidates = order_and_filter(raw, 0)  # hand-picked: no age filter
+            print(
+                f"--only: {len(candidates)} candidate statement(s) for "
+                f"{len(found)}/{len(only_qids)} requested item(s)."
             )
-        except (BudgetExceeded, ViafRateLimitExceeded) as exc:
-            stopped = str(exc)
-            break
-        results.append(result)
-        if i % 25 == 0:
-            print(f"  ...{i}/{len(candidates)} items, {viaf.calls} VIAF calls")
+        else:
+            raw = fetch_candidates(args.pid)
+            candidates = order_and_filter(raw, args.min_age_days)
+            print(
+                f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
+                f"the {args.min_age_days}-day age filter (start source {args.pid})."
+            )
+            # Skip statements already handled in a previous run (saves VIAF calls);
+            # --only always bypasses this.
+            if not args.no_state and not args.recheck:
+                skip = load_skip_set(include_review=not args.recheck_review)
+                before = len(candidates)
+                candidates = [c for c in candidates if (c.qid, c.viaf_dep) not in skip]
+                if before != len(candidates):
+                    print(f"skipped {before - len(candidates)} already-processed "
+                          f"candidate(s) from output/ state.")
+            candidates = candidates[: args.max_items]
+
+        for i, candidate in enumerate(candidates, 1):
+            try:
+                result = evaluate(
+                    candidate, sources, viaf, args.pid, not args.no_dup_check, ignore
+                )
+            except (BudgetExceeded, ViafRateLimitExceeded) as exc:
+                stopped = str(exc)
+                break
+            results.append(result)
+            if i % 25 == 0:
+                print(f"  ...{i}/{len(candidates)} items, {viaf.calls} VIAF calls")
 
     write_report(results, viaf.calls, stopped, sys.stdout)
     if args.out:
