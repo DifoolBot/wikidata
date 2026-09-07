@@ -14,6 +14,14 @@ class MariaDbDatabaseHandler(DatabaseHandler):
     DB_NAME.
     """
 
+    def __init__(
+        self, config_filename: str | Path, create_script: str | Path | None = None
+    ) -> None:
+        # Reused across execute_* calls so the hot path (the bot runs ~6 skip
+        # checks per item) doesn't pay a fresh TCP + auth handshake per query.
+        self._conn = None
+        super().__init__(config_filename, create_script)
+
     def get_connection(self):
         return pymysql.connect(
             host=self.config["DB_HOST"],
@@ -23,6 +31,50 @@ class MariaDbDatabaseHandler(DatabaseHandler):
             database=self.config["DB_NAME"],
             charset="utf8mb4",
         )
+
+    def _acquire_connection(self):
+        # Keep one connection alive across calls instead of reconnecting per
+        # query. ping(reconnect=True) transparently revives a connection the
+        # server dropped (idle timeout), so callers still see a live handle.
+        # autocommit keeps each statement in its own transaction, so reads
+        # always see the latest committed data -- matching the old
+        # connection-per-query behaviour now that the connection is reused.
+        # (get_connection itself is left non-autocommit: migration scripts use
+        # it directly and rely on their own explicit transactions.)
+        if self._conn is None:
+            conn = self.get_connection()
+            conn.autocommit(True)
+            self._conn = conn
+        else:
+            self._conn.ping(reconnect=True)
+        return self._conn
+
+    def _release_connection(self, conn) -> None:
+        # Leave the reused connection open; close() disposes of it.
+        pass
+
+    def _drain(self, cur) -> None:
+        # A CALL to a stored procedure leaves a trailing (empty) result set
+        # that, on a reused connection, would otherwise trip 'commands out of
+        # sync' on the next statement.
+        try:
+            while cur.nextset():
+                pass
+        except Exception:
+            pass
+
+    def close(self) -> None:
+        conn = getattr(self, "_conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._conn = None
+
+    def __del__(self):
+        # Safety net so a forgotten close() doesn't leak the connection.
+        self.close()
 
     def create_config(self, config_filename: Path, create_script: Path) -> None:
         if not create_script.exists():

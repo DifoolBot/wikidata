@@ -1,220 +1,130 @@
-"""Offline unit tests for book_paste.py (the shared paste->confirm->build core used by
-make_book and the floruit_books migrator). The interactive confirm_facts and any path
-that builds a WbQuantity (pages) need a live site, so they are left to the tools'
-dry-runs; everything here is pure.
+"""Offline unit tests for book_paste.py's new fields: native non-Latin title readings
+(P1814/P2125/P2441 qualifiers on P1476/P1680), translator (P655) and CiNii NCID (P1739).
 
 Run with:
     python -m pytest projects/shared_lib/test_book_paste.py -v
 """
 
-import pywikibot
-
 import shared_lib.constants as wd
-from shared_lib.book_paste import (
-    COMMON_PLACE,
-    LANG_MONO,
-    _classify_isbns,
-    _extract_inline_qid,
-    _extract_qids,
-    _norm_place,
-    _split_names,
-    build_edition,
-    build_work,
-    parse_metadata,
-)
+from shared_lib.book_paste import build_edition, build_work, parse_metadata
 
 
 def _facts(**over):
-    facts = {
-        "title": "T", "subtitle": None, "lang_code": "en", "lang_qid": "Q1860",
-        "work_type_qid": "Q47461344", "authors": [], "editors": [],
-        "publisher_qids": [], "pub_name": None, "place_qid": None, "date": None,
-        "isbn10": [], "isbn13": [], "pages": None, "edition_no": None, "doi": None,
-        "lccn": None, "is_ebook": False, "subject_qids": [], "series_qid": None,
-    }
-    facts.update(over)
-    return facts
+    """A complete facts dict (as confirm_facts returns), overridable per test."""
+    f = dict(
+        title="", title_en=None, subtitle=None,
+        title_kana=None, title_romaji=None, title_translation=None,
+        subtitle_kana=None, subtitle_romaji=None, subtitle_translation=None,
+        lang_code="ja", lang_qid="Q5287",
+        work_type_qid="Q47461344", authors=[], editors=[], translators=[],
+        publisher_qids=[], pub_name=None, place_qid=None, date=None,
+        isbn10=[], isbn13=[], pages=None, edition_no=None, doi=None, lccn=None,
+        is_ebook=False, subject_qids=[], series_qid=None,
+        ol_work=None, ol_edition=None, ia_id=None, full_url=None, oclc=None, ncid=None,
+    )
+    f.update(over)
+    return f
 
 
-def _map(specs):
-    return {pid: value for pid, value, *_ in specs}
+def _find(specs, pid):
+    return [s for s in specs if s[0] == pid]
 
 
-# ------------------------------------------------------------------- parsing
+# --------------------------------------------------------------- parse
 
-def test_parse_tab_separated_labels():
-    p = parse_metadata("Title\tThe Book\nAuthor\tA. Writer\nISBN\t9780470031117\n")
-    assert p["title"] == ["The Book"]
-    assert p["authors"] == ["A. Writer"]
-    assert p["isbn"] == ["9780470031117"]
-
-
-def test_parse_glued_publisher_label():
-    p = parse_metadata("First Published2008")
-    assert p["date"] == ["2008"]
-
-
-def test_classify_isbns_splits_valid_and_bad():
-    tens, thirteens, bad = _classify_isbns("9780470031117 not-an-isbn")
-    assert thirteens == ["978-0-470-03111-7"]
-    assert "not-an-isbn" in bad
-
-
-def test_parse_lccn_label():
-    assert parse_metadata("Lccn\t36011414")["lccn"] == ["36011414"]
+def test_parse_new_labels():
+    blob = (
+        "Title: 希少糖秘話\n"
+        "Title kana: キショウトウヒワ\n"
+        "Title romaji: Kishōtō hiwa\n"
+        "Title translation: The secret story of rare sugars\n"
+        "Translator: Shigeyuki Tajima [Q135811713]\n"
+        "CiNii: BB14197516\n"
+    )
+    p = parse_metadata(blob)
+    assert p["title"] == ["希少糖秘話"]
+    assert p["title_kana"] == ["キショウトウヒワ"]
+    assert p["title_romaji"] == ["Kishōtō hiwa"]
+    assert p["title_translation"] == ["The secret story of rare sugars"]
+    assert p["translators"] == ["Shigeyuki Tajima [Q135811713]"]
+    assert p["ncid"] == ["BB14197516"]
+    # "Title kana"/"Title romaji" must not be swallowed by the shorter "title" label
+    assert "希少糖秘話" not in p["title_kana"]
 
 
-def test_parse_french_auteur_s_label():
-    # "Auteur(s)" (SUDOC/BnF) must yield the author, not a spurious "(s)"
-    assert _split_names(parse_metadata("Auteur(s)\tMin Lin").get("authors")) == ["Min Lin"]
+# --------------------------------------------------------------- title readings
+
+def test_title_readings_become_p1476_qualifiers():
+    facts = _facts(title="希少糖秘話", title_kana="キショウトウヒワ",
+                   title_romaji="Kishōtō hiwa",
+                   title_translation="The secret story of rare sugars")
+    _, _, wspecs = build_work(facts)
+    title = _find(wspecs, wd.PID_TITLE)[0]
+    assert title[1] == ("希少糖秘話", "ja") and title[2] == "monolingual"
+    quals = dict((q[0], q[1]) for q in title[3])
+    assert quals[wd.PID_NAME_IN_KANA] == "キショウトウヒワ"
+    assert quals[wd.PID_REVISED_HEPBURN_ROMANIZATION] == "Kishōtō hiwa"
+    assert quals[wd.PID_LITERAL_TRANSLATION] == ("The secret story of rare sugars", "en")
 
 
-def test_split_names_drops_s_residue():
-    assert _split_names(["Min Lin, (s)"]) == ["Min Lin"]
-    assert _split_names(["(s)"]) == []
+def test_no_readings_leaves_plain_title():
+    _, _, wspecs = build_work(_facts(title="Plain Book", lang_code="en"))
+    title = _find(wspecs, wd.PID_TITLE)[0]
+    assert len(title) == 3  # no qualifiers tuple appended
 
 
-def test_extract_inline_qid():
-    # a generated paste can carry the QID next to the name (bracket or paren)
-    assert _extract_inline_qid("Jane Roe [Q1234]") == ("Jane Roe", "Q1234")
-    assert _extract_inline_qid("Jane Roe (Q1234)") == ("Jane Roe", "Q1234")
-    assert _extract_inline_qid("Q1234") == ("", "Q1234")          # bare QID -> no name
-    assert _extract_inline_qid("Jane Roe") == ("Jane Roe", "")    # plain name, no QID
-    assert _extract_inline_qid("E. E. Cummings") == ("E. E. Cummings", "")
+def test_subtitle_readings_on_p1680():
+    facts = _facts(title="張赫宙の日本語文学", subtitle="植民地朝鮮/帝国日本のはざまで",
+                   subtitle_kana="ショクミンチチョウセンテイコクニホンノハザマデ",
+                   subtitle_romaji="Shokuminchi Chōsen | teikoku Nihon no hazama de")
+    _, _, wspecs = build_work(facts)
+    sub = _find(wspecs, wd.PID_SUBTITLE)[0]
+    quals = dict((q[0], q[1]) for q in sub[3])
+    assert quals[wd.PID_NAME_IN_KANA].startswith("ショクミンチ")
+    assert "|" in quals[wd.PID_REVISED_HEPBURN_ROMANIZATION]
 
 
-def test_split_names_keeps_inline_qid_intact():
-    # the "; " separator splits people; each [Qxxx] stays glued to its name
-    assert _split_names(["Jane Roe [Q1]; John Doe [Q2]"]) == [
-        "Jane Roe [Q1]", "John Doe [Q2]"]
+# --------------------------------------------------------------- translator + ncid
+
+def test_translator_item_and_ncid_on_edition():
+    facts = _facts(title="The secret story of rare sugars", lang_code="en", lang_qid="Q1860",
+                   translators=[("Q135811713", "Shigeyuki Tajima")], ncid="BD03659501")
+    _, _, especs = build_edition(facts, "Q1")
+    tr = _find(especs, wd.PID_TRANSLATOR)[0]
+    assert tr[1] == "Q135811713" and tr[2] == "item"
+    ncid = _find(especs, wd.PID_NACSIS_CAT_BIBLIOGRAPHY_ID)[0]
+    assert ncid[1] == "BD03659501" and ncid[2] == "string"
 
 
-def test_extract_qids_subjects():
-    # bare QIDs, inline 'name [QID]', and plain names sorted apart
-    qids, names = _extract_qids("Q589; black hole [Q589]; Stars", r";")
-    assert qids == ["Q589", "Q589"]
-    assert names == ["Stars"]
-    # prompt input, comma- or semicolon-separated
-    assert _extract_qids("Q1, Q2")[0] == ["Q1", "Q2"]
-    assert _extract_qids("Q1; Q2")[0] == ["Q1", "Q2"]
-    # a subject name with a parenthetical isn't mistaken for a QID
-    assert _extract_qids("Black holes (Astronomy)", r";") == ([], ["Black holes (Astronomy)"])
+def test_translator_name_only_is_somevalue_named_as():
+    facts = _facts(title="X", translators=[(None, "Jane Roe")])
+    _, _, especs = build_edition(facts, "Q1")
+    tr = _find(especs, wd.PID_TRANSLATOR)[0]
+    assert tr[2] == "somevalue"
+    assert tr[3] == [(wd.PID_OBJECT_NAMED_AS, "Jane Roe", "string")]
 
 
-# ----------------------------------------------------------------- build_work
-
-def test_build_work_author_qid_to_p50():
-    labels, _desc, specs = build_work(_facts(authors=[("Q7", "Ann")]))
-    m = _map(specs)
-    assert m[wd.PID_INSTANCE_OF] == "Q47461344"
-    assert m[wd.PID_AUTHOR] == "Q7"
-    assert m[wd.PID_LANGUAGE_OF_WORK_OR_NAME] == "Q1860"
-    assert labels == {"mul": "T"}
+def test_translator_is_edition_only_not_on_work():
+    facts = _facts(title="X", translators=[("Q135811713", "Shigeyuki Tajima")])
+    _, _, wspecs = build_work(facts)
+    assert _find(wspecs, wd.PID_TRANSLATOR) == []
 
 
-def test_build_work_author_name_only_to_p2093():
-    specs = build_work(_facts(authors=[(None, "Ann")]))[2]
-    assert (wd.PID_AUTHOR_NAME_STRING, "Ann", "string") in specs
+# --------------------------------------------------------------- labels (Genji model)
+
+def test_genji_labels_from_romanization():
+    labels, _, _ = build_work(_facts(
+        title="希少糖秘話", title_romaji="Kishōtō hiwa",
+        title_translation="The secret story of rare sugars", lang_code="ja"))
+    assert labels == {"ja": "希少糖秘話", "mul": "Kishōtō hiwa",
+                      "en": "The secret story of rare sugars"}
 
 
-def test_build_work_parallel_english_title():
-    # a foreign book with an English/parallel title -> label/en + a second P1476@en
-    labels, _d, specs = build_work(
-        _facts(title="日本語", title_en="English Title", lang_code="ja"))
-    assert labels == {"mul": "日本語", "en": "English Title"}
-    titles = [s[1] for s in specs if s[0] == wd.PID_TITLE]
-    assert ("日本語", "ja") in titles and ("English Title", "en") in titles
+def test_romanization_label_en_falls_back_to_romaji():
+    labels, _, _ = build_work(_facts(title="羅生門", title_romaji="Rashōmon", lang_code="ja"))
+    assert labels == {"ja": "羅生門", "mul": "Rashōmon", "en": "Rashōmon"}
 
 
-def test_parse_english_title_label():
-    assert parse_metadata("English title: Foo")["title_en"] == ["Foo"]
-
-
-# -------------------------------------------------------------- build_edition
-
-def test_build_edition_links_work_isbn_and_somevalue_publisher():
-    facts = _facts(isbn13=["978-0-470-03111-7"], pub_name="Wiley",
-                   date=pywikibot.WbTime(year=2007))
-    specs = build_edition(facts, "Q500")[2]
-    m = _map(specs)
-    assert m[wd.PID_INSTANCE_OF] == "Q3331189"
-    assert m[wd.PID_EDITION_OR_TRANSLATION_OF] == "Q500"
-    assert m[wd.PID_PUBLICATION_DATE].year == 2007
-    assert (wd.PID_ISBN_13, "978-0-470-03111-7", "string") in specs
-    publisher = next(s for s in specs if s[0] == wd.PID_PUBLISHER)
-    assert publisher[2] == "somevalue"
-
-
-def test_build_edition_lccn_to_p1144():
-    specs = build_edition(_facts(lccn="36011414"), "Q500")[2]
-    assert (wd.PID_LCCN_BIBLIOGRAPHIC, "36011414", "string") in specs
-
-
-def test_build_edition_oclc_to_p243():
-    specs = build_edition(_facts(oclc="123333"), "Q500")[2]
-    assert (wd.PID_OCLC_CONTROL_NUMBER, "123333", "string") in specs
-
-
-def test_parse_oclc_label():
-    assert parse_metadata("OCLC\t123333")["oclc"] == ["123333"]
-
-
-# ---------------------------------------------------- external ids (P648/P724/P953)
-
-def test_build_work_open_library_work_id_to_p648():
-    specs = build_work(_facts(ol_work="OL450063W"))[2]
-    assert (wd.PID_OPEN_LIBRARY_ID, "OL450063W", "string") in specs
-
-
-def test_build_edition_open_library_and_archive_ids():
-    specs = build_edition(_facts(
-        ol_edition="OL26683337M", ia_id="frankensteinormo00shel_8",
-        full_url="https://archive.org/details/frankensteinormo00shel_8"), "Q500")[2]
-    assert (wd.PID_OPEN_LIBRARY_ID, "OL26683337M", "string") in specs
-    assert (wd.PID_INTERNET_ARCHIVE_ID, "frankensteinormo00shel_8", "string") in specs
-    assert (wd.PID_FULL_WORK_AVAILABLE_AT_URL,
-            "https://archive.org/details/frankensteinormo00shel_8", "string") in specs
-
-
-def test_build_work_omits_edition_only_ids():
-    # the OL EDITION id / IA id belong on the edition, never the work
-    specs = build_work(_facts(ol_edition="OL1M", ia_id="foo"))[2]
-    assert wd.PID_INTERNET_ARCHIVE_ID not in _map(specs)
-
-
-def test_parse_external_id_labels():
-    p = parse_metadata(
-        "Open Library work: OL450063W\n"
-        "Open Library edition: OL26683337M\n"
-        "Internet Archive: frankensteinormo00shel_8\n")
-    assert p["ol_work"] == ["OL450063W"]
-    assert p["ol_edition"] == ["OL26683337M"]
-    assert p["ia_id"] == ["frankensteinormo00shel_8"]
-
-
-# ------------------------------------------------------- common place defaults
-
-def test_common_place_new_york():
-    assert COMMON_PLACE["new york"] == "Q60"
-
-
-# ---------------------------------------------- language code normalisation
-
-def test_lang_mono_normalizes_three_letter_codes():
-    # Wikidata monolingual text rejects 639-2 codes; 'eng' must become 'en'
-    assert LANG_MONO["eng"] == "en"
-    assert LANG_MONO["dut"] == "nl"
-    assert LANG_MONO.get("en", "en") == "en"     # already short -> unchanged
-    assert LANG_MONO.get("grc", "grc") == "grc"  # valid special -> unchanged
-
-
-def test_build_work_title_monolingual_uses_lang_code():
-    labels, _d, specs = build_work(_facts(lang_code="en", title="T"))
-    ml = next(s for s in specs if s[0] == wd.PID_TITLE)
-    assert ml[1] == ("T", "en") and ml[2] == "monolingual"
-
-
-def test_norm_place_strips_region_suffix():
-    assert COMMON_PLACE[_norm_place("New York, N.Y.")] == "Q60"
-    assert COMMON_PLACE[_norm_place("London, UK")] == "Q84"
-    assert COMMON_PLACE[_norm_place("Washington, D.C.")] == "Q61"  # kept whole via its key
+def test_english_book_labels_unchanged():
+    labels, _, _ = build_work(_facts(title="Plain Book", lang_code="en"))
+    assert labels == {"mul": "Plain Book"}

@@ -1314,26 +1314,62 @@ _REVIEW_OUTCOMES = {
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 DONE_FILE = OUTPUT_DIR / "done.txt"        # statements actually edited (--save)
 REVIEW_FILE = OUTPUT_DIR / "review.txt"    # routed to a human, no bot edit
+CHECKED_FILE = OUTPUT_DIR / "checked.txt"  # scanned, nothing to do (LIVE_VIAF_OK)
 ERROR_FILE = OUTPUT_DIR / "error.txt"      # transient failures -- NOT skipped
 
+# A settled statement (edited, or scanned-and-clean) is re-examined only after
+# this many days: VIAF keeps re-clustering, so today's clean multi-VIAF item may
+# redirect a year from now. Review items are skipped until a human clears them.
+RECHECK_AFTER_DAYS = 365
 
-def _load_state_keys(path: Path) -> set[tuple[str, str]]:
-    """(qid, viaf_dep) keys recorded in a state file."""
-    keys: set[tuple[str, str]] = set()
+
+def _load_state_dated(path: Path) -> dict[tuple[str, str], date | None]:
+    """Latest recorded date per (qid, viaf_dep) key in a state file (None when a
+    line carries no parseable date)."""
+    dated: dict[tuple[str, str], date | None] = {}
     if path.exists():
         with open(path, encoding="utf-8") as f:
             for line in f:
                 parts = line.split("\t")
                 if len(parts) >= 2 and parts[0].startswith("Q"):
-                    keys.add((parts[0].strip(), parts[1].strip()))
-    return keys
+                    key = (parts[0].strip(), parts[1].strip())
+                    d: date | None = None
+                    if len(parts) >= 4:
+                        try:
+                            d = date.fromisoformat(parts[3].strip())
+                        except ValueError:
+                            d = None
+                    prev = dated.get(key, "missing")
+                    if prev == "missing" or (d and (prev is None or d > prev)):
+                        dated[key] = d
+    return dated
 
 
-def load_skip_set(include_review: bool = True) -> set[tuple[str, str]]:
+def _load_state_keys(path: Path) -> set[tuple[str, str]]:
+    """(qid, viaf_dep) keys recorded in a state file (dates ignored)."""
+    return set(_load_state_dated(path))
+
+
+def _active_keys(path: Path, recheck_after_days: int | None) -> set[tuple[str, str]]:
+    """Keys in a state file still within the re-check window. ``None`` disables
+    expiry (every recorded key counts). A dateless line never expires."""
+    dated = _load_state_dated(path)
+    if recheck_after_days is None:
+        return set(dated)
+    cutoff = date.today().toordinal() - recheck_after_days
+    return {k for k, d in dated.items() if d is None or d.toordinal() > cutoff}
+
+
+def load_skip_set(
+    include_review: bool = True,
+    recheck_after_days: int | None = RECHECK_AFTER_DAYS,
+) -> set[tuple[str, str]]:
     """(qid, viaf_dep) statements to skip re-processing: everything already
-    edited, plus (unless recheck-review) everything already routed to review.
-    Errors are never skipped -- they retry."""
-    keys = _load_state_keys(DONE_FILE)
+    edited or scanned-clean and still within the re-check window, plus (unless
+    recheck-review) everything routed to review. Review skips do not expire -- a
+    human clears them (or --recheck-review forces a re-scan). Errors never skip."""
+    keys = _active_keys(DONE_FILE, recheck_after_days)
+    keys |= _active_keys(CHECKED_FILE, recheck_after_days)
     if include_review:
         keys |= _load_state_keys(REVIEW_FILE)
     return keys
@@ -1362,17 +1398,24 @@ def _append_state(path: Path, r: "Result") -> None:
                 f"{r.detail}{_live_summary(r)}\n")
 
 
-def record_state(results: list["Result"], edited_qids: set[str]) -> dict[str, int]:
+def record_state(
+    results: list["Result"],
+    edited_qids: set[str],
+    recheck_after_days: int | None = RECHECK_AFTER_DAYS,
+) -> dict[str, int]:
     """Append newly-settled statements to the state files, de-duplicating against
     what is already there. ``edited_qids`` are the QIDs an --save apply actually
     wrote (empty on a dry run). A statement is settled when it needs no (further)
     bot edit: a review outcome with no pending fragment add is settled by the
     classify pass alone; an edit outcome or a fragment add is settled only once
-    saved. Errors go to error.txt and are never skipped."""
-    done, review, errors = (_load_state_keys(DONE_FILE),
-                            _load_state_keys(REVIEW_FILE),
-                            _load_state_keys(ERROR_FILE))
-    added = {"done": 0, "review": 0, "error": 0}
+    saved; a clean scan (LIVE_VIAF_OK) is settled by the query pass. Done/checked
+    de-dup against the re-check window, so a statement whose last record has aged
+    past it is re-appended with today's date instead of being silently dropped.
+    Review de-dups permanently. Errors go to error.txt and are never skipped."""
+    done = _active_keys(DONE_FILE, recheck_after_days)
+    checked = _active_keys(CHECKED_FILE, recheck_after_days)
+    review, errors = _load_state_keys(REVIEW_FILE), _load_state_keys(ERROR_FILE)
+    added = {"done": 0, "review": 0, "checked": 0, "error": 0}
     for r in results:
         key = (r.qid, r.viaf_dep)
         if r.outcome == "ERROR":
@@ -1392,8 +1435,12 @@ def record_state(results: list["Result"], edited_qids: set[str]) -> dict[str, in
                 if review_primary and key not in review:
                     _append_state(REVIEW_FILE, r); review.add(key); added["review"] += 1
             # else: still pending, do not record
-        elif review_primary and key not in review:
-            _append_state(REVIEW_FILE, r); review.add(key); added["review"] += 1
+        elif review_primary:
+            if key not in review:
+                _append_state(REVIEW_FILE, r); review.add(key); added["review"] += 1
+        elif r.outcome == "LIVE_VIAF_OK":         # scanned, nothing to do
+            if key not in checked:
+                _append_state(CHECKED_FILE, r); checked.add(key); added["checked"] += 1
     return added
 
 
@@ -1684,6 +1731,10 @@ def main() -> None:
                          "have split a cluster since); still skips edited items")
     ap.add_argument("--recheck", action="store_true",
                     help="ignore the processed-item state entirely (re-do all)")
+    ap.add_argument("--recheck-after-days", type=int, default=RECHECK_AFTER_DAYS,
+                    help="re-examine an already edited / scanned-clean item once its "
+                         f"state record is older than this (default {RECHECK_AFTER_DAYS}); "
+                         "0 re-checks every run, review items are unaffected")
     ap.add_argument("--no-state", action="store_true",
                     help="do not read or write the output/ state files")
     ap.add_argument("--redirect-scan", nargs="?", const="multi",
@@ -1713,7 +1764,8 @@ def main() -> None:
             qids = fetch_redirect_scan_qids(args.redirect_scan)
             print(f"redirect-scan ({args.redirect_scan}): {len(qids)} Q5 item(s).")
             if not args.no_state and not args.recheck:
-                skip = load_skip_set(include_review=not args.recheck_review)
+                skip = load_skip_set(include_review=not args.recheck_review,
+                                     recheck_after_days=args.recheck_after_days)
                 before = len(qids)
                 qids = [q for q in qids if (q, "") not in skip]
                 if before != len(qids):
@@ -1751,7 +1803,8 @@ def main() -> None:
             # Skip statements already handled in a previous run (saves VIAF calls);
             # --only always bypasses this.
             if not args.no_state and not args.recheck:
-                skip = load_skip_set(include_review=not args.recheck_review)
+                skip = load_skip_set(include_review=not args.recheck_review,
+                                     recheck_after_days=args.recheck_after_days)
                 before = len(candidates)
                 candidates = [c for c in candidates if (c.qid, c.viaf_dep) not in skip]
                 if before != len(candidates):
@@ -1793,10 +1846,11 @@ def main() -> None:
     # Record settled statements so later runs skip them (review outcomes are
     # settled by classification; edits only once actually saved).
     if not args.no_state:
-        added = record_state(results, edited_qids)
+        added = record_state(results, edited_qids, args.recheck_after_days)
         if any(added.values()):
             print(f"state: +{added['done']} done, +{added['review']} review, "
-                  f"+{added['error']} error  (in {OUTPUT_DIR})")
+                  f"+{added['checked']} checked, +{added['error']} error  "
+                  f"(in {OUTPUT_DIR})")
 
 
 if __name__ == "__main__":

@@ -111,10 +111,16 @@ sibling bots), keyed by `(QID, viaf_dep)`:
   the review worklist.
 - `output/done.txt` — statements actually **edited**; written only after `--save`
   applies them (a fragment add counts). A dry run never marks an edit as done.
+- `output/checked.txt` — scanned and **clean** (`LIVE_VIAF_OK`, mostly Candidates
+  #2): the person just has several valid unmerged VIAF clusters. Recorded on any
+  run so the scan is not repeated (and its VIAF call not re-spent) every time.
 - `output/error.txt` — transient failures (maxlag etc.); recorded but **never**
   skipped, so they retry.
 
-The next run skips anything in `done.txt`/`review.txt` **before** the VIAF calls.
+The next run skips anything in `done.txt`/`checked.txt`/`review.txt` **before** the
+VIAF calls. `done`/`checked` skips expire after `--recheck-after-days` (default
+365): VIAF keeps re-clustering, so a settled item is re-examined about once a year
+and its state line refreshed. Review skips do not expire (a human clears them).
 `--recheck-review` re-processes the review pile (VIAF may have split a cluster
 since); `--recheck` ignores all state; `--no-state` neither reads nor writes it.
 `--only` always bypasses the skip set.

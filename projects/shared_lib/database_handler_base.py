@@ -68,23 +68,55 @@ class DatabaseHandler(ABC):
         """Translate the '?' placeholder convention into the driver's paramstyle."""
         return sql
 
+    def _acquire_connection(self):
+        """Return a connection to run one statement on.
+
+        Default: a fresh connection per call (disposed of by
+        :meth:`_release_connection`). Subclasses may override to reuse a
+        long-lived connection instead of reconnecting on every query.
+        """
+        return self.get_connection()
+
+    def _release_connection(self, conn) -> None:
+        """Dispose of a connection obtained from :meth:`_acquire_connection`.
+
+        Default: close it. Subclasses that reuse a connection override this to
+        leave it open.
+        """
+        conn.close()
+
+    def _drain(self, cur) -> None:
+        """Consume any remaining result sets so a connection is left clean.
+
+        Only matters when a connection is reused: a stored-procedure ``CALL``
+        can leave a trailing result set that would trip the next statement.
+        Default is a no-op; a fresh-connection-per-call backend discards the
+        leftovers when the connection closes.
+        """
+
+    def close(self) -> None:
+        """Release any cached resources. No-op unless a subclass reuses a connection."""
+
     def execute_query(self, sql: str, params: tuple = ()) -> list:
-        conn = self.get_connection()
+        conn = self._acquire_connection()
         try:
             cur = conn.cursor()
             # Pass None (not an empty tuple) when there are no params: PyMySQL
             # only does '%' substitution when params is not None, and a literal
             # '%' in the SQL (e.g. a LIKE pattern) would otherwise raise.
             cur.execute(self._adapt_sql(sql), params or None)
-            return cur.fetchall()
+            rows = cur.fetchall()
+            self._drain(cur)
+            return rows
         finally:
-            conn.close()
+            self._release_connection(conn)
 
     def execute_procedure(self, sql: str, params: tuple = ()) -> None:
-        conn = self.get_connection()
+        conn = self._acquire_connection()
         try:
             cur = conn.cursor()
             cur.execute(self._adapt_sql(sql), params or None)
+            self._drain(cur)
             conn.commit()
         finally:
-            conn.close()
+            self._release_connection(conn)

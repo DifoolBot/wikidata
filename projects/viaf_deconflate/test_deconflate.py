@@ -9,6 +9,7 @@ Run with:
     python -m pytest projects/viaf_deconflate/test_deconflate.py -v
 """
 import types
+from datetime import date, timedelta
 
 import viaf_deconflate.deconflate as d
 from shared_lib.constants import QID_CONFLATION
@@ -320,6 +321,7 @@ def state_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(d, "OUTPUT_DIR", tmp_path)
     monkeypatch.setattr(d, "DONE_FILE", tmp_path / "done.txt")
     monkeypatch.setattr(d, "REVIEW_FILE", tmp_path / "review.txt")
+    monkeypatch.setattr(d, "CHECKED_FILE", tmp_path / "checked.txt")
     monkeypatch.setattr(d, "ERROR_FILE", tmp_path / "error.txt")
     return tmp_path
 
@@ -366,12 +368,25 @@ def test_redirect_fix_recorded_only_after_save(state_dir):
     assert ("Q30", "") in d._load_state_keys(d.DONE_FILE)
 
 
-def test_multi_viaf_ok_is_not_recorded(state_dir):
-    # a person with several valid live VIAFs -> no action, and not recorded
-    # (so it is re-checked on the next scan rather than skipped forever)
+def test_multi_viaf_ok_is_recorded_as_checked(state_dir):
+    # a person with several valid live VIAFs -> no action, but recorded to
+    # checked.txt so the next scan skips it (until the re-check window lapses).
     d.record_state([Result("Q31", "", "LIVE_VIAF_OK")], edited_qids=set())
-    assert d.load_skip_set() == set()
+    assert ("Q31", "") in d._load_state_keys(d.CHECKED_FILE)
+    assert ("Q31", "") in d.load_skip_set()
     assert not d.DONE_FILE.exists() and not d.REVIEW_FILE.exists()
+
+
+def test_checked_recheck_window_expires(state_dir):
+    # a clean scan older than the re-check window is no longer skipped, so it is
+    # re-examined (VIAF may have redirected a value since).
+    old = (date.today() - timedelta(days=400)).isoformat()
+    d.CHECKED_FILE.write_text(f"Q31\t\tLIVE_VIAF_OK\t{old}\tclean\n", encoding="utf-8")
+    assert ("Q31", "") in d.load_skip_set(recheck_after_days=None)  # expiry off
+    assert ("Q31", "") not in d.load_skip_set()                     # 365d default
+    # a fresh clean scan re-records it with today's date (window refreshed)
+    d.record_state([Result("Q31", "", "LIVE_VIAF_OK")], edited_qids=set())
+    assert ("Q31", "") in d.load_skip_set()
 
 
 def test_duplicate_rank_is_a_review_outcome(state_dir):

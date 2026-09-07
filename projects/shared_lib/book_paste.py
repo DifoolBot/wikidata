@@ -104,10 +104,22 @@ LABELS = {
     "ondertitel": "subtitle", "subtitle": "subtitle",
     "english title": "title_en", "parallel title": "title_en",
     "title (en)": "title_en", "alternative title": "title_en",
+    # Native non-Latin title readings -> qualifiers on P1476 / P1680 (see notes:
+    # non-Latin book title model). Longer labels win over "title"/"subtitle".
+    "title kana": "title_kana", "title reading": "title_kana", "title in kana": "title_kana",
+    "title romaji": "title_romaji", "title romanisation": "title_romaji",
+    "title romanization": "title_romaji", "title hepburn": "title_romaji",
+    "title translation": "title_translation",
+    "subtitle kana": "subtitle_kana", "subtitle reading": "subtitle_kana",
+    "subtitle romaji": "subtitle_romaji", "subtitle romanisation": "subtitle_romaji",
+    "subtitle romanization": "subtitle_romaji", "subtitle hepburn": "subtitle_romaji",
+    "subtitle translation": "subtitle_translation",
     "auteur": "authors", "auteurs": "authors", "auteur(s)": "authors",
     "author": "authors", "authors": "authors", "author(s)": "authors",
     "redacteur": "editors", "redacteurs": "editors", "editor": "editors",
     "editors": "editors", "edited by": "editors",
+    "translator": "translators", "translators": "translators",
+    "translated by": "translators", "vertaler": "translators",
     "uitgever": "publisher", "publisher": "publisher", "imprint": "imprint",
     "pub. location": "place", "place of publication": "place",
     "place": "place", "plaats": "place",
@@ -123,6 +135,8 @@ LABELS = {
     "editie": "edition", "edition": "edition",
     "taal": "language", "language": "language",
     "oclc": "oclc", "oclc number": "oclc",
+    "ncid": "ncid", "cinii": "ncid", "cinii ncid": "ncid", "cinii books": "ncid",
+    "nacsis": "ncid", "nacsis-cat": "ncid",
     "onderwerpen": "subjects", "subjects": "subjects", "subject": "subjects",
     "serie": "series", "series": "series",
     "open library work": "ol_work", "openlibrary work": "ol_work",
@@ -364,7 +378,23 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
     if ":" in raw_title and not sub_seed:
         raw_title, sub_seed = (x.strip() for x in raw_title.split(":", 1))
     title = ask(f"title [{lang_code}]", raw_title).strip()
+    # Native non-Latin title readings -> qualifiers on P1476 (see notes: non-Latin book
+    # title model). P1814 kana + P2125 Hepburn are string; P2441 translation is @en.
+    title_kana = ask_opt("  title reading in kana (P1814)",
+                         (parsed.get("title_kana") or [""])[0]) or None
+    title_romaji = ask_opt("  title Hepburn romanization (P2125)",
+                           (parsed.get("title_romaji") or [""])[0]) or None
+    title_translation = ask_opt("  title literal translation (P2441, en)",
+                                (parsed.get("title_translation") or [""])[0]) or None
     subtitle = ask_opt("subtitle", sub_seed) or None
+    subtitle_kana = subtitle_romaji = subtitle_translation = None
+    if subtitle:
+        subtitle_kana = ask_opt("  subtitle reading in kana (P1814)",
+                                (parsed.get("subtitle_kana") or [""])[0]) or None
+        subtitle_romaji = ask_opt("  subtitle Hepburn romanization (P2125)",
+                                  (parsed.get("subtitle_romaji") or [""])[0]) or None
+        subtitle_translation = ask_opt("  subtitle literal translation (P2441, en)",
+                                       (parsed.get("subtitle_translation") or [""])[0]) or None
     # A parallel / English title (e.g. printed on a Japanese book's cover) -> label/en +
     # a second P1476 in English, so the item is findable and carries the real parallel title.
     title_en = ask_opt("English / parallel title (adds label/en + P1476@en)",
@@ -372,6 +402,9 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
 
     authors = _people_prompt("author", parsed.get("authors"))
     editors = _people_prompt("editor", parsed.get("editors"))
+    # Translator (P655) -- an edition-only role; a translation edition carries it (name-only
+    # -> P655 somevalue + named-as, like an editor).
+    translators = _people_prompt("translator", parsed.get("translators"))
 
     # Work type: an editor-only book is an edited volume (Q1711593), where editor is the
     # norm (92% carry P98); anything else defaults to written work. Overridable per book.
@@ -461,6 +494,9 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
     oclc_seed = re.sub(r"\D", "", parsed["oclc"][0]) if parsed.get("oclc") else ""
     oclc = ask_opt("OCLC control number (P243)", oclc_seed) or None
 
+    ncid_seed = parsed["ncid"][0].strip() if parsed.get("ncid") else ""
+    ncid = ask_opt("CiNii Books NCID / NACSIS-CAT id (P1739)", ncid_seed) or None
+
     ebook_seed = bool(parsed.get("ebook_isbn") or parsed.get("ebook_date"))
     is_ebook = confirm("is this edition an e-book (P437 = ebook)?", ebook_seed)
 
@@ -498,32 +534,54 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
 
     return {
         "title": title, "title_en": title_en, "subtitle": subtitle,
+        "title_kana": title_kana, "title_romaji": title_romaji,
+        "title_translation": title_translation,
+        "subtitle_kana": subtitle_kana, "subtitle_romaji": subtitle_romaji,
+        "subtitle_translation": subtitle_translation,
         "lang_code": lang_code, "lang_qid": lang_qid,
         "work_type_qid": work_type_qid, "authors": authors, "editors": editors,
+        "translators": translators,
         "publisher_qids": publisher_qids, "pub_name": pub_name,
         "place_qid": place_qid, "date": pub_date,
         "isbn10": isbn10, "isbn13": isbn13, "pages": pages,
         "edition_no": edition_no, "doi": doi, "lccn": lccn, "is_ebook": is_ebook,
         "subject_qids": subject_qids, "series_qid": series_qid,
         "ol_work": ol_work, "ol_edition": ol_edition, "ia_id": ia_id, "full_url": full_url,
-        "oclc": oclc,
+        "oclc": oclc, "ncid": ncid,
     }
 
 
 # --------------------------------------------------------------------------- build
 
 def _add_contributors(specs: list, people: list, role: str) -> None:
-    """Append author/editor specs. With a QID -> P50/P98 item; name only -> P2093 for an
-    author, or P98 = somevalue + object named as (P1932) for an editor (no name-string
-    property exists for editors)."""
+    """Append author/editor/translator specs. With a QID -> P50/P98/P655 item; name only ->
+    P2093 for an author, or P98/P655 = somevalue + object named as (P1932) for an editor or
+    translator (no name-string property exists for those)."""
     for qid, name in people:
         if role == "author":
             specs.append((wd.PID_AUTHOR, qid, "item") if qid
                          else (wd.PID_AUTHOR_NAME_STRING, name, "string"))
         else:
-            specs.append((wd.PID_EDITOR, qid, "item") if qid
-                         else (wd.PID_EDITOR, None, "somevalue",
+            pid = wd.PID_TRANSLATOR if role == "translator" else wd.PID_EDITOR
+            specs.append((pid, qid, "item") if qid
+                         else (pid, None, "somevalue",
                                [(wd.PID_OBJECT_NAMED_AS, name, "string")]))
+
+
+def _title_spec(pid: str, text: str, lc: str, kana, romaji, translation) -> tuple:
+    """A P1476/P1680 monolingual title spec, optionally carrying native non-Latin reading
+    qualifiers: P1814 name in kana + P2125 revised Hepburn (both *string* datatype), and
+    P2441 literal translation (monolingual @en). Returns a 3-tuple when no readings were
+    given, else a 4-tuple ``(pid, (text, lc), "monolingual", quals)``."""
+    quals = []
+    if kana:
+        quals.append((wd.PID_NAME_IN_KANA, kana, "string"))
+    if romaji:
+        quals.append((wd.PID_REVISED_HEPBURN_ROMANIZATION, romaji, "string"))
+    if translation:
+        quals.append((wd.PID_LITERAL_TRANSLATION, (translation, "en"), "monolingual"))
+    base = (pid, (text, lc), "monolingual")
+    return base + (quals,) if quals else base
 
 
 def _contrib_desc(facts: dict) -> str:
@@ -535,8 +593,22 @@ def _contrib_desc(facts: dict) -> str:
 
 
 def _book_labels(facts: dict) -> dict:
-    """The item's labels: mul = the (original-script) title, plus en = the English/parallel
-    title when one was given (so a foreign-language book is findable and labelled in English)."""
+    """The item's labels.
+
+    Plain case: mul = the title, plus en = the English/parallel title when one was given.
+
+    Native non-Latin case (a title romanization was supplied): apply the Genji model so you
+    don't hand-fix labels after creation -- the original script goes in its own language
+    label (lang_code), the romanization becomes the readable ``mul`` fallback, and en gets
+    the parallel title, else the literal translation, else the romanization."""
+    lc = facts["lang_code"]
+    romaji = facts.get("title_romaji")
+    if romaji and lc not in ("en", ""):
+        return {
+            lc: facts["title"],
+            "mul": romaji,
+            "en": facts.get("title_en") or facts.get("title_translation") or romaji,
+        }
     labels = {"mul": facts["title"]}
     if facts.get("title_en"):
         labels["en"] = facts["title_en"]
@@ -549,12 +621,15 @@ def build_work(facts: dict) -> tuple:
     lc = facts["lang_code"]
     specs = [
         (wd.PID_INSTANCE_OF, facts["work_type_qid"], "item"),
-        (wd.PID_TITLE, (facts["title"], lc), "monolingual"),
+        _title_spec(wd.PID_TITLE, facts["title"], lc, facts.get("title_kana"),
+                    facts.get("title_romaji"), facts.get("title_translation")),
     ]
     if facts.get("title_en"):                              # parallel title as a second P1476
         specs.append((wd.PID_TITLE, (facts["title_en"], "en"), "monolingual"))
     if facts["subtitle"]:
-        specs.append((wd.PID_SUBTITLE, (facts["subtitle"], lc), "monolingual"))
+        specs.append(_title_spec(wd.PID_SUBTITLE, facts["subtitle"], lc,
+                     facts.get("subtitle_kana"), facts.get("subtitle_romaji"),
+                     facts.get("subtitle_translation")))
     if facts["lang_qid"]:
         specs.append((wd.PID_LANGUAGE_OF_WORK_OR_NAME, facts["lang_qid"], "item"))
     _add_contributors(specs, facts["authors"], "author")   # P50/P2093 (work + edition)
@@ -575,16 +650,20 @@ def build_edition(facts: dict, work_qid: str) -> tuple:
     specs = [
         (wd.PID_INSTANCE_OF, EDITION_TYPE, "item"),
         (wd.PID_EDITION_OR_TRANSLATION_OF, work_qid, "item"),
-        (wd.PID_TITLE, (facts["title"], lc), "monolingual"),
+        _title_spec(wd.PID_TITLE, facts["title"], lc, facts.get("title_kana"),
+                    facts.get("title_romaji"), facts.get("title_translation")),
     ]
     if facts.get("title_en"):                              # parallel title as a second P1476
         specs.append((wd.PID_TITLE, (facts["title_en"], "en"), "monolingual"))
     if facts["subtitle"]:
-        specs.append((wd.PID_SUBTITLE, (facts["subtitle"], lc), "monolingual"))
+        specs.append(_title_spec(wd.PID_SUBTITLE, facts["subtitle"], lc,
+                     facts.get("subtitle_kana"), facts.get("subtitle_romaji"),
+                     facts.get("subtitle_translation")))
     if facts["lang_qid"]:
         specs.append((wd.PID_LANGUAGE_OF_WORK_OR_NAME, facts["lang_qid"], "item"))
     _add_contributors(specs, facts["authors"], "author")
     _add_contributors(specs, facts["editors"], "editor")
+    _add_contributors(specs, facts.get("translators", []), "translator")  # P655 (edition-only)
     for q in facts["publisher_qids"]:
         specs.append((wd.PID_PUBLISHER, q, "item"))
     if facts["pub_name"]:                                   # no item -> somevalue + named-as
@@ -609,6 +688,8 @@ def build_edition(facts: dict, work_qid: str) -> tuple:
         specs.append((wd.PID_LCCN_BIBLIOGRAPHIC, facts["lccn"], "string"))
     if facts.get("oclc"):
         specs.append((wd.PID_OCLC_CONTROL_NUMBER, facts["oclc"], "string"))
+    if facts.get("ncid"):                                  # CiNii Books NCID / NACSIS-CAT (P1739)
+        specs.append((wd.PID_NACSIS_CAT_BIBLIOGRAPHY_ID, facts["ncid"], "string"))
     if facts["is_ebook"]:
         specs.append((wd.PID_DISTRIBUTION_FORMAT, QID_EBOOK, "item"))
     if facts.get("ol_edition"):                            # Open Library EDITION id (OL...M)

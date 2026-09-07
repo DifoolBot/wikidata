@@ -10,6 +10,7 @@ from pywikibot.exceptions import MaxlagTimeoutError
 import viaf.authority_sources
 from viaf.codes_sync import push_order, sync_descriptions
 from viaf.paths import DATA_DIR
+from viaf.report_backend import WarmSkipReport
 from viaf.viaf_bot import SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
 
@@ -180,6 +181,7 @@ def main() -> None:
     _log_run_start(started)
     run_rows: list[_SourceRun] = []
     disposition = "nothing to do"
+    report = None
     try:
         # Log in up front so a credential problem fails the run immediately
         # rather than after the first source's worth of VIAF lookups (pywikibot
@@ -245,7 +247,11 @@ def main() -> None:
             pid = ordered_pids[index]
             auth_src = authority_sources.get(pid)
 
-            bot = ViafBot(auth_src, report=_make_report())
+            # Serve the per-item skip checks from memory: preload once here
+            # rather than hitting the DB six times for every qlever row.
+            source_report = WarmSkipReport(_make_report())
+            source_report.preload(pid, not_found_cutoff)
+            bot = ViafBot(auth_src, report=source_report)
             bot.test = False
             bot.not_found_cutoff = not_found_cutoff
             outcome = bot.run_session(
@@ -305,6 +311,10 @@ def main() -> None:
         disposition = "aborted: unexpected error (see .err)"
         raise
     finally:
+        # Release the reused DB connection (MariaDB backend keeps one open
+        # across the run); a no-op on backends that reconnect per query.
+        if report is not None:
+            report.close()
         _log_run_summary(started, run_rows, disposition)
 
 

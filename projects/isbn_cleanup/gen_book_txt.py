@@ -24,6 +24,7 @@ afterwards (see notes/make_work_edition_howto.md).
 import argparse
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -34,6 +35,8 @@ OL = "https://openlibrary.org"
 GRP = "https://grp.isbn-international.org/piid_rest_api/piid_search"
 NDL = "https://ndlsearch.ndl.go.jp/api/opensearch"   # National Diet Library (Japanese books)
 TIMEOUT = 30
+RETRIES = 3          # attempts per URL before giving up
+RETRY_WAIT = 3       # seconds, grows linearly per attempt
 
 # A few full language names -> ISO code, for archive.org's free-text language field
 # (Open Library gives a proper /languages/<iso> key, which we prefer).
@@ -43,11 +46,103 @@ LANG_NAME = {
     "latin": "lat", "greek": "grc", "japanese": "jpn", "chinese": "zh",
 }
 
+# --- katakana -> revised Hepburn, to romanize NDL's dcndl:titleTranscription (P2125) ---
+# NDL gives the title reading as space-separated katakana words; this best-effort converter
+# handles yōon, sokuon (ッ), long vowels (the ー mark and kango ou/oo/uu), and syllabic ン
+# (→ n, n' before a vowel/y). Proper-noun capitalization and any genuine o+u boundary still
+# want a human eye -- the emitted romaji is a seed you verify (like the author QIDs).
+_KANA_YOON = {
+    "キャ": "kya", "キュ": "kyu", "キョ": "kyo", "ギャ": "gya", "ギュ": "gyu", "ギョ": "gyo",
+    "シャ": "sha", "シュ": "shu", "ショ": "sho", "シェ": "she",
+    "ジャ": "ja", "ジュ": "ju", "ジョ": "jo", "ジェ": "je",
+    "チャ": "cha", "チュ": "chu", "チョ": "cho", "チェ": "che",
+    "ヂャ": "ja", "ヂュ": "ju", "ヂョ": "jo",
+    "ニャ": "nya", "ニュ": "nyu", "ニョ": "nyo", "ヒャ": "hya", "ヒュ": "hyu", "ヒョ": "hyo",
+    "ビャ": "bya", "ビュ": "byu", "ビョ": "byo", "ピャ": "pya", "ピュ": "pyu", "ピョ": "pyo",
+    "ミャ": "mya", "ミュ": "myu", "ミョ": "myo", "リャ": "rya", "リュ": "ryu", "リョ": "ryo",
+    "ファ": "fa", "フィ": "fi", "フェ": "fe", "フォ": "fo", "フュ": "fyu",
+    "ウィ": "wi", "ウェ": "we", "ウォ": "wo", "イェ": "ye",
+    "ヴァ": "va", "ヴィ": "vi", "ヴェ": "ve", "ヴォ": "vo", "ヴュ": "vyu",
+    "ティ": "ti", "トゥ": "tu", "ディ": "di", "ドゥ": "du", "テュ": "tyu", "デュ": "dyu",
+    "ツァ": "tsa", "ツィ": "tsi", "ツェ": "tse", "ツォ": "tso",
+}
+_KANA_MONO = {
+    "ア": "a", "イ": "i", "ウ": "u", "エ": "e", "オ": "o",
+    "カ": "ka", "キ": "ki", "ク": "ku", "ケ": "ke", "コ": "ko",
+    "ガ": "ga", "ギ": "gi", "グ": "gu", "ゲ": "ge", "ゴ": "go",
+    "サ": "sa", "シ": "shi", "ス": "su", "セ": "se", "ソ": "so",
+    "ザ": "za", "ジ": "ji", "ズ": "zu", "ゼ": "ze", "ゾ": "zo",
+    "タ": "ta", "チ": "chi", "ツ": "tsu", "テ": "te", "ト": "to",
+    "ダ": "da", "ヂ": "ji", "ヅ": "zu", "デ": "de", "ド": "do",
+    "ナ": "na", "ニ": "ni", "ヌ": "nu", "ネ": "ne", "ノ": "no",
+    "ハ": "ha", "ヒ": "hi", "フ": "fu", "ヘ": "he", "ホ": "ho",
+    "バ": "ba", "ビ": "bi", "ブ": "bu", "ベ": "be", "ボ": "bo",
+    "パ": "pa", "ピ": "pi", "プ": "pu", "ペ": "pe", "ポ": "po",
+    "マ": "ma", "ミ": "mi", "ム": "mu", "メ": "me", "モ": "mo",
+    "ヤ": "ya", "ユ": "yu", "ヨ": "yo",
+    "ラ": "ra", "リ": "ri", "ル": "ru", "レ": "re", "ロ": "ro",
+    "ワ": "wa", "ヰ": "wi", "ヱ": "we", "ヲ": "o", "ヴ": "vu",
+}
+_KANA_MACRON = {"a": "ā", "i": "ī", "u": "ū", "e": "ē", "o": "ō"}
+
+
+def _romanize_kana_word(kana: str) -> str:
+    out: list = []
+    i, sokuon = 0, False
+    while i < len(kana):
+        two = kana[i:i + 2]
+        if two in _KANA_YOON:
+            r, i = _KANA_YOON[two], i + 2
+        else:
+            c = kana[i]
+            i += 1
+            if c == "ー":                                  # long-vowel mark -> macron
+                if out and out[-1] and out[-1][-1] in _KANA_MACRON:
+                    out[-1] = out[-1][:-1] + _KANA_MACRON[out[-1][-1]]
+                continue
+            if c == "ッ":                                   # sokuon -> double next consonant
+                sokuon = True
+                continue
+            if c in ("ン", "ん"):
+                out.append("n")
+                continue
+            r = _KANA_MONO.get(c, c)
+        if sokuon:
+            r = ("t" + r) if r.startswith("ch") else (r[0] + r)
+            sokuon = False
+        out.append(r)
+    res = ""
+    for idx, tok in enumerate(out):                        # syllabic n -> n' before vowel/y
+        if tok == "n" and idx + 1 < len(out) and out[idx + 1][:1] in "aiueoy":
+            res += "n'"
+        else:
+            res += tok
+    return res.replace("ou", "ō").replace("oo", "ō").replace("uu", "ū")
+
+
+def kana_to_hepburn(reading: str) -> str:
+    """Space-separated katakana reading -> revised-Hepburn romanization (best-effort seed)."""
+    roman = " ".join(_romanize_kana_word(w) for w in reading.strip().split(" ") if w)
+    return roman[:1].upper() + roman[1:] if roman else roman
+
 
 def get_json(url: str, _hops: int = 0) -> dict | None:
     """GET a JSON document, or None on 404 (a missing/renamed id). Follows Open Library
-    ``/type/redirect`` records (a merged/renamed id points at its ``location``)."""
-    r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
+    ``/type/redirect`` records (a merged/renamed id points at its ``location``).
+
+    Open Library is frequently slow, so a timeout / dropped connection is retried a
+    few times before failing -- one sluggish request shouldn't discard the whole run."""
+    for attempt in range(1, RETRIES + 1):
+        try:
+            r = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=TIMEOUT)
+            break
+        except (requests.Timeout, requests.ConnectionError) as e:
+            if attempt == RETRIES:
+                raise
+            wait = RETRY_WAIT * attempt
+            print(f"  {type(e).__name__} on {url} (attempt {attempt}/{RETRIES}); "
+                  f"retrying in {wait}s ...", file=sys.stderr)
+            time.sleep(wait)
     if r.status_code == 404:
         return None
     r.raise_for_status()
@@ -212,6 +307,20 @@ def _ndl_text(item, tag: str) -> list:
             if e.tag.split("}")[-1] == tag and e.text and e.text.strip()]
 
 
+_RDF_RESOURCE = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
+
+
+def _ndl_ncid(item) -> str:
+    """The CiNii Books / NACSIS-CAT NCID (P1739) from a <rdfs:seeAlso> pointing at
+    ci.nii.ac.jp/ncid/<NCID>, or '' if none."""
+    for e in item:
+        if e.tag.split("}")[-1] == "seeAlso":
+            url = e.get(_RDF_RESOURCE) or ""
+            if "ci.nii.ac.jp/ncid/" in url:
+                return url.rstrip("/").rsplit("/", 1)[-1]
+    return ""
+
+
 def collect_ndl(isbn: str) -> dict | None:
     """Fallback source for a Japanese ISBN (978-4...) absent from Open Library: the National
     Diet Library (ndlsearch.ndl.go.jp OpenSearch). Returns a fields dict shaped like
@@ -230,11 +339,23 @@ def collect_ndl(isbn: str) -> dict | None:
         return None
 
     f: dict = {"authors": [], "editors": [], "subjects": []}
-    f["title"] = titles[0]
-    f["subtitle"] = ""
+    # NDL joins title and subtitle with " : "; the katakana reading (titleTranscription)
+    # is split the same way. Romanize each half to seed P2125 (revised Hepburn).
+    title, _, subtitle = titles[0].partition(" : ")
+    f["title"] = title.strip()
+    f["subtitle"] = subtitle.strip()
+    reading = (_ndl_text(item, "titleTranscription") or [""])[0]
+    tkana, _, skana = reading.partition(" : ")
+    f["title_kana"] = tkana.replace(" ", "") or ""
+    f["title_romaji"] = kana_to_hepburn(tkana) if tkana else ""
+    f["subtitle_kana"] = skana.replace(" ", "") if (subtitle and skana) else ""
+    f["subtitle_romaji"] = kana_to_hepburn(skana) if (subtitle and skana) else ""
+    f["ncid"] = _ndl_ncid(item)
     # <creator> is "surname, given"; for a Japanese name drop the comma -> 伊東剛史. Role
     # comes from the statement of responsibility (編 = editor, else author/著).
-    creators = [c.replace(", ", "").replace(",", "") for c in _ndl_text(item, "creator")]
+    # "何森, 健, 1943-" -> drop the trailing birth/death date, then the name comma -> 何森健.
+    creators = [re.sub(r",\s*\d{3,4}-?\d{0,4}$", "", c).replace(", ", "").replace(",", "")
+                for c in _ndl_text(item, "creator")]
     resp = " ".join(_ndl_text(item, "author"))
     role = "editors" if ("編" in resp and "著" not in resp) else "authors"
     f[role] = creators
@@ -272,8 +393,12 @@ def render(f: dict) -> str:
             lines.append(f"{label}: {value}")
 
     put("Title", f["title"])
+    put("Title kana", f.get("title_kana"))
+    put("Title romaji", f.get("title_romaji"))
     put("English title", f.get("title_en"))
     put("Subtitle", f["subtitle"])
+    put("Subtitle kana", f.get("subtitle_kana"))
+    put("Subtitle romaji", f.get("subtitle_romaji"))
     for a in f["authors"]:
         put("Author", a)
     for e in f["editors"]:
@@ -289,6 +414,7 @@ def render(f: dict) -> str:
     put("LCCN", f["lccn"])
     put("OCLC", f["oclc"])
     put("Edition", f["edition_no"])
+    put("CiNii", f.get("ncid"))
     put("Series", f["series"])
     if f["subjects"]:
         put("Subjects", "; ".join(f["subjects"]))
