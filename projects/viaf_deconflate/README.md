@@ -88,7 +88,7 @@ just these QIDs), `--editgroup ID` (batch id for the edit summaries; until the b
 it defaults to a fixed trial batch so all trial edits group on
 editgroups.toolforge.org, then a stable per-day id),
 `--recheck-review` / `--recheck` / `--no-state` (see below),
-`--redirect-scan` (task 2, see below), and
+`--redirect-scan` (task 2, see below), `--refresh-selection` (see below), and
 `--apply` / `--save` / `--apply-limit` (default 5).
 
 **Redirect scan (task 2).** The task is to check live `P214` values for a VIAF
@@ -99,6 +99,26 @@ with **≥2 non-deprecated `P214`**, ~6.4k items) or `long` (`Q5` with a
 shorter one). An item that *also* has a conflation-deprecated `P214` is run
 through task 1 instead (which already does this check). Same `--apply`/`--save`/
 state handling. `--redirect-scan` alone = `multi`; `--redirect-scan long` = long.
+
+## Selection cache
+
+The startup selection — the candidate scan (per `--pid`) or the redirect-scan
+population (`multi` / `long`) — is the **same query every run**, so its raw SPARQL
+bindings are cached to `output/selection_cache/<kind>.json` and **reused on later
+runs**. This spares the endpoint a heavy aggregation daily (WDQS is tightening
+rate limits on repeat bots) and makes a run start instantly. The cache is
+git-ignored (machine-local, re-queryable).
+
+The cache **never expires on its own**. Pass `--refresh-selection` to re-query and
+rewrite it; otherwise the buffered population is reused, with a printed note of
+when and from which endpoint (qlever/WDQS) it was fetched. Targeted `--only` runs
+always query live and never touch the cache.
+
+Because the population isn't refreshed automatically, a run can eventually consume
+every cached item (all now in `done`/`checked`/`review`). When that happens — cache
+reused *and* the skip set filters everything to zero — the run prints a warning to
+re-run with `--refresh-selection`. That's the signal the buffered population is
+stale and worth re-querying.
 
 ## Processed-item state
 
@@ -163,8 +183,6 @@ python projects/viaf_deconflate/review_to_wiki.py --out review.wiki
 
 ## Next
 
-- When the bot RfP is approved, switch `main()`'s default edit-group from the
-  fixed `TRIAL_EDIT_GROUP` back to `daily_editgroup()`.
 - Minor: the `NEW_CLUSTER_CONFLATED` guard (don't adopt a cluster that carries an
   id the item deprecated as a different person) is applied to the ADD path but not
   to redirect targets — fold it in if a redirect is ever seen pointing at a

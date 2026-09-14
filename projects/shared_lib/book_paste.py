@@ -24,6 +24,7 @@ import shared_lib.constants as wd
 from shared_lib.wikidata_site import get_repo
 
 QID_WRITTEN_WORK = "Q47461344"   # WORK P31 default (authored book)
+QID_LITERARY_WORK = "Q7725634"   # WORK P31 when a literary FORM is given (see P7937 note)
 QID_EDITED_VOLUME = "Q1711593"   # WORK P31 for an editor-only book (92% carry P98)
 EDITION_TYPE = "Q3331189"        # EDITION P31 (version, edition or translation)
 QID_EBOOK = "Q128093"            # ebook (P437 distribution format)
@@ -139,6 +140,17 @@ LABELS = {
     "nacsis": "ncid", "nacsis-cat": "ncid",
     "onderwerpen": "subjects", "subjects": "subjects", "subject": "subjects",
     "serie": "series", "series": "series",
+    # thesis fields (used by make_thesis; make_book ignores these keys)
+    "thesis submitted to": "institution", "organisme de soutenance": "institution",
+    "institution": "institution", "awarded by": "institution",
+    "sudoc": "sudoc",
+    "bnf id": "bnf", "bnf ark": "bnf", "bnf": "bnf",
+    "doctoral advisor": "advisor", "directeur de thèse": "advisor",
+    "advisor": "advisor", "director": "advisor", "supervisor": "advisor",
+    "national thesis number": "thesis_no_fr", "thesis number": "thesis_no_fr",
+    "url": "full_url",
+    "type": "type",
+    "form": "form", "form of creative work": "form", "genre form": "form",
     "open library work": "ol_work", "openlibrary work": "ol_work",
     "open library edition": "ol_edition", "openlibrary edition": "ol_edition",
     "internet archive": "ia_id", "archive.org": "ia_id", "ocaid": "ia_id",
@@ -184,7 +196,7 @@ def parse_metadata(text: str) -> dict:
     seen_label = False
     for raw in text.splitlines():
         line = raw.strip()
-        if not line:
+        if not line or line.startswith("#"):              # blank or '#' comment (ignored anywhere)
             continue
         field = value = None
         if "\t" in line:                                   # Google Books: label<TAB>value
@@ -207,6 +219,59 @@ def parse_metadata(text: str) -> dict:
         if value:
             parsed[field].append(value)
     return parsed
+
+
+_SECTION_RE = re.compile(r"(?im)^[ \t]*\[[ \t]*(work|edition)(?:[ \t]+([^\]]*?))?[ \t]*\][ \t]*$")
+
+
+def split_sections(text: str) -> tuple:
+    """Split a sectioned book.txt into (work_text, [(lang, edition_text), ...]).
+
+    A file with NO ``[work]`` / ``[edition <lang>]`` headers is the legacy single block:
+    returns ``(text, [])`` so the caller builds one WORK + one EDITION exactly as before.
+    With headers, each ``[work]`` block's lines feed the work and each ``[edition <lang>]``
+    block feeds one edition (``<lang>`` seeds that edition's language; ``[edition]`` with no
+    code falls back to the work language). Leading lines before the first header are ignored
+    as a preamble (comments) unless there is no explicit ``[work]``, in which case they are
+    taken as the work block. See notes/book_txt_format.md."""
+    matches = list(_SECTION_RE.finditer(text))
+    if not matches:
+        return text, []
+    work_parts, editions = [], []
+    for i, m in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        body = text[m.end():end]
+        if m.group(1).lower() == "work":
+            work_parts.append(body)
+        else:
+            editions.append(((m.group(2) or "").strip(), body))
+    if work_parts:
+        work_text = "\n".join(work_parts)
+    else:                                              # no [work] header -> preamble is the work
+        work_text = text[:matches[0].start()]
+    return work_text, editions
+
+
+# Fields an edition inherits from the work when it does not state its own. Contributors are
+# always shared (same author/editor across editions); the title + its non-Latin readings are
+# inherited only by the SAME-language edition (a translation states its own title instead).
+_INHERIT_ALWAYS = ("authors", "editors")
+# Title + readings pass to the same-language edition, but NOT the P2441 literal translation:
+# that belongs on the WORK's P1476 (and the work's label/en), while the original-language
+# edition's label/en is the romanization (see rare_sugars_plan.txt PASS 1 vs PASS 2).
+_INHERIT_SAME_LANG = ("title", "title_kana", "title_romaji",
+                      "subtitle", "subtitle_kana", "subtitle_romaji")
+
+
+def inherit_work_fields(work_parsed: dict, ed_parsed: dict, same_lang: bool) -> dict:
+    """Fill an edition's parsed dict with work-level fields it omitted (contributors always;
+    title + readings only when the edition is in the work's own language). Mutates and returns
+    ``ed_parsed``."""
+    keys = _INHERIT_ALWAYS + (_INHERIT_SAME_LANG if same_lang else ())
+    for k in keys:
+        if not ed_parsed.get(k) and work_parsed.get(k):
+            ed_parsed[k] = list(work_parsed[k])
+    return ed_parsed
 
 
 def split_title(block: list) -> tuple:
@@ -298,9 +363,15 @@ def _split_names(vals) -> list:
     for v in vals or []:
         for part in re.split(r",| and |;|&", v):
             p = part.strip()
-            # skip label residue like "(s)" left by an unrecognised "Author(s)"/"Auteur(s)"
-            if p and re.sub(r"[^0-9A-Za-z]", "", p).lower() not in ("", "s"):
-                names.append(p)
+            if not p:
+                continue
+            # Drop label residue like "(s)" left by an unrecognised "Author(s)"/"Auteur(s)",
+            # or a token that is pure punctuation -- but KEEP names in any script, including a
+            # pure-CJK name (中本浩) that has no ASCII letters at all (\w is Unicode-aware).
+            ascii_core = re.sub(r"[^0-9A-Za-z]", "", p).lower()
+            if ascii_core == "s" or not re.search(r"[^\W\d_]", p):
+                continue
+            names.append(p)
     return names
 
 
@@ -358,11 +429,20 @@ def _people_prompt(role: str, vals) -> list:
     return people
 
 
-def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> dict:
+def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "",
+                  scope: str = "all") -> dict:
     """Interactively confirm/edit every field, seeded from the parse. Returns a flat facts
     dict consumed by build_work/build_edition. Optional fields use ask_opt: Enter keeps the
     seed, '-' clears it. ``seed_title`` / ``seed_lang`` pre-fill those prompts for a caller
-    that already knows them (e.g. the floruit title / language)."""
+    that already knows them (e.g. the floruit title / language).
+
+    ``scope`` gates which prompts run for the one-file WORK+editions format:
+    ``"all"`` (default) asks everything and is identical to the historical behaviour;
+    ``"work"`` skips the edition-only publication prompts (publisher/date/place/ISBN/pages/
+    …); ``"edition"`` skips the work-only prompts (work type/subjects/series/OL work id).
+    Skipped fields take their empty default, so the returned dict always has every key."""
+    want_work = scope in ("all", "work")
+    want_edition = scope in ("all", "edition")
     tb_title, tb_subtitle, tb_series = split_title(parsed.get("_titleblock", []))
 
     lang_seed = seed_lang or (parsed.get("language") or [""])[0] or "en"
@@ -404,133 +484,189 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
     editors = _people_prompt("editor", parsed.get("editors"))
     # Translator (P655) -- an edition-only role; a translation edition carries it (name-only
     # -> P655 somevalue + named-as, like an editor).
-    translators = _people_prompt("translator", parsed.get("translators"))
-
-    # Work type: an editor-only book is an edited volume (Q1711593), where editor is the
-    # norm (92% carry P98); anything else defaults to written work. Overridable per book.
-    default_type = QID_EDITED_VOLUME if (editors and not authors) else QID_WRITTEN_WORK
-    type_names = {QID_WRITTEN_WORK: "written work", QID_EDITED_VOLUME: "edited volume"}
-    wt_in = ask(f"work type QID ({QID_WRITTEN_WORK}=written work, "
-                f"{QID_EDITED_VOLUME}=edited volume)", default_type).strip()
-    work_type_qid = wt_in if _is_qid(wt_in) else default_type
-    print(f"    work P31 = {work_type_qid} {type_names.get(work_type_qid, '')}".rstrip())
-
-    pub_seed = ""
-    if parsed.get("publisher"):
-        pub_seed = _strip_year(parsed["publisher"][0])[0]
-    elif parsed.get("imprint"):
-        pub_seed = parsed["imprint"][0]
-    # Each comma-separated token may be a bare QID, a 'Name [QID]' (same inline form as
-    # authors -> P123 = that item), or a plain name (-> P123 = somevalue + named-as). A
-    # QID wins for that token (the item's own label supersedes the typed name).
-    pub_in = ask_opt("publisher: QID(s), 'Name [QID]', or a name", pub_seed)
-    publisher_qids, pub_name = [], None
-    for tok in pub_in.split(","):
-        name, qid = _extract_inline_qid(tok.strip())
-        if qid:
-            publisher_qids.append(qid)
-        elif name and pub_name is None:
-            pub_name = name
-
-    date_seed = ""
-    for k in ("date", "ebook_date"):
-        if parsed.get(k):
-            date_seed = _loose_date_iso(parsed[k][0])
-            if date_seed:
-                break
-    if not date_seed and parsed.get("publisher"):
-        date_seed = _strip_year(parsed["publisher"][0])[1] or ""
-    date_in = ask_opt("publication date (YYYY / YYYY-MM / YYYY-MM-DD)", date_seed)
-    pub_date = _parse_date(date_in) if date_in else None
-    if date_in and not pub_date:
-        print("    (unrecognised date; leaving it off)")
-
-    place_seed = parsed["place"][0] if parsed.get("place") else ""
-    place_in = ask_opt("place of publication: QID or name (New York, London...)", place_seed)
-    if _is_qid(place_in):
-        place_qid = place_in
-    elif place_in:
-        place_qid = COMMON_PLACE.get(_norm_place(place_in))
-        if place_qid:
-            print(f"    place = {place_qid} ({place_in})")
-        else:
-            print(f"    (no default QID for '{place_in}'; leaving P291 off -- paste a QID "
-                  "to set it)")
+    if want_edition:
+        translators = _people_prompt("translator", parsed.get("translators"))
     else:
-        place_qid = None
+        translators = []
 
-    isbn_seed = []
-    for k in ("isbn", "ebook_isbn"):
-        for v in parsed.get(k, []):
-            isbn_seed += [t for t in re.split(r"[,\s]+", v) if t]
-    isbn_in = ask_opt("ISBN(s) for THIS edition (comma/space-sep)", ", ".join(isbn_seed))
-    isbn10, isbn13, bad = _classify_isbns(isbn_in)
-    for b in bad:
-        print(f"    ! ignoring invalid ISBN: {b}")
+    # Literary FORM (novel, short story collection, ...) goes in P7937 (form of creative
+    # work), NOT P31: P31 has a none-of constraint banning those values -- the model is
+    # P31 = literary work (Q7725634) + P7937 = <form>. A file `Form:` line (bare QID or
+    # 'name [QID]', e.g. "novel [Q8261]") seeds it.
+    if want_work:
+        form_seed = (parsed.get("form") or [""])[0].strip()
+        _, form_qid = _extract_inline_qid(form_seed)
+        if not form_qid and _is_qid(form_seed):
+            form_qid = form_seed
+        form_in = ask_opt("form of creative work (P7937) QID -- novel Q8261, short story "
+                          "collection Q1279564, poetry collection Q19359959 (blank = none)",
+                          form_qid)
+        form_qid = form_in if _is_qid(form_in) else ""
 
-    pages_seed = ""
-    if parsed.get("pages"):
-        m = re.search(r"\d+", parsed["pages"][0])
-        pages_seed = m.group(0) if m else ""
-    pages_in = ask_opt("number of pages", pages_seed)
-    pages = int(pages_in) if pages_in.isdigit() else None
+        # Work P31: an editor-only book is an edited volume (Q1711593); a book with a literary
+        # form is a literary work (Q7725634); anything else defaults to written work. A file
+        # `Type:` line (bare QID / 'name [QID]') overrides the heuristic default.
+        if editors and not authors:
+            default_type = QID_EDITED_VOLUME
+        elif form_qid:
+            default_type = QID_LITERARY_WORK
+        else:
+            default_type = QID_WRITTEN_WORK
+        type_seed = (parsed.get("type") or [""])[0].strip()
+        _, type_seed_qid = _extract_inline_qid(type_seed)
+        if not type_seed_qid and _is_qid(type_seed):
+            type_seed_qid = type_seed
+        if type_seed_qid:
+            default_type = type_seed_qid
+        type_names = {QID_WRITTEN_WORK: "written work", QID_EDITED_VOLUME: "edited volume",
+                      QID_LITERARY_WORK: "literary work"}
+        wt_in = ask(f"work type QID ({QID_WRITTEN_WORK}=written work, "
+                    f"{QID_EDITED_VOLUME}=edited volume, {QID_LITERARY_WORK}=literary work)",
+                    default_type).strip()
+        work_type_qid = wt_in if _is_qid(wt_in) else default_type
+        print(f"    work P31 = {work_type_qid} {type_names.get(work_type_qid, '')}".rstrip())
+        if form_qid:
+            print(f"    work P7937 = {form_qid} (form of creative work)")
+    else:
+        work_type_qid = QID_WRITTEN_WORK
+        form_qid = ""
 
-    ed_seed = ""
-    if parsed.get("edition"):
-        m = re.search(r"\d+", parsed["edition"][0])
-        ed_seed = m.group(0) if m else ""
-    edition_no = ask_opt("edition number", ed_seed) or None
+    if want_edition:
+        pub_seed = ""
+        if parsed.get("publisher"):
+            pub_seed = _strip_year(parsed["publisher"][0])[0]
+        elif parsed.get("imprint"):
+            pub_seed = parsed["imprint"][0]
+        # Each comma-separated token may be a bare QID, a 'Name [QID]' (same inline form as
+        # authors -> P123 = that item), or a plain name (-> P123 = somevalue + named-as). A
+        # QID wins for that token (the item's own label supersedes the typed name).
+        pub_in = ask_opt("publisher: QID(s), 'Name [QID]', or a name", pub_seed)
+        publisher_qids, pub_name = [], None
+        for tok in pub_in.split(","):
+            name, qid = _extract_inline_qid(tok.strip())
+            if qid:
+                publisher_qids.append(qid)
+            elif name and pub_name is None:
+                pub_name = name
 
-    doi_seed = ""
-    if parsed.get("doi"):
-        doi_seed = re.sub(r"(?i)^https?://(dx\.)?doi\.org/", "", parsed["doi"][0]).strip()
-    doi = ask_opt("DOI (bare 10.xxxx/...)", doi_seed) or None
+        date_seed = ""
+        for k in ("date", "ebook_date"):
+            if parsed.get(k):
+                date_seed = _loose_date_iso(parsed[k][0])
+                if date_seed:
+                    break
+        if not date_seed and parsed.get("publisher"):
+            date_seed = _strip_year(parsed["publisher"][0])[1] or ""
+        date_in = ask_opt("publication date (YYYY / YYYY-MM / YYYY-MM-DD)", date_seed)
+        pub_date = _parse_date(date_in) if date_in else None
+        if date_in and not pub_date:
+            print("    (unrecognised date; leaving it off)")
 
-    lccn_seed = ""
-    if parsed.get("lccn"):
-        lccn_seed = re.sub(r"[\s-]", "", parsed["lccn"][0]).strip()  # 36-011414 -> 36011414
-    lccn = ask_opt("LCCN, bibliographic (e.g. 36011414)", lccn_seed) or None
+        place_seed = parsed["place"][0] if parsed.get("place") else ""
+        place_in = ask_opt("place of publication: QID or name (New York, London...)", place_seed)
+        if _is_qid(place_in):
+            place_qid = place_in
+        elif place_in:
+            place_qid = COMMON_PLACE.get(_norm_place(place_in))
+            if place_qid:
+                print(f"    place = {place_qid} ({place_in})")
+            else:
+                print(f"    (no default QID for '{place_in}'; leaving P291 off -- paste a QID "
+                      "to set it)")
+        else:
+            place_qid = None
 
-    oclc_seed = re.sub(r"\D", "", parsed["oclc"][0]) if parsed.get("oclc") else ""
-    oclc = ask_opt("OCLC control number (P243)", oclc_seed) or None
+        isbn_seed = []
+        for k in ("isbn", "ebook_isbn"):
+            for v in parsed.get(k, []):
+                isbn_seed += [t for t in re.split(r"[,\s]+", v) if t]
+        isbn_in = ask_opt("ISBN(s) for THIS edition (comma/space-sep)", ", ".join(isbn_seed))
+        isbn10, isbn13, bad = _classify_isbns(isbn_in)
+        for b in bad:
+            print(f"    ! ignoring invalid ISBN: {b}")
 
-    ncid_seed = parsed["ncid"][0].strip() if parsed.get("ncid") else ""
-    ncid = ask_opt("CiNii Books NCID / NACSIS-CAT id (P1739)", ncid_seed) or None
+        pages_seed = ""
+        if parsed.get("pages"):
+            m = re.search(r"\d+", parsed["pages"][0])
+            pages_seed = m.group(0) if m else ""
+        pages_in = ask_opt("number of pages", pages_seed)
+        pages = int(pages_in) if pages_in.isdigit() else None
 
-    ebook_seed = bool(parsed.get("ebook_isbn") or parsed.get("ebook_date"))
-    is_ebook = confirm("is this edition an e-book (P437 = ebook)?", ebook_seed)
+        ed_seed = ""
+        if parsed.get("edition"):
+            m = re.search(r"\d+", parsed["edition"][0])
+            ed_seed = m.group(0) if m else ""
+        edition_no = ask_opt("edition number", ed_seed) or None
 
-    # A Subjects line may hold QIDs (bare Q123 or 'name [Q123]') and/or plain names. QIDs
-    # seed the prompt so Enter accepts them; names stay a hint (Open Library gives names
-    # only, no QID). Split file subjects on ';' (names can contain commas: "Fiction, horror").
-    seed_qids, subj_names = _extract_qids("; ".join(parsed.get("subjects", [])), r";")
-    subj_hint = f" [{'; '.join(subj_names)}]" if subj_names else ""
-    subj_in = ask(f"main subject (P921) QID(s), ';'/','-sep (blank = none){subj_hint}",
-                  ", ".join(seed_qids)).strip()
-    subject_qids = _extract_qids(subj_in)[0]
+        doi_seed = ""
+        if parsed.get("doi"):
+            doi_seed = re.sub(r"(?i)^https?://(dx\.)?doi\.org/", "", parsed["doi"][0]).strip()
+        doi = ask_opt("DOI (bare 10.xxxx/...)", doi_seed) or None
 
-    series_seed = (tb_series or parsed.get("series") or [""])[0]
-    series_hint = f" [{series_seed}]" if series_seed else ""
-    series_in = ask(f"series (part of the series) QID or blank{series_hint}", "").strip()
-    series_qid = series_in if _is_qid(series_in) else None
+        lccn_seed = ""
+        if parsed.get("lccn"):
+            lccn_seed = re.sub(r"[\s-]", "", parsed["lccn"][0]).strip()  # 36-011414 -> 36011414
+        lccn = ask_opt("LCCN, bibliographic (e.g. 36011414)", lccn_seed) or None
 
-    # External ids for the two new items: Open Library WORK id -> P648 on the work; Open
-    # Library EDITION id + Internet Archive id -> P648/P724 on the edition; P953 (full work
-    # available at URL) only if the scan is actually freely readable, so it defaults off.
-    ol_work = ask_opt("Open Library WORK id (P648 on work, OL...W)",
-                      (parsed.get("ol_work") or [""])[0]) or None
-    ol_edition = ask_opt("Open Library EDITION id (P648 on edition, OL...M)",
-                         (parsed.get("ol_edition") or [""])[0]) or None
-    ia_id = ask_opt("Internet Archive id (P724 on edition)",
-                    (parsed.get("ia_id") or [""])[0]) or None
-    full_seed = (parsed.get("full_url") or [""])[0]
-    if not full_seed and ia_id:
-        full_seed = f"https://archive.org/details/{ia_id}"
-    full_hint = f" (Enter = none, or paste {full_seed})" if full_seed else ""
-    full_url = ask(f"full work available at URL (P953) only if freely readable{full_hint}",
-                   "").strip() or None
-    if full_url and full_url.lower() in ("y", "yes") and full_seed:  # 'y' accepts the seed
-        full_url = full_seed
+        oclc_seed = re.sub(r"\D", "", parsed["oclc"][0]) if parsed.get("oclc") else ""
+        oclc = ask_opt("OCLC control number (P243)", oclc_seed) or None
+
+        ncid_seed = parsed["ncid"][0].strip() if parsed.get("ncid") else ""
+        ncid = ask_opt("CiNii Books NCID / NACSIS-CAT id (P1739)", ncid_seed) or None
+
+        sudoc_seed = parsed["sudoc"][0].strip() if parsed.get("sudoc") else ""
+        sudoc = ask_opt("SUDOC record id (P1025)", sudoc_seed) or None
+
+        bnf_seed = parsed["bnf"][0].strip() if parsed.get("bnf") else ""
+        bnf = ask_opt("BnF ID (P268, digits+control char, no 'cb', e.g. 34904251w)", bnf_seed) or None
+
+        ebook_seed = bool(parsed.get("ebook_isbn") or parsed.get("ebook_date"))
+        is_ebook = confirm("is this edition an e-book (P437 = ebook)?", ebook_seed)
+    else:
+        publisher_qids, pub_name = [], None
+        pub_date, place_qid, pages = None, None, None
+        isbn10, isbn13 = [], []
+        edition_no = doi = lccn = oclc = ncid = sudoc = bnf = None
+        is_ebook = False
+
+    if want_work:
+        # A Subjects line may hold QIDs (bare Q123 or 'name [Q123]') and/or plain names. QIDs
+        # seed the prompt so Enter accepts them; names stay a hint (Open Library gives names
+        # only, no QID). Split file subjects on ';' (names can contain commas: "Fiction, horror").
+        seed_qids, subj_names = _extract_qids("; ".join(parsed.get("subjects", [])), r";")
+        subj_hint = f" [{'; '.join(subj_names)}]" if subj_names else ""
+        subj_in = ask(f"main subject (P921) QID(s), ';'/','-sep (blank = none){subj_hint}",
+                      ", ".join(seed_qids)).strip()
+        subject_qids = _extract_qids(subj_in)[0]
+
+        series_seed = (tb_series or parsed.get("series") or [""])[0]
+        series_hint = f" [{series_seed}]" if series_seed else ""
+        series_in = ask(f"series (part of the series) QID or blank{series_hint}", "").strip()
+        series_qid = series_in if _is_qid(series_in) else None
+
+        # Open Library WORK id -> P648 on the work.
+        ol_work = ask_opt("Open Library WORK id (P648 on work, OL...W)",
+                          (parsed.get("ol_work") or [""])[0]) or None
+    else:
+        subject_qids, series_qid, ol_work = [], None, None
+
+    # External ids for the edition: Open Library EDITION id + Internet Archive id -> P648/P724;
+    # P953 (full work available at URL) only if the scan is actually freely readable (off by default).
+    if want_edition:
+        ol_edition = ask_opt("Open Library EDITION id (P648 on edition, OL...M)",
+                             (parsed.get("ol_edition") or [""])[0]) or None
+        ia_id = ask_opt("Internet Archive id (P724 on edition)",
+                        (parsed.get("ia_id") or [""])[0]) or None
+        full_seed = (parsed.get("full_url") or [""])[0]
+        if not full_seed and ia_id:
+            full_seed = f"https://archive.org/details/{ia_id}"
+        full_hint = f" (Enter = none, or paste {full_seed})" if full_seed else ""
+        full_url = ask(f"full work available at URL (P953) only if freely readable{full_hint}",
+                       "").strip() or None
+        if full_url and full_url.lower() in ("y", "yes") and full_seed:  # 'y' accepts the seed
+            full_url = full_seed
+    else:
+        ol_edition = ia_id = full_url = None
 
     return {
         "title": title, "title_en": title_en, "subtitle": subtitle,
@@ -539,7 +675,8 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
         "subtitle_kana": subtitle_kana, "subtitle_romaji": subtitle_romaji,
         "subtitle_translation": subtitle_translation,
         "lang_code": lang_code, "lang_qid": lang_qid,
-        "work_type_qid": work_type_qid, "authors": authors, "editors": editors,
+        "work_type_qid": work_type_qid, "form_qid": form_qid,
+        "authors": authors, "editors": editors,
         "translators": translators,
         "publisher_qids": publisher_qids, "pub_name": pub_name,
         "place_qid": place_qid, "date": pub_date,
@@ -547,7 +684,7 @@ def confirm_facts(parsed: dict, seed_title: str = "", seed_lang: str = "") -> di
         "edition_no": edition_no, "doi": doi, "lccn": lccn, "is_ebook": is_ebook,
         "subject_qids": subject_qids, "series_qid": series_qid,
         "ol_work": ol_work, "ol_edition": ol_edition, "ia_id": ia_id, "full_url": full_url,
-        "oclc": oclc, "ncid": ncid,
+        "oclc": oclc, "ncid": ncid, "sudoc": sudoc, "bnf": bnf,
     }
 
 
@@ -615,7 +752,25 @@ def _book_labels(facts: dict) -> dict:
     return labels
 
 
-def build_work(facts: dict) -> tuple:
+def work_edition_labels(base_labels: dict, orig_lang: str, orig_title: str,
+                        edition_titles: dict | None) -> dict:
+    """Enrich the WORK's labels with the titles of its published translations.
+
+    A work is abstract, but each translation edition prints a real title in its own
+    language -- so label/<lang> = that edition's title (a sourced label beats an invented
+    P2441 gloss). The original-language label and the ``mul`` fallback are left untouched;
+    a translation title wins for its own language over any auto-derived value."""
+    labels = dict(base_labels)
+    if orig_lang and orig_lang not in ("", "mul"):
+        labels.setdefault(orig_lang, orig_title)
+    for lang, title in (edition_titles or {}).items():
+        if not lang or lang in ("mul", orig_lang):
+            continue
+        labels[lang] = title
+    return labels
+
+
+def build_work(facts: dict, edition_titles: dict | None = None) -> tuple:
     """(labels, descriptions, specs) for the WORK. Work-level facts only: title/subtitle/
     language/authors/editors/subjects/series -- no publication facts (those are edition-only)."""
     lc = facts["lang_code"]
@@ -624,6 +779,8 @@ def build_work(facts: dict) -> tuple:
         _title_spec(wd.PID_TITLE, facts["title"], lc, facts.get("title_kana"),
                     facts.get("title_romaji"), facts.get("title_translation")),
     ]
+    if facts.get("form_qid"):                              # literary form -> P7937 (not P31)
+        specs.append((wd.PID_FORM_OF_CREATIVE_WORK, facts["form_qid"], "item"))
     if facts.get("title_en"):                              # parallel title as a second P1476
         specs.append((wd.PID_TITLE, (facts["title_en"], "en"), "monolingual"))
     if facts["subtitle"]:
@@ -640,7 +797,8 @@ def build_work(facts: dict) -> tuple:
         specs.append((wd.PID_PART_OF_THE_SERIES, facts["series_qid"], "item"))
     if facts.get("ol_work"):                               # Open Library WORK id (OL...W)
         specs.append((wd.PID_OPEN_LIBRARY_ID, facts["ol_work"], "string"))
-    return _book_labels(facts), {"en": _contrib_desc(facts)}, specs
+    labels = work_edition_labels(_book_labels(facts), lc, facts["title"], edition_titles)
+    return labels, {"en": _contrib_desc(facts)}, specs
 
 
 def build_edition(facts: dict, work_qid: str) -> tuple:
@@ -690,6 +848,10 @@ def build_edition(facts: dict, work_qid: str) -> tuple:
         specs.append((wd.PID_OCLC_CONTROL_NUMBER, facts["oclc"], "string"))
     if facts.get("ncid"):                                  # CiNii Books NCID / NACSIS-CAT (P1739)
         specs.append((wd.PID_NACSIS_CAT_BIBLIOGRAPHY_ID, facts["ncid"], "string"))
+    if facts.get("sudoc"):                                 # SUDOC bibliographic record (P1025)
+        specs.append((wd.PID_SUDOC_EDITIONS, facts["sudoc"], "string"))
+    if facts.get("bnf"):                                   # BnF catalogue id (P268, ARK form)
+        specs.append((wd.PID_BIBLIOTHEQUE_NATIONALE_DE_FRANCE_ID, facts["bnf"], "string"))
     if facts["is_ebook"]:
         specs.append((wd.PID_DISTRIBUTION_FORMAT, QID_EBOOK, "item"))
     if facts.get("ol_edition"):                            # Open Library EDITION id (OL...M)

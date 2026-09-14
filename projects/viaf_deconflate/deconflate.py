@@ -97,11 +97,12 @@ Usage (PYTHONPATH=projects;projects/shared_lib via .env):
 import argparse
 import hashlib
 import io
+import json
 import re
 import sys
 from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pywikibot as pwb
@@ -149,12 +150,9 @@ DEFAULT_MAX_VIAF_CALLS = 900  # stay under VIAF's ~1000/day ceiling
 # headroom for the daily add-bot cron and the manual "Add More Identifiers from
 # VIAF" UI tool.
 DEFAULT_MIN_DAY_REMAINING = 100
-DEFAULT_APPLY_LIMIT = 5
-
-# TEMPORARY: until the bot RfP for this task is approved, group all trial edits
-# under one fixed editgroups batch so they can be linked from the request. Once
-# approved, drop this and default to daily_editgroup() (see main()).
-TRIAL_EDIT_GROUP = "ae99fd76fbab"
+# None = no cap (edit every item with a pending edit). The RfP is approved, so the
+# conservative trial cap is gone; pass --apply-limit N to throttle a run manually.
+DEFAULT_APPLY_LIMIT: int | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -309,9 +307,55 @@ def _parse_date(value: str) -> date | None:
         return None
 
 
-def _run_selection(query: str) -> list[dict]:
+# The startup selection (candidate scan / redirect scan) is the same query every
+# run, so we cache its raw bindings per selection kind and reuse them across runs.
+# WDQS is tightening rate limits on repeat bots, so not re-querying an unchanged
+# population daily is both kinder and faster. The cache never expires on its own;
+# pass --refresh-selection to re-query and rewrite it.
+SELECTION_CACHE_DIR = Path(__file__).resolve().parent / "output" / "selection_cache"
+
+
+def _cache_path(cache_key: str) -> Path:
+    return SELECTION_CACHE_DIR / f"{cache_key}.json"
+
+
+def _read_cache(cache_key: str) -> dict | None:
+    """The cached payload for a selection kind, or None if absent/unreadable."""
+    try:
+        payload = json.loads(_cache_path(cache_key).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload.get("bindings"), list) else None
+
+
+def _write_cache(cache_key: str, source: str, bindings: list[dict]) -> None:
+    SELECTION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "fetched": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "source": source,
+        "count": len(bindings),
+        "bindings": bindings,
+    }
+    _cache_path(cache_key).write_text(
+        json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def warn_cache_exhausted(kind: str) -> None:
+    """Every item in a reused cached selection was already processed -- so this run
+    found nothing new. The live population has probably moved on since the cache was
+    written; nudge the operator to refresh it."""
+    pwb.warning(
+        f"cached selection fully consumed: every {kind} is already processed, so "
+        f"this run has nothing to do. The cache is likely stale -- re-run with "
+        f"--refresh-selection to re-query the current population."
+    )
+
+
+def _fetch_selection(query: str) -> tuple[list[dict], str]:
     """SPARQL bindings for a selection query -- from qlever when it answers, from
-    WDQS otherwise.
+    WDQS otherwise. Returns (bindings, source) so the cache can record which
+    endpoint answered.
 
     qlever.dev rate-limits by IP and can 429 for a while, and the shared runner
     then burns minutes in backoff. This selection is small and selective, so one
@@ -322,11 +366,35 @@ def _run_selection(query: str) -> list[dict]:
             QLEVER_URL, params={"query": query}, headers=HTTP_HEADERS, timeout=120
         )
         if resp.status_code == 200:
-            return resp.json().get("results", {}).get("bindings", [])
+            return resp.json().get("results", {}).get("bindings", []), "qlever"
         pwb.warning(f"qlever selection HTTP {resp.status_code}; falling back to WDQS.")
     except (requests.RequestException, ValueError) as exc:
         pwb.warning(f"qlever selection failed ({exc}); falling back to WDQS.")
-    return query_wdqs(query)
+    return query_wdqs(query), "wdqs"
+
+
+def _run_selection(
+    query: str, cache_key: str | None = None, refresh: bool = False
+) -> list[dict]:
+    """SPARQL bindings for a selection query. With a ``cache_key`` the result is
+    buffered on disk and reused on later runs; ``refresh`` (or a missing/empty
+    cache) forces a fresh query and rewrites the cache. Without a ``cache_key``
+    (e.g. targeted --only runs) it always queries live."""
+    if cache_key and not refresh:
+        payload = _read_cache(cache_key)
+        if payload:
+            print(
+                f"selection '{cache_key}': reusing {len(payload['bindings'])} cached "
+                f"row(s) from {payload.get('fetched', '?')} "
+                f"({payload.get('source', '?')}); --refresh-selection to re-query."
+            )
+            return payload["bindings"]
+    bindings, source = _fetch_selection(query)
+    if cache_key:
+        _write_cache(cache_key, source, bindings)
+        print(f"selection '{cache_key}': fetched {len(bindings)} row(s) "
+              f"from {source}; cached in {SELECTION_CACHE_DIR}.")
+    return bindings
 
 
 def _fold_candidates(bindings: list[dict]) -> list[Candidate]:
@@ -348,9 +416,11 @@ def _fold_candidates(bindings: list[dict]) -> list[Candidate]:
     return list(merged.values())
 
 
-def fetch_candidates(pid: str) -> list[Candidate]:
-    """Run the pid-scoped selection and fold it to Candidates."""
-    return _fold_candidates(_run_selection(build_candidate_query(pid)))
+def fetch_candidates(pid: str, refresh: bool = False) -> list[Candidate]:
+    """Run the pid-scoped selection and fold it to Candidates. The raw selection
+    is cached per pid and reused across runs unless ``refresh``."""
+    return _fold_candidates(_run_selection(
+        build_candidate_query(pid), cache_key=f"candidates_{pid}", refresh=refresh))
 
 
 def fetch_candidates_for_qids(qids: list[str]) -> list[Candidate]:
@@ -396,12 +466,13 @@ SELECT DISTINCT ?item WHERE {
 }"""
 
 
-def fetch_redirect_scan_qids(subset: str) -> list[str]:
+def fetch_redirect_scan_qids(subset: str, refresh: bool = False) -> list[str]:
     """QIDs (sorted by number) for a redirect-scan subset: 'multi' = Q5 items with
-    2+ non-deprecated P214; 'long' = Q5 items with a long-format P214 value."""
+    2+ non-deprecated P214; 'long' = Q5 items with a long-format P214 value. The
+    raw selection is cached per subset and reused across runs unless ``refresh``."""
     query = build_long_viaf_query() if subset == "long" else build_multi_viaf_query()
     qids: set[str] = set()
-    for row in _run_selection(query):
+    for row in _run_selection(query, cache_key=f"redirect_{subset}", refresh=refresh):
         q = row.get("item", {}).get("value", "").rsplit("/", 1)[-1]
         if q.startswith("Q"):
             qids.add(q)
@@ -1549,7 +1620,7 @@ def daily_editgroup(tag: str = "viaf_deconflate") -> str:
 
 
 def apply_edits(
-    results: list[Result], limit: int, save: bool, edit_group: str = ""
+    results: list[Result], limit: int | None, save: bool, edit_group: str = ""
 ) -> set[str]:
     """Perform the edits, grouped per item so one item with several deprecated
     statements (or the same new cluster reached twice) is a single edit.
@@ -1577,7 +1648,7 @@ def apply_edits(
 
     edited: set[str] = set()
     for qid, rows in by_qid.items():
-        if len(edited) >= limit:
+        if limit is not None and len(edited) >= limit:
             break
         adds = {r.new_cluster for r in rows
                 if r.outcome == "ADD_AND_RELABEL" and r.new_cluster}
@@ -1717,14 +1788,14 @@ def main() -> None:
     ap.add_argument("--save", action="store_true",
                     help="with --apply, actually save the edits (default: preview only)")
     ap.add_argument("--apply-limit", type=int, default=DEFAULT_APPLY_LIMIT,
-                    help="with --apply, edit at most this many items")
+                    help="with --apply, edit at most this many items "
+                         "(default: no limit)")
     ap.add_argument("--only", default=None,
                     help="comma-separated QIDs to process instead of the full "
                          "selection (targeted verification; bypasses the age "
                          "filter and --max-items). Works with --redirect-scan too.")
     ap.add_argument("--editgroup", metavar="ID", default=None,
                     help="editgroups batch id for the edit summaries (default: a "
-                         "fixed trial batch until the RfP is approved; then a "
                          "stable per-day id via daily_editgroup())")
     ap.add_argument("--recheck-review", action="store_true",
                     help="re-process items previously routed to review (VIAF may "
@@ -1737,6 +1808,11 @@ def main() -> None:
                          "0 re-checks every run, review items are unaffected")
     ap.add_argument("--no-state", action="store_true",
                     help="do not read or write the output/ state files")
+    ap.add_argument("--refresh-selection", action="store_true",
+                    help="re-query the startup selection (candidate / redirect-scan) "
+                         "and rewrite its cache; otherwise the cached population from "
+                         "a previous run is reused (targeted --only runs always query "
+                         "live)")
     ap.add_argument("--redirect-scan", nargs="?", const="multi",
                     choices=["multi", "long"], default=None,
                     help="task 2: check live VIAF ids for redirect/withdrawal over a "
@@ -1761,7 +1837,7 @@ def main() -> None:
             qids = [q.strip().upper() for q in args.only.split(",") if q.strip()]
             print(f"redirect-scan --only: {len(qids)} item(s).")
         else:
-            qids = fetch_redirect_scan_qids(args.redirect_scan)
+            qids = fetch_redirect_scan_qids(args.redirect_scan, args.refresh_selection)
             print(f"redirect-scan ({args.redirect_scan}): {len(qids)} Q5 item(s).")
             if not args.no_state and not args.recheck:
                 skip = load_skip_set(include_review=not args.recheck_review,
@@ -1770,6 +1846,8 @@ def main() -> None:
                 qids = [q for q in qids if (q, "") not in skip]
                 if before != len(qids):
                     print(f"skipped {before - len(qids)} already-processed item(s).")
+                if before and not qids and not args.refresh_selection:
+                    warn_cache_exhausted("item")
             qids = qids[: args.max_items]
         for i, qid in enumerate(qids, 1):
             try:
@@ -1794,7 +1872,7 @@ def main() -> None:
                 f"{len(found)}/{len(only_qids)} requested item(s)."
             )
         else:
-            raw = fetch_candidates(args.pid)
+            raw = fetch_candidates(args.pid, args.refresh_selection)
             candidates = order_and_filter(raw, args.min_age_days)
             print(
                 f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
@@ -1810,6 +1888,8 @@ def main() -> None:
                 if before != len(candidates):
                     print(f"skipped {before - len(candidates)} already-processed "
                           f"candidate(s) from output/ state.")
+                if before and not candidates and not args.refresh_selection:
+                    warn_cache_exhausted("candidate")
             candidates = candidates[: args.max_items]
 
         for i, candidate in enumerate(candidates, 1):
@@ -1832,11 +1912,12 @@ def main() -> None:
 
     edited_qids: set[str] = set()
     if args.apply:
-        # TEMPORARY: fixed trial batch until the RfP is approved; then switch to
-        # daily_editgroup(). --editgroup still overrides.
-        edit_group = args.editgroup or TRIAL_EDIT_GROUP
+        # RfP approved: group each day's edits under one stable per-day batch.
+        # --editgroup still overrides.
+        edit_group = args.editgroup or daily_editgroup()
         mode = "SAVING edits" if args.save else "previewing edits (no save)"
-        print(f"\n--- apply: {mode}, up to {args.apply_limit} item(s) ---")
+        cap = args.apply_limit if args.apply_limit is not None else "all"
+        print(f"\n--- apply: {mode}, up to {cap} item(s) ---")
         print(f"editgroup https://editgroups.toolforge.org/b/CB/{edit_group}/")
         edited = apply_edits(results, args.apply_limit, args.save, edit_group)
         print(f"{'edited' if args.save else 'previewed'} {len(edited)} item(s).")

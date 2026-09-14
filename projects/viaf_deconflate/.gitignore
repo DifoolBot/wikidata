@@ -1,0 +1,3 @@
+# Cached SPARQL selection bindings (machine-local, re-queryable via
+# --refresh-selection); the population, not a result worth committing.
+output/selection_cache/
