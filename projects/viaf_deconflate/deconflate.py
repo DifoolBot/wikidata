@@ -1760,6 +1760,32 @@ def apply_edits(
 # --------------------------------------------------------------------------- #
 
 
+def parse_shard(spec: str | None) -> tuple[int, int] | None:
+    """Parse a ``--shard i/m`` spec into (i, m), or None when unset. Validates
+    ``0 <= i < m`` and ``m >= 1`` so two machines can split one selection into
+    disjoint, exhaustive slices (0/2 and 1/2) with no overlap and no gap."""
+    if not spec:
+        return None
+    try:
+        i_str, m_str = spec.split("/", 1)
+        i, m = int(i_str), int(m_str)
+    except ValueError:
+        raise SystemExit(f"--shard must be i/m (e.g. 0/2), got {spec!r}")
+    if m < 1 or not (0 <= i < m):
+        raise SystemExit(f"--shard needs 0 <= i < m and m >= 1, got {spec!r}")
+    return i, m
+
+
+def apply_shard(qids: list[str], shard: tuple[int, int] | None) -> list[str]:
+    """Keep only the QIDs assigned to this shard: ``int(qid[1:]) % m == i``.
+    The partition is by QID number, so it is stable across machines and
+    independent of ordering or the skip set."""
+    if shard is None:
+        return qids
+    i, m = shard
+    return [q for q in qids if int(q[1:]) % m == i]
+
+
 def main() -> None:
     if isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -1819,7 +1845,15 @@ def main() -> None:
                          "subset -- 'multi' (Q5 with >=2 normal/preferred P214, the "
                          "default) or 'long' (Q5 with a long-format P214). An item "
                          "that also has a conflation-deprecated P214 gets task 1.")
+    ap.add_argument("--shard", metavar="I/M", default=None,
+                    help="process only the selection items whose QID number mod M "
+                         "== I, so two machines can split one run with no overlap "
+                         "(e.g. --shard 0/2 here, --shard 1/2 there). Applies to the "
+                         "candidate and redirect-scan selections; ignored with --only.")
     args = ap.parse_args()
+    shard = parse_shard(args.shard)
+    if shard and args.only:
+        print("note: --shard is ignored with --only (the QID list is explicit).")
 
     ensure_login()
     sources = AuthoritySources()
@@ -1839,6 +1873,10 @@ def main() -> None:
         else:
             qids = fetch_redirect_scan_qids(args.redirect_scan, args.refresh_selection)
             print(f"redirect-scan ({args.redirect_scan}): {len(qids)} Q5 item(s).")
+            if shard:
+                before = len(qids)
+                qids = apply_shard(qids, shard)
+                print(f"shard {shard[0]}/{shard[1]}: {len(qids)} of {before} item(s).")
             if not args.no_state and not args.recheck:
                 skip = load_skip_set(include_review=not args.recheck_review,
                                      recheck_after_days=args.recheck_after_days)
@@ -1878,6 +1916,11 @@ def main() -> None:
                 f"selection returned {len(raw)} candidate(s); {len(candidates)} remain after "
                 f"the {args.min_age_days}-day age filter (start source {args.pid})."
             )
+            if shard:
+                before = len(candidates)
+                keep = set(apply_shard([c.qid for c in candidates], shard))
+                candidates = [c for c in candidates if c.qid in keep]
+                print(f"shard {shard[0]}/{shard[1]}: {len(candidates)} of {before} candidate(s).")
             # Skip statements already handled in a previous run (saves VIAF calls);
             # --only always bypasses this.
             if not args.no_state and not args.recheck:

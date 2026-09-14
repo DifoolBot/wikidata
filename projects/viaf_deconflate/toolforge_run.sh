@@ -21,6 +21,14 @@
 # Cautious first real run (cap the number of edited items):
 #       --command "bash $HOME/wikidata/projects/viaf_deconflate/toolforge_run.sh --redirect-scan multi --apply --save --apply-limit 20"
 #
+# Two-quota split (Toolforge + a second machine each have their own 1000/day VIAF
+# budget): --shard i/m keeps only the items whose QID number mod m == i, so the
+# two runs cover disjoint halves with no overlap. Run this on Toolforge:
+#       --command "bash $HOME/wikidata/projects/viaf_deconflate/toolforge_run.sh --redirect-scan multi --shard 0/2 --apply --save"
+# and on the other machine run the same script with --shard 1/2. The output/*.txt
+# state files union-merge across machines via git (see output/.gitattributes):
+# git pull before each run, git push after. --shard is ignored with --only.
+#
 # Long subset is the same with --redirect-scan long (but ~903k items and
 # diluted; prefer multi for the daily VIAF budget).
 #

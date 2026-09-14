@@ -22,8 +22,10 @@ from viaf_deconflate.deconflate import (
     _cluster_shared_id,
     _fold_candidates,
     _is_own_fragment,
+    apply_shard,
     build_candidate_query_for_qids,
     classify,
+    parse_shard,
 )
 
 GND = AuthoritySource("P227", "DNB", "GND")   # viaf source code DNB
@@ -495,3 +497,28 @@ def test_deprecate_with_reason(monkeypatch):
     assert c.rank == "deprecated"
     q = c.qualifiers[d.wd.PID_REASON_FOR_DEPRECATED_RANK]
     assert len(q) == 1 and q[0].target == d.wd.QID_REDIRECT
+
+
+# --- --shard i/m selection splitting ------------------------------------------
+
+def test_parse_shard_valid_and_none():
+    assert parse_shard(None) is None
+    assert parse_shard("") is None
+    assert parse_shard("0/2") == (0, 2)
+    assert parse_shard("3/4") == (3, 4)
+
+
+@pytest.mark.parametrize("bad", ["2/2", "3/2", "-1/2", "x/2", "5", "1/0"])
+def test_parse_shard_rejects_bad(bad):
+    with pytest.raises(SystemExit):
+        parse_shard(bad)
+
+
+def test_apply_shard_partition_is_disjoint_and_exhaustive():
+    qs = ["Q1", "Q2", "Q3", "Q4", "Q10", "Q11", "Q100"]
+    assert apply_shard(qs, None) == qs                      # no-op when unset
+    a = apply_shard(qs, (0, 2))
+    b = apply_shard(qs, (1, 2))
+    assert set(a).isdisjoint(b)                             # no overlap
+    assert set(a) | set(b) == set(qs)                       # no gap
+    assert a == ["Q2", "Q4", "Q10", "Q100"]                # by QID number % m

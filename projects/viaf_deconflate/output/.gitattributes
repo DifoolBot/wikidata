@@ -1,0 +1,10 @@
+# The deconflate state files are append-only sets of (QID, viaf_dep) lines, read
+# back into a deduping dict (order- and duplicate-independent). Merge them as a
+# UNION so two machines (Toolforge + local) that each append their own runs never
+# conflict -- git keeps both sides' lines; the reader dedupes. eol=lf keeps the
+# committed content LF even when appended on Windows (Python text mode writes
+# CRLF there), so cross-platform merges stay clean.
+done.txt    merge=union eol=lf
+review.txt  merge=union eol=lf
+checked.txt merge=union eol=lf
+error.txt   merge=union eol=lf
