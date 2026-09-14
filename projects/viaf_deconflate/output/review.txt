@@ -87,3 +87,19 @@ Q114761344	300080125	DUPLICATE_RANK	2026-08-29	value is live AND deprecated-for-
 Q15990005	61665576	DUPLICATE_RANK	2026-08-29	value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
 Q112076909	1101752	DUPLICATE_RANK	2026-08-29	value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
 Q5239230	27805619	DUPLICATE_RANK	2026-08-29	value is live AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q2054	90637919	INCONSISTENT	2026-09-06	still in old cluster, but ids also moved to ['23497389'] +frag=['108566706']
+Q1048	100183222	INCONSISTENT	2026-09-06	still in old cluster, but ids also moved to ['100227925']
+Q1265467		REDIRECT_REVIEW	2026-09-06	redirect target clashes -> review live_review=['188091973']
+Q1120896	230027769	PROBABLY_CONFLATED	2026-09-07	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q868	1600149296227980670002	LIST_REDIRECT	2026-09-08	old cluster redirects to 7524651 withdrawn=['72206945']
+Q3702042	44255949	PROBABLY_CONFLATED	2026-09-09	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q3720308	171188650	PROBABLY_CONFLATED	2026-09-09	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q104443		REDIRECT_REVIEW	2026-09-10	redirect target clashes -> review live_review=['67258983']
+Q370293		REDIRECT_FIX	2026-09-11	live VIAF redirected / withdrawn redirect=[('3226167445413588860003', None), ('7868172729687106290004', None)] live_review=['137149294075280520031']
+Q462966		REDIRECT_REVIEW	2026-09-11	redirect target clashes -> review live_review=['45577289']
+Q367298	65151897140824070146	CORRECT_AS_OF_NOW	2026-09-12	old cluster now holds only this item's ids -> VIAF resolved it; ids ALSO in rival cluster(s) ['1355159474219327662084'] -> review +frag=['12400956'] redirect=[('311182953', None)] rival_review=['1355159474219327662084']
+Q1138661		REDIRECT_REVIEW	2026-09-12	redirect target clashes -> review live_review=['45415961']
+Q93838935		REDIRECT_REVIEW	2026-09-13	redirect target clashes -> review live_review=['38001346']
+Q133521561	298210733	INCONSISTENT	2026-09-13	still in old cluster, but ids also moved to ['5712154260702524480008'] +frag=['7239175417569504080002']
+Q4077203		REDIRECT_REVIEW	2026-09-14	redirect target clashes -> review live_review=['2842166414906602740009']
+Q21545892	89376364	PROBABLY_CONFLATED	2026-09-14	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['5352175780112117010006']
