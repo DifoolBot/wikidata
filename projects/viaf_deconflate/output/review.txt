@@ -103,3 +103,6 @@ Q93838935		REDIRECT_REVIEW	2026-09-13	redirect target clashes -> review live_rev
 Q133521561	298210733	INCONSISTENT	2026-09-13	still in old cluster, but ids also moved to ['5712154260702524480008'] +frag=['7239175417569504080002']
 Q4077203		REDIRECT_REVIEW	2026-09-14	redirect target clashes -> review live_review=['2842166414906602740009']
 Q21545892	89376364	PROBABLY_CONFLATED	2026-09-14	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['5352175780112117010006']
+Q5617	88809747	INCONSISTENT	2026-09-14	still in old cluster, but ids also moved to ['172554524'] +frag=['2670174413969208700007']
+Q27252	220217359	DUPLICATE_RANK	2026-09-14	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q40946	39375774	INCONSISTENT	2026-09-14	still in old cluster, but ids also moved to ['255355866']
