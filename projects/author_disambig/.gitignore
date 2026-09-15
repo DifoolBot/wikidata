@@ -10,5 +10,10 @@ scholar_paste.txt
 his_dois.txt
 autocheck.js
 bookmarklet.txt
+
+# Regenerable multi-person (picker) collector artifacts, written to the project
+# root by `python generate_helper.py --collector`. Not source.
+collector.js
+collector_bookmarklet.txt
 HELP.md
 # (orcid_works.json is already covered by the repo-root *.json rule)
