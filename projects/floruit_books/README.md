@@ -1,6 +1,7 @@
 # floruit_books
 
-Migrate the "inline book" floruit shape into a real book item.
+Migrate the "inline book" floruit shape into a real book item, filling the edition
+from catalogue metadata you paste.
 
 ## The shape it fixes
 
@@ -15,68 +16,95 @@ person  P1317 floruit  <year>
           reference: stated in <database>  +  <bibliographic id>  +  retrieved [+ URL]
 ```
 
-`migrate_floruit_book.py` turns that reference into a proper item:
+For each such statement the tool:
 
-```
-CREATE Work    (P31 = written work, Q47461344): title, language, P50 author / P98 editor
-CREATE Edition (P31 = version/edition, Q3331189): P629 -> Work, title, language,
-                 P110 illustrator, and the bibliographic id(s) moved off the reference
-EDIT person floruit:
-   reference  ->  stated in (P248) = the new Edition        (keeps retrieved P813 + URL P854)
-   drop qualifier P1476 (title)     keep qualifier P2868 (subject has role)
-```
+1. prints the **source link(s)** (DNB edition / Open Library / Google Books / WorldCat /
+   SUDOC, plus any archive.org URL on the reference) so you can open the title page;
+2. runs the shared **make_book paste flow** (`shared_lib.book_paste`): you paste the
+   Google Books / DNB / archive.org metadata, seeded with the floruit's title and
+   language and with the person already credited in their role, and confirm
+   publisher / date / ISBN / pages / ...;
+3. creates a **Work** (P31 = written work) + **Edition** (P31 = version/edition,
+   P629 → work) carrying the pasted facts and the bibliographic id **moved off the
+   reference**, and links them (P747);
+4. rewrites the floruit reference to **stated in (P248) → the new edition** (keeping
+   retrieved P813 and any URL P854), drops the **P1476 title** qualifier and keeps the
+   **P2868 subject has role** qualifier.
 
-Publication date / publisher / pages are **not** guessed -- copy those from the
-catalogue (archive.org, the DNB edition page, ...) by hand afterwards.
+The paste/confirm/build core is shared with `isbn_cleanup/make_book.py` — this tool is
+that same flow, seeded from the floruit and followed by the reference rewrite.
 
 ## Scope
 
-Only references carrying one of the five **bibliographic edition** identifiers:
+References carrying one of the five **bibliographic edition** identifiers:
 
-| property | source |
-|----------|--------|
-| P1292 | DNB edition ID |
-| P1025 | SUDOC editions |
-| P675  | Google Books ID |
-| P648  | Open Library ID |
-| P243  | OCLC control number |
+| property | source | link |
+|----------|--------|------|
+| P1292 | DNB edition ID | d-nb.info |
+| P1025 | SUDOC editions | sudoc.fr |
+| P675  | Google Books ID | books.google.com |
+| P648  | Open Library ID | openlibrary.org |
+| P243  | OCLC control number | worldcat.org |
 
-Left untouched (a later/other pass): **P244** (that value is the person's *own* LC
-name-authority record, not the book), **P268**, existing **P248**, and **URL-only**
-sources (archive.org with no structured id). Roles other than author / writer /
-editor / illustrator (composer, photographer, cartoonist, ...) are skipped -- those
-sources are often music or film items, not books.
+Left untouched (handle with `--edition`, below): **P244** (that value is the person's
+*own* LC name-authority record, not the book), **P268**, generic **stated in
+<database>** references with no specific id (e.g. a bare "stated in Archive.org"), and
+**URL-only** sources (incl. archive.org — QLever can't filter the `P854` URL relation
+efficiently, so it isn't a candidate trigger). Roles other than author / writer /
+editor / illustrator are skipped.
 
 Candidates are pulled live from **QLever** (`https://qlever.dev/api/wikidata`).
 
 ## Usage
 
-Repo root, with `PYTHONPATH=projects;projects/shared_lib` (via `.env`). Dry run by
-default; pass `--save` to actually create items and edit.
+Repo root, with `PYTHONPATH=projects;projects/shared_lib` (via `.env`).
+
+**Dry run (no `--save`)** just lists the pending candidates and their source links:
 
 ```
-python projects/floruit_books/migrate_floruit_book.py                  # dry run, all candidates
-python projects/floruit_books/migrate_floruit_book.py --limit 5        # dry run, first 5
-python projects/floruit_books/migrate_floruit_book.py --qid Q132997957 # dry run, one person
-python projects/floruit_books/migrate_floruit_book.py --save           # really create + edit
+python projects/floruit_books/migrate_floruit_book.py            # the whole queue
+python projects/floruit_books/migrate_floruit_book.py --limit 5  # first five
 ```
 
-Flags: `--qid QID`, `--file PATH` (one QID per line), `--limit N`, `--editgroup ID`
-(override the per-day batch id).
+**`--save`** runs the interactive paste-and-create, one candidate at a time, then
+rewrites the floruit reference:
+
+```
+python projects/floruit_books/migrate_floruit_book.py --qid Q132997957 --save
+python projects/floruit_books/migrate_floruit_book.py --limit 5 --save
+```
+
+Flags: `--qid QID`, `--file PATH` (one QID per line), `--limit N`, `--editgroup ID`.
+
+**`--edition QID`** points the given `--qid`/`--file` person(s) at an **existing** edition
+you already have, for a floruit whose source can't be auto-identified (e.g. a bare
+"stated in Archive.org") or a book **co-written / shared across several people**. It
+finds the floruit statement by its title+role qualifiers (no QLever), sets the reference
+to `stated in (P248) → QID` and drops the title qualifier; it creates nothing. If a
+person has several floruit-book statements (multiple books), it picks the one whose
+title qualifier matches the edition's title.
+
+Co-authored book workflow: create the edition once with `make_book` (enter every
+author's QID), then point all the co-authors at it with `--file` + `--edition`.
+
+```
+python projects/floruit_books/migrate_floruit_book.py --qid Q120481942 --edition Q123 --save
+python projects/floruit_books/migrate_floruit_book.py --file robinsons.txt --edition Q123 --save
+```
+
+The written `output/candidates.txt` (QID is the first token of each line) is itself
+valid input to `--file`.
 
 Every run prints `editgroup=<id>`; each create/edit summary links to
-<https://editgroups.toolforge.org> so the whole batch can be reviewed or reverted
-there. Before creating, `find_existing_edition` looks the identifier up and reuses an
-existing item rather than making a duplicate (books shared across people get one
-edition). Item creation is irreversible-ish, so it stays behind `--save`.
+<https://editgroups.toolforge.org> so the whole batch can be reviewed or reverted.
+Before creating, `find_existing_edition` looks the identifier up and reuses an existing
+item rather than making a duplicate (books shared across people get one edition).
 
 ## Tests
 
-Offline unit tests for the pure helpers (parsing, grouping, spec-building); the
-Wikidata-touching parts are exercised by the dry-run.
-
 ```
 python -m pytest projects/floruit_books/test_migrate_floruit_book.py -v
+python -m pytest projects/shared_lib/test_book_paste.py -v
 ```
 
 Read model authority: `notes/isbn_bot.md` "Canonical book data model" (WORK/EDITION
