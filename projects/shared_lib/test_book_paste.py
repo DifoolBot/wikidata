@@ -1,130 +1,147 @@
-"""Offline unit tests for book_paste.py's new fields: native non-Latin title readings
-(P1814/P2125/P2441 qualifiers on P1476/P1680), translator (P655) and CiNii NCID (P1739).
+"""Offline unit tests for the sectioned book.txt parsing added for the one-file
+WORK + N-editions format (split_sections / inherit_work_fields). The interactive
+confirm/create path is exercised by make_book's dry run.
 
 Run with:
     python -m pytest projects/shared_lib/test_book_paste.py -v
 """
 
-import shared_lib.constants as wd
-from shared_lib.book_paste import build_edition, build_work, parse_metadata
+from shared_lib.book_paste import (
+    _split_names,
+    inherit_work_fields,
+    parse_metadata,
+    split_sections,
+    work_edition_labels,
+)
 
 
-def _facts(**over):
-    """A complete facts dict (as confirm_facts returns), overridable per test."""
-    f = dict(
-        title="", title_en=None, subtitle=None,
-        title_kana=None, title_romaji=None, title_translation=None,
-        subtitle_kana=None, subtitle_romaji=None, subtitle_translation=None,
-        lang_code="ja", lang_qid="Q5287",
-        work_type_qid="Q47461344", authors=[], editors=[], translators=[],
-        publisher_qids=[], pub_name=None, place_qid=None, date=None,
-        isbn10=[], isbn13=[], pages=None, edition_no=None, doi=None, lccn=None,
-        is_ebook=False, subject_qids=[], series_qid=None,
-        ol_work=None, ol_edition=None, ia_id=None, full_url=None, oclc=None, ncid=None,
-    )
-    f.update(over)
-    return f
+def test_split_names_keeps_cjk_only_name():
+    # A pure-CJK contributor (no ASCII letters) must survive the "(s)" residue filter.
+    assert _split_names(["中本浩"]) == ["中本浩"]
+    assert _split_names(["何森健"]) == ["何森健"]
 
 
-def _find(specs, pid):
-    return [s for s in specs if s[0] == pid]
+def test_split_names_drops_label_residue_and_splits():
+    assert _split_names(["(s)"]) == []
+    assert _split_names(["-"]) == []
+    assert _split_names(["Smith, Jones and 中本浩"]) == ["Smith", "Jones", "中本浩"]
 
 
-# --------------------------------------------------------------- parse
+def test_parse_metadata_ignores_leading_comments():
+    # leading '#' comments (even with a colon) must not pollute the title block / fields
+    p = parse_metadata("# NO ISBN: it's a price\n# note 2\nTitle: Turbo Prolog\nSubtitle: x\n")
+    assert p["_titleblock"] == []
+    assert p["title"] == ["Turbo Prolog"] and p["subtitle"] == ["x"]
 
-def test_parse_new_labels():
-    blob = (
-        "Title: 希少糖秘話\n"
-        "Title kana: キショウトウヒワ\n"
-        "Title romaji: Kishōtō hiwa\n"
-        "Title translation: The secret story of rare sugars\n"
-        "Translator: Shigeyuki Tajima [Q135811713]\n"
-        "CiNii: BB14197516\n"
-    )
-    p = parse_metadata(blob)
-    assert p["title"] == ["希少糖秘話"]
-    assert p["title_kana"] == ["キショウトウヒワ"]
-    assert p["title_romaji"] == ["Kishōtō hiwa"]
-    assert p["title_translation"] == ["The secret story of rare sugars"]
-    assert p["translators"] == ["Shigeyuki Tajima [Q135811713]"]
-    assert p["ncid"] == ["BB14197516"]
-    # "Title kana"/"Title romaji" must not be swallowed by the shorter "title" label
-    assert "希少糖秘話" not in p["title_kana"]
+RARE_SUGARS = """# one work, two editions
+[work]
+Title: 希少糖秘話
+Title kana: キショウトウヒワ
+Title romaji: Kishōtō hiwa
+Title translation: The secret story of rare sugars
+Author: 何森健 [Q17193319]
+Subjects: 希少糖 [Q11480900]
+Language: ja
 
+[edition ja]
+Title: 希少糖秘話
+Publisher: 希少糖生産技術研究所
+Published: 2013-01
+ISBN: 978-4-9906839-0-0
 
-# --------------------------------------------------------------- title readings
-
-def test_title_readings_become_p1476_qualifiers():
-    facts = _facts(title="希少糖秘話", title_kana="キショウトウヒワ",
-                   title_romaji="Kishōtō hiwa",
-                   title_translation="The secret story of rare sugars")
-    _, _, wspecs = build_work(facts)
-    title = _find(wspecs, wd.PID_TITLE)[0]
-    assert title[1] == ("希少糖秘話", "ja") and title[2] == "monolingual"
-    quals = dict((q[0], q[1]) for q in title[3])
-    assert quals[wd.PID_NAME_IN_KANA] == "キショウトウヒワ"
-    assert quals[wd.PID_REVISED_HEPBURN_ROMANIZATION] == "Kishōtō hiwa"
-    assert quals[wd.PID_LITERAL_TRANSLATION] == ("The secret story of rare sugars", "en")
+[edition en]
+Title: The secret story of rare sugars
+Translator: Shigeyuki Tajima [Q135811713]
+Publisher: Izumoring
+Published: 2016-09
+"""
 
 
-def test_no_readings_leaves_plain_title():
-    _, _, wspecs = build_work(_facts(title="Plain Book", lang_code="en"))
-    title = _find(wspecs, wd.PID_TITLE)[0]
-    assert len(title) == 3  # no qualifiers tuple appended
+def test_split_sections_none_is_legacy():
+    # A file with no headers is the legacy single block: whole text back, no editions.
+    text = "Title: Foo\nAuthor: Bar\n"
+    assert split_sections(text) == (text, [])
 
 
-def test_subtitle_readings_on_p1680():
-    facts = _facts(title="張赫宙の日本語文学", subtitle="植民地朝鮮/帝国日本のはざまで",
-                   subtitle_kana="ショクミンチチョウセンテイコクニホンノハザマデ",
-                   subtitle_romaji="Shokuminchi Chōsen | teikoku Nihon no hazama de")
-    _, _, wspecs = build_work(facts)
-    sub = _find(wspecs, wd.PID_SUBTITLE)[0]
-    quals = dict((q[0], q[1]) for q in sub[3])
-    assert quals[wd.PID_NAME_IN_KANA].startswith("ショクミンチ")
-    assert "|" in quals[wd.PID_REVISED_HEPBURN_ROMANIZATION]
+def test_split_sections_work_and_editions():
+    work_text, editions = split_sections(RARE_SUGARS)
+    wp = parse_metadata(work_text)
+    assert wp["title"] == ["希少糖秘話"]
+    assert wp["title_romaji"] == ["Kishōtō hiwa"]
+    assert wp["subjects"] == ["希少糖 [Q11480900]"]
+    assert [lang for lang, _ in editions] == ["ja", "en"]
+    ja = parse_metadata(editions[0][1])
+    en = parse_metadata(editions[1][1])
+    assert ja["title"] == ["希少糖秘話"] and ja.get("title_romaji") is None
+    assert en["translators"] == ["Shigeyuki Tajima [Q135811713]"]
+    assert en["publisher"] == ["Izumoring"]
 
 
-# --------------------------------------------------------------- translator + ncid
-
-def test_translator_item_and_ncid_on_edition():
-    facts = _facts(title="The secret story of rare sugars", lang_code="en", lang_qid="Q1860",
-                   translators=[("Q135811713", "Shigeyuki Tajima")], ncid="BD03659501")
-    _, _, especs = build_edition(facts, "Q1")
-    tr = _find(especs, wd.PID_TRANSLATOR)[0]
-    assert tr[1] == "Q135811713" and tr[2] == "item"
-    ncid = _find(especs, wd.PID_NACSIS_CAT_BIBLIOGRAPHY_ID)[0]
-    assert ncid[1] == "BD03659501" and ncid[2] == "string"
+def test_split_sections_bare_edition_has_empty_lang():
+    _work, editions = split_sections("[work]\nTitle: X\n[edition]\nISBN: 1\n")
+    assert editions[0][0] == ""
 
 
-def test_translator_name_only_is_somevalue_named_as():
-    facts = _facts(title="X", translators=[(None, "Jane Roe")])
-    _, _, especs = build_edition(facts, "Q1")
-    tr = _find(especs, wd.PID_TRANSLATOR)[0]
-    assert tr[2] == "somevalue"
-    assert tr[3] == [(wd.PID_OBJECT_NAMED_AS, "Jane Roe", "string")]
+def test_split_sections_no_work_header_uses_preamble():
+    # No [work] header -> the preamble before the first [edition] is the work block.
+    work_text, editions = split_sections("Title: Solo\nAuthor: A\n[edition en]\nISBN: 1\n")
+    assert parse_metadata(work_text)["title"] == ["Solo"]
+    assert [lang for lang, _ in editions] == ["en"]
 
 
-def test_translator_is_edition_only_not_on_work():
-    facts = _facts(title="X", translators=[("Q135811713", "Shigeyuki Tajima")])
-    _, _, wspecs = build_work(facts)
-    assert _find(wspecs, wd.PID_TRANSLATOR) == []
+def test_inherit_always_contributors():
+    work = parse_metadata(RARE_SUGARS.split("[edition")[0].split("[work]")[1])
+    ed = {"title": ["The secret story of rare sugars"]}
+    inherit_work_fields(work, ed, same_lang=False)
+    assert ed["authors"] == ["何森健 [Q17193319]"]       # inherited
+    assert "title_romaji" not in ed                       # NOT inherited (different language)
 
 
-# --------------------------------------------------------------- labels (Genji model)
-
-def test_genji_labels_from_romanization():
-    labels, _, _ = build_work(_facts(
-        title="希少糖秘話", title_romaji="Kishōtō hiwa",
-        title_translation="The secret story of rare sugars", lang_code="ja"))
-    assert labels == {"ja": "希少糖秘話", "mul": "Kishōtō hiwa",
-                      "en": "The secret story of rare sugars"}
-
-
-def test_romanization_label_en_falls_back_to_romaji():
-    labels, _, _ = build_work(_facts(title="羅生門", title_romaji="Rashōmon", lang_code="ja"))
-    assert labels == {"ja": "羅生門", "mul": "Rashōmon", "en": "Rashōmon"}
+def test_inherit_same_lang_title_readings_but_not_translation():
+    work = parse_metadata(RARE_SUGARS.split("[edition")[0].split("[work]")[1])
+    ed = {}                                               # ja edition states nothing of its own
+    inherit_work_fields(work, ed, same_lang=True)
+    assert ed["title"] == ["希少糖秘話"]
+    assert ed["title_kana"] == ["キショウトウヒワ"]
+    assert ed["title_romaji"] == ["Kishōtō hiwa"]
+    assert "title_translation" not in ed                  # P2441 stays on the work only
 
 
-def test_english_book_labels_unchanged():
-    labels, _, _ = build_work(_facts(title="Plain Book", lang_code="en"))
-    assert labels == {"mul": "Plain Book"}
+def test_inherit_does_not_override_stated_fields():
+    work = parse_metadata(RARE_SUGARS.split("[edition")[0].split("[work]")[1])
+    ed = {"title": ["Own title"], "authors": ["Someone [Q1]"]}
+    inherit_work_fields(work, ed, same_lang=True)
+    assert ed["title"] == ["Own title"]                   # kept
+    assert ed["authors"] == ["Someone [Q1]"]              # kept
+
+
+def test_work_edition_labels_uses_translation_titles():
+    # Korean work, no romaji -> base labels are just {mul: original}. Each translation
+    # edition supplies label/<lang>; original label added; mul untouched.
+    base = {"mul": "브로콜리 펀치"}
+    edition_titles = {"ko": "브로콜리 펀치", "en": "Broccoli Punch", "pl": "Brokułowy cios"}
+    labels = work_edition_labels(base, "ko", "브로콜리 펀치", edition_titles)
+    assert labels == {
+        "mul": "브로콜리 펀치",
+        "ko": "브로콜리 펀치",
+        "en": "Broccoli Punch",
+        "pl": "Brokułowy cios",
+    }
+
+
+def test_work_edition_labels_translation_wins_over_fallback_but_not_mul_or_orig():
+    # A romaji/gloss fallback put en=romanization; a real en edition title overrides it,
+    # while mul and the original-language label are left as-is.
+    base = {"ja": "希少糖秘話", "mul": "Kishōtō hiwa", "en": "Kishōtō hiwa"}
+    labels = work_edition_labels(base, "ja", "希少糖秘話",
+                                 {"ja": "希少糖秘話", "en": "The Secret Story of Rare Sugars"})
+    assert labels["mul"] == "Kishōtō hiwa"                 # fallback kept for mul
+    assert labels["ja"] == "希少糖秘話"                     # original untouched
+    assert labels["en"] == "The Secret Story of Rare Sugars"  # real edition title wins
+
+
+def test_work_edition_labels_no_editions_is_identity_plus_orig():
+    base = {"mul": "브로콜리 펀치"}
+    assert work_edition_labels(base, "ko", "브로콜리 펀치", None) == {
+        "mul": "브로콜리 펀치", "ko": "브로콜리 펀치",
+    }

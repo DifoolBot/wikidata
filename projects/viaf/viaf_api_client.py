@@ -104,7 +104,9 @@ class ViafApiClient:
         # omits the header -- a missing header must NOT read as "0 left".
         self.last_remaining_day = int(raw_day) if raw_day is not None else None
         self.last_remaining_month = int(raw_month) if raw_month is not None else None
-        print(f"Remaining: day={self.last_remaining_day} month={self.last_remaining_month}")
+        print(
+            f"Remaining: day={self.last_remaining_day} month={self.last_remaining_month}"
+        )
 
         if response.status_code == 429:
             retry_after = int(response.headers.get("Ratelimit-Reset", 60))
@@ -203,8 +205,14 @@ def test_nukat() -> None:
     print(res)
 
 
+def test_new_obama_id() -> None:
+    qry = ViafApiClient()
+    res = qry.query_viaf_id("118501235")
+    print(res)
+
+
 def main() -> None:
-    test_nukat()
+    test_new_obama_id()
 
 
 if __name__ == "__main__":
