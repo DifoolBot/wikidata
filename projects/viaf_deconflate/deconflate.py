@@ -84,9 +84,12 @@ Every conclusion is scoped to the subject item: the old cluster may still
 conflate two *other* people, and the bot asserts nothing about that.
 
 Reuses the sibling ``viaf`` project (AuthoritySources for per-source search
-keys and matching, ViafApiClient for the lookups) and ``shared_lib.qlever`` /
-``viaf.wdqs_client`` for selection and the duplicate check. Read-only against
-both Wikidata and VIAF; VIAF's ~1000/day budget is respected via --max-viaf-calls.
+keys and matching, ViafApiClient for the lookups, ``viaf.wdqs_client`` for the
+duplicate check). Selection runs via ``_fetch_selection`` (qlever over HTTP,
+WDQS fallback), buffered in output/selection_cache/ and also primable offline
+from the truthy dump (extract_dump.py) or a QID list (cache_from_list.py).
+Read-only against both Wikidata and VIAF except when applying; VIAF's ~1000/day
+budget is respected via --max-viaf-calls / --min-day-remaining.
 
 Usage (PYTHONPATH=projects;projects/shared_lib via .env):
     python projects/viaf_deconflate/deconflate.py --out report.txt          # dry run

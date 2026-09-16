@@ -30,7 +30,7 @@ auto-edited.
 | `INSUFFICIENT` | no authority ID resolved anywhere | skip (not enough evidence) |
 | `REDIRECT_FIX` | *(redirect-scan)* a normal/preferred `P214` now redirects or was withdrawn | deprecate it (`Q45403344` redirect / `Q21441764` withdrawn) + adopt a redirect target |
 | `REDIRECT_REVIEW` | *(redirect-scan)* the redirect target is on another item | review list |
-| `MULTI_VIAF_OK` | *(redirect-scan)* the item's several live VIAFs are all valid clusters | no action (not recorded) |
+| `LIVE_VIAF_OK` | *(redirect-scan)* the item's several live VIAFs are all valid clusters | no action, but **recorded to `checked.txt`** so the scan isn't re-spent |
 | `ERROR` | item could not be read/evaluated | — |
 
 *Stamp* = remove any reference that is retrieved-only, then add `retrieved` = today
@@ -83,22 +83,34 @@ python projects/viaf_deconflate/deconflate.py --only Q16405603,Q19285755 --apply
 Flags: `--pid P227` (source to start from, default GND), `--max-items`,
 `--max-viaf-calls` (default 900), `--min-day-remaining` (default 100 — stop when
 VIAF reports this many daily calls left, leaving headroom for the daily cron and
-the manual UI tool), `--min-age-days`, `--no-dup-check`, `--only Q…,Q…` (process
-just these QIDs), `--editgroup ID` (batch id for the edit summaries; until the bot RfP is approved
-it defaults to a fixed trial batch so all trial edits group on
-editgroups.toolforge.org, then a stable per-day id),
+the manual UI tool; set `0` on a machine where deconflate is the only VIAF
+consumer, e.g. a local box), `--min-age-days`, `--no-dup-check`, `--only Q…,Q…` (process
+just these QIDs), `--editgroup ID` (batch id for the edit summaries; defaults to a
+stable per-day id via `daily_editgroup()`),
+`--shard I/M` (process only the selection items whose QID number mod M == I, so
+two machines split one run with no overlap — see "Running on two machines";
+ignored with `--only`),
 `--recheck-review` / `--recheck` / `--no-state` (see below),
 `--redirect-scan` (task 2, see below), `--refresh-selection` (see below), and
-`--apply` / `--save` / `--apply-limit` (default 5).
+`--apply` / `--save` / `--apply-limit` (default: no limit — the RfP is approved;
+pass a number to throttle a run).
 
 **Redirect scan (task 2).** The task is to check live `P214` values for a VIAF
 redirect/withdrawal and fix them (`REDIRECT_FIX`). Checking every VIAF-having item
 is infeasible, so `--redirect-scan` runs over a subset: `multi` (default — `Q5`
-with **≥2 non-deprecated `P214`**, ~6.4k items) or `long` (`Q5` with a
-**long-format ≥19-char `P214`**, ~63k items, which VIAF may have redirected to a
-shorter one). An item that *also* has a conflation-deprecated `P214` is run
-through task 1 instead (which already does this check). Same `--apply`/`--save`/
-state handling. `--redirect-scan` alone = `multi`; `--redirect-scan long` = long.
+with **≥2 non-deprecated `P214`**) or `long` (`Q5` with a **long-format ≥19-char
+`P214`**, which VIAF may have redirected to a shorter one). An item that *also* has
+a conflation-deprecated `P214` is run through task 1 instead (which already does
+this check). Same `--apply`/`--save`/state handling. `--redirect-scan` alone =
+`multi`; `--redirect-scan long` = long.
+
+**Population sizes** (measured 2026-09-14 from the truthy dump — see "Priming the
+cache offline"): `multi` = **71,741** items; `long` = **903,085** items. Earlier
+figures (~6.4k / ~63k) were WDQS/qlever estimates and were badly stale. `long` is
+much bigger than first thought and **no longer selective**: the modern VIAF
+permalink form (20–22 chars) now dominates, so ≥19 chars matches most current ids,
+not just redirected ones. Prefer `multi` for the daily VIAF budget; treat `long` as
+diluted (narrow the length cutoff if you use it).
 
 ## Selection cache
 
@@ -120,6 +132,29 @@ reused *and* the skip set filters everything to zero — the run prints a warnin
 re-run with `--refresh-selection`. That's the signal the buffered population is
 stale and worth re-querying.
 
+### Priming the cache offline (endpoints down)
+
+When qlever is down and WDQS is too fragile for the `multi`/`long` scans — the
+`STRLEN`/aggregation queries time out, and value-prefix partitions don't help
+(Blazegraph full-scans `P214` regardless, so even a 4-digit prefix 504s) — build
+the selection offline from the Wikidata **truthy** RDF dump instead: complete,
+deterministic, zero endpoint load.
+
+- `extract_dump.py <latest-truthy.nt.gz> --write-cache` streams the dump in
+  per-subject blocks (O(1) memory), emitting `input/only_long_<date>.txt` /
+  `only_multi_<date>.txt` and (with `--write-cache`) `redirect_long.json` /
+  `redirect_multi.json` in this cache format. On Toolforge the dump is already
+  mounted at `/public/dumps/public/wikidatawiki/entities/` — run it as a job, no
+  download. Truthy = best-rank `wdt:` only (deprecated dropped), which is exactly
+  the non-deprecated set both subsets want; it **cannot** build the task-1
+  conflation-deprecated population (that needs `latest-all.json.bz2`, which carries
+  ranks/qualifiers/references).
+- `cache_from_list.py <input/only_<subset>_*.txt> <subset>` rebuilds a
+  `redirect_<subset>.json` cache from a plain QID list. The caches are git-ignored
+  but the `input/only_*.txt` lists are committed, so this is how a machine *without*
+  the dump gets the primed selection: sync the `.txt` via git, regenerate the
+  `.json` locally — don't copy the big JSON across.
+
 ## Processed-item state
 
 To avoid re-spending VIAF calls on items already handled, each run records
@@ -138,7 +173,11 @@ sibling bots), keyed by `(QID, viaf_dep)`:
   skipped, so they retry.
 
 The next run skips anything in `done.txt`/`checked.txt`/`review.txt` **before** the
-VIAF calls. `done`/`checked` skips expire after `--recheck-after-days` (default
+VIAF calls. The redirect scan skips by **QID under any recorded key**, not just
+`(QID, "")`: an item with a conflation-deprecated `P214` is dispatched to task 1
+and recorded as `(QID, viaf_dep)`, so a `(QID, "")`-only lookup would miss it and
+re-stamp it every run (the Q7170 bug, fixed 2026-09-16). `done`/`checked` skips
+expire after `--recheck-after-days` (default
 365): VIAF keeps re-clustering, so a settled item is re-examined about once a year
 and its state line refreshed. Review skips do not expire (a human clears them).
 `--recheck-review` re-processes the review pile (VIAF may have split a cluster
@@ -152,11 +191,38 @@ one sortable table per outcome, QIDs as `{{Q|…}}` and VIAF values linked:
 python projects/viaf_deconflate/review_to_wiki.py --out review.wiki
 ```
 
-## Reuse and known simplifications (for review)
+## Running on two machines
+
+Two machines (e.g. Toolforge + a local box), each with its own VIAF daily quota,
+can work one selection in parallel without overlap or lost state:
+
+- **Split the work** with `--shard`: `--shard 0/2` on one, `--shard 1/2` on the
+  other. The partition is by QID number, so it's stable and needs no coordination.
+- **Sync the state** through git. `output/.gitattributes` marks
+  `done`/`review`/`checked`/`error.txt` as `merge=union` — they are append-only and
+  deduped on read, so concurrent appends from both machines merge with no
+  conflicts. Each run: **commit → `git pull --no-rebase` → push** (commit *before*
+  pulling so the union driver runs; do **not** rebase).
+- Get the selection onto the machine without the dump by syncing
+  `input/only_<subset>_*.txt` via git and regenerating the cache with
+  `cache_from_list.py` (see "Priming the cache offline").
+- On the local box, run with your bot venv and `PYTHONPATH` including `projects`
+  (PowerShell: `$env:PYTHONPATH="projects"`).
+
+A **preview** run (`--apply` without `--save`) spends VIAF budget just like a real
+run — it queries VIAF to classify — so a full preview leaves the `--save` run with
+nothing (it stops at `--min-day-remaining`). Don't preview the same day you intend
+to save: cap it (`--max-items 10`), or run `--save` directly (only saved edits are
+recorded; a preview's "would edit" items aren't, so they get re-classified later).
+
+## Reuse and known simplifications
 
 - Per-source search keys / matching come from `viaf.authority_sources`; the VIAF
-  calls and the redirect/abandoned status come from `viaf.viaf_api_client`;
-  selection is `shared_lib.qlever`, the duplicate check is `viaf.wdqs_client`.
+  calls and the redirect/abandoned status come from `viaf.viaf_api_client`; the
+  duplicate check is `viaf.wdqs_client`. Selection is deconflate's own
+  `_run_selection` / `_fetch_selection` (tries qlever over HTTP, falls back to
+  WDQS `query_wdqs`), buffered in the disk cache and also primable offline from the
+  truthy dump (`extract_dump.py`) or a QID list (`cache_from_list.py`).
 - The **budget** optimization the reviewer suggested is applied: once a fetched
   cluster already lists one of the item's other IDs, that ID is not re-queried.
 - Unreliable sources are **skipped** for resolution (ISNI/FAST/… from the
@@ -170,8 +236,10 @@ python projects/viaf_deconflate/review_to_wiki.py --out review.wiki
   VIAF links ≥2 items, otherwise via a `P1889`/`P4070`/same-VIAF partner whose own
   id is checked against the live cluster. Without any such confirmation the item
   is `PROBABLY_CONFLATED` (review), never auto-stamped.
-- The duplicate check prefers VIAF's own `WKP` siblings (already in hand) and
-  falls back to WDQS; a WDQS outage degrades it to WKP-only (noted, not fatal).
+- The duplicate check (`used_on_other_item`) checks VIAF's own `WKP` siblings
+  first (already in hand — a cheap positive), then WDQS. A WDQS failure is **not**
+  swallowed: it raises `WdqsQueryError` and the caller declines to add, so a failed
+  check is never mistaken for "unused". WKP-only happens only with `--no-dup-check`.
 - Maxlag during an item read is caught as `ERROR` and written to
   `output/error.txt` — never skipped, so it retries on the next run. Login-time
   maxlag fails fast by design (run in a low-lag window); a patient retry was
