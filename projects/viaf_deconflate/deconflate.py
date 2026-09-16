@@ -1880,8 +1880,13 @@ def main() -> None:
             if not args.no_state and not args.recheck:
                 skip = load_skip_set(include_review=not args.recheck_review,
                                      recheck_after_days=args.recheck_after_days)
+                # Skip by QID under ANY recorded key, not just (qid, ""): an item
+                # with a conflation-deprecated P214 is dispatched to task 1 and
+                # recorded as (qid, viaf_dep), so a (qid, "") lookup would miss it
+                # and re-process (re-stamp) it every run.
+                skip_qids = {q for q, _dep in skip}
                 before = len(qids)
-                qids = [q for q in qids if (q, "") not in skip]
+                qids = [q for q in qids if q not in skip_qids]
                 if before != len(qids):
                     print(f"skipped {before - len(qids)} already-processed item(s).")
                 if before and not qids and not args.refresh_selection:

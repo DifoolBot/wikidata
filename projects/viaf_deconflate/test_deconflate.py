@@ -522,3 +522,17 @@ def test_apply_shard_partition_is_disjoint_and_exhaustive():
     assert set(a).isdisjoint(b)                             # no overlap
     assert set(a) | set(b) == set(qs)                       # no gap
     assert a == ["Q2", "Q4", "Q10", "Q100"]                # by QID number % m
+
+
+def test_redirect_scan_skips_task1_dispatched_item(state_dir):
+    # An item with a conflation-deprecated P214 is dispatched to task 1 inside the
+    # redirect scan and recorded under (qid, viaf_dep) -- NOT (qid, "").  The
+    # redirect-scan skip must therefore skip by QID under any key, or it re-stamps
+    # the item every run (the Q7170 bug).
+    d.record_state([Result("Q7170", "92416118", "STILL_CONFLATED")],
+                   edited_qids={"Q7170"})
+    skip = d.load_skip_set()
+    assert ("Q7170", "92416118") in skip     # recorded under the dep key
+    assert ("Q7170", "") not in skip         # the old (qid,"") lookup missed it
+    skip_qids = {q for q, _dep in skip}       # the fix: skip by qid under any key
+    assert "Q7170" in skip_qids
