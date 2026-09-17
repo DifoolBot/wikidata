@@ -107,3 +107,5 @@ Q5617	88809747	INCONSISTENT	2026-09-14	still in old cluster, but ids also moved 
 Q27252	220217359	DUPLICATE_RANK	2026-09-14	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
 Q40946	39375774	INCONSISTENT	2026-09-14	still in old cluster, but ids also moved to ['255355866']
 Q60461	102324195	INCONSISTENT	2026-09-15	item already has normal rank VIAF ['160167802704617770178', '1744159234398403371556', '204244615', '47165264475510191124']; ids also -> 262907028 +frag=['476175780179817010009']
+Q140188	11862607	INCONSISTENT	2026-09-17	still in old cluster, but ids also moved to ['49331787'] redirect=[('79398695', None)]
+Q192638	289629021	PROBABLY_CONFLATED	2026-09-17	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human redirect=[('110144928063754340885', None)]
