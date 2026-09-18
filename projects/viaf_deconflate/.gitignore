@@ -1,3 +1,6 @@
 # Cached SPARQL selection bindings (machine-local, re-queryable via
 # --refresh-selection); the population, not a result worth committing.
 output/selection_cache/
+
+# Per-machine shard for sync_run.py (0/2 vs 1/2); never committed.
+machine.conf
