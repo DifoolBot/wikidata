@@ -9,16 +9,18 @@ One-time setup on each machine (pick the half this machine owns):
     echo 1/2 > projects/viaf_deconflate/machine.conf     # local box
     echo 0/2 > projects/viaf_deconflate/machine.conf      # Toolforge
 
-Daily use:
+Daily use (on Toolforge the interpreter is ``python3``, not ``python``):
 
-    python projects/viaf_deconflate/sync_run.py --save            # local, real run
-    python projects/viaf_deconflate/sync_run.py --save --job      # Toolforge (submit a job)
+    python  projects/viaf_deconflate/sync_run.py --save          # local, real run
+    python3 projects/viaf_deconflate/sync_run.py --save --job    # Toolforge (submit a job)
 
 Without --save it does a cheap capped preview (--max-items 10, no push). Extra
 args after the known flags pass straight through to deconflate.py, e.g.
 ``--min-day-remaining 0`` or ``--subset long``. ``--dry-run`` prints every command
 without running anything. ``--no-git`` skips all git steps.
 """
+
+from __future__ import annotations
 
 import argparse
 import os
