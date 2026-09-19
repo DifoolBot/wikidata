@@ -1853,10 +1853,25 @@ def main() -> None:
                          "== I, so two machines can split one run with no overlap "
                          "(e.g. --shard 0/2 here, --shard 1/2 there). Applies to the "
                          "candidate and redirect-scan selections; ignored with --only.")
+    ap.add_argument("--ignore-maxlag", action="store_true",
+                    help="do not wait/fail on Wikidata replication lag (bypass "
+                         "maxlag on reads/login), so a classification pass can run "
+                         "and spend the VIAF budget when lag is too high to edit. "
+                         "REFUSED with --save: writing during high lag is exactly "
+                         "what maxlag prevents. Clean (LIVE_VIAF_OK) items still get "
+                         "settled; edit-needing items are just previewed.")
     args = ap.parse_args()
     shard = parse_shard(args.shard)
     if shard and args.only:
         print("note: --shard is ignored with --only (the QID list is explicit).")
+    if args.ignore_maxlag:
+        if args.save:
+            sys.exit("--ignore-maxlag must not be combined with --save: it would "
+                     "write during high replication lag. Drop --save (classify "
+                     "only) or drop --ignore-maxlag.")
+        pwb.config.maxlag = 10_000  # effectively disable maxlag waiting for reads
+        print("--ignore-maxlag: not waiting on replication lag (reads/login only, "
+              "no edits will be saved).")
 
     ensure_login()
     sources = AuthoritySources()

@@ -14,10 +14,17 @@ Daily use (on Toolforge the interpreter is ``python3``, not ``python``):
     python  projects/viaf_deconflate/sync_run.py --save          # local, real run
     python3 projects/viaf_deconflate/sync_run.py --save --job    # Toolforge (submit a job)
 
-Without --save it does a cheap capped preview (--max-items 10, no push). Extra
-args after the known flags pass straight through to deconflate.py, e.g.
-``--min-day-remaining 0`` or ``--subset long``. ``--dry-run`` prints every command
-without running anything. ``--no-git`` skips all git steps.
+High replica lag? ``--drain`` classifies the full shard without saving (spends the
+VIAF quota so it doesn't expire, settling the clean items) and ignores maxlag:
+
+    python projects/viaf_deconflate/sync_run.py --drain            # lag too high to edit
+
+Without --save/--drain it does a cheap capped preview (--max-items 10, no push).
+Runs use the whole day's VIAF quota (``--min-day-remaining 0``, no reserve) unless
+you override it. Extra args after the known flags pass straight through to
+deconflate.py, e.g. ``--subset long`` or ``--min-day-remaining 100`` (restore the
+reserve when the add-bot is active again). ``--dry-run`` prints every command;
+``--no-git`` skips all git steps.
 """
 
 from __future__ import annotations
@@ -77,6 +84,11 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--save", action="store_true",
                     help="apply and SAVE edits (default: cheap capped preview)")
+    ap.add_argument("--drain", action="store_true",
+                    help="classify the full shard WITHOUT saving (spends the VIAF "
+                         "budget, settles the clean LIVE_VIAF_OK items) and ignore "
+                         "maxlag -- for a high-lag window when edits won't succeed "
+                         "but you don't want the day's VIAF quota to expire unused")
     ap.add_argument("--subset", choices=["multi", "long"], default="multi",
                     help="redirect-scan subset (default multi)")
     ap.add_argument("--shard", default=None,
@@ -89,6 +101,9 @@ def main() -> None:
                     help="print every command without executing")
     args, passthrough = ap.parse_known_args()
 
+    if args.save and args.drain:
+        sys.exit("--save and --drain are mutually exclusive.")
+
     shard = args.shard or read_shard()
     if not shard:
         sys.exit(
@@ -100,12 +115,26 @@ def main() -> None:
     host = socket.gethostname()
     dry = args.dry_run
 
-    # deconflate flags: real save, or a cheap capped preview.
-    edit_flags = ["--apply", "--save"] if args.save else ["--apply", "--max-items", "10"]
-    scan = ["--redirect-scan", args.subset, "--shard", shard, *edit_flags, *passthrough]
+    # Budget: use the whole day's VIAF quota unless the caller overrode it. No
+    # reserve (the add-bot cron / UI tool don't need headroom for these runs), and
+    # lift the self-cap above the ~1000/day so VIAF's own day counter is the stop.
+    extra = list(passthrough)
+    if "--min-day-remaining" not in extra:
+        extra += ["--min-day-remaining", "0"]
+    if "--max-viaf-calls" not in extra:
+        extra += ["--max-viaf-calls", "1100"]
 
-    print(f"deconflate {args.subset} shard {shard} on {host} "
-          f"({'SAVE' if args.save else 'preview'})")
+    # Mode: real save / drain (classify full shard, no save, ignore lag) / preview.
+    if args.save:
+        edit_flags, mode = ["--apply", "--save"], "SAVE"
+    elif args.drain:
+        edit_flags, mode = ["--apply", "--ignore-maxlag"], "DRAIN"
+    else:
+        edit_flags, mode = ["--apply", "--max-items", "10"], "preview"
+    scan = ["--redirect-scan", args.subset, "--shard", shard, *edit_flags, *extra]
+    writes_state = args.save or args.drain
+
+    print(f"deconflate {args.subset} shard {shard} on {host} ({mode})")
 
     # 1. sync in: commit any pending state so the merge is clean, then pull.
     if not args.no_git:
@@ -118,8 +147,10 @@ def main() -> None:
     # 2. run it -- directly here, or as a Toolforge job.
     if args.job:
         jobname = f"deconflate-{args.subset}"
-        inner = ("bash $HOME/wikidata/projects/viaf_deconflate/toolforge_run.sh "
-                 + " ".join(scan))
+        # Absolute path, not $HOME/...: the command is handed to `toolforge jobs`
+        # via subprocess (no shell), so $HOME would stay literal and the job's
+        # `bash $HOME/...` would not resolve. PROJECT is already absolute.
+        inner = f"bash {PROJECT / 'toolforge_run.sh'} " + " ".join(scan)
         run(["toolforge", "jobs", "delete", jobname], dry=dry, allow_fail=True, check=False)
         run(["toolforge", "jobs", "run", jobname, "--image", "python3.11",
              "--wait", "--command", inner], dry=dry)
@@ -130,16 +161,29 @@ def main() -> None:
         run([sys.executable, "projects/viaf_deconflate/deconflate.py", *scan],
             env=env, dry=dry)
 
-    # 3. push state -- only when a real save could have changed it.
-    if not args.no_git and args.save:
+    # 3. push state -- when a save or a drain could have changed it (a drain
+    # settles the clean LIVE_VIAF_OK items to checked.txt, worth syncing).
+    if not args.no_git and writes_state:
+        label = "run" if args.save else "drain"
         git("add", "projects/viaf_deconflate/output", dry=dry, allow_fail=True)
         if dry or has_staged_changes():
             git("commit", "-m",
-                f"deconflate {args.subset} run {today} (shard {shard})", dry=dry)
+                f"deconflate {args.subset} {label} {today} (shard {shard})", dry=dry)
         git("pull", "--no-rebase", "--no-edit", dry=dry)
         git("push", dry=dry)
 
-    print("done." if not dry else "dry-run complete (nothing executed).")
+    if dry:
+        print("dry-run complete (nothing executed).")
+    elif args.save:
+        print("done.")
+    elif args.drain:
+        print("\nDRAIN complete: VIAF budget spent, clean (LIVE_VIAF_OK) items "
+              "settled to checked.txt and pushed. Edit-needing items were only "
+              "previewed -- run with --save when lag is low to apply them.")
+    else:
+        print("\nPREVIEW ONLY (no --save): capped at --max-items 10, nothing saved "
+              "and nothing pushed. Re-run with --save to apply edits and use the "
+              "full VIAF budget:\n    python projects/viaf_deconflate/sync_run.py --save")
 
 
 if __name__ == "__main__":
