@@ -4380,3 +4380,11 @@ Q315822		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
 Q315982		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
 Q316016		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
 Q316090		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q171677		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q191455		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q192133		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q213855		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q213985		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q214121		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q214175		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
+Q214283		LIVE_VIAF_OK	2026-09-19	live VIAF value(s) all valid clusters
