@@ -119,3 +119,8 @@ Q242270	250687938	INCONSISTENT	2026-09-18	still in old cluster, but ids also mov
 Q298220	36898565	PROBABLY_CONFLATED	2026-09-19	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['150176018886401352748']
 Q221657		REDIRECT_REVIEW	2026-09-19	redirect target clashes -> review live_review=['89539032']
 Q317146	620146936846613782986	INCONSISTENT	2026-09-19	still in old cluster, but ids also moved to ['120154257828424150431']
+Q328736	287805725	PROBABLY_CONFLATED	2026-09-20	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human +frag=['100011083', '297754917', '5689159478169527990005']
+Q336198	55571017	INCONSISTENT	2026-09-20	still in old cluster, but ids also moved to ['101913661']
+Q354890	92007901	INCONSISTENT	2026-09-20	item already has normal rank VIAF ['110974455', '2688169032366887720007']; ids also -> 3390176021863201500003 +frag=['29631680'] redirect=[('2688169032366887720007', None)]
+Q354890	3588159248385904870006	INCONSISTENT	2026-09-20	item already has normal rank VIAF ['110974455', '2688169032366887720007']; ids also -> 3390176021863201500003 +frag=['29631680'] redirect=[('2688169032366887720007', None)]
+Q354890	66146998516918942235	INCONSISTENT	2026-09-20	item already has normal rank VIAF ['110974455', '2688169032366887720007']; ids also -> 3390176021863201500003 +frag=['29631680'] redirect=[('2688169032366887720007', None)]
