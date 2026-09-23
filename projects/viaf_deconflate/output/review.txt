@@ -131,3 +131,6 @@ Q503230	171188650	AMBIGUOUS_SHARED_ID	2026-09-22	old cluster still carries an id
 Q518300	290064523	INCONSISTENT	2026-09-22	still in old cluster, but ids also moved to ['110870507'] +frag=['11167760053313572106', '99158790722938852156']
 Q550318		REDIRECT_FIX	2026-09-22	live VIAF redirected / withdrawn redirect=[('7125163570596016620008', None)] live_review=['121146998603318942739']
 Q606014	173803147	RELABEL_ONLY	2026-09-22	old cluster no longer holds the person; clean cluster already live +frag=['11168168450848041312'] live_review=['88048519']
+Q696040		REDIRECT_REVIEW	2026-09-23	redirect target clashes -> review live_review=['344144783230445841396']
+Q722430	100249731	INCONSISTENT	2026-09-23	still in old cluster, but ids also moved to ['237986203']
+Q775372	34093544	LIST_REDIRECT	2026-09-23	old cluster redirects to 137776783 +frag=['3263159478163727990002']
