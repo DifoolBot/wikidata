@@ -140,3 +140,5 @@ Q789844	18900862	LIST_REDIRECT	2026-09-24	old cluster redirects to 118090212
 Q888254	311640129	DUPLICATE_RANK	2026-09-24	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
 Q898322	56449984	INCONSISTENT	2026-09-24	still in old cluster, but ids also moved to ['16460407', '214582306', '389153126225224750008', '53352880', '60467003', '65676707']
 Q978054		REDIRECT_REVIEW	2026-09-24	redirect target clashes -> review live_review=['4740148269735805230006']
+Q1234940	261569371	INCONSISTENT	2026-09-25	still in old cluster, but ids also moved to ['525149294404480522634', '78641671'] live_review=['191893102', '284949912']
+Q1262726	204944546	DUPLICATE_RANK	2026-09-25	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
