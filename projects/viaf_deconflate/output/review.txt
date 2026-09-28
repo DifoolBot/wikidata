@@ -143,3 +143,5 @@ Q978054		REDIRECT_REVIEW	2026-09-24	redirect target clashes -> review live_revie
 Q1234940	261569371	INCONSISTENT	2026-09-25	still in old cluster, but ids also moved to ['525149294404480522634', '78641671'] live_review=['191893102', '284949912']
 Q1262726	204944546	DUPLICATE_RANK	2026-09-25	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
 Q1555630		REDIRECT_REVIEW	2026-09-27	redirect target clashes -> review live_review=['2576155648123018330008']
+Q473405		REDIRECT_FIX	2026-09-28	live VIAF redirected / withdrawn redirect=[('971154923690663780000', '84152682560123311406')] live_review=['420159474187427661734']
+Q704965		REDIRECT_REVIEW	2026-09-28	redirect target clashes -> review live_review=['60374050']
