@@ -151,3 +151,5 @@ Q1979740	8181973	INCONSISTENT	2026-09-28	item already has normal rank VIAF ['332
 Q770133		REDIRECT_REVIEW	2026-09-29	redirect target clashes -> review live_review=['266805890']
 Q987125	2609149296272580670008	INCONSISTENT	2026-09-29	still in old cluster, but ids also moved to ['9705149296179080670003'] +frag=['119075957', '20019746', '267760811']
 Q2446828		REDIRECT_FIX	2026-09-30	live VIAF redirected / withdrawn redirect=[('263157523213927030080', None)] live_review=['58154380931030290416']
+Q1351751	107308516	DUPLICATE_RANK	2026-09-30	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
+Q1359289		REDIRECT_REVIEW	2026-09-30	redirect target clashes -> review live_review=['250950730']
