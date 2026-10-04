@@ -157,3 +157,4 @@ Q1398493		REDIRECT_FIX	2026-10-01	live VIAF redirected / withdrawn redirect=[('5
 Q2896600		REDIRECT_REVIEW	2026-10-01	redirect target clashes -> review live_review=['346159234774503372722']
 Q3101650		REDIRECT_REVIEW	2026-10-02	redirect target clashes -> review live_review=['214149066623365602294']
 Q3175826		REDIRECT_REVIEW	2026-10-03	redirect target clashes -> review live_review=['88923278']
+Q3610018		REDIRECT_REVIEW	2026-10-04	redirect target clashes -> review live_review=['86143126']
