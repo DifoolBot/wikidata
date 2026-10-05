@@ -158,3 +158,7 @@ Q2896600		REDIRECT_REVIEW	2026-10-01	redirect target clashes -> review live_revi
 Q3101650		REDIRECT_REVIEW	2026-10-02	redirect target clashes -> review live_review=['214149066623365602294']
 Q3175826		REDIRECT_REVIEW	2026-10-03	redirect target clashes -> review live_review=['88923278']
 Q3610018		REDIRECT_REVIEW	2026-10-04	redirect target clashes -> review live_review=['86143126']
+Q3769952		REDIRECT_REVIEW	2026-10-05	redirect target clashes -> review live_review=['5105159248550904870003']
+Q3856674	12691130	AMBIGUOUS_SHARED_ID	2026-10-05	old cluster still carries an id that applies to this item (ISNI 0000000061350873) and no other item is confirmed to own it -> ambiguous, needs a human redirect=[('9627168049017538410001', None)]
+Q4015432	132144928865154440811	INCONSISTENT	2026-10-05	still in old cluster, but ids also moved to ['117908867']
+Q4025364		REDIRECT_REVIEW	2026-10-05	redirect target clashes -> review live_review=['281492399']
