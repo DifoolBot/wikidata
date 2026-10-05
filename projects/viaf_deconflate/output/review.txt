@@ -162,3 +162,5 @@ Q3769952		REDIRECT_REVIEW	2026-10-05	redirect target clashes -> review live_revi
 Q3856674	12691130	AMBIGUOUS_SHARED_ID	2026-10-05	old cluster still carries an id that applies to this item (ISNI 0000000061350873) and no other item is confirmed to own it -> ambiguous, needs a human redirect=[('9627168049017538410001', None)]
 Q4015432	132144928865154440811	INCONSISTENT	2026-10-05	still in old cluster, but ids also moved to ['117908867']
 Q4025364		REDIRECT_REVIEW	2026-10-05	redirect target clashes -> review live_review=['281492399']
+Q1698631	263887067	PROBABLY_CONFLATED	2026-10-05	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q1699643	369148995846059750064	DUPLICATE_RANK	2026-10-05	value is normal rank AND deprecated-for-conflation on this item -> contradiction, needs a human
