@@ -9,3 +9,4 @@ Q176287		ERROR	2026-09-17	MaxlagTimeoutError: Maximum retries attempted due to m
 Q179725		ERROR	2026-09-17	MaxlagTimeoutError: Maximum retries attempted due to maxlag without success.
 Q191455		ERROR	2026-09-17	MaxlagTimeoutError: Maximum retries attempted due to maxlag without success.
 Q192133		ERROR	2026-09-17	MaxlagTimeoutError: Maximum retries attempted due to maxlag without success.
+Q2821075		ERROR	2026-10-08	JSONDecodeError: Expecting value: line 1 column 1 (char 0)
