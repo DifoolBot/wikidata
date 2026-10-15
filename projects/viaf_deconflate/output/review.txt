@@ -170,3 +170,4 @@ Q2426347		REDIRECT_REVIEW	2026-10-07	redirect target clashes -> review live_revi
 Q2635543	70822946	PROBABLY_CONFLATED	2026-10-07	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
 Q3165813		REDIRECT_REVIEW	2026-10-13	redirect target clashes -> review live_review=['22298522']
 Q3181303	110034902	INCONSISTENT	2026-10-13	still in old cluster, but ids also moved to ['2018155708734322580004']
+Q3557601		REDIRECT_REVIEW	2026-10-15	redirect target clashes -> review live_review=['6513160668334303560000']
