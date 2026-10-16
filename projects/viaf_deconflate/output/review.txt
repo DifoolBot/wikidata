@@ -171,3 +171,6 @@ Q2635543	70822946	PROBABLY_CONFLATED	2026-10-07	old cluster holds an id not on t
 Q3165813		REDIRECT_REVIEW	2026-10-13	redirect target clashes -> review live_review=['22298522']
 Q3181303	110034902	INCONSISTENT	2026-10-13	still in old cluster, but ids also moved to ['2018155708734322580004']
 Q3557601		REDIRECT_REVIEW	2026-10-15	redirect target clashes -> review live_review=['6513160668334303560000']
+Q4775474		REDIRECT_FIX	2026-10-16	live VIAF redirected / withdrawn redirect=[('8081169084870290310007', '329174413966208700005')] live_review=['3599169262204109510008']
+Q4957472	186478890	INCONSISTENT	2026-10-16	still in old cluster, but ids also moved to ['56797211'] redirect=[('305503223', None)]
+Q4977050		REDIRECT_REVIEW	2026-10-16	redirect target clashes -> review live_review=['27121030']
