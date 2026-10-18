@@ -174,3 +174,5 @@ Q3557601		REDIRECT_REVIEW	2026-10-15	redirect target clashes -> review live_revi
 Q4775474		REDIRECT_FIX	2026-10-16	live VIAF redirected / withdrawn redirect=[('8081169084870290310007', '329174413966208700005')] live_review=['3599169262204109510008']
 Q4957472	186478890	INCONSISTENT	2026-10-16	still in old cluster, but ids also moved to ['56797211'] redirect=[('305503223', None)]
 Q4977050		REDIRECT_REVIEW	2026-10-16	redirect target clashes -> review live_review=['27121030']
+Q4149801	8486545	PROBABLY_CONFLATED	2026-10-18	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
+Q4161705	108145542403296641462	AMBIGUOUS_SHARED_ID	2026-10-18	old cluster still carries an id that applies to this item (LIH LNB:DCfe;=Bi) and no other item is confirmed to own it -> ambiguous, needs a human
