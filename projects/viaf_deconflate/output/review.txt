@@ -178,3 +178,4 @@ Q4149801	8486545	PROBABLY_CONFLATED	2026-10-18	old cluster holds an id not on th
 Q4161705	108145542403296641462	AMBIGUOUS_SHARED_ID	2026-10-18	old cluster still carries an id that applies to this item (LIH LNB:DCfe;=Bi) and no other item is confirmed to own it -> ambiguous, needs a human
 Q7153470		REDIRECT_REVIEW	2026-10-20	redirect target clashes -> review live_review=['83994558']
 Q7177632	166776953	INCONSISTENT	2026-10-20	still in old cluster, but ids also moved to ['317292072']
+Q4485195		REDIRECT_REVIEW	2026-10-23	redirect target clashes -> review live_review=['119023464']
