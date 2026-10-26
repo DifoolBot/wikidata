@@ -182,3 +182,4 @@ Q4485195		REDIRECT_REVIEW	2026-10-23	redirect target clashes -> review live_revi
 Q11768004		REDIRECT_REVIEW	2026-10-25	redirect target clashes -> review live_review=['2758156075619553980004']
 Q5079801	313038938	INCONSISTENT	2026-10-25	ids resolve to multiple new clusters: ['14170529756720220005', '212975200']
 Q11924700		REDIRECT_REVIEW	2026-10-26	redirect target clashes -> review live_review=['44658681']
+Q5672481	94006542	INSUFFICIENT	2026-10-26	no known authority ids on item
