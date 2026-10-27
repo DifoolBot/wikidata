@@ -35,6 +35,18 @@
   # cpu: "1"
   retry: 1
 
+- name: detect-promo
+  # Read-only observatory: snapshots the previous 24 h of new items into
+  # projects/detect_promo/data/<date>.json (analysis runs locally after a sync).
+  # 23:00 UTC = 06:00 local, the time the Windows task used.
+  command: bash $HOME/wikidata/projects/detect_promo/toolforge_run.sh
+  image: python3.11
+  schedule: "0 23 * * *"
+  emails: onfailure
+  # mem: 1Gi
+  # cpu: "1"
+  retry: 1
+
 - name: remove-sitelinks
   # --refresh repopulates items.txt from qlever first (else the queue empties
   # out and nothing is edited); --save makes the real edits. Weekly cadence

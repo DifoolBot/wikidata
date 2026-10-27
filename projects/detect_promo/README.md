@@ -64,7 +64,10 @@ conjunction: fresh single-purpose accounts whose signature is
 warm-up "unicorn" is rare (and partly *invisible* — see limitation 1 below).
 Non-scored **display tells** aid triage: `cluster_modality` (mixed = hand-seed
 the anchor via UI, then script the rest via API), `cluster_span_min` (scripted
-burst), and `refs_on_fresh_item` (notability laundering). Sleeper/farming
+burst), `refs_on_fresh_item` (notability laundering), and `ui_burst_max`
+(statement additions tagged `wikidata-ui` ~1 s apart -- weak: the `wikidata-ui`
+tag is client-set, but the desktop UI can also publish several prepared
+statements in quick succession). Sleeper/farming
 accounts (old registration, recent first edit) are *not* caught by the 120-day
 cutoff — feed the collected creators to `--users-file` for the heavier pass.
 

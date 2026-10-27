@@ -25,6 +25,7 @@ from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(HERE, "data")
+UI_BURST_MIN = 5  # mirrors detect_promo_accounts.UI_BURST_MIN (this file stays import-free)
 
 
 def load_days(data_dir: str, days: int | None) -> list[dict]:
@@ -66,6 +67,8 @@ def tells(r: dict) -> str:
     n = r.get("cluster_n_created") or 0
     if n > 1:
         t.append("cluster=%d/%gm" % (n, r.get("cluster_span_min") or 0))
+    if (r.get("ui_burst_max") or 0) >= UI_BURST_MIN:
+        t.append("UI-burst=%d" % r["ui_burst_max"])
     if (r.get("refs_on_fresh_item") or 0) >= 3:
         t.append("refs=%d" % r["refs_on_fresh_item"])
     if r.get("has_sitelink"):

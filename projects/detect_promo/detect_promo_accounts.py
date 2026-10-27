@@ -43,7 +43,7 @@ HEADERS = {
     )
 }
 SESSION = requests.Session()
-SLEEP = 0.1  # courtesy delay between calls
+SLEEP = 2  # courtesy delay between calls (user 2026-10-18: 2 s; not overloading Wikidata beats speed)
 
 # Wikidata autoconfirmed thresholds (per Wikidata:Autoconfirmed_users): >= 50
 # edits AND FIRST EDIT >= 4 days old (age is measured from the first edit, not
@@ -52,6 +52,20 @@ SLEEP = 0.1  # courtesy delay between calls
 # i.e. reduced scrutiny + smoother automation.
 AUTOCONFIRM_DAYS = 4
 AUTOCONFIRM_EDITS = 50
+
+# UI-burst display tell: consecutive statement additions tagged `wikidata-ui`
+# that are <= UI_BURST_GAP_S apart (AustinATTS, 2026-10-11: pause 2-4 min, then
+# 7-8 statements at 1 s intervals). WEAK, not proof of scripting: the desktop UI
+# lets you fill in several statement forms and then click "publish" on each in
+# quick succession (phab:T198554), which gives exactly this rhythm; one
+# established editor in a 120-account sample bursts routinely. Nor does the tag
+# prove UI use: `wikidata-ui` is a "manual" change tag, set by the client via
+# `tags=`, so any script can send it. Only statement ADDITIONS count: one
+# termbox publish saves each language/field as its own edit within a second,
+# sitelinks move in one action, and a removal is a single click.
+UI_BURST_GAP_S = 2
+UI_BURST_MIN = 5
+UI_CLAIM_ADD_RE = re.compile(r"/\*\s*(wbsetclaim-create|wbcreateclaim)")
 
 # --- Starter property / class sets (tune these) ----------------------------
 
@@ -129,12 +143,32 @@ PAYLOAD_P31 = {
 }
 
 
+MAXLAG = 5  # API etiquette (user 2026-10-18): step back while Wikidata's replicas lag
+MAXLAG_WAITS = 120  # lag waits are not failures; give up only after ~1 hour of continuous lag
+
+
 def api_get(params: dict) -> dict:
-    params = {**params, "format": "json", "formatversion": "2"}
-    r = SESSION.get(API, params=params, headers=HEADERS, timeout=60)
-    r.raise_for_status()
-    time.sleep(SLEEP)
-    return r.json()
+    params = {"maxlag": MAXLAG, **params, "format": "json", "formatversion": "2"}
+    failures = lag_waits = 0
+    while True:
+        r = SESSION.get(API, params=params, headers=HEADERS, timeout=60)
+        if r.status_code in (429, 503) and failures < 5:
+            failures += 1
+            delay = max(60 * failures, int(r.headers.get("Retry-After", "0") or 0))
+            print(f"   API {r.status_code}, waiting {delay} s ...", file=sys.stderr, flush=True)
+            time.sleep(delay)
+            continue
+        r.raise_for_status()
+        if r.headers.get("MediaWiki-API-Error") == "maxlag":
+            lag_waits += 1
+            if lag_waits > MAXLAG_WAITS:
+                raise RuntimeError("Wikidata lagging (maxlag) for too long, giving up")
+            delay = max(30, int(r.headers.get("Retry-After", "0") or 0))
+            print(f"   server lag above maxlag={MAXLAG}, waiting {delay} s ...", file=sys.stderr, flush=True)
+            time.sleep(delay)
+            continue
+        time.sleep(SLEEP)
+        return r.json()
 
 
 def paginate(params: dict, listname: str):
@@ -280,6 +314,34 @@ def add_farming(user: str, acct: dict) -> None:
     acct.update(score_farming(reg, get_first_edits(user)))
 
 
+def ui_bursts(contribs: list[dict]) -> tuple[int, int]:
+    """(longest run, number of runs >= UI_BURST_MIN) of UI-tagged statement
+    edits each <= UI_BURST_GAP_S after the previous one. Any other edit in
+    between breaks the run. Display tell only -- not scored."""
+    edits = sorted(
+        (e for e in contribs if e.get("timestamp")), key=lambda e: e["timestamp"]
+    )
+    longest = n_runs = run = 0
+    prev = None
+    for e in edits:
+        comment = e.get("comment", "") or ""
+        is_ui_claim = "wikidata-ui" in (e.get("tags") or []) and bool(
+            UI_CLAIM_ADD_RE.search(comment)
+        )
+        ts = parse_ts(e["timestamp"])
+        if is_ui_claim and prev is not None and (ts - prev).total_seconds() <= UI_BURST_GAP_S:
+            run += 1
+        else:
+            if run >= UI_BURST_MIN:
+                n_runs += 1
+            run = 1 if is_ui_claim else 0
+        prev = ts if is_ui_claim else None
+        longest = max(longest, run)
+    if run >= UI_BURST_MIN:
+        n_runs += 1
+    return longest, n_runs
+
+
 def score_account(contribs: list[dict]) -> dict:
     """Warm-up fingerprint metrics from a contribution sample."""
     total = len(contribs)
@@ -307,7 +369,10 @@ def score_account(contribs: list[dict]) -> dict:
         if ts:
             minute_buckets[ts] += 1
     max_burst = max(minute_buckets.values()) if minute_buckets else 0
+    ui_burst_max, ui_burst_runs = ui_bursts(contribs)
     return {
+        "ui_burst_max": ui_burst_max,
+        "ui_burst_runs": ui_burst_runs,
         "total": total,
         "boilerplate_frac": boiler / total if total else 0.0,
         "term_frac": term / total if total else 0.0,
@@ -678,7 +743,8 @@ def print_report(rows: list[dict]) -> None:
             f"(edits={a['total']} boiler={a['boilerplate_frac']:.0%} "
             f"term={a['term_frac']:.0%} small={a['small_frac']:.0%} "
             f"burst/min={a['max_burst_per_min']} reverted={a['reverted']} "
-            f"ui={a['ui_frac']:.0%} raw_api={a['raw_api_frac']:.0%})\n"
+            f"ui={a['ui_frac']:.0%} raw_api={a['raw_api_frac']:.0%} "
+            f"ui_burst={a.get('ui_burst_max', 0)}x{a.get('ui_burst_runs', 0)})\n"
             f"      farming: farmed={a.get('farmed')} "
             f"first{a.get('first_n')}_boiler={a.get('first_boiler_frac', 0):.0%} "
             f"days_to_50={a.get('days_to_50_edits')} reg={a.get('registration')}\n"

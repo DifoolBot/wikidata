@@ -3,11 +3,15 @@
 Tool account: `difoolbot` &middot; repo: `~/wikidata` &middot; status site: https://difoolbot.toolforge.org
 
 ## Login
+SSH logins use your own account; the tool account is reached with `become`
+(`ssh difoolbot@...` is refused: "Permission denied (publickey)").
 ```bash
-ssh difoolbot@login.toolforge.org     # lands on the bastion as the tool
-# or, if you sshed as yourself:
-become difoolbot
+ssh difool@login.toolforge.org        # lands on the bastion as yourself
+become difoolbot                      # switch to the tool
 ```
+The tool's home is `/data/project/difoolbot` (so `~/wikidata` only after `become`;
+as `difool`, use `/data/project/difoolbot/wikidata`). Disk: the shared tools NFS
+volume, no per-tool quota (`du -sh /data/project/difoolbot`; ~277 MB on 2026-10-27).
 
 ## Deploy code (git-pull-as-tool)
 ```bash
@@ -82,6 +86,13 @@ WD_DB_BACKEND=mariadb PYTHONPATH=projects:projects/shared_lib python -m viaf.cal
 
 # push viaf_config.yaml order/skips into the CODES table
 WD_DB_BACKEND=mariadb python projects/viaf/codes_sync.py
+```
+
+## detect_promo observatory (job `detect-promo`, read-only)
+Toolforge only collects (one day file per run, 23:00 UTC; files older than 30 days are
+pruned there). Analysis runs locally on the full history after syncing:
+```powershell
+powershell -File projects\detect_promo\sync_from_toolforge.ps1   # copy new day files + track_deletions --days 14
 ```
 
 ## Notes

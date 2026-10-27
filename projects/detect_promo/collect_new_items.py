@@ -261,6 +261,14 @@ def score_new_accounts(
                     **cluster[user],
                 }
             )
+    # ui_burst_max -- longest run of UI-tagged statement edits ~1 s apart (see
+    #   dp.UI_BURST_GAP_S); only fetched for shortlisted accounts, as it costs a
+    #   usercontribs call per account.
+    bursts = {}
+    for u in {r["user"] for r in shortlist}:
+        bursts[u] = dp.ui_bursts(dp.get_contribs(u, limit=500))[0]
+    for r in shortlist:
+        r["ui_burst_max"] = bursts[r["user"]]
     shortlist.sort(key=lambda r: r["score"], reverse=True)
     stats = {
         "new_account_items": len(new_items),
