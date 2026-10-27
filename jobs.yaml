@@ -43,6 +43,8 @@
   image: python3.11
   schedule: "0 23 * * *"
   emails: onfailure
+  # Output kept in ~/detect-promo.out / .err, so a failed night can be read afterwards.
+  filelog: true
   # mem: 1Gi
   # cpu: "1"
   retry: 1
