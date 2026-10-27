@@ -191,11 +191,12 @@ def batch_size() -> int:
 
 
 def api_get(params: dict) -> dict:
+    s = site()  # first: sets PYWIKIBOT_DIR before pywikibot is imported anywhere
     from pywikibot.data import api
 
     params = {k: v for k, v in params.items() if k not in ("format", "maxlag")}
     params.setdefault("formatversion", "2")
-    data = api.Request(site=site(), parameters=params).submit()
+    data = api.Request(site=s, parameters=params).submit()
     time.sleep(_pace)
     return data
 
