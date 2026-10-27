@@ -74,7 +74,7 @@ def scan_delete_log(since_date: str) -> dict[str, dict]:
         "leaction": "delete/delete",  # page deletions only (not restore/revdel)
         "lenamespace": "0",
         "leprop": "title|type|user|timestamp|comment",
-        "lelimit": "500",
+        "lelimit": "max",  # 5000 with apihighlimits (logged-in bot), else 500
         "leend": end,  # older bound; default dir is older-first-from-now
     }
     out: dict[str, dict] = {}

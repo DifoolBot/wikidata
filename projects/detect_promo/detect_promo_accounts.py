@@ -32,18 +32,10 @@ import sys
 import time
 from collections import defaultdict
 
-import requests
+import os
 
-API = "https://www.wikidata.org/w/api.php"
-HEADERS = {
-    # Identify the tool via the bot's user page
-    "User-Agent": (
-        "DifoolBot promo-account detector "
-        "(https://www.wikidata.org/wiki/User:DifoolBot)"
-    )
-}
-SESSION = requests.Session()
 SLEEP = 2  # courtesy delay between calls (user 2026-10-18: 2 s; not overloading Wikidata beats speed)
+BOT_USER = "DifoolBot"
 
 # Wikidata autoconfirmed thresholds (per Wikidata:Autoconfirmed_users): >= 50
 # edits AND FIRST EDIT >= 4 days old (age is measured from the first edit, not
@@ -143,32 +135,69 @@ PAYLOAD_P31 = {
 }
 
 
+# All API reads go through pywikibot, logged in as DifoolBot (user 2026-10-27: logged-in sessions and
+# pywikibot are always preferred). pywikibot sends maxlag, waits on lag (up to max_retries) and retries
+# server errors (retry_wait doubling to retry_max). On top of that a response hook handles HTTP 429,
+# which pywikibot only retries: it logs Retry-After and doubles our own pace for the rest of the run.
 MAXLAG = 5  # API etiquette (user 2026-10-18): step back while Wikidata's replicas lag
-MAXLAG_WAITS = 120  # lag waits are not failures; give up only after ~1 hour of continuous lag
+MAX_PACE = 30  # after a 429 the delay between calls doubles (2 -> 4 -> ... -> 30 s) for the rest of the run
+_pace = SLEEP
+_site = None
+
+
+def _on_response(resp, *args, **kwargs):
+    """requests response hook on pywikibot's session: react to HTTP 429."""
+    global _pace
+    if resp.status_code == 429:
+        _pace = min(_pace * 2, MAX_PACE)
+        body = " ".join(resp.text.split())[:120]
+        print(f"   API 429 (Retry-After={resp.headers.get('Retry-After')}), pywikibot retries; then {_pace} s "
+              f"between calls ... [{body}]", file=sys.stderr, flush=True)
+
+
+def site():
+    """The Wikidata site, logged in as DifoolBot on first use. Falls back to anonymous reads with a warning
+    (a missed collection day cannot be made up)."""
+    global _site
+    if _site is not None:
+        return _site
+    repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if "PYWIKIBOT_DIR" not in os.environ and os.path.exists(os.path.join(repo, "user-config.py")):
+        os.environ["PYWIKIBOT_DIR"] = repo  # pywikibot otherwise only looks in the cwd
+    import pywikibot
+    import pywikibot.comms.http as pwb_http
+    from shared_lib.wikidata_site import get_site
+
+    pywikibot.config.maxlag = MAXLAG
+    pywikibot.config.max_retries = 60  # slow jobs: wait out lag rather than fail
+    pywikibot.config.retry_wait = 30
+    pywikibot.config.retry_max = 300
+    s = get_site()
+    try:
+        s.login()
+    except Exception as e:  # noqa: BLE001 -- keep collecting anonymously rather than lose the day
+        print(f"   WARNING: login failed ({e}); reading anonymously", file=sys.stderr, flush=True)
+    if s.username() != BOT_USER or not s.logged_in():
+        print(f"   WARNING: not logged in as {BOT_USER} (user={s.username()!r}); reading anonymously",
+              file=sys.stderr, flush=True)
+    pwb_http.session.hooks["response"].append(_on_response)
+    _site = s
+    return s
+
+
+def batch_size() -> int:
+    """Titles/ids/users per multi-value request: 500 with apihighlimits (bot flag), else 50."""
+    return 500 if site().logged_in() and site().has_right("apihighlimits") else 50
 
 
 def api_get(params: dict) -> dict:
-    params = {"maxlag": MAXLAG, **params, "format": "json", "formatversion": "2"}
-    failures = lag_waits = 0
-    while True:
-        r = SESSION.get(API, params=params, headers=HEADERS, timeout=60)
-        if r.status_code in (429, 503) and failures < 5:
-            failures += 1
-            delay = max(60 * failures, int(r.headers.get("Retry-After", "0") or 0))
-            print(f"   API {r.status_code}, waiting {delay} s ...", file=sys.stderr, flush=True)
-            time.sleep(delay)
-            continue
-        r.raise_for_status()
-        if r.headers.get("MediaWiki-API-Error") == "maxlag":
-            lag_waits += 1
-            if lag_waits > MAXLAG_WAITS:
-                raise RuntimeError("Wikidata lagging (maxlag) for too long, giving up")
-            delay = max(30, int(r.headers.get("Retry-After", "0") or 0))
-            print(f"   server lag above maxlag={MAXLAG}, waiting {delay} s ...", file=sys.stderr, flush=True)
-            time.sleep(delay)
-            continue
-        time.sleep(SLEEP)
-        return r.json()
+    from pywikibot.data import api
+
+    params = {k: v for k, v in params.items() if k not in ("format", "maxlag")}
+    params.setdefault("formatversion", "2")
+    data = api.Request(site=site(), parameters=params).submit()
+    time.sleep(_pace)
+    return data
 
 
 def paginate(params: dict, listname: str):
@@ -195,7 +224,7 @@ def get_new_items(hours: int, limit: int) -> list[dict]:
         "rctype": "new",
         "rcshow": "!anon",
         "rcprop": "title|ids|user|timestamp|comment|sizes|tags",
-        "rclimit": "500",
+        "rclimit": "max",  # 5000 with apihighlimits (logged-in bot), else 500
         "rcend": cutoff,
     }
     out = []
@@ -391,8 +420,9 @@ def get_entities(qids: list[str]) -> dict:
     Sitelinks matter because a valid one satisfies WD:N criterion 1 on its own.
     """
     result = {}
-    for i in range(0, len(qids), 50):
-        batch = qids[i : i + 50]
+    n = batch_size()
+    for i in range(0, len(qids), n):
+        batch = qids[i : i + n]
         data = api_get(
             {
                 "action": "wbgetentities",

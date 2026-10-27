@@ -15,9 +15,13 @@
 # Day files older than KEEP_DAYS (default 30) are pruned here after the run, so
 # Toolforge holds ~100 MB at most -- sync at least every few weeks.
 #
-# Assumes: repo cloned at $HOME/wikidata, venv at $HOME/venv. Override with VENV.
+# Reads go through pywikibot, logged in as DifoolBot (falls back to anonymous with a warning).
+#
+# Assumes: repo cloned at $HOME/wikidata, venv at $HOME/venv, pywikibot config
+# in $HOME/.pywikibot. Override with VENV / PYWIKIBOT_DIR env vars.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+export PYWIKIBOT_DIR="${PYWIKIBOT_DIR:-$HOME/.pywikibot}"
 export PYTHONUNBUFFERED=1
 export PYTHONPATH="$REPO_ROOT/projects"
 source "${VENV:-$HOME/venv}/bin/activate"

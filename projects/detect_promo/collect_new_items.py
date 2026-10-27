@@ -66,7 +66,7 @@ def fetch_new_items(hours: int) -> list[dict]:
         "rctype": "new",
         "rcshow": "!anon",
         "rcprop": "title|user|timestamp|comment|sizes|tags|flags",
-        "rclimit": "500",
+        "rclimit": "max",  # 5000 with apihighlimits (logged-in bot), else 500
         "rcend": cutoff,
     }
     out = []
@@ -88,8 +88,9 @@ def fetch_new_items(hours: int) -> list[dict]:
 def fetch_creators(users: list[str]) -> dict:
     """Batch registration + editcount + groups (50 users/call)."""
     out = {}
-    for i in range(0, len(users), 50):
-        batch = users[i : i + 50]
+    n = dp.batch_size()
+    for i in range(0, len(users), n):
+        batch = users[i : i + n]
         data = dp.api_get(
             {
                 "action": "query",
