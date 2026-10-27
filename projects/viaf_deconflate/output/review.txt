@@ -188,3 +188,4 @@ Q6283727		REDIRECT_REVIEW	2026-10-26	redirect target clashes -> review live_revi
 Q12768248		REDIRECT_REVIEW	2026-10-27	redirect target clashes -> review live_review=['5826376']
 Q15078686	26151776750618011460	INCONSISTENT	2026-10-27	item already has normal rank VIAF ['283963072', '70588804', '74646557']; ids also -> 315533504
 Q15078686	195875800	INCONSISTENT	2026-10-27	still in old cluster, but ids also moved to ['315533504']
+Q6525703	7534627	INCONSISTENT	2026-10-27	still in old cluster, but ids also moved to ['59229411']
