@@ -54,11 +54,12 @@ def now_utc() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def fetch_new_items(hours: int) -> list[dict]:
-    """Every ns0 page creation by a registered user in the window (bots included
-    on purpose -- they are a census category). Pages to the cutoff, no --limit
-    truncation."""
-    cutoff = (now_utc() - dt.timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+def fetch_new_items(hours: int, until: dt.datetime | None = None) -> list[dict]:
+    """Every ns0 page creation by a registered user in the window ending at `until`
+    (default now; bots included on purpose -- they are a census category). Pages to
+    the cutoff, no --limit truncation."""
+    end = until or now_utc()
+    cutoff = (end - dt.timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     params = {
         "action": "query",
         "list": "recentchanges",
@@ -69,6 +70,8 @@ def fetch_new_items(hours: int) -> list[dict]:
         "rclimit": "max",  # 5000 with apihighlimits (logged-in bot), else 500
         "rcend": cutoff,
     }
+    if until:
+        params["rcstart"] = end.strftime("%Y-%m-%dT%H:%M:%SZ")
     out = []
     for e in dp.paginate(params, "recentchanges"):
         out.append(
@@ -289,6 +292,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--hours", type=int, default=24, help="look-back window")
     ap.add_argument(
+        "--until",
+        help="end of the window, UTC (e.g. 2026-10-26T23:00:00Z; default now) -- to fill "
+        "a missed window afterwards; recent changes go back 30 days, and items deleted "
+        "in the meantime are no longer listed",
+    )
+    ap.add_argument(
         "--slim",
         action="store_true",
         help="omit the raw item list from the day file (keeps census + shortlist "
@@ -301,9 +310,12 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    ref = now_utc()
-    print(f"Collecting new items from the last {args.hours}h ...")
-    items = fetch_new_items(args.hours)
+    until = (
+        dt.datetime.fromisoformat(args.until.replace("Z", "+00:00")) if args.until else None
+    )
+    ref = until or now_utc()
+    print(f"Collecting new items from the {args.hours}h before {ref:%Y-%m-%dT%H:%M:%SZ} ...")
+    items = fetch_new_items(args.hours, until)
     users = sorted({it["user"] for it in items})
     print(f"{len(items)} new items by {len(users)} accounts; fetching creator meta ...")
     creators = fetch_creators(users)
