@@ -192,3 +192,7 @@ Q6525703	7534627	INCONSISTENT	2026-10-27	still in old cluster, but ids also move
 Q15431678		REDIRECT_REVIEW	2026-10-29	redirect target clashes -> review live_review=['34625035']
 Q15437352		REDIRECT_REVIEW	2026-10-29	redirect target clashes -> review live_review=['285076445']
 Q15834218		REDIRECT_REVIEW	2026-10-29	redirect target clashes -> review live_review=['657155919062639730009']
+Q7326741	64085362	INCONSISTENT	2026-10-29	ids resolve to multiple new clusters: ['1141154741631153110000', '310639703'] redirect=[('246750290', '1141154741631153110000'), ('29467839', '310639703')]
+Q7341457		REDIRECT_REVIEW	2026-10-29	redirect target clashes -> review live_review=['199788576']
+Q7937791	44438540	INCONSISTENT	2026-10-29	still in old cluster, but ids also moved to ['211034404'] redirect=[('165600261', None)]
+Q8044281	9424846	INCONSISTENT	2026-10-29	item already has normal rank VIAF ['262953801', '296028808']; ids also -> 2638462 redirect=[('262953801', None)]
