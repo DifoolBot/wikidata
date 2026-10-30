@@ -1,0 +1,10 @@
+# large inputs, rebuilt by the scripts (opening_en.tsv by the Toolforge job first_sentence.py)
+output/catinfo_*.tsv
+output/cats_*.tsv
+output/items_*.tsv
+output/opening_*.tsv
+# local run state
+output/qs_*_checked/qlever_cache.json
+output/qs_*_checked/verify.log
+output/*.log
+__pycache__/
