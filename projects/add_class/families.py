@@ -14,6 +14,8 @@ Year families (round 2) were counted on the enwiki replica titles + a 2,000 samp
 tennis events (1,842/2,000) when the parent tournament ('2026 Pune Challenger') has sport (P641) tennis; badminton
 events share the pattern. Not used: '<year> ... football team' (ours are All-Conference selections, not team seasons),
 '<year> ... Council election' and '<year> ... Cup final' (split).
+Round 3: 'Parish of' / 'Electoral district of' have a per-state class among the siblings, but our items are nearly all
+one state (New South Wales, Victoria); IN_SENTENCE keeps that state's only.
 """
 import argparse
 import collections
@@ -41,10 +43,17 @@ FAMILY = {  # title prefix (or name) -> (class, siblings with it of the top 4[, 
     "Murder of ": ("Q132821", "1127/1559"),  # murder; most of the rest is P31 human, which is wrong
     "Anglican Diocese of ": ("Q18917976", "70/104"),  # Anglican diocese; the rest are other diocese classes
     "Index of ": ("Q13406463", "392/412"),  # Wikimedia list article
+    "Parish of ": ("Q28931760", "152/169"),  # parish of New South Wales, see IN_SENTENCE
+    "Electoral district of ": ("Q5356187", "234/814"),  # electoral district of Victoria: ours are all Victorian
     "<year> ... – Singles/Doubles": ("Q46190676", "1842/2000",  # tennis event, if the parent is tennis
                                      r"^\d{4}(?:–\d{2,4})? .+ – [\w' ]*?(?:[Ss]ingles|[Dd]oubles)$"),
 }
 TENNIS_EVENTS = "<year> ... – Singles/Doubles"
+IN_SENTENCE = {  # family -> the first sentence must say this, the title doesn't count: 'Peppora is a station' (Q55628929)
+    "Parish of ": re.compile(r"\b(?:civil|cadastral) parish\b|\bparish\b.*\b(?:New South Wales|NSW)\b", re.I),
+    # not the old Legislative Council (Q14935115), the Tasmanian House of Assembly (Q5355239) or a hatnote (Q5355948)
+    "Electoral district of ": re.compile(r"(?=.*electoral district)(?=.*Victoria)(?=.*Legislative Assembly)", re.I),
+}
 
 
 def family_of(t):
@@ -68,6 +77,8 @@ SKIP = {  # family -> opening that is no member: 'The coat of arms of Kumanovo i
     "Coat of arms of ": re.compile(r"\b(?:actually|not) an? (?:emblem|seal|logo)\b|\bwas the emblem\b|"
                                    r"\barms and (?:the )?flag\b", re.I),
     "Murder of ": re.compile(r"\b(?:disappearance|suicide|accident(?:al|ally)?|manslaughter)\b", re.I),
+    # other parishes: 'a Church of England parish' (Q7137443), 'The Roman Catholic parish of St. Sylvanus' (Q18210370)
+    "Parish of ": re.compile(r"\b(?:church|catholic|anglican|Queensland|Victoria|Tasmania|England|Ireland)\b", re.I),
 }
 NEED = {  # family -> title or opening must say this: 'Time in Tolkien's fiction' is a literary theme (Q106611193)
     "Time in ": re.compile(r"\bUTC|\bGMT\b|time zone|standard time|daylight saving", re.I),
@@ -110,6 +121,8 @@ def main():
             reason = "order of battle"  # 'Outline of the British Army at the end of the Cold War': a structure
         elif fam == TENNIS_EVENTS and not tennis[title[q]]:
             reason = "parent tournament not tennis"  # or no parent article
+        elif fam in IN_SENTENCE and not IN_SENTENCE[fam].search(s):
+            reason = "sentence does not fit the family's class"
         elif fam in NEED and not NEED[fam].search(title[q] + " " + text[:400]):
             reason = "opening lacks the family's subject"
         elif fam == "Murder of " and re.match(r"Murder of (?!the )[a-z]", title[q]):
