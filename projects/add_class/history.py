@@ -74,6 +74,19 @@ def kinds(items):
     return out
 
 
+def names_of(items):
+    """item -> its en/mul label and aliases: 'Indonesia national football team' is an alias of 'Indonesia men's
+    national football team' (Q657451)."""
+    out = {}
+    for i in range(0, len(items), 300):
+        q = PREFIX + f"""PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+SELECT ?m ?n WHERE {{ VALUES ?m {{ {" ".join("wd:" + x for x in items[i:i + 300])} }}
+  {{ ?m rdfs:label ?n }} UNION {{ ?m skos:altLabel ?n }} FILTER(LANG(?n) IN ("en", "mul")) }}"""
+        for r in qlever(q):
+            out.setdefault(r["m"], set()).add(r["n"])
+    return out
+
+
 def key(t):
     t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().casefold()
     t = re.sub(r"^the ", "", re.sub(r"\([^)]*\)", "", t).strip())
@@ -109,6 +122,7 @@ def main():
                 for q, r in cand.items()}
     target = enwiki_items(sorted({v for vs in variants.values() for v in vs}))
     info = kinds(sorted({item for _, item in target.values()}))
+    alias = names_of(sorted(info))
     disambig = set()
     items = sorted(info)
     for i in range(0, len(items), 300):
@@ -131,10 +145,10 @@ def main():
             notes.append((q, "no main article: skipped", title[q], "", "", s))
             continue
         lines.append(f"{q}\tP31\t{CITY if kind == 'city' else COUNTRY if kind == 'country' else ASPECT}\n")
-        k = key(label)
+        keys = {key(n) for n in alias.get(item, {label})} - {""}
         if item in disambig:
             notes.append((q, "main item is a disambiguation page: P31 only", title[q], item, label, s))
-        elif k and (k == key(rest) or k in key(rest)):
+        elif any(k == key(rest) or k in key(rest) for k in keys):
             lines.append(f"{q}\tP1269\t{item}\n")
         else:
             notes.append((q, "main item label differs: P31 only", title[q], item, label, s))
