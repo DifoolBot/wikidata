@@ -1,0 +1,15 @@
+qid	title	rejected	correct	reason
+Q16878282	Patau-Patau	P31 Q48731335	P31 Q532	village in Labuan, Malaysia ('Brunei Malays' in a clause); now in the batch
+Q24970932	Maine, Budva	P31 Q65661087	P31 Q5084	hamlet in Montenegro ('by the river' = Belarus ISO alias); skipped by villages.py
+Q104830171	Paliem, Bardes, Goa	P31 Q126723715	P31 Q56436498	'North Goa' read as Cameroon's North Region; now in the batch
+Q104865408	Loagri	P31 Q126723715	P31 Q532	village in Ghana ('West Mamprusi' read as Cameroon's West Region); skipped (no country named)
+Q104875362	Canca, Goa	P31 Q126723715	P31 Q56436498	'North Goa'; now in the batch
+Q104870541	Nerul, Goa	P31 Q126723715	P31 Q56436498	'North Goa'; now in the batch
+Q104869415	Pirna, Goa	P31 Q126723715	P31 Q56436498	'North Goa'; now in the batch
+Q117803034	Béloko	P31 Q126723715	P31 Q532	village in Nana-Mambéré, Central African Republic (near the Cameroon border); skipped (border)
+Q5286999	Dobó István Hungarian Elementary School	P31 Q532	P31 Q9842	a primary school in the village Nagyszelmenc ('which is a small village')
+Q106617140	Norman Kirk Park	P31 Q3957	P31 Q22698	a park in Kaiapoi ('which is a town')
+Q16930481	Vatoli communal violence 2008	P31 Q56436498	P31 Q5153967	an event (communal violence) in the village Vatoli
+Q28182902	History and culture of Elavumthitta	P31 Q56436498	P31 Q17524420 + P1269 Q5353628	aspect of history, facet of Elavumthitta (model: history and culture of breastfeeding Q5774799)
+Q28182913	History and culture of Kaviyoor	P31 Q56436498	P31 Q17524420 + P1269 Q12060969	aspect of history, facet of Kaviyoor (model: Q5774799)
+Q130387624	Tambun (disambiguation)	P31 Q3957	P31 Q4167410	disambiguation page (opens with the main meaning)

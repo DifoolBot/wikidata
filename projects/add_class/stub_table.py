@@ -55,7 +55,10 @@ def wdqs(query):
         except requests.RequestException:
             return None
         if r.status_code != 429:
-            return r if r.ok else None
+            try:  # a WDQS timeout mid-stream still answers 200, with truncated JSON
+                return r if r.ok and r.json() else None
+            except ValueError:
+                return None
         wait = int(r.headers.get("Retry-After", "60") or 60)
         print(f"   WDQS 429, waiting {wait} s ...", flush=True)
         time.sleep(wait)

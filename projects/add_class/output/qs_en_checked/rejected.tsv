@@ -1,0 +1,13 @@
+qid	title	rejected	correct	reason
+Q818943	Range query (database)	P31 Q8513	P279 Q3428776	'a common database operation': a kind of query, not a database
+Q12485836	Hollandsch Chineesche School	P31 Q3914	P279 Q3914	'were schools established by': a school type
+Q5128053	Classes of metals	P279 Q11426	P31 Q5962346	a classification of metals, not a metal
+Q946086	End-user certificate	P279 Q728	P279 Q49848	'is a document used in ... transfers of weapons'
+Q7241121	President's Bedroom	P279 Q180516	P31 Q180516	one room in the White House
+Q6400610	Kharchi	P31 Q178885	P31 Q111252729	'are the Gods of the Tripuri people': a group of deities
+Q133090621	Crete 1941	P31 Q131436	P31 Q7889	'a 1976 war video game'
+Q104844837	The Make My Day Card Game	P31 Q131436	P31 Q142714	'a 1987 card game'
+Q7092277	One-Act Play Festival	P31 Q1751626	P279 Q1751626	'A One-Act Play Festival is a festival of': a kind of festival
+Q21042177	Vogelheimer Klinge	P279 Q39546	P31 Q479257	one flint tool, discovered in 1926
+Q4116609	Pernik sword	P279 Q12791	P31 Q12791	one sword, unearthed at Krakra fortress
+Q104868802	Mt. Angel maypole	P31 Q860861	P31 Q76574	one maypole (stub category said sculpture)

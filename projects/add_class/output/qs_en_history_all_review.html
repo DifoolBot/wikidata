@@ -1,0 +1,78 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>QS review</title>
+<style>
+:root { --bg: #fff; --fg: #1d2125; --muted: #6b7280; --line: #e5e7eb; --head: #f3f4f6; --link: #0b63c4;
+        --bad: #fde2e2; --badfg: #9b1c1c; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038;
+        --head: #1a1f25; --link: #6cb6ff; --bad: #3b1d1d; --badfg: #ffb4b4; } }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; margin: 0 16px 80px; }
+header { position: sticky; top: 0; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line);
+         display: flex; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 2; }
+header input[type=search] { padding: 5px 8px; min-width: 260px; }
+button { padding: 5px 10px; cursor: pointer; }
+#stats { color: var(--muted); }
+details { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; }
+summary { background: var(--head); padding: 6px 10px; cursor: pointer; font-weight: 600; }
+summary .n { color: var(--muted); font-weight: 400; }
+table { border-collapse: collapse; width: 100%; }
+td { border-top: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
+td.c { width: 22px; } td.q { white-space: nowrap; width: 1%; } td.t { width: 22%; }
+td.s { color: var(--fg); }
+tr.bad td { background: var(--bad); } tr.bad td.s { color: var(--badfg); text-decoration: line-through; }
+a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+.hide { display: none; }
+</style></head><body>
+<header>
+  <strong>qs_en_history_all.txt</strong>
+  <input type="search" id="f" placeholder="Filter (class, title, sentence)">
+  <button id="open">Expand all</button><button id="close">Collapse all</button>
+  <button id="ok">Copy approved QS</button><button id="no">Copy rejected</button>
+  <span id="stats"></span>
+</header>
+<main id="m"></main>
+<script>
+const DATA = {"label": {"Q120754706": "Later Roman Empire", "Q1375077": "Tohoku Rakuten Golden Eagles", "Q139319": "Russian Republic", "Q14211": "Prime Minister of the United Kingdom", "Q1750688": "Brazilian Navy", "Q17524420": "aspect of history", "Q1791841": "Imam Reza Shrine", "Q194121": "Boston Bruins", "Q21070585": "Islamic State – Khorasan Province", "Q212106": "Dinka people", "Q22096482": "National Hockey League on television", "Q596796": "Saskatchewan Roughriders", "Q664403": "Uttarakhand Legislative Assembly", "Q7100647": "Order of the Arrow", "Q742661": "United States at the Olympics", "Q84167106": "COVID-19 pandemic in the United Kingdom", "Q868645": "Comrades Marathon"}, "rows": [["Q106611625", "P31", "Q17524420", "History of the Tohoku Rakuten Golden Eagles", "The history of the Tohoku Rakuten Golden Eagles Nippon Professional Baseball (NPB) began in 2004 when two Pacific League (PL) teams, the Osaka Kintetsu Buffaloes and the Orix BlueWave, merged to create the Orix Buffaloes."], ["Q106611625", "P1269", "Q1375077", "History of the Tohoku Rakuten Golden Eagles", "The history of the Tohoku Rakuten Golden Eagles Nippon Professional Baseball (NPB) began in 2004 when two Pacific League (PL) teams, the Osaka Kintetsu Buffaloes and the Orix BlueWave, merged to create the Orix Buffaloes."], ["Q106778827", "P31", "Q17524420", "History of the prime minister of the United Kingdom", "The position of Prime Minister of the United Kingdom was not created as a result of a single action; it evolved slowly and organically over three hundred years due to numerous Acts of Parliament, political developments, and accidents of history."], ["Q106778827", "P1269", "Q14211", "History of the prime minister of the United Kingdom", "The position of Prime Minister of the United Kingdom was not created as a result of a single action; it evolved slowly and organically over three hundred years due to numerous Acts of Parliament, political developments, and accidents of history."], ["Q108208955", "P31", "Q17524420", "History of the later Roman Empire", "The history of the Later Roman Empire covers the history of the Roman Empire from the beginning of the rule of Diocletian in 284 AD (1037 AVC) and the establishment of the Tetrarchy in 293 AD by Diocletian to the death of Heraclius in 641 AD (1394 AVC).[citation needed] The Roman Empire underwent a "], ["Q108208955", "P1269", "Q120754706", "History of the later Roman Empire", "The history of the Later Roman Empire covers the history of the Roman Empire from the beginning of the rule of Diocletian in 284 AD (1037 AVC) and the establishment of the Tetrarchy in 293 AD by Diocletian to the death of Heraclius in 641 AD (1394 AVC).[citation needed] The Roman Empire underwent a "], ["Q109236275", "P31", "Q17524420", "History of the COVID-19 pandemic in the United Kingdom", "This article outlines the history of the COVID-19 pandemic in the United Kingdom (granular timelines can be found here)."], ["Q109236275", "P1269", "Q84167106", "History of the COVID-19 pandemic in the United Kingdom", "This article outlines the history of the COVID-19 pandemic in the United Kingdom (granular timelines can be found here)."], ["Q112242210", "P31", "Q17524420", "History of the Uttarakhand Legislative Assembly", "The Uttarakhand Legislative Assembly, also known as the Uttarakhand Vidhan Sabha, is a unicameral governing and law making body of Uttarakhand, one of the 28 states of India."], ["Q112242210", "P1269", "Q664403", "History of the Uttarakhand Legislative Assembly", "The Uttarakhand Legislative Assembly, also known as the Uttarakhand Vidhan Sabha, is a unicameral governing and law making body of Uttarakhand, one of the 28 states of India."], ["Q113015464", "P31", "Q17524420", "History of the Imam Reza Shrine", "The history of the Imam Reza Shrine, located in Mashhad, Iran, is centered on the only tomb of Shi'ite imams in Iran."], ["Q113015464", "P1269", "Q1791841", "History of the Imam Reza Shrine", "The history of the Imam Reza Shrine, located in Mashhad, Iran, is centered on the only tomb of Shi'ite imams in Iran."], ["Q115829282", "P31", "Q17524420", "History of the National Hockey League on television", "The National Hockey League (NHL) is shown on national television in the United States and Canada."], ["Q115829282", "P1269", "Q22096482", "History of the National Hockey League on television", "The National Hockey League (NHL) is shown on national television in the United States and Canada."], ["Q116233589", "P31", "Q17524420", "History of the Iraq national football team", "History of the Iraq national football team began with the team's first international match in 1957."], ["Q116799510", "P31", "Q17524420", "History of the Boston Bruins", "The history of the Boston Bruins professional ice hockey team dates back to 1924, making them the third-oldest active team in the National Hockey League (NHL), and the oldest surviving professional hockey franchise in the United States."], ["Q116799510", "P1269", "Q194121", "History of the Boston Bruins", "The history of the Boston Bruins professional ice hockey team dates back to 1924, making them the third-oldest active team in the National Hockey League (NHL), and the oldest surviving professional hockey franchise in the United States."], ["Q120026900", "P31", "Q17524420", "History of the Saskatchewan Roughriders", "The history of the Saskatchewan Roughriders dates to 1910 when they were founded as the Regina Rugby Club and became charter members of the Saskatchewan Rugby Football Union."], ["Q120026900", "P1269", "Q596796", "History of the Saskatchewan Roughriders", "The history of the Saskatchewan Roughriders dates to 1910 when they were founded as the Regina Rugby Club and became charter members of the Saskatchewan Rugby Football Union."], ["Q124054245", "P31", "Q17524420", "History of the Islamic State – Khorasan Province", "The Islamic State – Khorasan Province (ISIS–K) is a regional branch of the Islamic State terrorist group active in South-Central Asia, primarily Afghanistan."], ["Q124054245", "P1269", "Q21070585", "History of the Islamic State – Khorasan Province", "The Islamic State – Khorasan Province (ISIS–K) is a regional branch of the Islamic State terrorist group active in South-Central Asia, primarily Afghanistan."], ["Q125314863", "P31", "Q17524420", "History of the Order of the Arrow", "The Order of the Arrow (OA), previously known as Wimachtendienk Wingolauchsik Witahemui (WWW) is the Honor Society of Scouting America."], ["Q125314863", "P1269", "Q7100647", "History of the Order of the Arrow", "The Order of the Arrow (OA), previously known as Wimachtendienk Wingolauchsik Witahemui (WWW) is the Honor Society of Scouting America."], ["Q130218215", "P31", "Q17524420", "History of the Indonesia national football team", "The history of the Indonesia national football team officially dates back to their first international in 1934."], ["Q131443286", "P31", "Q17524420", "History of the Jews in Utah", "Jewish pioneers first arrived in Utah after the 1849 gold rush."], ["Q134488398", "P31", "Q17524420", "History of the United States at the Olympics", "The United States has participated in nearly every modern Olympic Games since 1896 and has won more medals than any other nation."], ["Q134488398", "P1269", "Q742661", "History of the United States at the Olympics", "The United States has participated in nearly every modern Olympic Games since 1896 and has won more medals than any other nation."], ["Q134824072", "P31", "Q17524420", "History of the Dinka people", "The Dinka are a Nilotic ethnic group who primarily live in Sudan and South Sudan."], ["Q134824072", "P1269", "Q212106", "History of the Dinka people", "The Dinka are a Nilotic ethnic group who primarily live in Sudan and South Sudan."], ["Q134890347", "P31", "Q17524420", "History of the Comrades Marathon", "The Comrades Marathon was run for the first time on 24 May 1921 (Empire Day), and with the exception of a break during World War II, as well as the COVID-19 pandemic-impacted 2020 and 2021, has been run every year since."], ["Q134890347", "P1269", "Q868645", "History of the Comrades Marathon", "The Comrades Marathon was run for the first time on 24 May 1921 (Empire Day), and with the exception of a break during World War II, as well as the COVID-19 pandemic-impacted 2020 and 2021, has been run every year since."], ["Q137425711", "P31", "Q17524420", "History of the State of Singapore (Malaysia)", "This article details the history of Singapore as part of Malaysia from 1963 to 1965."], ["Q137848913", "P31", "Q17524420", "History of the Brazilian Navy", "The history of the Brazilian Navy begins with the adhesion of sections of the Portuguese Navy to newly independent Brazil in 1822."], ["Q137848913", "P1269", "Q1750688", "History of the Brazilian Navy", "The history of the Brazilian Navy begins with the adhesion of sections of the Portuguese Navy to newly independent Brazil in 1822."], ["Q138755434", "P31", "Q17524420", "History of the Russian Republic", "The Russian Republic was a short-lived state which replaced the Russian Empire and ruled over the territory left after the collapse of the monarchy and abdication of Emperor Nicholas II."], ["Q138755434", "P1269", "Q139319", "History of the Russian Republic", "The Russian Republic was a short-lived state which replaced the Russian Empire and ruled over the territory left after the collapse of the monarchy and abdication of Emperor Nicholas II."]]}, WIKI = "en", KEY = "qsreview:" + "qs_en_history_all.txt";
+let bad = new Set();
+try { bad = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...bad])); } catch (e) {} stats(); };
+const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const groups = {};
+DATA.rows.forEach(r => (groups[r[1] + " " + r[2]] ||= []).push(r));
+const m = document.getElementById("m");
+Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length).forEach(g => {
+  const [p, c] = g.split(" "), rows = groups[g];
+  const d = document.createElement("details");
+  d.innerHTML = `<summary>${p} <a href="https://www.wikidata.org/wiki/${c}" target="_blank">${esc(DATA.label[c] || c)}</a>
+    <span class="n">(${c}, ${rows.length})</span></summary><table>${rows.map(r =>
+    `<tr data-k="${r[0]}	${r[1]}	${r[2]}"><td class="c"><input type="checkbox" title="reject"></td>
+     <td class="q"><a href="https://www.wikidata.org/wiki/${r[0]}" target="_blank">${r[0]}</a></td>
+     <td class="t"><a href="https://${WIKI}.wikipedia.org/wiki/${encodeURIComponent(r[3].replace(/ /g, "_"))}"
+       target="_blank">${esc(r[3])}</a></td><td class="s">${esc(r[4])}</td></tr>`).join("")}</table>`;
+  m.appendChild(d);
+});
+document.querySelectorAll("tr[data-k]").forEach(tr => {
+  const cb = tr.querySelector("input"), k = tr.dataset.k;
+  if (bad.has(k)) { cb.checked = true; tr.classList.add("bad"); }
+  cb.onchange = () => { cb.checked ? bad.add(k) : bad.delete(k); tr.classList.toggle("bad", cb.checked); save(); };
+});
+function stats() { document.getElementById("stats").textContent =
+  `${DATA.rows.length} rows, ${bad.size} rejected, ${DATA.rows.length - bad.size} approved`; }
+stats();
+document.getElementById("f").oninput = e => {
+  const t = e.target.value.toLowerCase();
+  document.querySelectorAll("details").forEach(d => {
+    let any = false;
+    d.querySelectorAll("tr").forEach(tr => {
+      const hit = !t || d.querySelector("summary").textContent.toLowerCase().includes(t) ||
+                  tr.textContent.toLowerCase().includes(t);
+      tr.classList.toggle("hide", !hit); any ||= hit; });
+    d.classList.toggle("hide", !any); if (t && any) d.open = true; });
+};
+document.getElementById("open").onclick = () => document.querySelectorAll("details").forEach(d => d.open = true);
+document.getElementById("close").onclick = () => document.querySelectorAll("details").forEach(d => d.open = false);
+const copy = (lines, what) => navigator.clipboard.writeText(lines.join("\n") + "\n")
+  .then(() => alert(`${lines.length} ${what} lines copied`));
+document.getElementById("ok").onclick = () =>
+  copy(DATA.rows.map(r => r.slice(0, 3).join("\t")).filter(k => !bad.has(k)), "approved");
+document.getElementById("no").onclick = () => copy([...bad], "rejected");
+</script></body></html>

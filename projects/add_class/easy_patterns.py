@@ -1,8 +1,9 @@
 """Low-hanging fruit from the article openings: lists, surnames, given names, disambiguation pages.
 
-  python easy_patterns.py [--wiki en] [--min-age-days 180] [--ref]
-  in:  output/items_<wiki>.tsv, output/opening_<wiki>.tsv (first_sentence.py on Toolforge)
-  out: output/qs_<wiki>_easy/<kind>.txt (QS v1) + samples.tsv (qid, kind, title, opening) for a spot check
+  python easy_patterns.py [--wiki en] [--min-age-days 180] [--ref] [--round N]
+  in:  output/items_<wiki>.tsv, output/opening_<wiki>.tsv (first_sentence.py on Toolforge),
+       output/done_<wiki>.txt (QIDs already in an uploaded batch: skipped)
+  out: output/qs_<wiki>_easy[N]/<kind>.txt (QS v1; round N gets its own folder, so a run batch is never overwritten) + samples.tsv (qid, kind, title, opening) for a spot check
        + sitelinks_review.tsv: items with sitelinks on other wikis too (no QS; the item may be a mix)
 
 Only the first sentence counts, and (lists aside) it must start with the title itself, without a '(name)' qualifier
@@ -20,6 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from make_qs import first_revision, still_unclassified  # noqa: E402
+from verify_stub import first_sentence  # noqa: E402  (not at ':' -- 'Dyakonova (masculine: Dyakonov) is a ...')
 from replica_cats import BATCH, lit, run  # noqa: E402
 from stub_table import QBATCH, qlever  # noqa: E402
 
@@ -40,14 +42,17 @@ LIST_START = re.compile(r"^(This is an? (?:\w+ )?list of|The following is an? (?
                         r"This article lists)\b")
 ADJ = r"(?:(?:[\w'-]+|and|or),? ){0,4}?"  # 'a Hungarian', 'an English and Scottish', 'a common Dutch-language'
 SUBJECT = r"^[^.]{0,80}?\b(?:is|was) (?:an?|the) "
-SURNAME = re.compile(SUBJECT + ADJ + r"(?:surname|family name)\b")
-GIVEN = re.compile(SUBJECT + ADJ + r"given name\b")
+PART = r"(?! (?:lexeme|element|component|suffix|prefix|ending|root|particle)s?\b)"  # '-drag is a given name lexeme'
+SURNAME = re.compile(SUBJECT + ADJ + r"(?:surname|family name)\b" + PART)
+GIVEN = re.compile(SUBJECT + ADJ + r"given name\b" + PART)
+
+
+def outside_brackets(s, m):
+    """The 'is a' of the match is not inside brackets: 'Carlislehoekspruit Pass (English: Carlisle is a surname, ...)
+    is a mountain pass'."""
+    before = s[:re.search(r"\b(?:is|was) (?:an?|the) ", s).start()] if m else ""
+    return m and before.count("(") == before.count(")")
 NAME_WORD = re.compile(r"\b(surname|family name|given name|first name|forename)\b")
-
-
-def first_sentence(text):
-    m = re.search(r"[.:;](?:\s|$)", text)
-    return text[:m.end()] if m else text
 
 
 def classify(title, text):
@@ -60,9 +65,9 @@ def classify(title, text):
     if not s.casefold().startswith(base):  # the opening is about something else ('The Clash on film': the band)
         return None
     names = set(NAME_WORD.findall(s))
-    if SURNAME.match(s) and not names & {"given name", "first name", "forename"}:
+    if outside_brackets(s, SURNAME.match(s)) and not names & {"given name", "first name", "forename"}:
         return "surname"
-    if GIVEN.match(s) and not names & {"surname", "family name"}:
+    if outside_brackets(s, GIVEN.match(s)) and not names & {"surname", "family name"}:
         m = GIVEN.match(s)
         head = s[re.search(r"\b(?:is|was) (?:an?|the) ", s).start():m.end()]  # not '(Nhlanhla unisex) is a feminine'
         if re.search(r"\bunisex\b|\bgender-neutral\b", head):
@@ -107,19 +112,26 @@ def main():
     ap.add_argument("--wiki", default="en")
     ap.add_argument("--min-age-days", type=int, default=180)
     ap.add_argument("--ref", action="store_true")
+    ap.add_argument("--round", type=int, default=1, help="output folder qs_<wiki>_easy<N> (round 1: qs_<wiki>_easy)")
     ap.add_argument("--recheck", action="store_true",
                     help="ask QLever which items got a P31/P279 meanwhile (hardly any: 2 of ~6,500; a double one is harmless)")
     args = ap.parse_args()
     with open(os.path.join(OUT, f"items_{args.wiki}.tsv"), encoding="utf-8") as fh:
         title = dict(line.rstrip("\n").split("\t", 1) for line in fh if "\t" in line)
+    done = set()
+    try:
+        with open(os.path.join(OUT, f"done_{args.wiki}.txt"), encoding="utf-8") as fh:
+            done = {line.split("\t")[0].strip() for line in fh if line.strip()}
+    except FileNotFoundError:
+        pass
     found = {}
     with open(os.path.join(OUT, f"opening_{args.wiki}.tsv"), encoding="utf-8") as fh:
         for line in fh:
             q, text = line.rstrip("\n").split("\t", 1)
-            kind = q in title and classify(title[q], text)
+            kind = q in title and q not in done and classify(title[q], text)
             if kind:
                 found[q] = (kind, text)
-    print(f"{len(found)} pattern matches")
+    print(f"{len(found)} pattern matches ({len(done)} done items skipped)")
     dis = [q for q, (k, _) in found.items() if k == "disambiguation"]
     marked = disambig_titles(args.wiki, [title[q] for q in dis])
     for q in dis:
@@ -131,7 +143,7 @@ def main():
     old = [q for q in found if first.get(q, "9") <= cutoff]
     keep = still_unclassified(old) if args.recheck else set(old)
     print(f"   {len(found) - len(old)} too new, {len(old) - len(keep)} classified meanwhile")
-    qs_dir = os.path.join(OUT, f"qs_{args.wiki}_easy")
+    qs_dir = os.path.join(OUT, f"qs_{args.wiki}_easy" + (str(args.round) if args.round > 1 else ""))
     os.makedirs(qs_dir, exist_ok=True)
     # the class describes the enwiki page only: with other sitelinks the item may be a mix (an enwiki
     # disambiguation page linked to articles elsewhere) -> fix the sitelinks by hand first

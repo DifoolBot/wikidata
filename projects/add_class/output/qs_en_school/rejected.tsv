@@ -1,0 +1,7 @@
+qid	title	rejected	correct	reason
+Q10984336	Kewaigue	P31 Q3914	?	a mix: "an area, hill and school near White Hoe" (Isle of Man); gv sitelink Balley Kew Aeg = the place
+Q23073329	The Children's Village	P31 Q3914	?	a mix: "a private, non-profit residential treatment facility and school for endangered children"
+Q7320322	Rhee Taekwon-Do	P31 Q383092	P31 Q135495953	"a martial art school": martial arts school, not art school; now in the batch
+Q48775212	Laurus International School of Science Tokyo	P31 Q126807	?	a list: "a co-ed pre-school, kindergarten, and international school"
+Q5280410	Directed individual study	P31 Q189004	?	a course type ("a college, university or college preparatory school level class"), not a school
+Q136346001	Captain Guillermo Reynaldo Cortez Military Aviation School	P31 Q4273133	?	a list: "a military academy and flight school"
