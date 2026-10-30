@@ -1,0 +1,78 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>QS review</title>
+<style>
+:root { --bg: #fff; --fg: #1d2125; --muted: #6b7280; --line: #e5e7eb; --head: #f3f4f6; --link: #0b63c4;
+        --bad: #fde2e2; --badfg: #9b1c1c; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038;
+        --head: #1a1f25; --link: #6cb6ff; --bad: #3b1d1d; --badfg: #ffb4b4; } }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; margin: 0 16px 80px; }
+header { position: sticky; top: 0; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line);
+         display: flex; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 2; }
+header input[type=search] { padding: 5px 8px; min-width: 260px; }
+button { padding: 5px 10px; cursor: pointer; }
+#stats { color: var(--muted); }
+details { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; }
+summary { background: var(--head); padding: 6px 10px; cursor: pointer; font-weight: 600; }
+summary .n { color: var(--muted); font-weight: 400; }
+table { border-collapse: collapse; width: 100%; }
+td { border-top: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
+td.c { width: 22px; } td.q { white-space: nowrap; width: 1%; } td.t { width: 22%; }
+td.s { color: var(--fg); }
+tr.bad td { background: var(--bad); } tr.bad td.s { color: var(--badfg); text-decoration: line-through; }
+a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+.hide { display: none; }
+</style></head><body>
+<header>
+  <strong>qs_en_family6_all.txt</strong>
+  <input type="search" id="f" placeholder="Filter (class, title, sentence)">
+  <button id="open">Expand all</button><button id="close">Collapse all</button>
+  <button id="ok">Copy approved QS</button><button id="no">Copy rejected</button>
+  <span id="stats"></span>
+</header>
+<main id="m"></main>
+<script>
+const DATA = {"label": {"Q1185865": "Democratic National Convention", "Q1413715": "United States presidential nominating convention", "Q361909": "Republican National Convention", "Q46190676": "tennis event", "Q6541336": "Libertarian National Convention"}, "rows": [["Q4554511", "P31", "Q1413715", "1839 Whig National Convention", "The 1839 Whig National Convention was a presidential nominating convention held from December 4 to December 8 in Harrisburg, Pennsylvania."], ["Q4554644", "P31", "Q1413715", "1844 Whig National Convention", "The 1844 Whig National Convention was a presidential nominating convention held on May 1, 1844, at Universalist Church in Baltimore, Maryland."], ["Q4554742", "P31", "Q1413715", "1848 Whig National Convention", "The 1848 Whig National Convention was a presidential nominating convention held from June 7 to 9 in Philadelphia."], ["Q4554849", "P31", "Q1413715", "1852 Whig National Convention", "The 1852 Whig National Convention was a presidential nominating convention held from June 16 to June 21, in Baltimore, Maryland."], ["Q4554939", "P31", "Q1413715", "1856 Whig National Convention", "The 1856 Whig National Convention was a presidential nominating convention held from September 17 to September 18, in Baltimore, Maryland."], ["Q4555130", "P31", "Q1413715", "1864 National Union National Convention", "The 1864 National Union Convention was held by the National Union Party in Baltimore, Maryland on June 7 and 8, 1864."], ["Q4555551", "P31", "Q361909", "1876 Republican National Convention", "The 1876 Republican National Convention was a presidential nominating convention held at the Exposition Hall in Cincinnati, Ohio on June 14–16, 1876."], ["Q4563864", "P31", "Q361909", "1936 Republican National Convention", "The 1936 Republican National Convention was held June 9–12 at the Public Auditorium in Cleveland, Ohio."], ["Q4565422", "P31", "Q361909", "1944 Republican National Convention", "The 1944 Republican National Convention was held in Chicago, Illinois, from June 26 to 28, 1944."], ["Q19599790", "P31", "Q1413715", "1948 Progressive National Convention", "The 1948 Progressive National Convention was held in Philadelphia from July 23 to 25, 1948."], ["Q19863511", "P31", "Q1413715", "1912 Progressive National Convention", "The 1912 Progressive National Convention was held in August 1912."], ["Q19863520", "P31", "Q1413715", "1916 Progressive National Convention", "The 1916 Progressive National Convention was held in July 1916, in conjunction with the Republican national convention."], ["Q24966258", "P31", "Q1413715", "1876 Greenback National Convention", "The 1876 Greenback National Convention was held in Indianapolis in the spring of 1876."], ["Q42916897", "P31", "Q1413715", "1856 American National Convention", "The 1856 American National Convention was held in National Hall in Philadelphia, Pennsylvania, on February 22 to 25, 1856."], ["Q60034371", "P31", "Q1413715", "1831 National Republican National Convention", "The 1831 National Republican National Convention was held to determine the presidential ticket of the National Republican Party in the 1832 United States presidential election."], ["Q65117721", "P31", "Q6541336", "2020 Libertarian National Convention", "The 2020 Libertarian National Convention delegates selected the Libertarian Party nominees for president and vice president in the 2020 United States presidential election."], ["Q85735758", "P31", "Q1413715", "2020 Green National Convention", "The 2020 Green National Convention (GNC) or presidential nominating convention was an event in which delegates of the Green Party of the United States (GPUS) chose its nominees for president and vice president in the 2020 U.S. presidential election."], ["Q96359716", "P31", "Q1413715", "1872 Prohibition National Convention", "The 1872 Prohibition National Convention was a presidential nominating convention held at Comstock's Opera House, in Columbus, Ohio on February 22, 1872, to select the presidential ticket for the 1872 presidential election."], ["Q96359724", "P31", "Q1413715", "1876 Prohibition National Convention", "The 1876 Prohibition National Convention was a presidential nominating convention held at Halle's Hall, in Cleveland, Ohio on May 17, 1876, to select the Prohibition Party's presidential ticket for the 1876 presidential election."], ["Q96359734", "P31", "Q1413715", "1880 Prohibition National Convention", "The 1880 Prohibition Party National Convention convened in Halle's Hall in Cleveland, Ohio on June 17, 1880 to select presidential and vice presidential nominees for the 1880 United States presidential election."], ["Q96359747", "P31", "Q1413715", "1884 Prohibition National Convention", "The 1884 Prohibition National Convention was a presidential nominating convention held at Lafayette Hall, in Pittsburgh, Pennsylvania, from July 23–24, 1884, to select the Prohibition Party's presidential ticket for the 1884 presidential election."], ["Q96370506", "P31", "Q1413715", "2020 Reform National Convention", "On June 20, 2020, the Reform Party of the United States of America selected Rocky De La Fuente as its 2020 presidential candidate at its convention."], ["Q122227021", "P31", "Q361909", "2028 Republican National Convention", "The 2028 Republican National Convention is an event in which delegates of the United States Republican Party will select the party's nominees for president and vice president in the 2028 United States presidential election."], ["Q128189709", "P31", "Q1413715", "2024 Green National Convention", "The 2024 Green National Convention was a political event to select the Green Party of the United States nominees for president and vice president in the 2024 election."], ["Q130306672", "P31", "Q1413715", "1912 Socialist National Convention", "The 1912 Socialist National Convention was held in Tomlinson Hall in Indianapolis from May 12 to May 18, 1912."], ["Q134700078", "P31", "Q1413715", "1952 Progressive National Convention", "The 1952 Progressive National Convention was held in July 4–6 1952 at the Ashland Boulevard Auditorium in Chicago, Illinois."], ["Q138937034", "P31", "Q1413715", "1920 Socialist National Convention", "The 1920 Socialist National Convention was held May 8-14, 1920, in New York City."], ["Q139145706", "P31", "Q1185865", "2028 Democratic National Convention", "The 2028 Democratic National Convention, scheduled to be held from August 7–10, 2028, is an event in which delegates of the United States Democratic Party will select the party's nominees for president and vice president in the 2028 United States presidential election."], ["Q139621216", "P31", "Q46190676", "2026 Jiangxi Open – Singles", "Anna Blinkova was the reigning champion, but did not participate this year."]]}, WIKI = "en", KEY = "qsreview:" + "qs_en_family6_all.txt";
+let bad = new Set();
+try { bad = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...bad])); } catch (e) {} stats(); };
+const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const groups = {};
+DATA.rows.forEach(r => (groups[r[1] + " " + r[2]] ||= []).push(r));
+const m = document.getElementById("m");
+Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length).forEach(g => {
+  const [p, c] = g.split(" "), rows = groups[g];
+  const d = document.createElement("details");
+  d.innerHTML = `<summary>${p} <a href="https://www.wikidata.org/wiki/${c}" target="_blank">${esc(DATA.label[c] || c)}</a>
+    <span class="n">(${c}, ${rows.length})</span></summary><table>${rows.map(r =>
+    `<tr data-k="${r[0]}	${r[1]}	${r[2]}"><td class="c"><input type="checkbox" title="reject"></td>
+     <td class="q"><a href="https://www.wikidata.org/wiki/${r[0]}" target="_blank">${r[0]}</a></td>
+     <td class="t"><a href="https://${WIKI}.wikipedia.org/wiki/${encodeURIComponent(r[3].replace(/ /g, "_"))}"
+       target="_blank">${esc(r[3])}</a></td><td class="s">${esc(r[4])}</td></tr>`).join("")}</table>`;
+  m.appendChild(d);
+});
+document.querySelectorAll("tr[data-k]").forEach(tr => {
+  const cb = tr.querySelector("input"), k = tr.dataset.k;
+  if (bad.has(k)) { cb.checked = true; tr.classList.add("bad"); }
+  cb.onchange = () => { cb.checked ? bad.add(k) : bad.delete(k); tr.classList.toggle("bad", cb.checked); save(); };
+});
+function stats() { document.getElementById("stats").textContent =
+  `${DATA.rows.length} rows, ${bad.size} rejected, ${DATA.rows.length - bad.size} approved`; }
+stats();
+document.getElementById("f").oninput = e => {
+  const t = e.target.value.toLowerCase();
+  document.querySelectorAll("details").forEach(d => {
+    let any = false;
+    d.querySelectorAll("tr").forEach(tr => {
+      const hit = !t || d.querySelector("summary").textContent.toLowerCase().includes(t) ||
+                  tr.textContent.toLowerCase().includes(t);
+      tr.classList.toggle("hide", !hit); any ||= hit; });
+    d.classList.toggle("hide", !any); if (t && any) d.open = true; });
+};
+document.getElementById("open").onclick = () => document.querySelectorAll("details").forEach(d => d.open = true);
+document.getElementById("close").onclick = () => document.querySelectorAll("details").forEach(d => d.open = false);
+const copy = (lines, what) => navigator.clipboard.writeText(lines.join("\n") + "\n")
+  .then(() => alert(`${lines.length} ${what} lines copied`));
+document.getElementById("ok").onclick = () =>
+  copy(DATA.rows.map(r => r.slice(0, 3).join("\t")).filter(k => !bad.has(k)), "approved");
+document.getElementById("no").onclick = () => copy([...bad], "rejected");
+</script></body></html>
