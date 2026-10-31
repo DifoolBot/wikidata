@@ -1,0 +1,78 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>QS review</title>
+<style>
+:root { --bg: #fff; --fg: #1d2125; --muted: #6b7280; --line: #e5e7eb; --head: #f3f4f6; --link: #0b63c4;
+        --bad: #fde2e2; --badfg: #9b1c1c; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038;
+        --head: #1a1f25; --link: #6cb6ff; --bad: #3b1d1d; --badfg: #ffb4b4; } }
+body { background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; margin: 0 16px 80px; }
+header { position: sticky; top: 0; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line);
+         display: flex; gap: 12px; align-items: center; flex-wrap: wrap; z-index: 2; }
+header input[type=search] { padding: 5px 8px; min-width: 260px; }
+button { padding: 5px 10px; cursor: pointer; }
+#stats { color: var(--muted); }
+details { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; }
+summary { background: var(--head); padding: 6px 10px; cursor: pointer; font-weight: 600; }
+summary .n { color: var(--muted); font-weight: 400; }
+table { border-collapse: collapse; width: 100%; }
+td { border-top: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
+td.c { width: 22px; } td.q { white-space: nowrap; width: 1%; } td.t { width: 22%; }
+td.s { color: var(--fg); }
+tr.bad td { background: var(--bad); } tr.bad td.s { color: var(--badfg); text-decoration: line-through; }
+a { color: var(--link); text-decoration: none; } a:hover { text-decoration: underline; }
+.hide { display: none; }
+</style></head><body>
+<header>
+  <strong>qs_en_gunlaw2_all.txt</strong>
+  <input type="search" id="f" placeholder="Filter (class, title, sentence)">
+  <button id="open">Expand all</button><button id="close">Collapse all</button>
+  <button id="ok">Copy approved QS</button><button id="no">Copy rejected</button>
+  <span id="stats"></span>
+</header>
+<main id="m"></main>
+<script>
+const DATA = {"label": {"Q1328508": "gun control", "Q145": "United Kingdom", "Q148": "People's Republic of China", "Q16": "Canada", "Q227": "Azerbaijan", "Q27": "Ireland", "Q49371": "legislation", "Q717": "Venezuela", "Q783": "Honduras"}, "rows": [["Q3558419", "P31", "Q49371", "Firearms regulation in Canada", "Firearms are federally regulated in Canada through the Firearms Act, the Criminal Code, and the Canadian Firearms Program, a program operated within the Royal Canadian Mounted Police."], ["Q3558419", "P1001", "Q16", "Firearms regulation in Canada", "Firearms are federally regulated in Canada through the Firearms Act, the Criminal Code, and the Canadian Firearms Program, a program operated within the Royal Canadian Mounted Police."], ["Q5451688", "P31", "Q49371", "Gun control in China", "In the People's Republic of China, access by the general public to firearms is subject to some of the strictest gun control measures in the world."], ["Q5451688", "P1269", "Q1328508", "Gun control in China", "In the People's Republic of China, access by the general public to firearms is subject to some of the strictest gun control measures in the world."], ["Q5451688", "P1001", "Q148", "Gun control in China", "In the People's Republic of China, access by the general public to firearms is subject to some of the strictest gun control measures in the world."], ["Q11286385", "P31", "Q49371", "Firearms regulation in the United Kingdom", "In the United Kingdom, gun ownership is considered a privilege, not a right, and access by the general public to firearms is subject to strict control."], ["Q11286385", "P1001", "Q145", "Firearms regulation in the United Kingdom", "In the United Kingdom, gun ownership is considered a privilege, not a right, and access by the general public to firearms is subject to strict control."], ["Q12059256", "P31", "Q49371", "Firearms regulation in Honduras", "In Honduras, the commerce, ownership, possession and use of firearms is regulated."], ["Q12059256", "P1269", "Q1328508", "Firearms regulation in Honduras", "In Honduras, the commerce, ownership, possession and use of firearms is regulated."], ["Q12059256", "P1001", "Q783", "Firearms regulation in Honduras", "In Honduras, the commerce, ownership, possession and use of firearms is regulated."], ["Q16257481", "P31", "Q49371", "Firearms regulation in the Republic of Ireland", "Firearms policy in the Republic of Ireland is subject to control measures that rank among the strictest globally."], ["Q16257481", "P1269", "Q1328508", "Firearms regulation in the Republic of Ireland", "Firearms policy in the Republic of Ireland is subject to control measures that rank among the strictest globally."], ["Q16257481", "P1001", "Q27", "Firearms regulation in the Republic of Ireland", "Firearms policy in the Republic of Ireland is subject to control measures that rank among the strictest globally."], ["Q50359062", "P31", "Q49371", "Firearms policy in Azerbaijan", "According to the law, citizens of Azerbaijan who reach 18 years of age have the right to acquire smoothbore firearms and, after five years of membership in Azerbaijan Hunting Society, rifled firearms."], ["Q50359062", "P1269", "Q1328508", "Firearms policy in Azerbaijan", "According to the law, citizens of Azerbaijan who reach 18 years of age have the right to acquire smoothbore firearms and, after five years of membership in Azerbaijan Hunting Society, rifled firearms."], ["Q50359062", "P1001", "Q227", "Firearms policy in Azerbaijan", "According to the law, citizens of Azerbaijan who reach 18 years of age have the right to acquire smoothbore firearms and, after five years of membership in Azerbaijan Hunting Society, rifled firearms."], ["Q104834896", "P31", "Q49371", "Firearms regulation in Venezuela", "Firearms have been subject to government control and regulation in Venezuela since 1914."], ["Q104834896", "P1269", "Q1328508", "Firearms regulation in Venezuela", "Firearms have been subject to government control and regulation in Venezuela since 1914."], ["Q104834896", "P1001", "Q717", "Firearms regulation in Venezuela", "Firearms have been subject to government control and regulation in Venezuela since 1914."]]}, WIKI = "en", KEY = "qsreview:" + "qs_en_gunlaw2_all.txt";
+let bad = new Set();
+try { bad = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...bad])); } catch (e) {} stats(); };
+const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const groups = {};
+DATA.rows.forEach(r => (groups[r[1] + " " + r[2]] ||= []).push(r));
+const m = document.getElementById("m");
+Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length).forEach(g => {
+  const [p, c] = g.split(" "), rows = groups[g];
+  const d = document.createElement("details");
+  d.innerHTML = `<summary>${p} <a href="https://www.wikidata.org/wiki/${c}" target="_blank">${esc(DATA.label[c] || c)}</a>
+    <span class="n">(${c}, ${rows.length})</span></summary><table>${rows.map(r =>
+    `<tr data-k="${r[0]}	${r[1]}	${r[2]}"><td class="c"><input type="checkbox" title="reject"></td>
+     <td class="q"><a href="https://www.wikidata.org/wiki/${r[0]}" target="_blank">${r[0]}</a></td>
+     <td class="t"><a href="https://${WIKI}.wikipedia.org/wiki/${encodeURIComponent(r[3].replace(/ /g, "_"))}"
+       target="_blank">${esc(r[3])}</a></td><td class="s">${esc(r[4])}</td></tr>`).join("")}</table>`;
+  m.appendChild(d);
+});
+document.querySelectorAll("tr[data-k]").forEach(tr => {
+  const cb = tr.querySelector("input"), k = tr.dataset.k;
+  if (bad.has(k)) { cb.checked = true; tr.classList.add("bad"); }
+  cb.onchange = () => { cb.checked ? bad.add(k) : bad.delete(k); tr.classList.toggle("bad", cb.checked); save(); };
+});
+function stats() { document.getElementById("stats").textContent =
+  `${DATA.rows.length} rows, ${bad.size} rejected, ${DATA.rows.length - bad.size} approved`; }
+stats();
+document.getElementById("f").oninput = e => {
+  const t = e.target.value.toLowerCase();
+  document.querySelectorAll("details").forEach(d => {
+    let any = false;
+    d.querySelectorAll("tr").forEach(tr => {
+      const hit = !t || d.querySelector("summary").textContent.toLowerCase().includes(t) ||
+                  tr.textContent.toLowerCase().includes(t);
+      tr.classList.toggle("hide", !hit); any ||= hit; });
+    d.classList.toggle("hide", !any); if (t && any) d.open = true; });
+};
+document.getElementById("open").onclick = () => document.querySelectorAll("details").forEach(d => d.open = true);
+document.getElementById("close").onclick = () => document.querySelectorAll("details").forEach(d => d.open = false);
+const copy = (lines, what) => navigator.clipboard.writeText(lines.join("\n") + "\n")
+  .then(() => alert(`${lines.length} ${what} lines copied`));
+document.getElementById("ok").onclick = () =>
+  copy(DATA.rows.map(r => r.slice(0, 3).join("\t")).filter(k => !bad.has(k)), "approved");
+document.getElementById("no").onclick = () => copy([...bad], "rejected");
+</script></body></html>
