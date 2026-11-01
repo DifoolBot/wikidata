@@ -1,0 +1,101 @@
+qid	title	wrong class	correct class	note
+Q4590563	1995 PBA All-Star Game	Q27020041		user: all-star game
+Q4589650	1994 PBA All-Star Game	Q27020041		user: all-star game
+Q4587841	1992 PBA All-Star Game	Q27020041		user: all-star game
+Q4587025	1991 PBA All-Star Game	Q27020041		user: all-star game
+Q4866475	1962 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866464	1951 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866455	1942 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866454	1939 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866453	1938 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866452	1937 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q4866451	1936 Baseball Hall of Fame balloting	Q27020041		user: balloting
+Q65058129	2019 NPF Draft	Q27020041		user: draft
+Q28403450	2018 NPF Draft	Q27020041		user: draft
+Q104859514	Gloucester 4	Q106179098	Q623109	user: rugby union league
+Q5572011	Gloucester 3	Q106179098	Q623109	user: rugby union league
+Q7742321	International 2	Q106179098	Q8719053	user: music venue
+Q6048018	International 500	Q106179098	Q22938576	user: snowmobile race
+Q6048011	International 3300	Q106179098		user: bus chassis, no class found
+Q7275118	RAF 2	Q21156425	Q743004	radial aircraft engine
+Q7275119	RAF 3	Q21156425	Q743004	V12 aircraft engine
+Q7671837	TT1650	Q381885	Q17591720	turntable
+Q8047721	Yamaha MT-100	Q23866334	Q213777	cassette recorder
+Q7276791	RIM-900	Q18487055	Q832436	pager
+Q128475000	CER-001	Q28542014	Q5421154	orphan drug candidate
+Q5420888	Expedition 360	Q18201623	Q1135885	human-powered circumnavigation
+Q4566613	Year 1809	Q10291405		commemorative year, no class found
+Q42341391	Shahed 216	Q138568860	Q34486	helicopter, not a drone
+Q54870271	Legitimacy Act 1931	Q105774620	Q91586285	Irish act
+Q23067895	Renault 438	Q3231690	Q15057021	racing engine
+Q28154464	HMS Elizabeth (1805)	Q892492	Q204577	schooner
+Q5469889	Form 144	Q14293015	Q7389632	SEC filing
+Q5469903	Form 4	Q14293015	Q7389632	SEC filing
+Q5469905	Form 5	Q14293015	Q7389632	SEC filing
+Q5469904	Form 4473	Q14293015	Q1335296	ATF form
+Q5469906	Form 696	Q14293015	Q1335296	London police form
+Q4677308	Action of 23 August 1967	Q1261499		air battle
+Q20981877	Action of 25 September 1917	Q1261499		land attack
+Q29075753	Action of 22 October 1917	Q1261499		land attack
+Q117836245	Action of 26–27 April 1864	Q1261499		land action
+Q104868380	Super J-Cup (2020)	Q17317604	Q7248116	user: tournament, not one event
+Q111953011	Battle of Los Angeles (2022)	Q17317604	Q7248116	user: tournament, not one event
+Q115816665	Battle of Los Angeles (2023)	Q17317604	Q7248116	user: tournament, not one event
+Q115816772	Stardom Cinderella Tournament 2018	Q17317604	Q7248116	user: tournament, not one event
+Q65074051	Crockett Cup (1986)	Q17317604	Q7248116	user: tournament, not one event
+Q65074053	Crockett Cup (1987)	Q17317604	Q7248116	user: tournament, not one event
+Q115821859	Battle of Los Angeles (2011)	Q17317604	Q7248116	user: tournament, not one event
+Q118905512	Dynamite Duumvirate Tag Team Title Tournament (2011)	Q17317604	Q7248116	user: tournament, not one event
+Q124749591	Stardom Cinderella Tournament 2024	Q17317604	Q7248116	user: tournament, not one event
+Q65068480	ROH/NJPW War of the Worlds (2019)	Q17317604		user: tour of several events, no class found
+Q85760869	Fighting Spirit Unleashed (2019)	Q17317604		user: tour of several events, no class found
+Q104855333	Fighting Spirit Unleashed (2020)	Q17317604		user: tour of several events, no class found
+Q132448	NFL 1930s All-Decade Team	Q12973014	Q141927695	selection, not an actual team
+Q111181078	2006 European Cup Super League	Q114609228		opening: full results of the edition, event or list?
+Q113588652	Athletics at the 2021 Islamic Solidarity Games – Results	Q53869933	Q13406463	results page, list article like its siblings
+Q115827924	2002 European Cup Super League	Q114609228		opening: full results of the edition, event or list?
+Q118906501	1996 European Cup Super League	Q114609228		opening: full results of the edition, event or list?
+Q121910769	Athletics at the 2023 Jeux de la Francophonie – Results	Q51031626	Q13406463	results page, list article like its siblings
+Q123692495	Athletics at the 2022 Bolivarian Games – Results	Q51031626	Q13406463	results page, list article like its siblings
+Q123858135	Athletics at the 2017 Bolivarian Games – Results	Q51031626	Q13406463	results page, list article like its siblings
+Q136849439	Athletics at the 2025 Islamic Solidarity Games – Results	Q53869933	Q13406463	results page, list article like its siblings
+Q137480722	Athletics at the 2025 Bolivarian Games – Results	Q51031626	Q13406463	results page, list article like its siblings
+Q115812277	2022 ENNIE Award winners	Q618779	Q13406463	user: winners of a year, not the award
+Q99509540	PFA Team of the Year (2020s)	Q618779		teams of a decade, not the award
+Q116275334	Set Decorators Society of America Awards 2022	Q618779		one year of the award, not the award
+Q129254769	2024 Nigeria Prize for Literature	Q618779		one year of the award, not the award
+Q1395243	Inter-generational ministry	Q640506	P279 Q1729207	user: model of Christian ministry
+Q129157445	Clown ministry	Q640506	P279 Q1729207	user: type of Christian ministry
+Q5053282	Catholic campus ministry	Q640506	P279 Q1729207	practice of Christian ministry
+Q25111585	Structured academic controversy	Q1255828		learning strategy, no class found
+Q106624315	Luv-Kush equation	Q11345		political term in Bihar, not an equation
+Q7525226	Sinusoidal plane-wave solutions of the electromagnetic wave equation	Q11345		solutions of an equation, not an equation
+Q115516561	Fuzzy differential equation	Q11345	P279 Q11345	a kind of equation; opening 'are general concept'
+Q113396403	Demographics of the Democratic Party (United States)	Q23983664		demographics, no country or region; user: a party
+Q115829133	Demographics of Generation Alpha	Q23983664		demographics, no country or region; user: a generation
+Q116701584	Demographics of the Church of Jesus Christ of Latter-day Saints	Q23983664		demographics, no country or region; user: a church
+Q117354597	Demographics of the Victorian era	Q23983664		demographics, no country or region; user: a period
+Q5256132	Demographics of Nair community	Q23983664		demographics, no country or region; a community
+Q129254898	2005 Inuvil shooting and protests	Q273120	Q273120 + Q2252077	user: a shooting and a protest
+Q111170553	United Nations Independent Commission on the 2018 Gaza border protests	Q273120		a UN commission, no class found
+Q5969214	Fo Guang Shan Mabuhay Temple	Q5393308		user: a branch of Fo Guang Shan, no class found
+Q65076694	Irish Squadron	Q176799		user: series of temporary naval formations, not one unit
+Q39058004	Oman Royal Yacht Squadron	Q176799		the Sultan of Oman's pleasure craft
+Q111943426	Richelieu Squadron	Q176799		cadet squadron of a military college
+Q4447674	Secret sharing using the Chinese remainder theorem	Q65943	P279 Q1386603	user: a method that uses the theorem
+Q109905699	Meridian 25	Q138849241	Q106179098	sailboat; Meridian = Russian satellite model, reverted by Huntster
+Q12682321	Income Tax Act 1967	Q105774620	Q820655	Malaysian law, not a UK act
+Q24947285	Charities Act 1994	Q105774620	Q820655	Singapore statute, not a UK act
+Q24948093	Income Tax Act 1947	Q105774620	Q820655	Singapore act, not a UK act
+Q28223236	14 Field Artillery Regiment	Q105568320	Q176799	South African regiment, class is US Army
+Q104853615	48th Air Division	Q868698	Q176799	Chinese PLA air division, class is USAF
+Q110745835	2021 3 Hours of Nürburgring	Q216323	Q114609228	3 Hours race, class is the 24 Hours race
+Q111939904	1956 Aintree 100	Q19932754	Q114609228	Aintree 100, class is the BARC 200
+Q139571708	2026 Bilderberg Conference	Q184937	Q114834437	the conference, class is the group
+Q6510859	Lebanese British Friends of the National Museum	Q33506	Q43229	friends organization of a museum
+Q16001086	ZF 3HP transmission	Q3231690	Q843592	transmission family, not a car model
+Q21189643	Newspaper endorsements in the 2015 Canadian federal election	Q40231	Q13406463	tally of newspaper endorsements, not an election
+Q110362196	2022 in downloadable songs for the Rock Band series	Q18340514	Q13406463	list of downloadable songs
+Q131374951	2023–24 in downloadable songs for the Rock Band series	Q18340514	Q13406463	list of downloadable songs
+Q25352129	Kansas Senate Bill 175	Q820655	Q686822	legislative proposal, not a statute
+Q55642916	Bobbara, New South Wales	Q28931760	Q3257686	rural locality, opening does not say parish
