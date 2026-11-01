@@ -29,8 +29,9 @@ STOP = set("""in of that which who located based from for by on at with to and o
 established designed published written produced created developed owned operated used held named known called made situated
 under during about within run serving started formed issued released manufactured organized organised first originally
 formerly consisting featuring than since while when after before whose it its has had but not through along across against
-headquartered""".split())
-SENT = re.compile(r"^(?:The )?(.{2,90}?)(?: \([^)]*\))?,? (is|was) an? ([^.;:()]{3,120})")
+headquartered found living dwelling inhabiting playing appearing belonging played given presented promoted active contested
+representing collected introduced launched""".split())
+SENT = re.compile(r"^(?:The )?(.{2,90}?)(?: \([^)]*\))?,? (is|was|are|were) an? ([^.;:()]{3,120})")
 PLANNED = {"proposed", "planned", "fictional", "fictitious", "mythical", "mythological", "imaginary", "hypothetical", "legendary"}
 PORTAL = re.compile(r"^(?:\w+ )+portal (?=[A-Z])")  # 'Christianity portal A house of hospitality ...'
 FIELD = re.compile(r"^In [^,]{2,60}, ")  # 'In developmental psychology, thematic coherence is an organization of meanings'
@@ -69,7 +70,7 @@ RULES = [
     ("rugby league football club", "Q15221215", None, set()), ("rugby league club", "Q15221215", None, set()),
     ("rugby union football club", "Q43009164", None, set()), ("rugby union club", "Q43009164", None, set()),
     ("australian football club", "Q17374546", None, set()), ("australian rules football club", "Q17374546", None, set()),
-    ("football club", "Q476028", None, {"rules", "gaelic", "american", "canadian", "rugby", "gridiron", "supporting", "fan"}),
+    ("football club", "Q476028", None, {"rules", "gaelic", "american", "canadian", "rugby", "gridiron", "supporting", "fan", "touch"}),
     ("political party", "Q7278", None, set()),
     ("trade union", "Q178790", None, set()), ("noble family", "Q13417114", None, set()), ("clan", "Q211503", None, set()),
     ("denomination", "Q13414953", None, {"banknote", "currency", "coin"}),
@@ -97,8 +98,47 @@ RULES = [
     ("suburb", "Q188509", PLACE, set()), ("locality", "Q3257686", PLACE, set()),
     ("neighborhood", "Q123705", PLACE | {"historic"}, set()), ("neighbourhood", "Q123705", PLACE | {"historic"}, set()),
     ("treaty", "Q131569", None, {"unimplemented"}),
+    # round 2 (2026-11-01)
+    ("think tank", "Q155271", None, set()), ("advocacy group", "Q431603", None, set()), ("research institute", "Q31855", None, set()),
+    ("research center", "Q7315155", None, set()), ("research centre", "Q7315155", None, set()), ("trade association", "Q2178147", None, set()),
+    ("professional association", "Q829080", None, set()), ("educational institution", "Q2385804", None, set()),
+    ("publishing house", "Q2085381", None, set()), ("book publisher", "Q2085381", None, set()), ("wrestling promotion", "Q721067", None, set()),
+    ("opera company", "Q20819922", None, set()), ("ballet company", "Q805233", None, set()), ("television station", "Q1616075", None, NO_PLAN),
+    ("television network", "Q1254874", None, NO_PLAN), ("radio network", "Q1061197", None, {"mobile"}), ("television channel", "Q2001305", None, set()),
+    ("tv channel", "Q2001305", None, set()), ("specialty channel", "Q561068", None, set()), ("religious order", "Q2061186", None, set()),
+    ("political alliance", "Q60170135", None, set()), ("political movement", "Q2738074", None, set()), ("statutory body", "Q43108199", None, set()),
+    ("nightclub", "Q622425", None, {"virtual"}), ("tambon", "Q1077097", None, set()), ("unincorporated community", "Q17343829", None, set()),
+    ("ghost town", "Q74047", None, set()), ("historic building", "Q35112127", None, set()), ("historic house", "Q5773747", None, set()),
+    ("art gallery", "Q1007870", None, set()), ("protected area", "Q473972", None, NO_PLAN), ("nature reserve", "Q179049", None, NO_PLAN),
+    ("golf course", "Q1048525", None, NO_PLAN), ("golf club", "Q2022036", None, set()), ("waterfall", "Q34038", None, set()),
+    ("hindu temple", "Q842402", None, set()), ("buddhist temple", "Q5393308", None, set()), ("catholic church", "Q1088552", None, set()),
+    ("fort", "Q1785071", {"", "former", "historic", "military", "colonial", "british", "french", "spanish", "dutch", "portuguese", "roman", "hill", "small", "old"}, set()),
+    ("housing estate", "Q12104567", None, set()), ("residential area", "Q674950", None, set()), ("beauty pageant", "Q2658935", None, set()),
+    ("tennis tournament", "Q13219666", None, set()), ("basketball tournament", "Q4867756", None, set()), ("art exhibition", "Q667276", None, set()),
+    ("wrestling event", "Q17317604", {"professional"}, set()), ("concert tour", "Q1573906", None, set()), ("constitutional amendment", "Q53463", None, {"proposed"}),
+    ("political scandal", "Q934744", None, set()), ("radio galaxy", "Q217012", None, set()), ("board wargame", "Q4931403", None, set()),
+    ("play-by-mail game", "Q1129581", None, set()), ("infantry division", "Q9248092", None, set()), ("infantry battalion", "Q15704239", None, set()),
+    ("infantry regiment", "Q10358588", None, set()), ("artillery battery", "Q240313", None, set()), ("military unit", "Q176799", None, set()),
+    ("express train", "Q67454740", None, set()), ("deity", "Q178885", None, set()), ("god", "Q178885", None, set()), ("goddess", "Q178885", None, set()),
+    ("dynasty", "Q164950", {"", "ruling", "royal", "imperial", "hasidic", "chinese", "persian", "indian", "muslim", "local", "small", "minor"}, set()),
+    ("tribe", "Q133311", None, {"apprenticeship", "musical"}), ("caste", "Q484416", None, set()), ("ethnic group", "Q41710", None, set()),
+    ("hasidic dynasty", "Q2591905", None, set()), ("comic book series", "Q14406742", None, set()), ("book series", "Q277759", None, set()), ("graphic novel", "Q725377", None, set()), ("comic strip", "Q838795", None, set()),
+    ("manga series", "Q21198342", None, set()), ("web series", "Q526877", None, set()), ("television series", "Q5398426", None, NO_PLAN),
+    ("fairy tale", "Q699", None, set()), ("academic journal", "Q737498", None, set()), ("scientific journal", "Q5633421", None, set()),
+    ("ice hockey team", "Q4498974", None, set()), ("hockey team", "Q4498974", {"ice", "junior", "professional", "league", "minor", "senior", "amateur"}, set()),
+    ("baseball team", "Q13027888", None, set()), ("basketball team", "Q13393265", None, set()), ("cricket team", "Q17376093", None, set()),
+    ("volleyball team", "Q15720476", None, set()), ("softball team", "Q82969709", None, set()), ("lacrosse team", "Q116431233", None, set()),
+    ("netball team", "Q134468953", None, set()), ("racing team", "Q20074337", None, {"cycling", "bicycle", "horse", "dragon", "boat", "yacht", "motorcycle", "motocross"}),
+    ("american football team", "Q17156793", None, set()), ("rugby league team", "Q15221215", None, set()),
+    ("association football team", "Q15944511", None, set()), ("rock band", "Q5741069", None, set()), ("sports club", "Q847017", None, set()),
+    ("constituency", "Q192611", None, set()), ("electoral district", "Q192611", None, set()), ("electoral division", "Q192611", None, set()),
 ]
 BY_LEN = sorted(RULES, key=lambda r: -len(r[0]))
+# 'The Mangarla are an Aboriginal people', 'The Barrie Blizzard were a lacrosse team': a plural subject is one thing only for these
+PLURAL = {"tribe", "caste", "ethnic group", "ice hockey team", "hockey team", "baseball team", "basketball team", "cricket team", "volleyball team",
+          "softball team", "lacrosse team", "netball team", "racing team", "american football team", "rugby league team",
+          "rugby league football club", "rugby league club", "association football team", "football club", "rock band", "noble family", "clan", "dynasty"}
+PAGE_CAT = {"All_disambiguation_pages", "All_set_index_articles", "Surnames", "Given_names"}  # the page is a list of things, whatever its opening says
 
 
 def phrase(s):
@@ -132,12 +172,21 @@ def about_title(t, s):
     return title_key in subject or (subject in title_key and len(title_key) - len(subject) <= 12)
 
 
-EVENT = {"golf tournament", "festival", "music festival", "film festival"}
+EVENT = {"golf tournament", "festival", "music festival", "film festival", "tennis tournament", "basketball tournament", "beauty pageant"}
 YEAR = re.compile(r"\b(?:1[0-9]|20)\d\d\b")  # '1994 Senior British Open' = one edition, P31 is the series there
 CURRENCY = re.compile(r"\bcurrency\b|\bcoin(?:age)?\b|\bbanknote\b|\bnote\b", re.I)  # the 'denomination' rule means religion
 # 'a French restaurant with two locations' is a small chain, not one restaurant (user 2026-11-01)
 LOCATIONS = re.compile(r"\b(?:with|has|have|operates?) (?:[\w-]+ ){0,4}locations\b|\b\w+-location\b|\bchain\b|"
                        r"\b(?:second|third|other|additional) locations?\b|\bhas operated in\b", re.I)
+
+
+# 'The Clash on film', 'FC Kremin Kremenchuk statistics', 'Cooking Papa (volumes 1–100)': the opening names the subject of the page, not the page
+ASPECT_TAIL = re.compile(r"\bon film\b|\bstatistics\b|\brecords?\b|\bseasons?\b|\bdraft\b|\bpicks\b|\bHall of Fame\b|\bresults\b|"
+                         r"\baccomplishments\b|\bsquads?\b|\bplayers\b|\bhistory\b|\broster\b|\bopponent\b|\(volumes\b", re.I)
+ANOTHER_VIEW = re.compile(r"^(?:According to|As |For |Under )")  # 'According to the Swaminarayan philosophy, a Dev Mandir is ...' = a kind
+TAXON = re.compile(r"\b(?:sub)?famil(?:y|ies)\b|\bgenus\b|\bgenera\b")  # 'Mydini is a tribe of flies in the family Mydidae'
+TEAM_HEAD = re.compile(r"\b(?:team|club)$")
+OUTSIDE_US = re.compile(r"\b(?:Canada|Alberta|Quebec|Ontario|British Columbia|Manitoba|Saskatchewan|Newfoundland|Nova Scotia|New Brunswick|Yukon|Philippines|Australia)\b")
 
 
 def aspect_title(t, s):
@@ -176,12 +225,20 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wiki", default="en")
     ap.add_argument("--min-age-days", type=int, default=180)
+    ap.add_argument("--round", type=int, default=1, help="output qs_<wiki>_heads<N>_all.txt (round 1: qs_<wiki>_heads_all.txt)")
     args = ap.parse_args()
+    suffix = str(args.round) if args.round > 1 else ""
     with open(os.path.join(OUT, f"items_{args.wiki}.tsv"), encoding="utf-8") as fh:
         title = dict(line.rstrip("\n").split("\t", 1) for line in fh if "\t" in line)
     with open(os.path.join(OUT, f"done_{args.wiki}.txt"), encoding="utf-8") as fh:
         done = {line.strip() for line in fh if line.strip()}
-    this = os.path.join(OUT, f"qs_{args.wiki}_heads_all.txt")
+    this = os.path.join(OUT, f"qs_{args.wiki}_heads{suffix}_all.txt")
+    page_cat = set()
+    with open(os.path.join(OUT, f"cats_{args.wiki}.tsv"), encoding="utf-8") as fh:
+        for line in fh:
+            q, cat = line.rstrip("\n").split("\t", 1)
+            if cat in PAGE_CAT:
+                page_cat.add(q)
     paths = [p for p in glob.glob(os.path.join(OUT, f"qs_{args.wiki}*_all.txt")) if os.path.abspath(p) != os.path.abspath(this)]
     for path in paths + glob.glob(os.path.join(OUT, "*", "rejected.tsv")):
         with open(path, encoding="utf-8") as fh:
@@ -199,8 +256,21 @@ def main():
         words = phrase(s)
         if not words:
             continue
-        rule, head = rule_for(words, SENT.match(s).group(2))
-        if rule and FIELD.match(s):
+        verb = SENT.match(s).group(2)
+        rule, head = rule_for(words, verb)
+        if verb in ("are", "were") and head not in PLURAL:
+            continue
+        if rule and (q in page_cat or t.endswith("(disambiguation)")):
+            notes.append((q, "disambiguation, set index or name page", head, t, s[:150]))
+        elif rule and (ASPECT_TAIL.search(t) or ANOTHER_VIEW.match(s)):
+            notes.append((q, "the page is about something around the subject", head, t, s[:150]))
+        elif rule and TEAM_HEAD.search(head) and YEAR.match(t):
+            notes.append((q, "season of a team", head, t, s[:150]))
+        elif rule and head == "tribe" and TAXON.search(s[:200]):
+            notes.append((q, "taxonomic tribe", head, t, s[:150]))
+        elif rule and head == "unincorporated community" and OUTSIDE_US.search(s[:200]):
+            notes.append((q, "the class is for the United States", head, t, s[:150]))
+        elif rule and FIELD.match(s):
             notes.append((q, "opening starts with In <field>", head, t, s[:150]))
         elif rule and head in BODY and common_title(t):
             notes.append((q, "title in common nouns", head, t, s[:150]))
@@ -234,7 +304,7 @@ def main():
             count[head] += 1
     with open(this, "w", encoding="utf-8", newline="\n") as fh:
         fh.writelines(lines)
-    with open(os.path.join(OUT, "heads_review.tsv"), "w", encoding="utf-8", newline="\n") as fh:
+    with open(os.path.join(OUT, f"heads{suffix}_review.tsv"), "w", encoding="utf-8", newline="\n") as fh:
         fh.write("qid\twhy\thead\ttitle\topening\n")
         fh.writelines("\t".join(n) + "\n" for n in sorted(notes, key=lambda n: (n[2], n[1])))
     print(f"{len(lines)} QS lines -> {os.path.basename(this)}; {len(notes)} in review")

@@ -1,0 +1,6 @@
+qid	title	rejected	correct	reason
+Q4784190	Arapaho music	P31 Q133311		user: the page is about their music; the opening sentence only introduces the tribe
+Q4922869	Blackfoot religion	P31 Q133311		about their religion; the opening sentence only introduces the tribe
+Q4996737	Canterbury-Bankstown Bulldogs Honours	P31 Q15221215		a list of the club's honours, not the club
+Q64348053	Sarvamangala temple	P31 Q178885		title says the temple, the opening describes the goddess worshipped there
+Q107242404	The George Burns and Gracie Allen Show cast list	P31 Q5398426		a cast list, not the television series
