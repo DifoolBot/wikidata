@@ -204,3 +204,4 @@ Q18214704		REDIRECT_REVIEW	2026-11-02	redirect target clashes -> review live_rev
 Q18508038		REDIRECT_REVIEW	2026-11-02	redirect target clashes -> review live_review=['185148390819010830007']
 Q19857144	282449992	PROBABLY_CONFLATED	2026-11-03	old cluster holds an id not on this item and not tied to another item -> unclear, needs a human
 Q11985695		REDIRECT_REVIEW	2026-11-03	redirect target clashes -> review live_review=['211144782716599663001']
+Q21344610		REDIRECT_REVIEW	2026-11-04	redirect target clashes -> review live_review=['294324938']
