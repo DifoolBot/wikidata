@@ -208,3 +208,4 @@ Q21344610		REDIRECT_REVIEW	2026-11-04	redirect target clashes -> review live_rev
 Q21538256		REDIRECT_REVIEW	2026-11-05	redirect target clashes -> review live_review=['53527213']
 Q21542144		REDIRECT_REVIEW	2026-11-05	redirect target clashes -> review live_review=['195159234594103372146']
 Q15300187		REDIRECT_REVIEW	2026-11-05	redirect target clashes -> review live_review=['34146824990207631277']
+Q27908782		REDIRECT_REVIEW	2026-11-09	redirect target clashes -> review live_review=['299637912']
