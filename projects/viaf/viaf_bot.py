@@ -701,6 +701,36 @@ class ViafBot:
         pwb.output(f"Wrote {len(results)} rows to {output_file}")
         return len(results)
 
+    def _reseed_session_if_stale(self, output_file: str, rows: int) -> None:
+        """Restart the STATE session counts when they can't belong to this file.
+
+        TOTAL_ROWS / SESSION_START are only written when a qlever file is
+        fetched. A leftover file from an earlier pass (a source dropped from the
+        yaml and later restored) is resumed without a fetch, so STATE still holds
+        whichever source fetched last -- e.g. TOTAL_ROWS=1 against 63,156 rows to
+        go, a negative "done" on the status page. STATE doesn't record which
+        source its total is for, so this checks what the bot can see:
+
+          - no total at all, or fewer rows than this file still holds; or
+          - the session started after this file was last written (a legitimate
+            resume rewrites the file at every stop, so it is never older than its
+            own session).
+
+        The file's original size is gone by then, so the total restarts at the
+        rows left now and the progress bar counts from here.
+        """
+        state = self.report.get_state()
+        total, start = state.total_rows, state.session_start
+        written = date.fromtimestamp(os.path.getmtime(output_file))
+        if total is not None and total >= rows and start is not None and start <= written:
+            return
+        pwb.output(
+            f"STATE session (total {total}, started {start}) doesn't match "
+            f"{output_file} ({rows} rows, written {written}); restarting the "
+            f"session count at {rows}."
+        )
+        self.report.start_source_session(self.auth_src.pid, rows)
+
     def iterate_qlever(
         self,
         output_file: str = DEFAULT_QLEVER_FILE,
@@ -748,8 +778,10 @@ class ViafBot:
             # Only knowable here: later runs read a file already truncated to the
             # rows still to do, so this is the one chance to record the total.
             self.report.start_source_session(self.auth_src.pid, count)
+            resumed = False
         else:
             pwb.output(f"Using existing qlever file: {output_file}")
+            resumed = True
 
         with open(output_file, "r", encoding="utf-8") as fh:
             lines = [line for line in fh if line.strip()]
@@ -757,6 +789,8 @@ class ViafBot:
             lines = lines[1:]
 
         total_lines = len(lines)
+        if resumed:
+            self._reseed_session_if_stale(output_file, total_lines)
 
         processed = 0
         malformed = 0
