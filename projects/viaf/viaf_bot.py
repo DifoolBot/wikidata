@@ -79,9 +79,19 @@ def _add_viaf(
     wdpage.apply()
 
 
-QLEVER_URL = "https://qlever.dev/api/wikidata"
+# The work list comes from WDQS v2 (QLever backend, run by Wikimedia: faster and
+# no 429s in testing, 2026-11-24); the public qlever.dev instance is the
+# fallback when v2 fails. Both give the same rows, give or take recent edits.
+WORKLIST_ENDPOINTS = (
+    ("WDQS v2", "https://query-next.wikidata.org/sparql"),
+    ("qlever.dev", "https://qlever.dev/api/wikidata"),
+)
+HTTP_HEADERS = {
+    "User-Agent": "DifoolBot/1.0 (https://www.wikidata.org/wiki/User:DifoolBot)",
+    "Accept": "application/sparql-results+json",
+}
 # Mirrors the WDQS client's retry policy: transient statuses are retried with
-# backoff; anything else (or a run out of attempts) raises QleverQueryError.
+# backoff; anything else (or a run out of attempts) fails that endpoint.
 QLEVER_MAX_ATTEMPTS = 3
 QLEVER_FIRST_BACKOFF_SECS = 5
 QLEVER_MAX_BACKOFF_SECS = 60
@@ -108,18 +118,38 @@ def _parse_qlever_rows(data: dict) -> list[dict[str, str]]:
 
 
 def _execute_qlever_query(query: str) -> list[dict[str, str]]:
-    """Run a qlever query and return its (possibly empty) rows.
+    """Run the work-list query on WDQS v2, else on qlever.dev; return its
+    (possibly empty) rows.
 
-    Raises QleverQueryError if the request never completed successfully, so the
-    caller cannot mistake a failed fetch (e.g. qlever returning 502) for a
-    source that legitimately has no rows left. A 200 response that simply
-    matched nothing still returns an empty list."""
+    Raises QleverQueryError only if every endpoint failed, so the caller cannot
+    mistake a failed fetch (e.g. a 502) for a source that legitimately has no
+    rows left. A 200 response that simply matched nothing still returns an
+    empty list."""
+    failures = []
+    for name, url in WORKLIST_ENDPOINTS:
+        try:
+            rows = _query_endpoint(name, url, query)
+        except QleverQueryError as e:
+            failures.append(str(e))
+            pwb.warning(f"{e}; trying the next endpoint.")
+            continue
+        pwb.output(f"Work list from {name}: {len(rows)} rows.")
+        return rows
+    raise QleverQueryError("work-list query failed on every endpoint: " + " | ".join(failures))
+
+
+def _query_endpoint(name: str, url: str, query: str) -> list[dict[str, str]]:
+    """One endpoint, with retries; raises QleverQueryError when it fails."""
     backoff = QLEVER_FIRST_BACKOFF_SECS
     for attempt in range(1, QLEVER_MAX_ATTEMPTS + 1):
         retryable = True
         try:
-            response = requests.get(QLEVER_URL, params={"query": query}, timeout=300)
+            response = requests.get(
+                url, params={"query": query}, headers=HTTP_HEADERS, timeout=300
+            )
             response.raise_for_status()
+            # WDQS v2 cuts an answer that runs past ~60 s; in JSON that is an
+            # unparsable body (ValueError below), never a short row list.
             data = response.json()
         except requests.HTTPError as e:
             status = e.response.status_code if e.response is not None else None
@@ -137,25 +167,25 @@ def _execute_qlever_query(query: str) -> list[dict[str, str]]:
         else:
             if "results" not in data or "bindings" not in data["results"]:
                 raise QleverQueryError(
-                    "qlever query failed: response has no results/bindings"
+                    f"{name} query failed: response has no results/bindings"
                 )
             return _parse_qlever_rows(data)
 
         # Reached only when this attempt failed.
         if not retryable:
-            raise QleverQueryError(f"qlever query failed: {reason}")
+            raise QleverQueryError(f"{name} query failed: {reason}")
         if attempt == QLEVER_MAX_ATTEMPTS:
             raise QleverQueryError(
-                f"qlever query failed after {attempt} attempts: {reason}"
+                f"{name} query failed after {attempt} attempts: {reason}"
             )
         wait = min(backoff, QLEVER_MAX_BACKOFF_SECS)
         pwb.warning(
-            f"qlever {reason}; retry {attempt}/{QLEVER_MAX_ATTEMPTS - 1} in {wait:.0f}s"
+            f"{name} {reason}; retry {attempt}/{QLEVER_MAX_ATTEMPTS - 1} in {wait:.0f}s"
         )
         time.sleep(wait)
         backoff = min(backoff * 2, QLEVER_MAX_BACKOFF_SECS)
 
-    raise QleverQueryError("qlever query failed")  # not reached; loop exits above
+    raise QleverQueryError(f"{name} query failed")  # not reached; loop exits above
 
 
 class ViafBot:
@@ -592,78 +622,12 @@ class ViafBot:
         page.text = page.text + "\n" + wikitext
         page.save(summary=summary, minor=False)
 
-    def iterate(self):
-        index = 1_300_000
-        while True:
-            pwb.output(f"Index = {index}")
-            if not self.iterate_index(index):
-                return
-            index = index + 100_000
-
-    def iterate_index(self, index: int) -> bool:
-        # instance of (P31)
-        # VIAF ID (P214)
-        # Union List of Artist Names ID (P245)
-
-        # humans with a Union List of Artist Names ID - not deprecated, without a VIAF ID
-        # query_template = """SELECT DISTINCT ?item ?local_auth_id WHERE {{
-        #                             ?item p:{pid} ?statement0.
-        #                             ?statement0 ps:{pid} _:anyValueP245;
-        #                                 wikibase:rank ?rank.
-        #                             ?item p:P31 ?statement1.
-        #                             ?statement1 ps:P31 wd:Q5.
-        #                             FILTER(?rank != wikibase:DeprecatedRank)
-        #                             ?item wdt:{pid} ?local_auth_id.
-        #                             MINUS {{
-        #                                 ?item p:P214 ?statement2.
-        #                                 ?statement2 ps:P214 _:anyValueP214.
-        #                             }}
-        #                             }} LIMIT 3000
-        #                             """
-
-        query_template = """
-                    SELECT DISTINCT ?item ?local_auth_id WHERE {{
-
-                    SERVICE bd:slice {{
-                        ?item wdt:{pid} ?local_auth_id .
-                        bd:serviceParam bd:slice.offset {index} . # Start at item number (not to be confused with QID)
-                        bd:serviceParam bd:slice.limit 100000 . # List this many items
-                    }}
-                    FILTER EXISTS {{?item wdt:P31 wd:Q5}}
-                    MINUS {{?item p:P214  ?viaf}}
-                    OPTIONAL {{?item p:{pid} ?statement0.
-                                                        ?statement0 ps:{pid} _:anyValueP245;
-                                                            wikibase:rank ?rank }}
-                    FILTER(?rank != wikibase:DeprecatedRank)
-                    }}
-                    """
-
-        query = query_template.format(pid=self.auth_src.pid, index=index)
-        # A WdqsQueryError propagates rather than ending the paging loop: only an
-        # empty result means this source is exhausted, a failed query means we do
-        # not know, and must not report the source as finished.
-        rows = viaf.wdqs_client.query_wdqs(query)
-        if not rows:  # query ran, no rows left at this offset
-            return False
-        for row in rows:
-            qid = (
-                row.get("item", {}).get("value", "").replace(WIKIDATA_ENTITY_PREFIX, "")
-            )
-            local_auth_id = row.get("local_auth_id", {}).get("value", "")
-            if len(qid) == 0:
-                continue
-            if len(local_auth_id) == 0:
-                continue
-            record = AuthorityRecord(qid, local_auth_id)
-            self.process_record(record)
-        return True
-
     def _qlever_header(self) -> str:
         """Marker line identifying which authority source a qlever output_file is for."""
         return f"# pid={self.auth_src.pid}"
 
     def fetch_qlever_results(self, output_file: str = DEFAULT_QLEVER_FILE) -> int:
-        """Execute the iterate_index query on qlever without the slice part and save the output.
+        """Fetch this source's work list (WDQS v2, else qlever.dev) and save it.
 
         The output file starts with a header line identifying self.auth_src.pid,
         followed by QID and local authority ID pairs separated by tabs.

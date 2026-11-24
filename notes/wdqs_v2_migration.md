@@ -36,4 +36,17 @@ See https://www.wikidata.org/wiki/Wikidata:SPARQL_query_service/WDQS_backend_upd
 ## Follow-ups
 
 - The addlabel scan offset stored per property (`get_index`/`set_index`) was a position in Blazegraph's slice order; the new order is `ORDER BY ?item ?authid`, so an old stored offset points somewhere else in the list. Reset it to 0 for a full pass, or accept that some items are skipped or repeated once.
-- `projects/viaf/viaf_bot.py` (line ~627) also uses `bd:slice` and was not in this task.
+
+## viaf_bot (daily Toolforge job), 2026-11-24
+
+- Work list (`_execute_qlever_query`): WDQS v2 first, qlever.dev as fallback; each endpoint keeps the
+  old retry policy; `QleverQueryError` (run stops, same source next day) only when both fail. Requests
+  now carry the DifoolBot User-Agent.
+  Comparison of the work-list query: P691 62,929 rows in 4.8 s on v2 vs 62,934 in 17.5 s on qlever.dev;
+  P227 30,096 vs 30,097; P244 1,563 vs 1,560; qlever.dev returned 429 twice during the test.
+- Duplicate check (`get_duplicate_qids` via `viaf/wdqs_client.py`): v1 → v2.
+- The unused `bd:slice` scan (`iterate` / `iterate_index`) is removed.
+- Tested read-only: normal fetch (v2), v2 failing → qlever.dev, both failing → `QleverQueryError`,
+  duplicate check on VIAF 113230702 (finds Q42 when excluding Q1, nothing when excluding Q42).
+- Deploy: merge to main, push, then on Toolforge `become difoolbot; cd ~/wikidata; git pull`.
+  No `jobs.yaml` change.

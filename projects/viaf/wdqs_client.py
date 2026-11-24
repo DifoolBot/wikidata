@@ -3,6 +3,11 @@ import time
 import pywikibot as pwb
 from pywikibot.data import sparql
 
+# WDQS v2 (QLever backend). v1 (query.wikidata.org, pywikibot's default) may
+# degrade from February 2027 and ends in June 2027.
+WDQS_ENDPOINT = "https://query-next.wikidata.org/sparql"
+WD_ENTITY_URL = "http://www.wikidata.org/entity/"
+
 # A failed WDQS query is retried a few times before the item is given up on.
 # Both symptoms seen in practice are transient: 429 (the service is throttling
 # us - we query it once per record) and 5xx (the service is struggling, common
@@ -53,7 +58,9 @@ def query_wdqs(query: str, retry_counter: int = 3) -> list:
     server sends one. Raises WdqsQueryError if the query still did not complete,
     so a caller never mistakes a failure for an empty result.
     """
-    query_object = sparql.SparqlQuery(max_retries=retry_counter)
+    query_object = sparql.SparqlQuery(
+        endpoint=WDQS_ENDPOINT, entity_url=WD_ENTITY_URL, max_retries=retry_counter
+    )
     backoff = FIRST_BACKOFF_SECS
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
