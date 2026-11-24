@@ -1,40 +1,35 @@
 """Prime the redirect-scan selection cache from a downloaded SPARQL CSV.
 
-When qlever and WDQS are both unavailable for the heavy ``multi`` aggregation,
-the population can still be fetched in cheap slices from the WDQS GUI (e.g.
-``query-main.wikidata.org``) using the Blazegraph slice service::
+When the heavy ``multi`` aggregation is unavailable, the population can still be
+fetched in cheap pages of raw (item, v) pairs from WDQS v2 (QLever backend,
+``query-next.wikidata.org``; v1's Blazegraph ``bd:slice`` service does not exist
+there) with an ordered subquery + LIMIT/OFFSET::
 
-    PREFIX bd: <http://www.bigdata.com/rdf#>
-    PREFIX wd: <http://www.wikidata.org/entity/>
-    PREFIX wdt: <http://www.wikidata.org/prop/direct/>
     SELECT ?item ?v WHERE {
-      SERVICE bd:slice {
-        ?item wdt:P214 ?v .
-        bd:serviceParam bd:slice.offset 0 .
-        bd:serviceParam bd:slice.limit 200000 .
+      {
+        SELECT ?item ?v WHERE { ?item wdt:P214 ?v ; wdt:P31 wd:Q5 . }
+        ORDER BY ?item ?v
+        LIMIT 100000 OFFSET 0
       }
-      ?item wdt:P31 wd:Q5 .
     }
 
 That returns raw ``(item, v)`` pairs (best-rank / non-deprecated truthy values --
 the same set the redirect scan uses, minus the rare item whose preferred rank
-suppresses normal-rank siblings). This script does the per-item counting that the
-slice query cannot (you cannot slice and GROUP BY at once), then writes the cache
-file ``deconflate.py`` reuses.
+suppresses normal-rank siblings). This script does the per-item counting, then
+writes the cache file ``deconflate.py`` reuses.
 
 Two ways to supply the pairs:
 
-  --fetch  page the slice query over HTTP yourself (default endpoint
-           query-main.wikidata.org, which excludes scholarly articles and so
-           beats the timeout the full-graph aggregation hits). This is the easy
-           path -- it loops offset until a page comes back empty:
+  --fetch  page the query over HTTP yourself (default endpoint
+           query-next.wikidata.org). The easy path -- it loops the offset until a
+           page comes back short, and checks that a short page really is the end
+           (v2 cuts a response that runs past ~60 s yet still answers 200):
 
                python projects/viaf_deconflate/prime_cache.py --fetch
 
-  CSV(s)   one or more WDQS CSV exports of (item, v) pairs. NOTE the slice limit
-           applies to the P214 pattern *before* the Q5 filter, so each exported
-           page comes back under the limit even when it is full -- one download
-           is only a fraction of the population. List every page you exported:
+  CSV(s)   one or more CSV exports of (item, v) pairs, e.g. the pages above
+           downloaded from the query GUI. The Q5 filter is inside the page, so
+           every page but the last is full. List every page you exported:
 
                python projects/viaf_deconflate/prime_cache.py p0.csv p1.csv ...
 
@@ -58,11 +53,13 @@ import requests
 # Must match deconflate.py's SELECTION_CACHE_DIR / cache payload layout.
 CACHE_DIR = Path(__file__).resolve().parent / "output" / "selection_cache"
 
-# query-main excludes the scholarly-article subgraph, so the P214 scan is far
-# smaller than on the full query.wikidata.org graph.
-DEFAULT_ENDPOINT = "https://query-main.wikidata.org/sparql"
-DEFAULT_PAGE_SIZE = 200000
-DEFAULT_MAX_PAGES = 40  # safety stop (~8M P214 statements at the default size)
+# WDQS v2 (QLever); v1 query.wikidata.org / query-main may degrade from
+# February 2027 and end in June 2027.
+DEFAULT_ENDPOINT = "https://query-next.wikidata.org/sparql"
+# 100k rows answer in ~7-15 s on v2; a 500k page ran past v2's ~60 s cut-off and
+# came back truncated (373k rows, still HTTP 200) on 2026-11-24.
+DEFAULT_PAGE_SIZE = 100000
+DEFAULT_MAX_PAGES = 100  # safety stop (~10M pairs; 4.28M on 2026-11-24)
 USER_AGENT = "DifoolBot/1.0 (https://www.wikidata.org/wiki/User:DifoolBot)"
 
 # VIAF long-format ids (the newer, gapped form) are >= 19 chars; matches
@@ -109,31 +106,34 @@ def _add_row(values: dict[str, set[str]], row: list[str], i_col: int, v_col: int
         values.setdefault(qid, set()).add(val)
 
 
-def build_slice_query(offset: int, limit: int) -> str:
-    """One slice window of the raw (item, v) P214 pairs on Q5 items. bd:slice
-    wraps a single triple pattern (the P214 statement); Q5 filters outside it."""
-    return f"""PREFIX bd: <http://www.bigdata.com/rdf#>
-PREFIX wd: <http://www.wikidata.org/entity/>
+def build_page_query(offset: int, limit: int) -> str:
+    """One page of the raw (item, v) P214 pairs on Q5 items, in a fixed order so
+    consecutive offsets tile the population. The Q5 filter is inside the
+    subquery, so every page but the last is full."""
+    return f"""PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 SELECT ?item ?v WHERE {{
-  SERVICE bd:slice {{
-    ?item wdt:P214 ?v .
-    bd:serviceParam bd:slice.offset {offset} .
-    bd:serviceParam bd:slice.limit {limit} .
+  {{
+    SELECT ?item ?v WHERE {{
+      ?item wdt:P214 ?v ;
+            wdt:P31 wd:Q5 .
+    }}
+    ORDER BY ?item ?v
+    LIMIT {limit} OFFSET {offset}
   }}
-  ?item wdt:P31 wd:Q5 .
 }}"""
 
 
-def _fetch_page(endpoint: str, offset: int, page_size: int, retries: int) -> str:
-    """CSV text for one slice window, retrying a flaky call. Raises after the last
-    attempt so a failed page aborts the run rather than priming a partial cache."""
+def _get(endpoint: str, query: str, retries: int) -> str:
+    """CSV text of one query, retrying a flaky call (429 included). Raises after
+    the last attempt so a failed page aborts the run rather than priming a
+    partial cache."""
     last: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
             resp = requests.get(
                 endpoint,
-                params={"query": build_slice_query(offset, page_size)},
+                params={"query": query},
                 headers={"User-Agent": USER_AGENT, "Accept": "text/csv"},
                 timeout=180,
             )
@@ -142,39 +142,47 @@ def _fetch_page(endpoint: str, offset: int, page_size: int, retries: int) -> str
         except requests.RequestException as exc:
             last = exc
             wait = 30 * attempt
-            print(f"    page at offset {offset} failed ({exc}); "
-                  f"retry {attempt}/{retries - 1} in {wait}s." if attempt < retries
-                  else f"    page at offset {offset} failed ({exc}); giving up.")
+            print(f"    query failed ({exc}); retry {attempt}/{retries - 1} in {wait}s."
+                  if attempt < retries else f"    query failed ({exc}); giving up.")
             if attempt < retries:
                 time.sleep(wait)
-    raise RuntimeError(f"slice fetch failed at offset {offset}: {last}")
+    raise RuntimeError(f"SPARQL fetch failed: {last}")
+
+
+def _rows(text: str) -> list[list[str]]:
+    """Data rows of a CSV answer (header dropped)."""
+    return list(csv.reader(io.StringIO(text)))[1:]
 
 
 def fetch_pairs(endpoint: str, page_size: int, delay: float,
                 max_pages: int, retries: int = 3) -> dict[str, set[str]]:
-    """Page the slice query until a window returns no rows, folding to
-    {qid: {value, ...}}. The Q5 filter runs after the slice, so a page under
-    ``page_size`` is normal (density, not the end) -- only an empty page means the
-    P214 space is exhausted. Keep ``page_size`` small enough that a window is not
-    truncated server-side (50000 is safe; 200000 truncates over HTTP). Waits
-    ``delay`` seconds between calls to stay under WDQS limits."""
+    """Page the query until a page comes back short, folding to
+    {qid: {value, ...}}. A short page counts as the end only when a one-row
+    probe at the next offset finds nothing; otherwise v2 cut the answer
+    server-side, and the page is fetched again (the run aborts if it stays
+    short). Waits ``delay`` seconds between calls."""
     values: dict[str, set[str]] = {}
     for page in range(max_pages):
         offset = page * page_size
-        if page:
+        rows: list[list[str]] = []
+        for attempt in range(retries):
+            if page or attempt:
+                time.sleep(delay)
+            rows = _rows(_get(endpoint, build_page_query(offset, page_size), retries))
+            if len(rows) >= page_size:
+                break
             time.sleep(delay)
-        reader = csv.reader(io.StringIO(_fetch_page(endpoint, offset, page_size, retries)))
-        try:
-            next(reader)  # header
-        except StopIteration:
-            break
-        rows = 0
-        for row in reader:
+            if not _rows(_get(endpoint, build_page_query(offset + len(rows), 1), retries)):
+                break
+            print(f"    page {page} came back truncated ({len(rows)} rows); refetching.")
+        else:
+            raise RuntimeError(f"page at offset {offset} stays truncated; "
+                               f"lower --page-size.")
+        for row in rows:
             _add_row(values, row, 0, 1)
-            rows += 1
-        print(f"  page {page} (offset {offset}): {rows} human row(s); "
+        print(f"  page {page} (offset {offset}): {len(rows)} row(s); "
               f"{len(values)} distinct item(s) so far.")
-        if rows == 0:
+        if len(rows) < page_size:
             break
     else:
         print(f"  stopped at the {max_pages}-page safety cap; "
@@ -216,15 +224,15 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("csv", nargs="*", type=Path,
-                    help="CSV export(s) of (item, v) pairs; multiple = slice pages")
+                    help="CSV export(s) of (item, v) pairs; multiple = pages")
     ap.add_argument("--fetch", action="store_true",
-                    help="page the slice query over HTTP instead of reading CSVs")
+                    help="page the query over HTTP instead of reading CSVs")
     ap.add_argument("--endpoint", default=DEFAULT_ENDPOINT,
                     help=f"--fetch SPARQL endpoint (default {DEFAULT_ENDPOINT})")
     ap.add_argument("--page-size", type=int, default=DEFAULT_PAGE_SIZE,
-                    help=f"--fetch slice window size (default {DEFAULT_PAGE_SIZE})")
-    ap.add_argument("--delay", type=float, default=60.0,
-                    help="--fetch seconds to wait between WDQS calls (default 60)")
+                    help=f"--fetch page size (default {DEFAULT_PAGE_SIZE})")
+    ap.add_argument("--delay", type=float, default=5.0,
+                    help="--fetch seconds to wait between WDQS calls (default 5)")
     ap.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES,
                     help=f"--fetch safety cap on pages (default {DEFAULT_MAX_PAGES})")
     ap.add_argument("--kind", choices=["multi", "long"], default="multi",
@@ -240,7 +248,7 @@ def main() -> None:
     if args.fetch:
         if args.csv:
             sys.exit("--fetch and CSV files are mutually exclusive.")
-        print(f"fetching slices from {args.endpoint} "
+        print(f"fetching pages from {args.endpoint} "
               f"(page {args.page_size}, {args.delay:g}s between calls)...")
         values = fetch_pairs(args.endpoint, args.page_size, args.delay, args.max_pages)
         default_source = f"fetch:{args.endpoint}"

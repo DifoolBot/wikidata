@@ -41,7 +41,7 @@ SLEEP_AFTER_UNCAUGHT_ERROR = 10  # sec
 SLEEP_AFTER_READ = 5  # sec
 SLEEP_AFTER_WRITE = 30  # sec
 
-# number of identifiers fetched per WDQS bd:slice window
+# number of identifiers fetched per WDQS LIMIT/OFFSET window
 SCAN_SLICE_SIZE = 100_000
 
 # Wikidata items that must never be touched
@@ -121,7 +121,7 @@ class ReportBackend(ABC):
 
     @abstractmethod
     def get_index(self, pid: str) -> int:
-        """Scan progress (bd:slice offset) for a source property."""
+        """Scan progress (window offset) for a source property."""
         pass
 
     @abstractmethod
@@ -241,13 +241,19 @@ class AddLabelBot:
     # ------------------------------------------------------------------ #
 
     def scan_slice(self, source: LabelSource, index: int) -> bool:
-        """Examine one bd:slice window of source identifiers; False when the
-        slice is exhausted or max_change is reached."""
+        """Examine one window of source identifiers (rows index .. index+limit
+        of all ``?item wdt:{pid} ?authid`` pairs, ordered by item and id);
+        False when the window is past the end, the query fails, or max_change
+        is reached. WDQS v2 (QLever) has no bd:slice, so the window is an
+        ordered subquery with LIMIT/OFFSET; the filters run outside it, as they
+        did outside the slice."""
         query_template = """SELECT DISTINCT ?item ?authid WHERE {{
-                    SERVICE bd:slice {{
-                        ?item wdt:{pid} ?authid.
-                        bd:serviceParam bd:slice.offset {index} ;
-                        bd:slice.limit {limit} .
+                    {{
+                        SELECT ?item ?authid WHERE {{
+                            ?item wdt:{pid} ?authid.
+                        }}
+                        ORDER BY ?item ?authid
+                        LIMIT {limit} OFFSET {index}
                     }}
                     ?item wdt:P214 ?viaf;
                         wdt:P31 wd:Q5.
@@ -272,8 +278,12 @@ class AddLabelBot:
             language=source.label_language,
         )
         rows = query_wdqs(qry)
-        if not rows:
+        if rows is None:
             return False
+        if not rows:
+            # every item in the window was filtered out: go on unless the
+            # window is past the end of the source property
+            return self.window_has_rows(source, index)
         for row in rows:
             qid = row.get("item", {}).get("value", "").replace(WD_ENTITY_PREFIX, "")
             authid = row.get("authid", {}).get("value", "")
@@ -286,6 +296,15 @@ class AddLabelBot:
                 return False
 
         return True
+
+    def window_has_rows(self, source: LabelSource, index: int) -> bool:
+        """True when the ordered ``wdt:{pid}`` pairs reach offset ``index``."""
+        qry = f"""SELECT ?item WHERE {{
+                    ?item wdt:{source.pid} ?authid.
+                }}
+                ORDER BY ?item ?authid
+                LIMIT 1 OFFSET {index}"""
+        return bool(query_wdqs(qry))
 
     def wait(self, reason: str, seconds: int):
         if seconds > 0:

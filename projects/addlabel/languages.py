@@ -959,10 +959,14 @@ class Languages:
                     OPTIONAL { ?language wdt:P1232 ?lan_lin.      }
                     OPTIONAL { ?language wdt:P1394 ?lan_glotto.   }
                     OPTIONAL { ?language wdt:P424  ?wiki.         }
-                    SERVICE wikibase:label {
-                        bd:serviceParam wikibase:language "en".
-                        ?language rdfs:label ?languageLabel.
+                    # en label, else the QID (as the label service gave);
+                    # not SERVICE wikibase:label: on WDQS v2 its result is
+                    # bound only after the BIND below, which then saw nothing
+                    OPTIONAL {
+                        ?language rdfs:label ?enLabel.
+                        FILTER(LANG(?enLabel) = "en")
                     }
+                    BIND(COALESCE(?enLabel, STRAFTER(STR(?language), STR(wd:))) AS ?languageLabel)
                     BIND(COALESCE(?lan_iso639_3, ?lan_iso639_5, ?lan_iso639_6, ?lan_ietf, ?lan_lin, ?lan_glotto, ?languageLabel) AS ?c)
                     }"""
         lan_dict = {}

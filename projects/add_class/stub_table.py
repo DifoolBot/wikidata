@@ -44,13 +44,13 @@ _last_wdqs = [0.0]
 
 
 def wdqs(query):
-    """The same query on query.wikidata.org (fallback when QLever keeps answering 429): 5 s apart, Retry-After
+    """The same query on WDQS v2, query-next.wikidata.org (fallback when QLever keeps answering 429): 5 s apart, Retry-After
     honoured. Returns the response, or None when WDQS refuses too."""
     for _ in range(3):
         time.sleep(max(0.0, _last_wdqs[0] + 5 - time.time()))
         _last_wdqs[0] = time.time()
         try:
-            r = requests.post("https://query.wikidata.org/sparql", data={"query": query}, timeout=90,
+            r = requests.post("https://query-next.wikidata.org/sparql", data={"query": query}, timeout=90,
                               headers={"Accept": "application/sparql-results+json", **UA})
         except requests.RequestException:
             return None
