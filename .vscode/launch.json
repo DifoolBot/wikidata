@@ -46,6 +46,17 @@
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "justMyCode": false
+        },
+        {
+            "name": "fix_isbn_violations: dry-run one QID",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/projects/isbn_cleanup/fix_isbn_violations.py",
+            "args": ["--qid", "${input:isbn_qid}"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": false
         }
     ],
     "inputs": [
@@ -54,6 +65,12 @@
             "type": "promptString",
             "description": "QID to process (dry run, bypasses the done-check)",
             "default": "Q98940354"
+        },
+        {
+            "id": "isbn_qid",
+            "type": "promptString",
+            "description": "QID to process (dry run; --qid bypasses the done-check)",
+            "default": "Q138256796"
         }
     ]
 }

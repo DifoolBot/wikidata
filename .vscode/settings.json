@@ -1,11 +1,19 @@
 {
   "python.analysis.extraPaths": [
     "projects",
-    "projects/shared_lib"
+    "projects/shared_lib",
+    "projects/isbn_cleanup"
   ],
   "python.envFile": "${workspaceFolder}/.env",
+  // python.envFile only applies to debug/run sessions, not the integrated
+  // terminal -- so set PYTHONPATH here too for running scripts from the CLI.
+  // Absolute (via ${workspaceFolder}) so it survives cd'ing into subdirs.
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "${workspaceFolder}\\projects;${workspaceFolder}\\projects\\shared_lib;${workspaceFolder}\\projects\\isbn_cleanup"
+  },
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true
-  }
+  },
+  "python.terminal.useEnvFile": true
 }
