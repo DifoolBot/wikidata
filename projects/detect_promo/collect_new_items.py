@@ -166,17 +166,24 @@ def compute_census(items: list[dict], creators: dict, ref: dt.datetime) -> dict:
 
 
 def score_new_accounts(
-    items: list[dict], creators: dict, ref: dt.datetime
+    items: list[dict],
+    creators: dict,
+    ref: dt.datetime,
+    new_users: set | None = None,
+    bursts: bool = True,
 ) -> tuple[list[dict], dict]:
     """Payload-score the creations by new (< NEW_ACCOUNT_DAYS) accounts, snapshot
-    now. Returns (shortlist rows sorted by score desc, new-account P31 counter)."""
-    new_users = {
-        u
-        for u, info in creators.items()
-        if "bot" not in info.get("groups", [])
-        and (a := age_days(info.get("registration"), ref)) is not None
-        and a < NEW_ACCOUNT_DAYS
-    }
+    now. Returns (shortlist rows sorted by score desc, new-account P31 counter).
+    backfill_range.py passes its own `new_users` (account age at creation, not at
+    `ref`) and bursts=False (a usercontribs call per account is too many there)."""
+    if new_users is None:
+        new_users = {
+            u
+            for u, info in creators.items()
+            if "bot" not in info.get("groups", [])
+            and (a := age_days(info.get("registration"), ref)) is not None
+            and a < NEW_ACCOUNT_DAYS
+        }
     # Each new account's own created qids in the window -> circular-link detection.
     own_by_user: dict[str, set] = defaultdict(set)
     new_items = []
@@ -268,11 +275,11 @@ def score_new_accounts(
     # ui_burst_max -- longest run of UI-tagged statement edits ~1 s apart (see
     #   dp.UI_BURST_GAP_S); only fetched for shortlisted accounts, as it costs a
     #   usercontribs call per account.
-    bursts = {}
-    for u in {r["user"] for r in shortlist}:
-        bursts[u] = dp.ui_bursts(dp.get_contribs(u, limit=500))[0]
+    burst_max = {}
+    for u in {r["user"] for r in shortlist} if bursts else ():
+        burst_max[u] = dp.ui_bursts(dp.get_contribs(u, limit=500))[0]
     for r in shortlist:
-        r["ui_burst_max"] = bursts[r["user"]]
+        r["ui_burst_max"] = burst_max.get(r["user"])
     shortlist.sort(key=lambda r: r["score"], reverse=True)
     stats = {
         "new_account_items": len(new_items),

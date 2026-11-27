@@ -149,7 +149,7 @@ def _on_response(resp, *args, **kwargs):
     """requests response hook on pywikibot's session: react to HTTP 429."""
     global _pace
     if resp.status_code == 429:
-        _pace = min(_pace * 2, MAX_PACE)
+        _pace = max(_pace, min(_pace * 2, MAX_PACE))  # never shorter than a --pace set by the caller
         body = " ".join(resp.text.split())[:120]
         print(f"   API 429 (Retry-After={resp.headers.get('Retry-After')}), pywikibot retries; then {_pace} s "
               f"between calls ... [{body}]", file=sys.stderr, flush=True)
