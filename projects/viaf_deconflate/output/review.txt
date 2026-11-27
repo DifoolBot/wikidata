@@ -213,3 +213,4 @@ Q15990359	54262059	PROBABLY_CONFLATED	2026-11-12	old cluster holds an id not on 
 Q16334333		REDIRECT_FIX	2026-11-12	live VIAF redirected / withdrawn redirect=[('100981555', None), ('100981564', None), ('1078159474196527661104', None), ('119451984', None)] live_review=['1145663075205072354']
 Q16945539		REDIRECT_REVIEW	2026-11-17	redirect target clashes -> review live_review=['278116198', '9821982']
 Q19842099		REDIRECT_REVIEW	2026-11-23	redirect target clashes -> review live_review=['43222439']
+Q21062173		REDIRECT_REVIEW	2026-11-27	redirect target clashes -> review live_review=['49300137']
