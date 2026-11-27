@@ -193,7 +193,8 @@ BEGIN
     WHERE RETRY = FALSE
       AND (MESSAGE LIKE '%connection%'
         OR MESSAGE LIKE '%object is not iterable%'
-        OR MESSAGE LIKE '%WDQS query failed%');
+        OR MESSAGE LIKE '%WDQS query failed%'
+        OR MESSAGE LIKE '%max lag timeout%');
 END$$
 
 -- Normalize and de-duplicate the duplicate-local-auth-id report.

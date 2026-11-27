@@ -121,8 +121,11 @@ class ReportBackend(ABC):
         pass
 
     @abstractmethod
-    def save_progress(self, current_pid: str, cooldown_until: date | None) -> None:
-        """Record which source to run next, and any cooldown before restarting."""
+    def save_progress(
+        self, current_pid: str | None, cooldown_until: date | None
+    ) -> None:
+        """Record which source to run next (None: start the next pass at the
+        top of the order), and any cooldown before restarting."""
         pass
 
     @abstractmethod

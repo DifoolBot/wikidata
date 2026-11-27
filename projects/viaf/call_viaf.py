@@ -3,6 +3,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pywikibot as pwb
 import pywikibot.bot
@@ -11,10 +12,10 @@ import viaf.authority_sources
 from viaf.codes_sync import push_order, sync_descriptions
 from viaf.paths import DATA_DIR
 from viaf.report_backend import WarmSkipReport
-from viaf.viaf_bot import SessionOutcome, ViafBot
+from viaf.viaf_bot import PAGE_TITLE, SessionOutcome, ViafBot
 from viaf.viaf_config import load_config, order_pids
 
-from shared_lib.wikidata_site import ensure_login
+from shared_lib.wikidata_site import ensure_login, get_site
 
 
 class _MaxLevelFilter(logging.Filter):
@@ -173,6 +174,49 @@ def _resume_index(ordered_pids: list[str], current_pid: str | None) -> int:
     return 0
 
 
+def _worklist_file(pid: str) -> Path:
+    return DATA_DIR / f"qlever_viaf_index_{pid}.txt"
+
+
+# Marker for a backlog pass: the PIDs (one per line) that still had a leftover
+# work list when the previous pass ended. While it exists, only those sources
+# are processed and no cooldown starts. A file rather than a STATE column, so
+# neither database schema needs a migration.
+BACKLOG_FILE = DATA_DIR / "backlog_pass.txt"
+
+
+def _load_backlog() -> list[str] | None:
+    if not BACKLOG_FILE.exists():
+        return None
+    return [
+        line.strip()
+        for line in BACKLOG_FILE.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _save_backlog(pids: list[str]) -> None:
+    BACKLOG_FILE.write_text("\n".join(pids) + "\n", encoding="utf-8")
+
+
+def _clear_backlog() -> None:
+    BACKLOG_FILE.unlink(missing_ok=True)
+
+
+def _sources_with_backlog(pids: list[str]) -> list[str]:
+    """Sources whose work list was cut short (by the max_duplicates cap): the
+    unchecked rows are still in their qlever file. A source that finished its
+    list has its file removed by iterate_qlever."""
+    return [pid for pid in pids if _worklist_file(pid).exists()]
+
+
+def _report_rows() -> int:
+    """Number of data rows in all tables on the published report page (each
+    table's header row is not counted)."""
+    text = pwb.Page(get_site(), PAGE_TITLE).text
+    return max(0, text.count("\n|-") - text.count("{|"))
+
+
 def main() -> None:
     _setup_logging()
     # A daily run appends to the same .out/.err, so stamp the start of each run
@@ -209,7 +253,39 @@ def main() -> None:
             disposition = "no active authority sources configured"
             return
 
-        index = _resume_index(ordered_pids, state.current_pid)
+        # A backlog pass covers only the sources listed in BACKLOG_FILE (in the
+        # yaml order); a normal pass covers every active source.
+        backlog = _load_backlog()
+        pass_pids = ordered_pids
+        pass_kind = "pass"
+        if backlog is not None:
+            pass_pids = [pid for pid in ordered_pids if pid in backlog]
+            pass_kind = "backlog pass"
+            if not pass_pids:
+                # None of the listed sources is active any more.
+                pwb.warning(
+                    f"Backlog sources {backlog} are not active; "
+                    "dropping the backlog pass."
+                )
+                _clear_backlog()
+                pass_pids = ordered_pids
+                pass_kind = "pass"
+
+        index = _resume_index(pass_pids, state.current_pid)
+        if state.current_pid is None:
+            pwb.output(f"Starting a new {pass_kind} at {pass_pids[index]}.")
+        elif pass_pids[index] == state.current_pid:
+            pwb.output(
+                f"Resuming {pass_kind} at {state.current_pid} "
+                f"(source {index + 1}/{len(pass_pids)})."
+            )
+        else:
+            # The saved source is no longer active (ignored, or dropped from
+            # the authority sources): the pass restarts from the top.
+            pwb.warning(
+                f"Saved source {state.current_pid} is not active; "
+                f"restarting the {pass_kind} at {pass_pids[index]}."
+            )
 
         # Items VIAF reported 'not_found' for are cached and skipped until this
         # cutoff; older cache entries are purged so they get re-checked.
@@ -243,8 +319,24 @@ def main() -> None:
         # we stop and resume the same source on the next run. After the final
         # source finishes, enter a cooldown before starting the next full pass
         # from the top.
-        for _ in range(len(ordered_pids)):
-            pid = ordered_pids[index]
+        for _ in range(len(pass_pids)):
+            pid = pass_pids[index]
+
+            # Don't grow the report page past what editors (and the viaf-score
+            # job, which rescans every row daily) can handle. Checked before
+            # every source, since each finished source appends its tables.
+            if config.max_report_rows is not None:
+                rows = _report_rows()
+                if rows >= config.max_report_rows:
+                    report.save_progress(current_pid=pid, cooldown_until=None)
+                    disposition = (
+                        f"paused: report page has {rows} rows "
+                        f"(limit {config.max_report_rows}); will resume {pid} "
+                        "once it is worked below the limit"
+                    )
+                    pwb.output(disposition)
+                    return
+
             auth_src = authority_sources.get(pid)
 
             # Serve the per-item skip checks from memory: preload once here
@@ -280,11 +372,29 @@ def main() -> None:
                 disposition = f"{stop_reasons[outcome]}; will resume {pid} next run"
                 return
 
-            if index == len(ordered_pids) - 1:
+            if index == len(pass_pids) - 1:
+                # Sources cut short by the max_duplicates cap still have rows
+                # left: go straight back to them instead of letting the backlog
+                # wait out a whole cooldown (it would otherwise only shrink by
+                # max_duplicates rows per pass).
+                remaining = _sources_with_backlog(ordered_pids)
+                if remaining:
+                    _save_backlog(remaining)
+                    report.save_progress(current_pid=None, cooldown_until=None)
+                    disposition = (
+                        f"{pass_kind} finished; backlog pass next for "
+                        f"{', '.join(remaining)}"
+                    )
+                    pwb.output(disposition[0].upper() + disposition[1:] + ".")
+                    return
+                _clear_backlog()
                 resume_at = date.today() + timedelta(days=config.cooldown_days)
-                report.save_progress(
-                    current_pid=ordered_pids[0], cooldown_until=resume_at
-                )
+                # No current source: the next pass starts at the top of the order
+                # as the yaml has it *then*. Saving ordered_pids[0] here froze
+                # today's order instead, so a yaml edit live at the end of a pass
+                # (P691/P244 dropped, then restored) made the next pass resume
+                # mid-order at P227 and silently skip the sources before it.
+                report.save_progress(current_pid=None, cooldown_until=resume_at)
                 disposition = (
                     f"completed all authority sources; cooling down until {resume_at}"
                 )
@@ -294,8 +404,8 @@ def main() -> None:
                 return
 
             index += 1
-            report.save_progress(current_pid=ordered_pids[index], cooldown_until=None)
-            disposition = f"advanced through sources; {ordered_pids[index]} is next"
+            report.save_progress(current_pid=pass_pids[index], cooldown_until=None)
+            disposition = f"advanced through sources; {pass_pids[index]} is next"
     except MaxlagTimeoutError as exc:
         # Wikidata replication lag stayed above maxlag for the whole retry
         # window. This is a transient, server-side, self-healing condition:

@@ -139,7 +139,9 @@ class FirebirdViafReporting(FirebirdDatabaseHandler, viaf.report_backend.ReportB
             descriptions_synced=_as_date(descriptions_synced),
         )
 
-    def save_progress(self, current_pid: str, cooldown_until: date | None) -> None:
+    def save_progress(
+        self, current_pid: str | None, cooldown_until: date | None
+    ) -> None:
         self._upsert_state(
             "CURRENT_PID = ?, COOLDOWN_UNTIL = ?", (current_pid, cooldown_until)
         )
