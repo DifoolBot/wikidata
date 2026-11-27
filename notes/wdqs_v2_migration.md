@@ -50,3 +50,8 @@ See https://www.wikidata.org/wiki/Wikidata:SPARQL_query_service/WDQS_backend_upd
   duplicate check on VIAF 113230702 (finds Q42 when excluding Q1, nothing when excluding Q42).
 - Deploy: merge to main, push, then on Toolforge `become difoolbot; cd ~/wikidata; git pull`.
   No `jobs.yaml` change.
+
+## Follow-up 2026-11-25
+- Local main pulled to c77961b; the local stub_table.py change (literals kept whole) merged with the v2 URL.
+- addlabel PDONE scan offsets reset to 0 (were P244 1,700,000 and P268 800,000, counted in v1 bd:slice order).
+- addlabel is not running at the moment and probably needs a rewrite before it continues.
