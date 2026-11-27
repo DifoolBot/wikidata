@@ -104,6 +104,15 @@ def main() -> None:
     if args.save and args.drain:
         sys.exit("--save and --drain are mutually exclusive.")
 
+    # A single-dash flag (e.g. -job for --job) is silently forwarded to deconflate
+    # and misbehaves; catch the likely typo instead of running the wrong mode.
+    typo = [a for a in passthrough
+            if len(a) >= 2 and a[0] == "-" and a[1] != "-" and a[1].isalpha()]
+    if typo:
+        sys.exit("unknown single-dash option(s): " + ", ".join(typo)
+                 + " -- wrapper flags take two dashes. Did you mean "
+                 + ", ".join("-" + t for t in typo) + "?")
+
     shard = args.shard or read_shard()
     if not shard:
         sys.exit(
