@@ -210,11 +210,10 @@ def _sources_with_backlog(pids: list[str]) -> list[str]:
     return [pid for pid in pids if _worklist_file(pid).exists()]
 
 
-def _report_rows() -> int:
-    """Number of data rows in all tables on the published report page (each
-    table's header row is not counted)."""
-    text = pwb.Page(get_site(), PAGE_TITLE).text
-    return max(0, text.count("\n|-") - text.count("{|"))
+def _report_bytes() -> int:
+    """Size of the published report page in bytes (UTF-8), the same figure
+    the page history shows."""
+    return len(pwb.Page(get_site(), PAGE_TITLE).text.encode("utf-8"))
 
 
 def main() -> None:
@@ -325,13 +324,13 @@ def main() -> None:
             # Don't grow the report page past what editors (and the viaf-score
             # job, which rescans every row daily) can handle. Checked before
             # every source, since each finished source appends its tables.
-            if config.max_report_rows is not None:
-                rows = _report_rows()
-                if rows >= config.max_report_rows:
+            if config.max_report_bytes is not None:
+                size = _report_bytes()
+                if size >= config.max_report_bytes:
                     report.save_progress(current_pid=pid, cooldown_until=None)
                     disposition = (
-                        f"paused: report page has {rows} rows "
-                        f"(limit {config.max_report_rows}); will resume {pid} "
+                        f"paused: report page is {size:,} bytes "
+                        f"(limit {config.max_report_bytes:,}); will resume {pid} "
                         "once it is worked below the limit"
                     )
                     pwb.output(disposition)

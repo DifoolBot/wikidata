@@ -52,11 +52,11 @@ max_duplicates: 150
 cooldown_days: 28
 
 # Pause all processing while the published report page
-# (User:Difool/viaf_already_somewhere) holds this many table rows or more, so
-# the daily scoring job (viaf-score) doesn't time out. Re-checked every run;
+# (User:Difool/viaf_already_somewhere) is this many bytes or more, so the
+# daily scoring job (viaf-score) doesn't time out. Re-checked every run;
 # processing resumes once editors have worked the page below the limit. Set to
-# null to disable.
-max_report_rows: 600
+# null to disable. 150k bytes is about 770 rows (Epìdosis, 2026-11-27).
+max_report_bytes: 150000
 
 # Items VIAF reports as 'not_found' are cached and skipped for this many days,
 # so the limited daily quota isn't wasted re-checking them. After the period

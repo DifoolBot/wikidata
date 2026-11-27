@@ -8,7 +8,7 @@ CONFIG_FILE = Path(__file__).parent / "viaf_config.yaml"
 DEFAULT_MAX_DUPLICATES = 1000
 DEFAULT_COOLDOWN_DAYS = 7
 DEFAULT_NOT_FOUND_CACHE_DAYS = 365
-DEFAULT_MAX_REPORT_ROWS = 600
+DEFAULT_MAX_REPORT_BYTES = 150_000
 
 
 @dataclass
@@ -25,8 +25,8 @@ class ViafConfig:
     # skip items VIAF returned 'not_found' for within this many days; None disables
     not_found_cache_days: int | None = DEFAULT_NOT_FOUND_CACHE_DAYS
     # pause (re-checked every run) while the published report page holds this
-    # many table rows or more; None disables the pause
-    max_report_rows: int | None = DEFAULT_MAX_REPORT_ROWS
+    # many bytes or more; None disables the pause
+    max_report_bytes: int | None = DEFAULT_MAX_REPORT_BYTES
 
 
 def load_config(path: Path = CONFIG_FILE) -> ViafConfig:
@@ -42,7 +42,7 @@ def load_config(path: Path = CONFIG_FILE) -> ViafConfig:
         not_found_cache_days=data.get(
             "not_found_cache_days", DEFAULT_NOT_FOUND_CACHE_DAYS
         ),
-        max_report_rows=data.get("max_report_rows", DEFAULT_MAX_REPORT_ROWS),
+        max_report_bytes=data.get("max_report_bytes", DEFAULT_MAX_REPORT_BYTES),
     )
 
 
