@@ -30,7 +30,13 @@ established designed published written produced created developed owned operated
 under during about within run serving started formed issued released manufactured organized organised first originally
 formerly consisting featuring than since while when after before whose it its has had but not through along across against
 headquartered found living dwelling inhabiting playing appearing belonging played given presented promoted active contested
-representing collected introduced launched""".split())
+representing collected introduced launched dedicated focused specializing specialising recorded represented licensed celebrated
+hosted operating originating set providing offering using covering containing including involving supporting dating currently commonly primarily widely often responsible being similar seen undertaken focusing working
+available among amongst amid amidst over into toward towards upon per via around beyond behind inside outside throughout
+sold worn practised practiced performed observed spoken aimed intended whereby wherein whereas thereby compiled""".split())
+# 'a privately held company', 'an unaided government run medical college'; not 'a company owned by', 'a festival held annually'
+OWNED = re.compile(r"\b[\w'-]+ (?:owned|held|traded|run|funded|operated|sponsored|backed|managed|led|dedicated) (?!(?:" + "|".join(sorted(STOP)) + r")\b|[\w-]+ly\b)", re.I)
+ARTICLES = {"the", "a", "an", "his", "her", "their", "this", "these", "those", "its"}
 SENT = re.compile(r"^(?:The )?(.{2,90}?)(?: \([^)]*\))?,? (is|was|are|were) an? ([^.;:()]{3,120})")
 PLANNED = {"proposed", "planned", "fictional", "fictitious", "mythical", "mythological", "imaginary", "hypothetical", "legendary"}
 PORTAL = re.compile(r"^(?:\w+ )+portal (?=[A-Z])")  # 'Christianity portal A house of hospitality ...'
@@ -72,7 +78,7 @@ RULES = [
     ("australian football club", "Q17374546", None, set()), ("australian rules football club", "Q17374546", None, set()),
     ("football club", "Q476028", None, {"rules", "gaelic", "american", "canadian", "rugby", "gridiron", "supporting", "fan", "touch"}),
     ("political party", "Q7278", None, set()),
-    ("trade union", "Q178790", None, set()), ("noble family", "Q13417114", None, set()), ("clan", "Q211503", None, set()),
+    ("trade union", "Q178790", None, set()), ("noble family", "Q13417114", None, set()), ("clan", "Q211503", None, {"camorra", "mafia", "crime"}),
     ("denomination", "Q13414953", None, {"banknote", "currency", "coin"}),
     ("government agency", "Q327333", None, set()), ("law enforcement agency", "Q732717", None, set()),
     ("school district", "Q398141", None, {"former"}), ("historic district", "Q15243209", None, set()),
@@ -132,6 +138,18 @@ RULES = [
     ("american football team", "Q17156793", None, set()), ("rugby league team", "Q15221215", None, set()),
     ("association football team", "Q15944511", None, set()), ("rock band", "Q5741069", None, set()), ("sports club", "Q847017", None, set()),
     ("constituency", "Q192611", None, set()), ("electoral district", "Q192611", None, set()), ("electoral division", "Q192611", None, set()),
+    # round 3 (2026-11-01): the class of pages opening the same way; sports classes stay generic, 'football' can be any code
+    # a Camorra clan is a crime group, a 'natural geological formation' a landform, a 'third-level education award' a qualification
+    ("cricket ground", "Q682943", None, NO_PLAN), ("civil parish", "Q1115575", None, set()), ("music venue", "Q8719053", None, NO_PLAN),
+    ("commercial building", "Q655686", None, NO_PLAN), ("office building", "Q1021645", None, NO_PLAN), ("papal bull", "Q189867", None, set()),
+    ("geologic formation", "Q736917", None, {"natural", "anticline"}), ("geological formation", "Q736917", None, {"natural", "anticline"}), ("secondary school", "Q159334", None, NO_PLAN),
+    ("high school", "Q9826", None, NO_PLAN), ("learned society", "Q955824", None, set()), ("government ministry", "Q192350", None, set()),
+    ("princely state", "Q1336152", None, set()), ("settlement", "Q486972", PLACE, set()), ("award", "Q618779", None, {"education"}),
+    ("football competition", "Q13406554", None, set()), ("cup competition", "Q13406554", None, set()), ("league competition", "Q13406554", None, set()),
+    ("club competition", "Q13406554", None, set()), ("cricket competition", "Q13406554", None, set()), ("football tournament", "Q13406554", None, set()),
+    ("cricket tournament", "Q13406554", None, set()), ("hockey tournament", "Q13406554", None, set()), ("curling tournament", "Q13406554", None, set()),
+    ("football league", "Q623109", None, set()), ("hockey league", "Q623109", None, set()), ("basketball league", "Q623109", None, set()),
+    ("baseball league", "Q623109", None, set()), ("cricket league", "Q623109", None, set()),
 ]
 BY_LEN = sorted(RULES, key=lambda r: -len(r[0]))
 # 'The Mangarla are an Aboriginal people', 'The Barrie Blizzard were a lacrosse team': a plural subject is one thing only for these
@@ -147,15 +165,22 @@ def phrase(s):
     if not m:
         return None
     words = []
-    for w in m.group(3).replace(",", " , ").split():
+    tokens = OWNED.sub("", re.sub(r"\[[^\]]*\]", "", m.group(3))).replace(",", " , ").split()  # 'company[where?] developing'
+    for i, w in enumerate(tokens):
         if w == ",":
             continue
+        # a second noun phrase begins: 'an emerging field concerning the quantum technology of ...'
+        if w.casefold() in ARTICLES or (w.casefold().endswith("ing") and i + 1 < len(tokens) and tokens[i + 1].casefold() in ARTICLES):
+            break
         if w.casefold() in ("and", "or"):
             return None
         if w.casefold() in STOP or not re.fullmatch(r"[A-Za-z'-]+", w):
             break
         words.append(w.casefold())
     return words or None
+
+
+CLAUSE = re.compile(r"\b(?:is|was|are|were|which|who|that|has|had|where|whose)\b|[.!?] ", re.I)
 
 
 def key(text):
@@ -165,14 +190,26 @@ def key(text):
 def about_title(t, s):
     """The sentence is about the page itself: subject and title contain each other (not 'Liverpool F.C. league record')."""
     m = SENT.match(s)
-    title_key, subject = key(re.sub(r" \(.*\)$", "", re.sub(r",.*$", "", t))), key(m.group(1)) if m else ""
+    name = re.sub(r" \(.*\)$", "", re.sub(r",.*$", "", t))
+    title_key, subject = key(name), key(m.group(1)) if m else ""
     if not subject or not title_key:
+        return False
+    # the class is in a side clause or a later sentence: 'Mayurbhanj Palace was the royal palace of ..., which was a princely state'
+    if CLAUSE.search(m.group(1).casefold().replace(name.casefold(), "")):
+        return False
+    # the subject stops inside a title word and the title goes on: 'Goa is a tiny region' on the page 'Goans in sports' (not 'Portland Western')
+    at = name.casefold().find(m.group(1).casefold())
+    rest = name[at + len(m.group(1)):] if at >= 0 else ""
+    if rest[:1].isalpha() and " " in rest:
         return False
     # a title may add a word to the subject (Tatka Village), not a phrase (Paksi FC in European football)
     return title_key in subject or (subject in title_key and len(title_key) - len(subject) <= 12)
 
 
-EVENT = {"golf tournament", "festival", "music festival", "film festival", "tennis tournament", "basketball tournament", "beauty pageant"}
+EVENT = {"golf tournament", "festival", "music festival", "film festival", "tennis tournament", "basketball tournament", "beauty pageant",
+         "award", "football competition", "cup competition", "league competition", "club competition", "cricket competition", "football tournament",
+         "cricket tournament", "hockey tournament", "curling tournament", "football league", "hockey league", "basketball league", "baseball league",
+         "cricket league"}
 YEAR = re.compile(r"\b(?:1[0-9]|20)\d\d\b")  # '1994 Senior British Open' = one edition, P31 is the series there
 CURRENCY = re.compile(r"\bcurrency\b|\bcoin(?:age)?\b|\bbanknote\b|\bnote\b", re.I)  # the 'denomination' rule means religion
 # 'a French restaurant with two locations' is a small chain, not one restaurant (user 2026-11-01)
@@ -182,7 +219,7 @@ LOCATIONS = re.compile(r"\b(?:with|has|have|operates?) (?:[\w-]+ ){0,4}locations
 
 # 'The Clash on film', 'FC Kremin Kremenchuk statistics', 'Cooking Papa (volumes 1–100)': the opening names the subject of the page, not the page
 ASPECT_TAIL = re.compile(r"\bon film\b|\bstatistics\b|\brecords?\b|\bseasons?\b|\bdraft\b|\bpicks\b|\bHall of Fame\b|\bresults\b|"
-                         r"\baccomplishments\b|\bsquads?\b|\bplayers\b|\bhistory\b|\broster\b|\bopponent\b|\(volumes\b", re.I)
+                         r"\baccomplishments\b|\bcheerleading\b|\bsquads?\b|\bplayers\b|\bhistory\b|\broster\b|\bopponent\b|\(volumes\b", re.I)
 ANOTHER_VIEW = re.compile(r"^(?:According to|As |For |Under )")  # 'According to the Swaminarayan philosophy, a Dev Mandir is ...' = a kind
 TAXON = re.compile(r"\b(?:sub)?famil(?:y|ies)\b|\bgenus\b|\bgenera\b")  # 'Mydini is a tribe of flies in the family Mydidae'
 TEAM_HEAD = re.compile(r"\b(?:team|club)$")
@@ -198,6 +235,28 @@ def aspect_title(t, s):
         return False
     before, after = title[:at].strip(), title[at + len(m.group(1)):].strip()
     return bool(re.search(r"(?:^|[\s-])[a-z]+$", before)) or after.startswith("in ") or after in ("fleet", "mascots", "tehsil")
+
+
+ONE_OFF = re.compile(r"\bone-(?:off|time)\b|\bheld (?:only )?once\b|\bonly (?:once|edition)\b|\bsingle edition\b", re.I)
+RECURS = re.compile(r"\b(?:annual(?:ly)?|yearly|biennial(?:ly)?|bi-annual|every (?:\w+ )?years?|each (?:year|season)|seasons?|editions?|inaugural|first held|"
+                    r"winners?|champions|since \d{4}|from \d{4} (?:to|until)|between \d{4} and)\b", re.I)
+A_LEAGUE = re.compile(r"\b(?:League|Liga|Division|Premiership|Football Association)\b")
+NOT_A_LEAGUE = re.compile(r"\b(?:Cup|Trophy|Shield|Nations|Challenge|Series|Championship|Tournament|Bowl|Vase|Plate|Classic|Knock-?out)\b", re.I)
+NAMED_EVENT = re.compile(r"\b(?:Cup|Trophy|Shield|Championship|Bowl|Vase|Plate|Series|Classic|Open|Invitational)\b")
+SPORTS_COMPETITION = "Q13406554"
+
+
+def competition_class(words, t, s):
+    """A sports competition line that is a league or a series gets that class; a one-off or an unclear one stays generic (user 2026-11-01)."""
+    text = " ".join(words)
+    if ONE_OFF.search(s[:500]):
+        return SPORTS_COMPETITION
+    if (A_LEAGUE.search(t) and not NOT_A_LEAGUE.search(t)) or (text.endswith("league competition") and not text.endswith("rugby league competition")):
+        return "Q623109"  # sports league; 'rugby league competition' names the sport
+    present = SENT.match(s).group(2) == "is" and NAMED_EVENT.search(t)
+    if RECURS.search(s[:500]) or text.endswith(("cup competition", "club competition")) or present:
+        return "Q18608583"  # recurring sporting event
+    return SPORTS_COMPETITION
 
 
 def common_title(t):
@@ -226,6 +285,7 @@ def main():
     ap.add_argument("--wiki", default="en")
     ap.add_argument("--min-age-days", type=int, default=180)
     ap.add_argument("--round", type=int, default=1, help="output qs_<wiki>_heads<N>_all.txt (round 1: qs_<wiki>_heads_all.txt)")
+    ap.add_argument("--force", action="store_true", help="overwrite this round's output")
     args = ap.parse_args()
     suffix = str(args.round) if args.round > 1 else ""
     with open(os.path.join(OUT, f"items_{args.wiki}.tsv"), encoding="utf-8") as fh:
@@ -233,6 +293,8 @@ def main():
     with open(os.path.join(OUT, f"done_{args.wiki}.txt"), encoding="utf-8") as fh:
         done = {line.strip() for line in fh if line.strip()}
     this = os.path.join(OUT, f"qs_{args.wiki}_heads{suffix}_all.txt")
+    if os.path.exists(this) and not args.force:  # a rerun after upload finds every item classed and would empty the record of the batch
+        sys.exit(f"{os.path.basename(this)} exists; pick a new --round, or --force for a draft that has not been uploaded")
     page_cat = set()
     with open(os.path.join(OUT, f"cats_{args.wiki}.tsv"), encoding="utf-8") as fh:
         for line in fh:
@@ -270,6 +332,10 @@ def main():
             notes.append((q, "taxonomic tribe", head, t, s[:150]))
         elif rule and head == "unincorporated community" and OUTSIDE_US.search(s[:200]):
             notes.append((q, "the class is for the United States", head, t, s[:150]))
+        elif rule and re.search(rf"\b{head.split()[-1].capitalize()}\b", SENT.match(s).group(3)):
+            notes.append((q, "capitalised head is a name", head, t, s[:150]))  # 'a National Football League (NFL) game'
+        elif rule and head == "civil parish" and "England" not in s[:200]:
+            notes.append((q, "the class is for England", head, t, s[:150]))
         elif rule and FIELD.match(s):
             notes.append((q, "opening starts with In <field>", head, t, s[:150]))
         elif rule and head in BODY and common_title(t):
@@ -293,6 +359,9 @@ def main():
     for q in sorted(pick, key=lambda x: int(x[1:])):
         head, cls = pick[q][:2]
         s = opening.get(q, "")
+        if cls == SPORTS_COMPETITION:
+            plain = PORTAL.sub("", s)
+            cls = competition_class(phrase(plain), title[q], plain)
         if first.get(q, "9") > cutoff:
             notes.append((q, "too new", head, title[q], s[:150]))
         elif q in have:

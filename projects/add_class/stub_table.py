@@ -66,13 +66,13 @@ def wdqs(query):
 
 
 def qlever(query):
-    """SPARQL rows, values cut to what follows the last '/'. SPARQL_FIRST=wdqs (the default since QLever's 429s,
+    """SPARQL rows; URI values cut to what follows the last '/' (literals kept whole: 'go/no go gauge', 2026-11-15). SPARQL_FIRST=wdqs (the default since QLever's 429s,
     user 2026-10-30) asks WDQS first and QLever only when WDQS fails (a heavy query times out at 60 s there);
     SPARQL_FIRST=qlever goes back to QLever first with WDQS after two 429s."""
     if os.environ.get("SPARQL_FIRST", "wdqs") == "wdqs":
         r = wdqs(query)
         if r is not None:
-            return [{k: v["value"].rsplit("/", 1)[-1] for k, v in b.items()} for b in r.json()["results"]["bindings"]]
+            return [{k: v["value"].rsplit("/", 1)[-1] if v.get("type") == "uri" else v["value"] for k, v in b.items()} for b in r.json()["results"]["bindings"]]
         print("   WDQS failed, trying QLever ...", flush=True)
     for attempt in range(6):
         qlever_wait()
@@ -88,7 +88,7 @@ def qlever(query):
         print(f"   QLever 429, waiting {60 * (attempt + 1)} s ...", flush=True)
         time.sleep(60 * (attempt + 1))
     r.raise_for_status()
-    return [{k: v["value"].rsplit("/", 1)[-1] for k, v in b.items()} for b in r.json()["results"]["bindings"]]
+    return [{k: v["value"].rsplit("/", 1)[-1] if v.get("type") == "uri" else v["value"] for k, v in b.items()} for b in r.json()["results"]["bindings"]]
 
 
 def main():

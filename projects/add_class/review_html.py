@@ -32,6 +32,9 @@ button { padding: 5px 10px; cursor: pointer; }
 details { border: 1px solid var(--line); border-radius: 6px; margin: 10px 0; }
 summary { background: var(--head); padding: 6px 10px; cursor: pointer; font-weight: 600; }
 summary .n { color: var(--muted); font-weight: 400; }
+summary label.done { float: right; font-weight: 400; color: var(--muted); }
+details.checked > summary { opacity: .6; }
+details.checked > summary label.done { color: var(--fg); }
 table { border-collapse: collapse; width: 100%; }
 td { border-top: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
 td.c { width: 22px; } td.q { white-space: nowrap; width: 1%; } td.t { width: 22%; }
@@ -43,38 +46,55 @@ a { color: var(--link); text-decoration: none; } a:hover { text-decoration: unde
 <header>
   <strong>__TITLE__</strong>
   <input type="search" id="f" placeholder="Filter (class, title, sentence)">
-  <button id="open">Expand all</button><button id="close">Collapse all</button>
+  <button id="open">Expand all</button><button id="unchecked">Expand unchecked</button><button id="close">Collapse all</button>
   <button id="ok">Copy approved QS</button><button id="no">Copy rejected</button>
   <span id="stats"></span>
 </header>
 <main id="m"></main>
 <script>
 const DATA = __DATA__, WIKI = "__WIKI__", KEY = "qsreview:" + "__TITLE__";
-let bad = new Set();
+let bad = new Set(), done = new Set();
 try { bad = new Set(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) {}
+// groups marked checked survive a rebuild of the page; the mark holds a fingerprint of the group's rows,
+// so a group whose rows changed comes back unchecked (2026-11-13)
+try { done = new Set(JSON.parse(localStorage.getItem(KEY + ":checked") || "[]")); } catch (e) {}
+const saveDone = () => { try { localStorage.setItem(KEY + ":checked", JSON.stringify([...done])); } catch (e) {} stats(); };
+const fp = (g, rows) => { let h = 0; const s = g + "|" + rows.map(r => r.slice(0, 3).join("	")).sort().join("|");
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return g + "#" + (h >>> 0).toString(36); };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify([...bad])); } catch (e) {} stats(); };
 const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const groups = {};
 DATA.rows.forEach(r => (groups[r[1] + " " + r[2]] ||= []).push(r));
 const m = document.getElementById("m");
-Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length).forEach(g => {
+Object.keys(groups).sort((a, b) => __ORDER__ * (groups[b].length - groups[a].length)).forEach(g => {
   const [p, c] = g.split(" "), rows = groups[g];
   const d = document.createElement("details");
+  const f = fp(g, rows);
+  d.dataset.fp = f;
   d.innerHTML = `<summary>${p} <a href="https://www.wikidata.org/wiki/${c}" target="_blank">${esc(DATA.label[c] || c)}</a>
-    <span class="n">(${c}, ${rows.length})</span></summary><table>${rows.map(r =>
+    <span class="n">(${c}, ${rows.length})</span><label class="done"><input type="checkbox" class="dn"> checked</label></summary><table>${rows.map(r =>
     `<tr data-k="${r[0]}\t${r[1]}\t${r[2]}"><td class="c"><input type="checkbox" title="reject"></td>
      <td class="q"><a href="https://www.wikidata.org/wiki/${r[0]}" target="_blank">${r[0]}</a></td>
      <td class="t"><a href="https://${WIKI}.wikipedia.org/wiki/${encodeURIComponent(r[3].replace(/ /g, "_"))}"
        target="_blank">${esc(r[3])}</a></td><td class="s">${esc(r[4])}</td></tr>`).join("")}</table>`;
   m.appendChild(d);
+  const dn = d.querySelector("input.dn");
+  dn.checked = done.has(f); d.classList.toggle("checked", dn.checked);
+  dn.onclick = e => e.stopPropagation();
+  dn.onchange = () => { dn.checked ? done.add(f) : done.delete(f); d.classList.toggle("checked", dn.checked);
+    if (dn.checked) d.open = false; saveDone(); };
 });
+// drop marks of groups that no longer exist in this version (changed rows give a new fingerprint)
+const live = new Set([...document.querySelectorAll("details")].map(d => d.dataset.fp));
+done = new Set([...done].filter(x => live.has(x)));
 document.querySelectorAll("tr[data-k]").forEach(tr => {
   const cb = tr.querySelector("input"), k = tr.dataset.k;
   if (bad.has(k)) { cb.checked = true; tr.classList.add("bad"); }
   cb.onchange = () => { cb.checked ? bad.add(k) : bad.delete(k); tr.classList.toggle("bad", cb.checked); save(); };
 });
-function stats() { document.getElementById("stats").textContent =
-  `${DATA.rows.length} rows, ${bad.size} rejected, ${DATA.rows.length - bad.size} approved`; }
+function stats() { const n = document.querySelectorAll("details").length, c = document.querySelectorAll("details.checked").length;
+  document.getElementById("stats").textContent =
+  `${DATA.rows.length} rows, ${bad.size} rejected, ${DATA.rows.length - bad.size} approved; groups checked ${c} / ${n}`; }
 stats();
 document.getElementById("f").oninput = e => {
   const t = e.target.value.toLowerCase();
@@ -88,6 +108,7 @@ document.getElementById("f").oninput = e => {
 };
 document.getElementById("open").onclick = () => document.querySelectorAll("details").forEach(d => d.open = true);
 document.getElementById("close").onclick = () => document.querySelectorAll("details").forEach(d => d.open = false);
+document.getElementById("unchecked").onclick = () => document.querySelectorAll("details").forEach(d => d.open = !d.classList.contains("checked"));
 const copy = (lines, what) => navigator.clipboard.writeText(lines.join("\\n") + "\\n")
   .then(() => alert(`${lines.length} ${what} lines copied`));
 document.getElementById("ok").onclick = () =>
@@ -102,6 +123,7 @@ def main():
     ap.add_argument("qs")
     ap.add_argument("--wiki", default="en")
     ap.add_argument("--out")
+    ap.add_argument("--smallest-first", action="store_true", help="smallest class groups on top")
     args = ap.parse_args()
     with open(args.qs, encoding="utf-8") as fh:
         rows = [line.rstrip("\n").split("\t")[:3] for line in fh if line.strip()]
@@ -118,7 +140,7 @@ def main():
     data = {"label": label, "rows": [[q, p, c, title.get(q, ""), opening.get(q, "")] for q, p, c in rows]}
     out = args.out or os.path.splitext(args.qs)[0] + "_review.html"
     name = html.escape(os.path.basename(args.qs))
-    page = (PAGE.replace("__TITLE__", name).replace("__WIKI__", args.wiki)
+    page = (PAGE.replace("__TITLE__", name).replace("__WIKI__", args.wiki).replace("__ORDER__", "-1" if args.smallest_first else "1")
             .replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("</", "<\\/")))
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(page)
