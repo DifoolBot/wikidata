@@ -214,3 +214,7 @@ Q16334333		REDIRECT_FIX	2026-11-12	live VIAF redirected / withdrawn redirect=[('
 Q16945539		REDIRECT_REVIEW	2026-11-17	redirect target clashes -> review live_review=['278116198', '9821982']
 Q19842099		REDIRECT_REVIEW	2026-11-23	redirect target clashes -> review live_review=['43222439']
 Q21062173		REDIRECT_REVIEW	2026-11-27	redirect target clashes -> review live_review=['49300137']
+Q22087925		REDIRECT_FIX	2026-11-28	live VIAF redirected / withdrawn redirect=[('63603597', None)] live_review=['279635173']
+Q22088235		REDIRECT_REVIEW	2026-11-28	redirect target clashes -> review live_review=['95791284']
+Q22111693		REDIRECT_REVIEW	2026-11-28	redirect target clashes -> review live_review=['9614155769106127880004']
+Q23613275	76414081	INCONSISTENT	2026-11-28	still in old cluster, but ids also moved to ['2153182685026791931'] +frag=['6406167807368018130000'] redirect=[('192662979', None)]
